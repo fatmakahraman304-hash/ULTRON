@@ -56,3 +56,9 @@ ultron/backend/backups/
 *.onnx
 *.tflite
 models/
+
+/config/api_keys.json
+/config/certs/
+/config/whatsapp_web/
+/runtime/
+/cache/

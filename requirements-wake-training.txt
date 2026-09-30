@@ -1,0 +1,4 @@
+torch>=2.6
+torchinfo>=1.8
+torchmetrics>=1.8
+PyYAML>=6.0

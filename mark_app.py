@@ -2322,7 +2322,8 @@ def main():
         except KeyboardInterrupt:
             print("\n🔴 Shutting down...")
 
-    threading.Thread(target=runner, daemon=True).start()
+    if not os.environ.get("MARK_SMOKE_SECONDS"):
+        threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()
 
 if __name__ == "__main__":

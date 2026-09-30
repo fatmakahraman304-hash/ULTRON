@@ -1,0 +1,14 @@
+{
+  "changed": [
+    "backend\\config\\settings.json",
+    "backend\\requirements.txt",
+    "backend\\app\\voice\\wake.py"
+  ],
+  "only_final": [],
+  "only_wake": [
+    "scripts\\test_ultron_wakeword.py",
+    "tools\\ultron_wakeword\\GEMINI_PROMPT.txt",
+    "tools\\ultron_wakeword\\README.md",
+    "tools\\ultron_wakeword\\ultron_training_template.yaml"
+  ]
+}

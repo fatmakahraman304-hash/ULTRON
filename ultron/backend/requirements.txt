@@ -20,8 +20,4 @@ pypdf>=5.0                # real PDF metadata/text extraction
 opencv-python>=4.10       # real camera capture on supported Windows backends
 
 # --- custom OpenWakeWord training (optional) ---
-torch>=2.6
-torchinfo>=1.8
-torchmetrics>=1.8
-PyYAML>=6.0
 
