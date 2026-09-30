@@ -1,0 +1,27 @@
+aiohttp>=3.9
+psutil>=5.9
+
+# --- optional VAD upgrades (V2.1) — EnergyVAD -> webrtcvad -> silero chain ---
+# webrtcvad>=2.0.10
+# silero-vad>=5.1
+# torch>=2.1   (silero runtime)
+piper-tts>=1.2.0
+Pillow>=10.0                # vision foundation + screenshot
+pyautogui>=0.9            # computer use (gerçek GUI otomasyonu)
+pygetwindow>=0.0.9        # pencere yönetimi (Windows)
+pytesseract>=0.3          # OCR (tesseract binary ayrıca kurulmalı)
+cryptography>=42.0       # credential vault (Fernet at-rest encryption)
+playsound3>=3.0.0
+
+playwright>=1.40           # browser agent (sonra: python -m playwright install chromium)
+pvporcupine>=3.0          # gerçek wake-word engine (jarvis/computer; AccessKey: PICOVOICE_ACCESS_KEY)
+openwakeword>=0.6         # açık wake-word alternatifi (modeller: data/voice/wake/*.tflite)
+pypdf>=5.0                # real PDF metadata/text extraction
+opencv-python>=4.10       # real camera capture on supported Windows backends
+
+# --- custom OpenWakeWord training (optional) ---
+torch>=2.6
+torchinfo>=1.8
+torchmetrics>=1.8
+PyYAML>=6.0
+
