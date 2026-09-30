@@ -2305,7 +2305,14 @@ class JarvisLive:
             await asyncio.sleep(delay)
 
 def main():
-    ui = JarvisUI("face.png")
+    import os
+    os.chdir(get_base_dir())
+    ui = JarvisUI(str(get_base_dir() / "face.png"))
+    from integration.panel import attach
+    attach(ui)
+    if os.environ.get("MARK_SMOKE_SECONDS"):
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(int(os.environ["MARK_SMOKE_SECONDS"]) * 1000, ui._app.quit)
 
     def runner():
         ui.wait_for_api_key()

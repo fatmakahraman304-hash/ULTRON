@@ -77,6 +77,8 @@ class UltronBridge:
                 asyncio.to_thread(self._try_backend_tts, text), self.loop)
 
     def _try_backend_tts(self, text: str) -> None:
+        if os.environ.get("MARK_AUDIO_OWNER") == "mark":
+            return
         try:
             self.runtime.tts.speak(text)
         except Exception:

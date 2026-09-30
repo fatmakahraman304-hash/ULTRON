@@ -204,6 +204,7 @@ class Hub:
         }
 
 
+os.chdir(BASE)  # initialize relative databases in backend, independent of caller cwd
 hub = Hub()
 
 
@@ -1248,10 +1249,11 @@ async def on_startup(app: web.Application) -> None:
         hub.agent.fallback = hub.bridge.run  # GENERAL_CONVERSATION → Ollama
         hub.agent.vision_check = hub.bridge.is_vision_flow  # screenshot→LLaVA pipeline
         hub.agent.composite = hub.bridge.run_orchestrated  # Agent 2.0 planner
-        hub.bridge.start_proactive()
+        if os.environ.get("MARK_AUDIO_OWNER") != "mark":
+            hub.bridge.start_proactive()
         # ── Wake-word otomatik başlatma ───────────────────────────────────
         # config'de live_voice_auto_start: true ise başlar (varsayılan: true)
-        auto_start = hub.bridge.runtime.settings.get("live_voice_auto_start", True)
+        auto_start = hub.bridge.runtime.settings.get("live_voice_auto_start", True) and os.environ.get("MARK_AUDIO_OWNER") != "mark"
         if auto_start:
             import asyncio as _aio
             async def _delayed_wake_start():
@@ -1580,6 +1582,8 @@ async def cors_middleware(req: web.Request, handler):
 def main() -> None:
     os.chdir(BASE)  # V16 relative data paths (data/memory, data/logs, data/vault)
     app = web.Application(middlewares=[auth_middleware, cors_middleware])
+    from merged_api import install
+    install(app, hub)
     app.on_startup.append(on_startup)
     app.on_cleanup.append(on_cleanup)
     app.router.add_get("/api/system", api_system)

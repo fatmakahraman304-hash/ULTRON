@@ -133,5 +133,5 @@
     "threshold": 0.5,
     "model": "ultron"
   },
-  "live_voice_auto_start": true
+  "live_voice_auto_start": false
 }
