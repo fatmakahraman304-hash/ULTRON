@@ -48,3 +48,11 @@ desktop.ini
 logs/
 downloads/
 screenshots/
+node_modules/
+.pytest_cache/
+data/
+ultron/backend/data/
+ultron/backend/backups/
+*.onnx
+*.tflite
+models/
