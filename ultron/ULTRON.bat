@@ -1,4 +1,5 @@
 @echo off
+setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 > nul
 title ULTRON
 cd /d "%~dp0"

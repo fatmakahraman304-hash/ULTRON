@@ -47,6 +47,8 @@ class ModelRouter:
         primary = self.brain.model
         if not models:
             return primary
+        if primary not in models:
+            primary = models[0]
         override = (self.settings.get("llm", {}).get("routing", {}) or {}).get(task.lower())
         if override and override in models:
             return override

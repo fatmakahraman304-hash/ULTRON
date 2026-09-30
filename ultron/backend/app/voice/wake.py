@@ -117,8 +117,6 @@ class OpenWakeWordEngine:
         self.threshold = float(threshold)
         self.error = None
 
-    def _configured_keyword(self):
-        return os.environ.get("ULTRON_WAKE_MODEL", "ultron").strip().lower()
         self._model = None
         all_models = sorted(
             [p for p in self.model_dir.glob("*.tflite")] +
@@ -127,6 +125,9 @@ class OpenWakeWordEngine:
         # hey_jarvis model from becoming an accidental trigger once ULTRON is installed.
         preferred = [p for p in all_models if p.stem.lower() == self._configured_keyword()]
         self.models = preferred or all_models
+
+    def _configured_keyword(self):
+        return os.environ.get("ULTRON_WAKE_MODEL", "ultron").strip().lower()
 
     @property
     def available(self) -> bool:
@@ -143,7 +144,8 @@ class OpenWakeWordEngine:
         if not self.available:
             raise RuntimeError(f"openwakeword unavailable: {self.status()['error']}")
         from openwakeword.model import Model
-        self._model = Model(wakeword_models=[str(p) for p in self.models])
+        framework = "onnx" if all(p.suffix == ".onnx" for p in self.models) else "tflite"
+        self._model = Model(wakeword_models=[str(p) for p in self.models], inference_framework=framework)
 
     def process(self, frame) -> tuple[str, float] | None:
         """frame: OWW_FRAME int16 samples -> (name, score) when above threshold."""
