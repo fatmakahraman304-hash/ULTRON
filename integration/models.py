@@ -29,15 +29,15 @@ def main():
         from huggingface_hub import snapshot_download
         path = ROOT/'ultron/models/whisper-tiny'
         snapshot_download('Systran/faster-whisper-tiny',local_dir=path,
-            allow_patterns=['config.json','model.bin','tokenizer.json','vocabulary.json','preprocessor_config.json'])
+            allow_patterns=['config.json','model.bin','tokenizer.json','vocabulary.*','preprocessor_config.json'])
         from faster_whisper import WhisperModel
         WhisperModel(str(path),device='cpu',compute_type='int8',local_files_only=True)
         print('PASS: Whisper tiny CPU int8 load')
     except Exception as exc:
         errors.append('STT: '+str(exc))
     try:
-        model=BACKEND/'data/voice/piper/tr_TR-fahrettin-medium.onnx'
-        base='https://huggingface.co/rhasspy/piper-voices/resolve/main/tr/tr_TR/fahrettin/medium/'
+        model=BACKEND/'data/voice/piper/tr_TR-dfki-medium.onnx'
+        base='https://huggingface.co/rhasspy/piper-voices/resolve/main/tr/tr_TR/dfki/medium/'
         for name in (model.name,model.name+'.json'):
             download(base+name,model.parent/name)
         print('PASS: Piper model and metadata downloaded')

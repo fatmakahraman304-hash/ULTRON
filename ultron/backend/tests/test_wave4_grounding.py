@@ -42,7 +42,8 @@ class FakeProvider:
 
 
 # ---------------------------------------------------------------- providers
-def test_uia_unavailable_on_linux_honest():
+def test_uia_unavailable_on_linux_honest(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "linux")
     p = UIAProvider()
     st = p.status()
     assert st["available"] is False and st["error"]
@@ -50,12 +51,14 @@ def test_uia_unavailable_on_linux_honest():
         p.elements()
 
 
-def test_window_provider_honest_without_pygetwindow():
+def test_window_provider_honest_without_pygetwindow(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pygetwindow", None)
     p = WindowMetadataProvider()
     assert p.status()["available"] is False   # pygetwindow kurulu değil
 
 
-def test_ocr_provider_honest_without_tesseract():
+def test_ocr_provider_honest_without_tesseract(monkeypatch):
+    monkeypatch.setitem(sys.modules, "pytesseract", None)
     p = OCRProvider()
     assert p.status()["available"] is False
     from app.multimodal.grounding import ProviderUnavailable

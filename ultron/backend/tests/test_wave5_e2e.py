@@ -1,4 +1,5 @@
 """Wave 5 §20 — E2E: cognitive zincir uçtan uca (gerçek nesnelerle)."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -38,8 +39,8 @@ def build(tmp):
                 safety=safety, loop=loop, ll=ll, cortex=cortex)
 
 
-def test_e2e_full_cognitive_chain():
-    with tempfile.TemporaryDirectory() as tmp:
+def test_e2e_full_cognitive_chain(tmp_path):
+    with nullcontext(str(tmp_path)) as tmp:
         s = build(tmp)
         # 1) KULLANICI ÖĞRENİR (explicit tercih + davranış)
         assert s["ui"].set_explicit("work", "review_style", "concise")["ok"]
@@ -94,8 +95,8 @@ def test_e2e_full_cognitive_chain():
         assert p1["action"] == "NOTIFY" and p2["suppressed_by"] == "dedup"
 
 
-def test_e2e_secret_never_reaches_cognitive_channels():
-    with tempfile.TemporaryDirectory() as tmp:
+def test_e2e_secret_never_reaches_cognitive_channels(tmp_path):
+    with nullcontext(str(tmp_path)) as tmp:
         s = build(tmp)
         secret = "zz-cog-secret-4242"
         # secret, context'e ve trace'e girmeye ÇALIŞIYOR (saldırgan senaryosu)
@@ -113,8 +114,8 @@ def test_e2e_secret_never_reaches_cognitive_channels():
         assert secret not in log                          # audit RED
 
 
-def test_e2e_failure_recovery_and_honest_stop():
-    with tempfile.TemporaryDirectory() as tmp:
+def test_e2e_failure_recovery_and_honest_stop(tmp_path):
+    with nullcontext(str(tmp_path)) as tmp:
         s = build(tmp)
         calls = {"n": 0}
 
@@ -139,8 +140,8 @@ def test_e2e_failure_recovery_and_honest_stop():
         assert s["loop"].checkpoints(run["run_id"])
 
 
-def test_e2e_research_to_knowledge_with_citations():
-    with tempfile.TemporaryDirectory() as tmp:
+def test_e2e_research_to_knowledge_with_citations(tmp_path):
+    with nullcontext(str(tmp_path)) as tmp:
         s = build(tmp)
         fake = [{"url": "https://arxiv.org/abs/51", "title":
                  "retrieval augmented generation survey",
@@ -169,8 +170,8 @@ def test_e2e_research_to_knowledge_with_citations():
         assert conf["confidence"] > 0
 
 
-def test_e2e_capability_gate_missing_needs_user():
-    with tempfile.TemporaryDirectory() as tmp:
+def test_e2e_capability_gate_missing_needs_user(tmp_path):
+    with nullcontext(str(tmp_path)) as tmp:
         s = build(tmp)
         cd = CapabilityDiscovery(available_fn=lambda c: c != "voice")
         disc = cd.discover("sesli not al ve mail ile gönder")

@@ -2,6 +2,7 @@
 from __future__ import annotations
 import json
 import sqlite3
+from app.core.database import connect as managed_connect
 import threading
 import time
 from pathlib import Path
@@ -19,7 +20,7 @@ def _now() -> float: return time.time()
 class DecisionEngine:
     def __init__(self, db_path: str = "data/cognitive/decisions.db", risk_guard=None):
         self.path = Path(db_path); self.path.parent.mkdir(parents=True, exist_ok=True); self.lock = threading.RLock()
-        self.db = sqlite3.connect(str(self.path), check_same_thread=False)
+        self.db = managed_connect(str(self.path), check_same_thread=False)
         # WAL + NORMAL keeps each decision transactional without forcing a full fsync per decision.
         self.db.execute("PRAGMA journal_mode=WAL"); self.db.execute("PRAGMA synchronous=NORMAL"); self.db.execute("PRAGMA busy_timeout=5000")
         self.db.execute("""CREATE TABLE IF NOT EXISTS decisions(

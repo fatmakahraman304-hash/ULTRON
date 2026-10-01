@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import sys
 from pathlib import Path
 
 
@@ -26,7 +27,7 @@ class TextToSpeech:
             "ULTRON_PIPER_EXECUTABLE", str(s.get("piper_executable", "piper"))
         )
         backend_root = Path(__file__).resolve().parents[2]
-        default_model = backend_root / "data" / "voice" / "piper" / "tr_TR-fahrettin-medium.onnx"
+        default_model = backend_root / "data" / "voice" / "piper" / "tr_TR-dfki-medium.onnx"
         configured_model = os.getenv("ULTRON_PIPER_MODEL", str(s.get("piper_model", default_model)))
         self.piper_model = Path(configured_model).expanduser()
         if not self.piper_model.is_absolute():
@@ -40,7 +41,15 @@ class TextToSpeech:
         self._cache_limit = 32
 
     def _piper_ready(self) -> bool:
-        return bool(shutil.which(self.piper_executable) and self.piper_model.is_file())
+        if not self.piper_model.is_file() or not Path(str(self.piper_model) + '.json').is_file():
+            return False
+        if shutil.which(self.piper_executable):
+            return True
+        try:
+            import piper
+            return self.piper_executable == 'piper'
+        except ImportError:
+            return False
 
     def _espeak_ready(self) -> bool:
         return bool(shutil.which(self.espeak_executable))
@@ -57,8 +66,8 @@ class TextToSpeech:
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             output = Path(tmp.name)
         try:
-            cmd = [
-                self.piper_executable,
+            command = [self.piper_executable] if shutil.which(self.piper_executable) else [sys.executable, '-m', 'piper']
+            cmd = command + [
                 "--model", str(self.piper_model),
                 "--output_file", str(output),
             ]
@@ -70,7 +79,7 @@ class TextToSpeech:
             except (TypeError, ValueError):
                 pass
             proc = subprocess.run(
-                cmd, input=text, text=True, capture_output=True, timeout=30, check=False
+                cmd, input=text, text=True, encoding='utf-8', capture_output=True, timeout=30, check=False
             )
             if proc.returncode != 0:
                 detail = (proc.stderr or proc.stdout or "piper failed").strip()[:300]

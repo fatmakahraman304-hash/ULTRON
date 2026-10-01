@@ -45,7 +45,9 @@ class FakeRealEngine:
             yield ev
 
 
-def test_real_engines_honestly_unavailable_here():
+def test_real_engines_honestly_unavailable_here(monkeypatch):
+    monkeypatch.setitem(sys.modules, "faster_whisper", None)
+    monkeypatch.setitem(sys.modules, "vosk", None)
     w, v = WhisperEngine(), VoskEngine()
     assert w.available is False and "kurulu" in w.error
     assert v.available is False

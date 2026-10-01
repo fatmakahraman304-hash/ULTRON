@@ -22,6 +22,7 @@ import fnmatch
 import json
 import os
 import sqlite3
+from app.core.database import connect as managed_connect
 import stat
 import threading
 import time
@@ -88,7 +89,7 @@ class DurableEventBus:
 
     def _conn(self):
         if self._db is None:
-            self._db = sqlite3.connect(self.path, check_same_thread=False)
+            self._db = managed_connect(self.path, check_same_thread=False)
             self._db.execute("PRAGMA journal_mode=WAL")
             self._db.execute("PRAGMA busy_timeout=5000")
         return self._db

@@ -141,9 +141,9 @@ def build_runner(tmp_path, reg):
     return sk, ex
 
 
-def test_skill_loads_builtins_with_real_risk():
-    reg, _ = build_registry(Path("/tmp/ultron_skill_t1"))
-    sk, _ = build_runner(Path("/tmp/ultron_skill_t1"), reg)
+def test_skill_loads_builtins_with_real_risk(tmp_path):
+    reg, _ = build_registry(tmp_path)
+    sk, _ = build_runner(tmp_path, reg)
     names = [s["name"] for s in sk.list()]
     assert "sistem_raporu" in names and "hava_durumu" in names
     for s in sk.list():

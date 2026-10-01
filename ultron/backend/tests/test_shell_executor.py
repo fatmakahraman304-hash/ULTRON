@@ -24,7 +24,7 @@ def test_workspace_cwd_is_enforced(tmp_path):
 def test_standard_command_executes_in_workspace(tmp_path):
     ex = ShellExecutor(tmp_path)
     result = asyncio.run(ex.execute("python -c \"print('ULTRON_SHELL_OK')\""))
-    assert result["ok"] is True
+    assert result["ok"] is True, result
     assert "ULTRON_SHELL_OK" in result["output"]
 
 

@@ -1,5 +1,6 @@
 """Wave 5 §20 — performance: GERÇEK ölçüm (uydurma benchmark YOK).
 Eşikler kategori makul sınır; geçilemezse test KIRMIZI kalır."""
+from contextlib import nullcontext
 import os
 import statistics
 import sys
@@ -26,8 +27,8 @@ def p50_ms(fn, n=5):
     return statistics.median(ts)
 
 
-def test_context_snapshot_200_items_under_100ms():
-    with tempfile.TemporaryDirectory() as d:
+def test_context_snapshot_200_items_under_100ms(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = ContextEngine(db_path=os.path.join(d, "c.db"))
         for i in range(200):
             ce.add(f"k{i}", f"değer {i} " * 5, importance=0.1 + (i % 10) / 20)
@@ -35,8 +36,8 @@ def test_context_snapshot_200_items_under_100ms():
         assert ms < 100, f"context snapshot p50 {ms:.1f}ms"
 
 
-def test_bm25_search_30_docs_under_400ms():
-    with tempfile.TemporaryDirectory() as d:
+def test_bm25_search_30_docs_under_400ms(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = KnowledgeEngine(db_path=os.path.join(d, "k.db"))
         for i in range(30):
             ke.ingest(f"belge{i}", (f"konu {i} içeriği. " * 12) +
@@ -45,8 +46,8 @@ def test_bm25_search_30_docs_under_400ms():
         assert ms < 400, f"bm25 p50 {ms:.1f}ms"
 
 
-def test_graph_traversal_150_nodes_under_150ms():
-    with tempfile.TemporaryDirectory() as d:
+def test_graph_traversal_150_nodes_under_150ms(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = KnowledgeGraph(db_path=os.path.join(d, "kg.db"))
         for i in range(150):
             kg.add_entity(f"n{i}", f"n{i}")
@@ -56,8 +57,8 @@ def test_graph_traversal_150_nodes_under_150ms():
         assert ms < 150, f"traversal p50 {ms:.1f}ms"
 
 
-def test_decision_engine_100_decisions_under_300ms():
-    with tempfile.TemporaryDirectory() as d:
+def test_decision_engine_100_decisions_under_300ms(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = DecisionEngine(db_path=os.path.join(d, "d.db"))
         opts = [{"id": f"o{j}", "value": 10 * j, "cost": j,
                  "confidence": 0.5 + j / 10} for j in range(6)]
@@ -71,8 +72,8 @@ def test_decision_engine_100_decisions_under_300ms():
         assert ms < 300, f"100 karar {ms:.1f}ms"
 
 
-def test_trace_log_redact_200_under_400ms():
-    with tempfile.TemporaryDirectory() as d:
+def test_trace_log_redact_200_under_400ms(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         tr = CognitiveTrace(db_path=os.path.join(d, "t.db"))
 
         def two_hundred():
@@ -85,8 +86,8 @@ def test_trace_log_redact_200_under_400ms():
         assert ms < 400, f"200 redact+log {ms:.1f}ms"
 
 
-def test_predictive_duration_500_samples_fast():
-    with tempfile.TemporaryDirectory() as d:
+def test_predictive_duration_500_samples_fast(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = PredictiveEngine(db_path=os.path.join(d, "p.db"))
         for i in range(500):
             pe.record_task("job", 10 + (i % 7))

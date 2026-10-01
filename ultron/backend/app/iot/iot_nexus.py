@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import urllib.request
 from pathlib import Path
 
@@ -26,7 +27,7 @@ class IoTNexus:
         self.ha_token = ha_token
         self.vault = vault  # PHASE 10/11: HomeAssistant token'ı vault'tan çöz
         self.ha_url = ha_url or os.environ.get("ULTRON_HA_URL")
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS iot_devices(
                 device_id TEXT PRIMARY KEY, name TEXT, domain TEXT,
                 state TEXT, value REAL, room TEXT, driver TEXT, address TEXT)""")
@@ -41,18 +42,18 @@ class IoTNexus:
             ("switch_priz", "Gereksiz Priz", "switch", "on", None, "Çalışma", "mock", None),
             ("media_tv", "TV", "media", "off", None, "Salon", "mock", None),
         ]
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.executemany("INSERT OR IGNORE INTO iot_devices VALUES(?,?,?,?,?,?,?,?)", demo)
 
     # ------------------------------------------------------------ registry
     def register(self, device_id, name, domain, room="?", driver="mock", address=None):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("INSERT OR REPLACE INTO iot_devices VALUES(?,?,?,?,?,?,?,?)",
                        (device_id, name, domain, "off", None, room, driver, address))
         return self.get(device_id)
 
     def list(self, include_simulated=True):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute("SELECT device_id,name,domain,state,value,room,driver,address"
                               " FROM iot_devices").fetchall()
         out = [{"device_id": r[0], "name": r[1], "domain": r[2], "state": r[3],
@@ -123,7 +124,7 @@ class IoTNexus:
             val = value if (action == "set_value" and value is not None) else dev["value"]
             if action == "set_value":
                 state = "on"
-            with sqlite3.connect(self.path) as db:
+            with sqlite_transaction(self.path) as db:
                 db.execute("UPDATE iot_devices SET state=?, value=? WHERE device_id=?",
                            (state, val, device_id))
             res["device"] = self.get(device_id)

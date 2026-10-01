@@ -32,7 +32,8 @@ def build_snapshot(memory, dna, rules) -> dict:
     rows = []
     try:
         import sqlite3
-        with sqlite3.connect(memory.path) as db:
+        from app.core.database import transaction as sqlite_transaction
+        with sqlite_transaction(memory.path) as db:
             rows = db.execute("SELECT kind,content,created_at FROM memories").fetchall()
     except Exception:
         pass
@@ -61,7 +62,7 @@ def import_snapshot(memory, dna, envelope: dict) -> dict:
     snap = json.loads(raw.decode("utf-8"))
     added = 0
     import sqlite3
-    with sqlite3.connect(memory.path) as db:
+    with sqlite_transaction(memory.path) as db:
         for r in snap.get("v16", []):
             db.execute("INSERT INTO memories(kind,content,created_at) VALUES(?,?,?)",
                        (r["kind"], r["content"], r["created_at"]))

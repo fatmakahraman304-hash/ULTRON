@@ -26,6 +26,11 @@ from typing import Callable
 
 # Pretrained openwakeword model that listens for "Hey Jarvis".
 WAKE_MODEL = "hey_jarvis"
+
+def selected_model():
+    custom = Path(__file__).resolve().parents[1] / "ultron/backend/data/voice/wake/ultron.onnx"
+    return str(custom) if custom.is_file() else WAKE_MODEL
+
 # Score in [0,1]; above this counts as a detection. Tunable per environment.
 DEFAULT_THRESHOLD = 0.5
 # Mic frames arrive at 16 kHz int16; this is just the detector's input rate.
@@ -56,7 +61,7 @@ def is_ready() -> bool:
         models_dir = Path(openwakeword.__file__).resolve().parent / "resources" / "models"
         if not models_dir.is_dir():
             return False
-        has_wake = (any(models_dir.glob(f"{WAKE_MODEL}*.onnx"))
+        has_wake = (Path(selected_model()).is_file() or any(models_dir.glob(f"{WAKE_MODEL}*.onnx"))
                     or any(models_dir.glob(f"{WAKE_MODEL}*.tflite")))
         has_mel = (any(models_dir.glob("melspectrogram*.onnx"))
                    or any(models_dir.glob("melspectrogram*.tflite")))
@@ -136,7 +141,7 @@ class WakeWordDetector:
             return True
         try:
             from openwakeword.model import Model
-            self._model = Model(wakeword_models=[WAKE_MODEL], inference_framework="onnx")
+            self._model = Model(wakeword_models=[selected_model()], inference_framework="onnx")
         except Exception as e:
             self._logger(f"Wake word: could not load model — {e}")
             self._notify("Wake word unavailable — use the WAKE NOW button.")

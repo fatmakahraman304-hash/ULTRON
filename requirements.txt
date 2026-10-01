@@ -12,7 +12,7 @@
 # package, no OpenGL and no GPU. Nothing below was added for it.
 PyQt6>=6.6,<7
 sounddevice>=0.4,<1
-numpy>=1.24,<3
+numpy==2.2.6
 google-genai>=2.8.0,<3
 
 # ── Web search & browser control ──────────────────────────────────────────────
@@ -107,3 +107,5 @@ pynvml                       # system_monitor + the HUD's GPU meter (NVIDIA)
 # macOS / Linux OS actions (volume, brightness, reminders) shell out to native
 # tools (pactl / brightnessctl / osascript / systemd), so no extra Python
 # packages are needed there — nothing Windows-specific is ever pulled in.
+
+charset-normalizer==3.4.4

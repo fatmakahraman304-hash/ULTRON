@@ -604,7 +604,7 @@ class UltronBridge:
 
     def stop(self) -> None:
         if self.runtime:
-            self.runtime.stop_proactive()
+            self.runtime.shutdown()
             try:
                 self.runtime.stop_live_voice()
             except Exception:

@@ -1,4 +1,5 @@
 """Wave 5 §7+§11+§14 — Research, Capability Discovery, Meta-Reasoning."""
+from contextlib import nullcontext
 import http.server
 import os
 import sys
@@ -12,8 +13,8 @@ from app.cognitive.research_engine import ResearchEngine  # noqa: E402
 
 
 # ---------------------------------------------------------------- §7 research
-def test_search_unavailable_is_honest_failure():
-    with tempfile.TemporaryDirectory() as d:
+def test_search_unavailable_is_honest_failure(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
                              search_fn=lambda q: [])
         out = re_.research("kwantum hesaplama")
@@ -21,8 +22,8 @@ def test_search_unavailable_is_honest_failure():
         assert out["citations"] == []
 
 
-def test_pipeline_rank_crosscheck_synthesis_with_fake_backend():
-    with tempfile.TemporaryDirectory() as d:
+def test_pipeline_rank_crosscheck_synthesis_with_fake_backend(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         results = [
             {"url": "https://arxiv.org/abs/1", "title":
              "quantum computing survey", "snippet": "quantum 42 qubits"},
@@ -45,8 +46,8 @@ def test_pipeline_rank_crosscheck_synthesis_with_fake_backend():
         assert 0 < out["confidence"] <= 0.9
 
 
-def test_contradiction_suspected_on_scattered_numbers():
-    with tempfile.TemporaryDirectory() as d:
+def test_contradiction_suspected_on_scattered_numbers(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         results = [
             {"url": f"https://s{i}.example.org/q", "title": "answer count",
              "snippet": f"value {v} units"} for i, v in enumerate(
@@ -58,7 +59,7 @@ def test_contradiction_suspected_on_scattered_numbers():
         assert "çelişki" in out["synthesis"]["caveat"]
 
 
-def test_real_http_fetch_via_local_server():
+def test_real_http_fetch_via_local_server(tmp_path):
     """search_fn'in GERÇEK http döngüsü: localhost sunucu + urllib."""
     served = []
 
@@ -91,7 +92,7 @@ def test_real_http_fetch_via_local_server():
             return [{"url": m, "title": "local proof", "snippet": ""}
                     for m in re.findall(r'href="(http[^"]+)"', html)]
 
-        with tempfile.TemporaryDirectory() as d:
+        with nullcontext(str(tmp_path)) as d:
             re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
                                  search_fn=fetch)
             out = re_.research("proof")
@@ -102,8 +103,8 @@ def test_real_http_fetch_via_local_server():
         srv.shutdown()
 
 
-def test_research_history_persisted():
-    with tempfile.TemporaryDirectory() as d:
+def test_research_history_persisted(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
                              search_fn=lambda q: [
                                  {"url": "https://arxiv.org/a", "title": "t",

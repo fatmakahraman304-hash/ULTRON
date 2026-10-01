@@ -7,6 +7,7 @@ Hassas veri (şifre/token/email) otomatik reddedilir.
 """
 import re
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import time
 
 try:
@@ -100,7 +101,7 @@ class SemanticMemoryV2:
     # ------------------------------------------------------------ decay
     def decay(self, days=90, min_importance=0.3):
         cutoff = time.time() - days * 86400
-        with sqlite3.connect(self.memory.path) as db:
+        with sqlite_transaction(self.memory.path) as db:
             cur = db.execute(
                 "UPDATE memories SET archived=1 WHERE archived=0 AND kind NOT IN (?,?)"
                 " AND importance < ? AND COALESCE(last_access,0) < ? AND created_at NOT NULL",
@@ -108,7 +109,7 @@ class SemanticMemoryV2:
             return cur.rowcount
 
     def stats(self):
-        with sqlite3.connect(self.memory.path) as db:
+        with sqlite_transaction(self.memory.path) as db:
             total = db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
             archived = db.execute("SELECT COUNT(*) FROM memories WHERE archived=1").fetchone()[0]
             cand = db.execute("SELECT COUNT(*) FROM memories WHERE archived=0 AND"

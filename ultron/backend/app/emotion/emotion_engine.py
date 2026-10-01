@@ -9,6 +9,7 @@ import array
 import math
 import re
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import time
 from pathlib import Path
 
@@ -126,19 +127,19 @@ class EmotionLog:
     def __init__(self, path="data/emotion/emotion_log.db"):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS emotion_log(
                 id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL, state TEXT,
                 confidence REAL, source TEXT)""")
 
     def add(self, state, confidence, source):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("INSERT INTO emotion_log(ts,state,confidence,source) VALUES(?,?,?,?)",
                        (time.time(), state, confidence, source))
 
     def history(self, hours=24):
         since = time.time() - hours * 3600
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute("SELECT ts,state,confidence,source FROM emotion_log WHERE ts>=? ORDER BY ts",
                               (since,)).fetchall()
         trend = {s: 0 for s in STATES}

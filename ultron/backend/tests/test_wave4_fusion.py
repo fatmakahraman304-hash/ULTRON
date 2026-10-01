@@ -107,10 +107,10 @@ def test_event_bridge_rejects_unknown_topic():
         br.emit("brain.arbitrary", {})
 
 
-def test_event_bridge_to_durable_bus_real():
+def test_event_bridge_to_durable_bus_real(tmp_path):
     """Gerçek Wave 2 DurableEventBus'a yayın (loop korumalı)."""
     from app.events.bus import DurableEventBus
-    tmp = os.path.join("/tmp", f"mm-bus-{os.getpid()}.db")
+    tmp = os.path.join(str(tmp_path), f"mm-bus-{os.getpid()}.db")
     bus = DurableEventBus(db_path=tmp)
     got = []
     bus.subscribe("voice.*", lambda topic, payload: got.append((topic,
@@ -154,11 +154,11 @@ def test_memory_policy_writes_observation_to_real_store(tmp_path):
     assert rows[0]["record_kind"] == "OBSERVATION"
 
 
-def test_memory_policy_never_auto_writes_frames():
+def test_memory_policy_never_auto_writes_frames(tmp_path):
     """Her frame/transcript OTOMATİK yazılmaz — kanıt."""
     store = MemoryStore(db_path=os.path.join(str(tmp_path), "auto.db"),
                         redact_fn=redact) if False else None
-    tmpd = "/tmp"  # yukarıdaki koşullu kullanılmaz
+    tmpd = str(tmp_path)  # yukarıdaki koşullu kullanılmaz
     store = MemoryStore(db_path=os.path.join(tmpd, f"mm-auto-{os.getpid()}"
                                              f".db"), redact_fn=redact)
     pol = MultimodalMemoryPolicy(store)

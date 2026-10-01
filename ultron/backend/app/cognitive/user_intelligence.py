@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from app.core.database import connect as managed_connect
 import threading
 import time
 from collections import Counter
@@ -45,7 +46,7 @@ class UserIntelligence:
         self.path = Path(db_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
-        self.db = sqlite3.connect(str(self.path), check_same_thread=False)
+        self.db = managed_connect(str(self.path), check_same_thread=False)
         self.db.execute("""CREATE TABLE IF NOT EXISTS preferences(
             domain TEXT, name TEXT, value TEXT, kind TEXT,
             confidence REAL, n_obs INTEGER, agreements INTEGER,

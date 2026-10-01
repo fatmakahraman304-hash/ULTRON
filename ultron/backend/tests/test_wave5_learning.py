@@ -1,4 +1,5 @@
 """Wave 5 §9+§17 — Learning Loop + Self-Evaluation testleri."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -14,8 +15,8 @@ def make(tmp, knowledge=None, user_intel=None):
                         knowledge=knowledge, user_intel=user_intel)
 
 
-def test_outcome_quality_expected_vs_actual():
-    with tempfile.TemporaryDirectory() as d:
+def test_outcome_quality_expected_vs_actual(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ll = make(d)
         r = ll.record_outcome("deploy", expected="5 servis ayakta",
                               actual="5 servis ayakta",
@@ -26,15 +27,15 @@ def test_outcome_quality_expected_vs_actual():
         assert r2["quality"] < 0.5 and "düşük kalite" in r2["lesson"]
 
 
-def test_quality_none_when_expected_unknown():
-    with tempfile.TemporaryDirectory() as d:
+def test_quality_none_when_expected_unknown(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ll = make(d)
         r = ll.record_outcome("adhoc", actual="sonuç", success=True)
         assert r["quality"] is None          # uydurma kalite YOK
 
 
-def test_lesson_from_user_correction_and_preference_side_effect():
-    with tempfile.TemporaryDirectory() as d:
+def test_lesson_from_user_correction_and_preference_side_effect(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ui = UserIntelligence(db_path=os.path.join(d, "u.db"))
         ll = make(d, user_intel=ui)
         ll.record_outcome("rapor", user_correction="kısa olsun",
@@ -43,8 +44,8 @@ def test_lesson_from_user_correction_and_preference_side_effect():
         assert any(p["value"] == "kısa olsun" for p in prefs)
 
 
-def test_lesson_stored_in_knowledge_layer():
-    with tempfile.TemporaryDirectory() as d:
+def test_lesson_stored_in_knowledge_layer(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = KnowledgeEngine(db_path=os.path.join(d, "k.db"))
         ll = make(d, knowledge=ke)
         ll.record_outcome("sync", expected="ok", actual="ok",
@@ -55,8 +56,8 @@ def test_lesson_stored_in_knowledge_layer():
         assert cl["value"]                     # claim olarak erişilir
 
 
-def test_failure_pattern_accumulates():
-    with tempfile.TemporaryDirectory() as d:
+def test_failure_pattern_accumulates(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ll = make(d)
         for _ in range(3):
             ll.record_outcome("import", success=False, errors=2,
@@ -64,8 +65,8 @@ def test_failure_pattern_accumulates():
         assert ll.failure_frequency("ModuleNotFoundError") == 3
 
 
-def test_strategy_for_from_history_and_avoid():
-    with tempfile.TemporaryDirectory() as d:
+def test_strategy_for_from_history_and_avoid(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ll = make(d)
         for _ in range(3):
             ll.record_outcome("fragile", success=False, errors=1)
@@ -75,8 +76,8 @@ def test_strategy_for_from_history_and_avoid():
         assert s2["strategy"] == "no-history" and s2["confidence"] == 0.0
 
 
-def test_metrics_aggregation():
-    with tempfile.TemporaryDirectory() as d:
+def test_metrics_aggregation(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ll = make(d)
         ll.record_outcome("t", expected="x", actual="x", success=True,
                           latency_s=10, cost=0.5, errors=0)
@@ -91,7 +92,7 @@ def test_metrics_aggregation():
 def test_production_code_untouched(tmp_path=None):
     """Öğrenme yalnız bilgi katmanına yazar — kod dosyası DEĞİŞMEZ."""
     import hashlib
-    with tempfile.TemporaryDirectory() as d:
+    with nullcontext(str(tmp_path)) as d:
         ke = KnowledgeEngine(db_path=os.path.join(d, "k.db"))
         ll = make(d, knowledge=ke)
         target = os.path.join(d, "prod_like.py")

@@ -1,4 +1,5 @@
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 from pathlib import Path
 from datetime import datetime
 
@@ -7,7 +8,7 @@ class Memory:
         self.redact_fn = redact_fn  # optional: vault-backed redaction on write
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS memories(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 kind TEXT NOT NULL,
@@ -28,7 +29,7 @@ class Memory:
             try: content = self.redact_fn(str(content))
             except Exception: pass
         iso = datetime.now().isoformat(timespec="seconds")
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             try:
                 cur = db.execute(
                     "INSERT INTO memories(kind,content,created_at,sync_ts) VALUES(?,?,?,?)",
@@ -40,34 +41,34 @@ class Memory:
             return cur.lastrowid
 
     def delete(self, row_id):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             cur = db.execute("DELETE FROM memories WHERE id=?", (int(row_id),))
             return cur.rowcount > 0
 
     def recent_full(self, limit=50):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute(
                 "SELECT id,kind,content,created_at FROM memories ORDER BY id DESC LIMIT ?", (limit,)
             ).fetchall()
         return [{"id": r[0], "kind": r[1], "content": r[2], "created_at": r[3]} for r in rows]
 
     def kind_counts(self):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute("SELECT kind, COUNT(*) FROM memories GROUP BY kind").fetchall()
         return {k: c for k, c in rows}
 
     def recent(self, limit=20):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             return db.execute(
                 "SELECT kind,content,created_at FROM memories ORDER BY id DESC LIMIT ?",
                 (limit,)
             ).fetchall()
 
     def clear(self):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("DELETE FROM memories")
 
     def count(self):
         # V15.1 integration: UI memory matrix shows the real SQLite total.
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             return db.execute("SELECT COUNT(*) FROM memories").fetchone()[0]

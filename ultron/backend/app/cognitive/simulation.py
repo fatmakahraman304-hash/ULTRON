@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from app.core.database import connect as managed_connect
 import threading
 import time
 from pathlib import Path
@@ -31,7 +32,7 @@ class Simulator:
         self.path = Path(db_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
-        self.db = sqlite3.connect(str(self.path), check_same_thread=False)
+        self.db = managed_connect(str(self.path), check_same_thread=False)
         self.db.execute("""CREATE TABLE IF NOT EXISTS simulations(
             id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL,
             scenario TEXT, actions_json TEXT, result_json TEXT,

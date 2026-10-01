@@ -1,5 +1,6 @@
 """Latency metrics persistence — SQLite, percentiles, integrity check."""
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import time
 from pathlib import Path
 
@@ -8,14 +9,14 @@ class MetricsStore:
     def __init__(self, path="data/metrics/voice_metrics.db"):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS metrics(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ts REAL NOT NULL,
                 stt_ms REAL, llm_ms REAL, tts_ms REAL, vad_mode TEXT)""")
 
     def insert(self, stt_ms=None, llm_ms=None, tts_ms=None, vad_mode="energy"):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("INSERT INTO metrics(ts,stt_ms,llm_ms,tts_ms,vad_mode) VALUES(?,?,?,?,?)",
                        (time.time(), stt_ms, llm_ms, tts_ms, vad_mode))
 
@@ -30,7 +31,7 @@ class MetricsStore:
 
     def percentiles(self, hours=24):
         since = time.time() - hours * 3600
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute(
                 "SELECT stt_ms,llm_ms,tts_ms FROM metrics WHERE ts>=?", (since,)).fetchall()
         out = {"count": len(rows)}
@@ -41,7 +42,7 @@ class MetricsStore:
 
     def integrity(self) -> bool:
         try:
-            with sqlite3.connect(self.path) as db:
+            with sqlite_transaction(self.path) as db:
                 return db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         except Exception:
             return False

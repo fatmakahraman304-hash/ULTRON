@@ -1,4 +1,5 @@
 """Wave 5 §1 — Cognitive Context Engine testleri (gerçek davranış)."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -11,8 +12,8 @@ def make(tmp, budget=2000):
     return ContextEngine(db_path=os.path.join(tmp, "c.db"), token_budget=budget)
 
 
-def test_add_and_snapshot_roundtrip():
-    with tempfile.TemporaryDirectory() as d:
+def test_add_and_snapshot_roundtrip(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         assert ce.add("ui_theme", "dark", modality="text")["ok"] is True
         snap = ce.snapshot()
@@ -20,8 +21,8 @@ def test_add_and_snapshot_roundtrip():
                    for i in snap["items"])
 
 
-def test_modality_validation_rejects_unknown():
-    with tempfile.TemporaryDirectory() as d:
+def test_modality_validation_rejects_unknown(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         try:
             ce.add("x", 1, modality="telepathy")
@@ -30,8 +31,8 @@ def test_modality_validation_rejects_unknown():
             pass
 
 
-def test_cross_modal_items_tagged():
-    with tempfile.TemporaryDirectory() as d:
+def test_cross_modal_items_tagged(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         for m in MODALITIES:
             ce.add(f"k_{m}", m, modality=m)
@@ -40,8 +41,8 @@ def test_cross_modal_items_tagged():
         assert tags == set(MODALITIES)  # köken etiketi korunur
 
 
-def test_namespaces_isolated():
-    with tempfile.TemporaryDirectory() as d:
+def test_namespaces_isolated(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         ce.add("goal", "A", namespace="task:1")
         ce.add("goal", "B", namespace="task:2")
@@ -49,8 +50,8 @@ def test_namespaces_isolated():
         assert all(i["value"] == "B" for i in ce.snapshot("task:2")["items"])
 
 
-def test_prioritization_importance_beats_junk():
-    with tempfile.TemporaryDirectory() as d:
+def test_prioritization_importance_beats_junk(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d, budget=10000)
         ce.add("low", "x" * 50, importance=0.1)
         ce.add("high", "y" * 50, importance=0.95)
@@ -59,8 +60,8 @@ def test_prioritization_importance_beats_junk():
         assert keys.index("high") < keys.index("low")  # skor sırası
 
 
-def test_compression_drops_low_priority_honestly():
-    with tempfile.TemporaryDirectory() as d:
+def test_compression_drops_low_priority_honestly(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d, budget=60)  # ~1 item'lık bütçe
         ce.add("big_low", "a " * 40, importance=0.1)
         ce.add("big_high", "b " * 40, importance=0.9)
@@ -70,8 +71,8 @@ def test_compression_drops_low_priority_honestly():
         assert len(snap["items"]) == 1
 
 
-def test_conflict_new_wins_and_logged():
-    with tempfile.TemporaryDirectory() as d:
+def test_conflict_new_wins_and_logged(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         ce.add("city", "Ankara")
         ce.add("city", "İzmir")
@@ -81,8 +82,8 @@ def test_conflict_new_wins_and_logged():
         assert any(c["resolution"] == "new-wins" for c in ce.conflicts)
 
 
-def test_conflict_explicit_beats_inferred():
-    with tempfile.TemporaryDirectory() as d:
+def test_conflict_explicit_beats_inferred(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         ce.add("lang", "tr", explicit=True)
         ce.add("lang", "en", explicit=False)    # inferred aday
@@ -92,8 +93,8 @@ def test_conflict_explicit_beats_inferred():
         assert any(c["resolution"] == "kept-old-explicit" for c in ce.conflicts)
 
 
-def test_ttl_expiration_recorded():
-    with tempfile.TemporaryDirectory() as d:
+def test_ttl_expiration_recorded(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         ce.add("temp", "x", ttl_s=1.0, now=1000.0)
         snap = ce.snapshot(now=1000.5)
@@ -104,8 +105,8 @@ def test_ttl_expiration_recorded():
         assert ce.expired and ce.expired[0]["reason"] == "ttl-or-window"
 
 
-def test_temporal_window_validity():
-    with tempfile.TemporaryDirectory() as d:
+def test_temporal_window_validity(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         ce.add("meeting", "plan_toplanti", valid_from=2000.0, valid_to=2100.0)
         assert not any(i["key"] == "meeting"
@@ -115,8 +116,8 @@ def test_temporal_window_validity():
         assert "meeting" in ce.snapshot(now=2200.0)["expired_now"]
 
 
-def test_projection_merges_namespaces():
-    with tempfile.TemporaryDirectory() as d:
+def test_projection_merges_namespaces(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         ce.add("a", 1, namespace="task:1")
         ce.add("b", 2, namespace="project:ultron")
@@ -125,8 +126,8 @@ def test_projection_merges_namespaces():
         assert {"a", "b"} <= keys
 
 
-def test_touch_refreshes_recency_score():
-    with tempfile.TemporaryDirectory() as d:
+def test_touch_refreshes_recency_score(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         ce.add("x", "v", importance=0.5, now=1000.0)
         ce.add("y", "v", importance=0.5, now=1000.0)
@@ -135,8 +136,8 @@ def test_touch_refreshes_recency_score():
         assert s["x"] > s["y"]
 
 
-def test_remove_and_stats():
-    with tempfile.TemporaryDirectory() as d:
+def test_remove_and_stats(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ce = make(d)
         ce.add("k", 1)
         assert ce.remove("k") is True and ce.remove("k") is False

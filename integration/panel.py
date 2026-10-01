@@ -1,20 +1,30 @@
 """A dock inside MARK, including local access before a Gemini key exists."""
 import json
+import os
+import threading
 from PyQt6.QtCore import QObject, QThread, pyqtSignal, Qt
 from PyQt6.QtWidgets import QDockWidget, QWidget, QVBoxLayout, QLineEdit, QPushButton, QTextEdit, QComboBox, QMessageBox
 from .bridge import Bridge
 
-class Worker(QThread):
+class Worker(QObject):
     done = pyqtSignal(str)
+    finished = pyqtSignal()
     def __init__(self, text, mode, parent=None):
         super().__init__(parent)
         self.text, self.mode = text, mode
+    def start(self):
+        threading.Thread(target=self.run,daemon=True).start()
     def run(self):
         try:
             result = Bridge().ask(self.text, self.mode)
             self.done.emit(result.get('text') or json.dumps(result, ensure_ascii=False))
+        except RuntimeError:
+            return  # UI was closed while a bounded request was pending
         except Exception as exc:
             self.done.emit(f'Yerel motor: {exc}')
+        finally:
+            try: self.finished.emit()
+            except RuntimeError: return
 
 
 def attach(ui):
@@ -24,8 +34,10 @@ def attach(ui):
     output = QTextEdit()
     output.setReadOnly(True)
     output.setPlainText('Gemini Live: MARK ses arayüzü. Yerel AI: aşağıdaki kutu. Agent görevlerinde mevcut güvenlik kuralları uygulanır.')
+    if os.environ.get('MARK_ULTRON_WARNING'):
+        output.append('UYARI: Yerel ULTRON motoru kullanılamıyor; MARK özellikleri kullanılabilir. logs/backend.log')
     mode = QComboBox()
-    for label, value in [('Otomatik', 'auto'), ('Kod', 'coding'), ('Hızlı', 'fast'), ('Genel', 'general'), ('Agent görevi', 'agent')]:
+    for label, value in [('Otomatik', 'auto'), ('Kod', 'coding'), ('Hızlı', 'fast'), ('Genel', 'general'), ('Agent görevi', 'agent'), ('Uzun görev', 'task'), ('Çoklu model', 'multi')]:
         mode.addItem(label, value)
     entry = QLineEdit()
     entry.setPlaceholderText('Yerel AI isteği…')

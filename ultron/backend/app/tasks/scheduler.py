@@ -16,6 +16,7 @@ import asyncio
 import fnmatch
 import json
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import threading
 import time
 import uuid
@@ -129,7 +130,7 @@ class TaskScheduler:
         self.submit_fn = submit_fn   # sunucu: (goal, kind, budgets, needs) → task
         self.fires = 0
         self.fire_errors = 0
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS schedules(
                 id TEXT PRIMARY KEY, goal TEXT, cron TEXT,
                 kind TEXT DEFAULT 'custom', budgets TEXT, needs TEXT,
@@ -150,7 +151,7 @@ class TaskScheduler:
             raise ValueError("empty goal")
         next_run = cron_next(cron, self.now())   # ifadeyi HEMEN doğrula
         sid = uuid.uuid4().hex[:8]
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("INSERT INTO schedules(id,goal,cron,kind,budgets,needs,"
                        "template_key,last_run,next_run,enabled,created_at)"
                        " VALUES(?,?,?,?,?,?,?,NULL,?,1,?)",
@@ -160,7 +161,7 @@ class TaskScheduler:
         return {"ok": True, "id": sid, "cron": cron, "next_run": next_run}
 
     def list_schedules(self) -> list[dict]:
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute("SELECT id,goal,cron,kind,budgets,needs,template_key,"
                               "last_run,next_run,enabled,created_at FROM schedules"
                               " ORDER BY next_run").fetchall()
@@ -175,7 +176,7 @@ class TaskScheduler:
         return out
 
     def remove_schedule(self, sid: str) -> dict:
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             cur = db.execute("DELETE FROM schedules WHERE id=?", (sid,))
         return {"ok": cur.rowcount > 0}
 
@@ -201,7 +202,7 @@ class TaskScheduler:
                 task = self._instantiate(s)
                 self.fires += 1
                 fired.append(task)
-                with sqlite3.connect(self.path) as db:
+                with sqlite_transaction(self.path) as db:
                     db.execute("UPDATE schedules SET last_run=?, next_run=?"
                                " WHERE id=?",
                                (self.now(), cron_next(s["cron"], self.now()), s["id"]))
@@ -224,7 +225,7 @@ class TaskScheduler:
                     task = self._instantiate(s)
                 self.fires += 1
                 fired.append(task)
-                with sqlite3.connect(self.path) as db:
+                with sqlite_transaction(self.path) as db:
                     db.execute("UPDATE schedules SET last_run=?, next_run=?"
                                " WHERE id=?",
                                (self.now(), cron_next(s["cron"], self.now()), s["id"]))
@@ -240,7 +241,7 @@ class TaskScheduler:
         if not str(goal).strip():
             raise ValueError("empty goal")
         tid = uuid.uuid4().hex[:8]
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("INSERT INTO triggers(id,pattern,goal,budgets,enabled,"
                        "last_fire,fire_count,created_at)"
                        " VALUES(?,?,?,?,1,NULL,0,?)",
@@ -253,7 +254,7 @@ class TaskScheduler:
         return {"ok": True, "id": tid, "pattern": pattern}
 
     def list_triggers(self) -> list[dict]:
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute("SELECT id,pattern,goal,budgets,enabled,last_fire,"
                               "fire_count,created_at FROM triggers").fetchall()
         cols = ("id", "pattern", "goal", "budgets", "enabled", "last_fire",

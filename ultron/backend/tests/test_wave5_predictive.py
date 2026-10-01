@@ -1,4 +1,5 @@
 """Wave 5 §5+§10 — Predictive Intelligence testleri (gerçek istatistik)."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -11,16 +12,16 @@ def make(tmp):
     return PredictiveEngine(db_path=os.path.join(tmp, "p.db"))
 
 
-def test_duration_insufficient_data_is_honest():
-    with tempfile.TemporaryDirectory() as d:
+def test_duration_insufficient_data_is_honest(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         pe.record_task("sync", 5.0)
         r = pe.duration_estimate("sync")
         assert r["ok"] is False and r["reason"] == "insufficient-data"
 
 
-def test_duration_median_band_and_prediction_record():
-    with tempfile.TemporaryDirectory() as d:
+def test_duration_median_band_and_prediction_record(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         for t in (10, 10, 10, 10, 60):     # bir aykırı
             pe.record_task("index", t)
@@ -31,8 +32,8 @@ def test_duration_median_band_and_prediction_record():
         assert r["prediction_id"] > 0
 
 
-def test_failure_probability_laplace_never_zero():
-    with tempfile.TemporaryDirectory() as d:
+def test_failure_probability_laplace_never_zero(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         for _ in range(10):
             pe.record_task("clean", 1.0, failed=False)
@@ -44,8 +45,8 @@ def test_failure_probability_laplace_never_zero():
         assert r2["probability"] > 0.5
 
 
-def test_dependency_risk_chain_product_and_unknown():
-    with tempfile.TemporaryDirectory() as d:
+def test_dependency_risk_chain_product_and_unknown(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         r = pe.dependency_risk([
             {"name": "build", "failure_probability": 0.1},
@@ -57,8 +58,8 @@ def test_dependency_risk_chain_product_and_unknown():
         assert r2["ok"] is False and r2["unknown_steps"] == ["x"]
 
 
-def test_resource_trend_linear_with_honest_r2():
-    with tempfile.TemporaryDirectory() as d:
+def test_resource_trend_linear_with_honest_r2(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         for v in (10, 20, 30, 40):         # tam lineer
             pe.record_metric(v)
@@ -67,8 +68,8 @@ def test_resource_trend_linear_with_honest_r2():
         assert abs(r["predicted"] - 60) < 1e-6
 
 
-def test_resource_trend_noisy_keeps_low_confidence():
-    with tempfile.TemporaryDirectory() as d:
+def test_resource_trend_noisy_keeps_low_confidence(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         for v in (50, 10, 55, 5, 48):      # gürültülü
             pe.record_metric(v)
@@ -76,8 +77,8 @@ def test_resource_trend_noisy_keeps_low_confidence():
         assert r["ok"] and r["confidence"] < 0.5   # R² dürüstçe düşük
 
 
-def test_anomaly_robust_z():
-    with tempfile.TemporaryDirectory() as d:
+def test_anomaly_robust_z(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         for v in (10, 10, 11, 10, 10):
             pe.record_metric(v)
@@ -87,8 +88,8 @@ def test_anomaly_robust_z():
         assert bad["robust_z"] > 3.5
 
 
-def test_maintenance_due_math():
-    with tempfile.TemporaryDirectory() as d:
+def test_maintenance_due_math(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         m = pe.maintenance_due(last_at=1000.0, interval_s=100, now=1050.0)
         assert m["due"] is False and m["next_in_s"] == 50
@@ -96,8 +97,8 @@ def test_maintenance_due_math():
         assert m2["due"] is True
 
 
-def test_intent_prediction_markov():
-    with tempfile.TemporaryDirectory() as d:
+def test_intent_prediction_markov(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         for i in ["code", "test", "code", "test", "code"]:
             pe.record_intent(i)
@@ -106,8 +107,8 @@ def test_intent_prediction_markov():
         assert r["ok"] and r["next_intent"] == "test" and r["evidence"] >= 2
 
 
-def test_prediction_outcome_separation_and_calibration():
-    with tempfile.TemporaryDirectory() as d:
+def test_prediction_outcome_separation_and_calibration(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         for t in (10, 10, 10):
             pe.record_task("job", t)
@@ -119,8 +120,8 @@ def test_prediction_outcome_separation_and_calibration():
         assert pe.outcome(est["prediction_id"], 99.0)["ok"] is False
 
 
-def test_planner_budget_feasibility_from_estimates():
-    with tempfile.TemporaryDirectory() as d:
+def test_planner_budget_feasibility_from_estimates(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pe = make(d)
         for t in (10, 10, 12):
             pe.record_task("step_a", t)

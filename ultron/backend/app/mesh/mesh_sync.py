@@ -6,6 +6,7 @@ Conflict rule: "en son söylenen geçerli" via created_at/sync timestamps;
 identical (kind,content) pairs are deduped instead of duplicated.
 """
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import time
 
 
@@ -18,7 +19,7 @@ class MeshSync:
         self._migrate()
 
     def _migrate(self):
-        with sqlite3.connect(self.memory.path) as db:
+        with sqlite_transaction(self.memory.path) as db:
             try:
                 db.execute("ALTER TABLE memories ADD COLUMN sync_ts REAL")
             except Exception:
@@ -28,7 +29,7 @@ class MeshSync:
 
     # ------------------------------------------------------------ pull
     def pull(self, since_ts: float = 0.0) -> dict:
-        with sqlite3.connect(self.memory.path) as db:
+        with sqlite_transaction(self.memory.path) as db:
             rows = db.execute(
                 "SELECT kind,content,created_at,COALESCE(sync_ts,0) FROM memories"
                 " WHERE COALESCE(sync_ts,0) > ? ORDER BY sync_ts", (since_ts,)).fetchall()
@@ -46,7 +47,7 @@ class MeshSync:
     # ------------------------------------------------------------ push
     def push(self, payload: dict) -> dict:
         added_m = skipped_m = added_d = 0
-        with sqlite3.connect(self.memory.path) as db:
+        with sqlite_transaction(self.memory.path) as db:
             for r in payload.get("memories", []):
                 exists = db.execute(
                     "SELECT 1 FROM memories WHERE kind=? AND content=?",

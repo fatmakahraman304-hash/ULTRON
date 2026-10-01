@@ -31,15 +31,16 @@ class Services:
         self.streams = []
         self.bridge = None
         self.lock = None
+        self.job = None
 
     def __enter__(self):
         DATA.mkdir(exist_ok=True)
         LOGS.mkdir(exist_ok=True)
         # Windows byte lock is released even after a killed launcher.
         self.lock = (DATA / 'instance.lock').open('a+b')
-        self.lock.seek(0)
-        self.lock.write(b'0')
-        self.lock.flush()
+        if self.lock.tell() == 0:
+            self.lock.write(b'0')
+            self.lock.flush()
         self.lock.seek(0)
         if os.name == 'nt':
             import msvcrt
@@ -48,6 +49,8 @@ class Services:
             except OSError as exc:
                 self.lock.close()
                 raise RuntimeError('Birleşik uygulama zaten çalışıyor.') from exc
+        from .process_job import ProcessJob
+        self.job = ProcessJob()
         return self
 
     def start(self):
@@ -84,8 +87,14 @@ class Services:
             path.replace(path.with_suffix('.previous.log'))
         output = path.open('ab')
         self.streams.append(output)
-        return subprocess.Popen(args, cwd=cwd, env=self.env, stdout=output, stderr=subprocess.STDOUT,
+        process = subprocess.Popen(args, cwd=cwd, env=self.env, stdout=output, stderr=subprocess.STDOUT,
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+        try:
+            if self.job: self.job.add(process)
+        except Exception:
+            stop_process(process)
+            raise
+        return process
 
     def __exit__(self, *args):
         stop_process(self.ui)
@@ -96,6 +105,8 @@ class Services:
             except (OSError, ValueError, subprocess.TimeoutExpired):
                 logging.exception('Graceful shutdown failed; terminating owned backend')
         stop_process(self.backend)
+        if self.job:
+            self.job.close()
         for stream in self.streams:
             stream.close()
         if self.lock and not self.lock.closed:
@@ -112,8 +123,18 @@ def main(argv=None):
         LOGS / 'launcher.log', maxBytes=2_000_000, backupCount=3, encoding='utf-8')])
     try:
         with Services() as services:
-            health = services.start()
-            print('ULTRON hazır; MARK arayüzü açılıyor.', flush=True)
+            try:
+                health = services.start()
+                print('ULTRON hazır; MARK arayüzü açılıyor.', flush=True)
+            except Exception as exc:
+                if args.smoke or args.backend_only:
+                    raise
+                logging.exception('ULTRON unavailable; starting MARK in degraded mode')
+                stop_process(services.backend)
+                services.env = os.environ.copy()
+                services.env['MARK_ULTRON_WARNING'] = str(exc)
+                services.env['PYTHONUTF8'] = '1'
+                print('UYARI: ULTRON kullanılamıyor. MARK açılıyor; logs/backend.log', flush=True)
             if not args.backend_only:
                 cmd = [sys.executable, '-u', str(ROOT / 'mark_app.py')]
                 if args.smoke:
@@ -124,6 +145,7 @@ def main(argv=None):
                     code = services.ui.wait(timeout=40)
                     if code:
                         raise RuntimeError('MARK arayüz testi başarısız; logs/mark.log dosyasına bakın.')
+                assert services.bridge.health()['ok'], 'Backend died while MARK was running'
                 (LOGS / 'startup.json').write_text(json.dumps(health, indent=2), encoding='utf-8')
             elif services.ui:
                 return services.ui.wait()

@@ -1,4 +1,5 @@
 """Wave 5 §6+§8 — Knowledge Engine + Knowledge Graph testleri."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -33,8 +34,8 @@ def make_ke(d):
     return KnowledgeEngine(db_path=os.path.join(d, "k.db"))
 
 
-def test_ingest_and_bm25_retrieval_with_citations():
-    with tempfile.TemporaryDirectory() as d:
+def test_ingest_and_bm25_retrieval_with_citations(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = make_ke(d)
         r1 = ke.ingest("ultron-overview", DOC1 * 3, source="docs/ultron.md",
                        source_confidence=0.9)
@@ -50,8 +51,8 @@ def test_ingest_and_bm25_retrieval_with_citations():
         assert res2["results"][0]["doc_id"] == r2["doc_id"]
 
 
-def test_reranking_prefers_trusted_source():
-    with tempfile.TemporaryDirectory() as d:
+def test_reranking_prefers_trusted_source(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = make_ke(d)
         ke.ingest("a", "quantum computing nedir explained " * 10,
                   source="wiki", source_confidence=0.9)
@@ -61,8 +62,8 @@ def test_reranking_prefers_trusted_source():
         assert res["results"][0]["source"] == "wiki"
 
 
-def test_scope_isolation_in_search():
-    with tempfile.TemporaryDirectory() as d:
+def test_scope_isolation_in_search(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = make_ke(d)
         ke.ingest("pub", "ortak konu: deploy süreci " * 5, scope="global")
         ke.ingest("priv", "gizli: projenin deploy anahtarı " * 5,
@@ -75,8 +76,8 @@ def test_scope_isolation_in_search():
         assert "priv" not in titles2                 # izolasyon
 
 
-def test_supersede_on_update_and_tombstone_delete():
-    with tempfile.TemporaryDirectory() as d:
+def test_supersede_on_update_and_tombstone_delete(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = make_ke(d)
         v1 = ke.ingest("sürüm belgesi", "eskisürüm içeriği", source="a")
         v2 = ke.ingest("sürüm belgesi", "yenisürüm içeriği", source="a")
@@ -90,8 +91,8 @@ def test_supersede_on_update_and_tombstone_delete():
         assert ke.stats()["tombstones"] == 1
 
 
-def test_stale_documents_detection():
-    with tempfile.TemporaryDirectory() as d:
+def test_stale_documents_detection(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = make_ke(d)
         ke.ingest("eski", "içerik", source="x")
         with ke.lock:
@@ -104,8 +105,8 @@ def test_stale_documents_detection():
         assert res["results"][0]["stale"] is True      # sonuç işaretli
 
 
-def test_contradiction_detection_and_claim():
-    with tempfile.TemporaryDirectory() as d:
+def test_contradiction_detection_and_claim(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = make_ke(d)
         ke.ingest("d1", "metin", claims={"deploy_aracı": "jenkins"},
                   source_confidence=0.9)
@@ -117,8 +118,8 @@ def test_contradiction_detection_and_claim():
         assert cl["value"] == "jenkins" and cl["conflict"] is True
 
 
-def test_search_empty_corpus_honest():
-    with tempfile.TemporaryDirectory() as d:
+def test_search_empty_corpus_honest(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ke = make_ke(d)
         r = ke.search("herhangi")
         assert r["results"] == [] and "canlı belge yok" in r.get("note", "")
@@ -129,24 +130,24 @@ def make_kg(d):
     return KnowledgeGraph(db_path=os.path.join(d, "kg.db"))
 
 
-def test_entities_scoped_isolation():
-    with tempfile.TemporaryDirectory() as d:
+def test_entities_scoped_isolation(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = make_kg(d)
         kg.add_entity("ultron", "ULTRON", "project", scope="project:a")
         assert kg.entity("ultron", scope="project:b") is None  # izole
         assert kg.entity("ultron", scope="project:a")["name"] == "ULTRON"
 
 
-def test_relate_requires_known_entities():
-    with tempfile.TemporaryDirectory() as d:
+def test_relate_requires_known_entities(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = make_kg(d)
         kg.add_entity("a", "A")
         r = kg.relate("a", "ghost", "uses")
         assert r["ok"] is False and "unknown entity" in r["error"]
 
 
-def test_supersede_and_live_edges():
-    with tempfile.TemporaryDirectory() as d:
+def test_supersede_and_live_edges(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = make_kg(d)
         for e in ("ultron", "ollama", "openai"):
             kg.add_entity(e, e.title())
@@ -158,8 +159,8 @@ def test_supersede_and_live_edges():
         assert kg.stats()["retired"] == 1
 
 
-def test_temporal_relationship_expiry():
-    with tempfile.TemporaryDirectory() as d:
+def test_temporal_relationship_expiry(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = make_kg(d)
         kg.add_entity("kullanici", "K")
         kg.add_entity("proje", "P")
@@ -171,8 +172,8 @@ def test_temporal_relationship_expiry():
         assert all(not e["live"] for e in after)       # süre bitti
 
 
-def test_conflict_detection():
-    with tempfile.TemporaryDirectory() as d:
+def test_conflict_detection(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = make_kg(d)
         for e in ("a", "b", "c"):
             kg.add_entity(e, e)
@@ -183,8 +184,8 @@ def test_conflict_detection():
                    and len(x["candidates"]) == 2 for x in cons)
 
 
-def test_traversal_bfs_depth_and_cycle_safety():
-    with tempfile.TemporaryDirectory() as d:
+def test_traversal_bfs_depth_and_cycle_safety(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = make_kg(d)
         for e in ("a", "b", "c", "a2"):              # döngü: c→a
             kg.add_entity(e, e)
@@ -196,8 +197,8 @@ def test_traversal_bfs_depth_and_cycle_safety():
         assert set(t["nodes"]) == {"b", "c"}           # sonsuz döngü yok
 
 
-def test_traversal_min_confidence_filter():
-    with tempfile.TemporaryDirectory() as d:
+def test_traversal_min_confidence_filter(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = make_kg(d)
         for e in ("a", "b", "c"):
             kg.add_entity(e, e)
@@ -207,8 +208,8 @@ def test_traversal_min_confidence_filter():
         assert set(t["nodes"]) == {"b"}
 
 
-def test_stale_edge_sweep():
-    with tempfile.TemporaryDirectory() as d:
+def test_stale_edge_sweep(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         kg = make_kg(d)
         kg.add_entity("x", "X")
         kg.add_entity("y", "Y")

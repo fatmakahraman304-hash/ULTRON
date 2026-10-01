@@ -29,6 +29,8 @@ from __future__ import annotations
 import asyncio
 import json
 import sqlite3
+from app.core.database import connect as managed_connect
+from app.core.database import transaction as sqlite_transaction
 import time
 import uuid
 from pathlib import Path
@@ -101,7 +103,7 @@ class TaskEngine:
         self._sample_resources = resource_sampler or self._psutil_sample
         self.dead_letter_count = 0
         self._journal_db = None
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS task_steps_journal(
                 seq INTEGER PRIMARY KEY AUTOINCREMENT,
                 task_id TEXT NOT NULL,
@@ -209,7 +211,7 @@ class TaskEngine:
             risk_s = json.dumps(risk, ensure_ascii=False, default=str) if risk else None
             appr = self._get_tracer().redact_fn(str(approval))[:120] if approval else None
             if self._journal_db is None:
-                self._journal_db = sqlite3.connect(self.path, check_same_thread=False)
+                self._journal_db = managed_connect(self.path, check_same_thread=False)
                 self._journal_db.execute("PRAGMA journal_mode=WAL")
                 self._journal_db.execute("PRAGMA synchronous=NORMAL")
             self._journal_db.execute(
@@ -226,7 +228,7 @@ class TaskEngine:
             return {"ok": False, "error": str(exc)[:200]}
 
     def journal_rows(self, task_id: str) -> list[dict]:
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.row_factory = sqlite3.Row
             return [dict(r) for r in db.execute(
                 "SELECT * FROM task_steps_journal WHERE task_id=? ORDER BY seq", (task_id,)).fetchall()]
@@ -295,7 +297,7 @@ class TaskEngine:
 
     def _task_edges(self) -> dict[str, set[str]]:
         edges: dict[str, set[str]] = {}
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute("SELECT id,needs FROM tasks").fetchall()
         for tid, needs_json in rows:
             deps = set()
@@ -336,14 +338,14 @@ class TaskEngine:
         aid = str(artifact_id).strip()
         if not aid or len(aid) > 120 or "/" in aid or ".." in aid or "\\" in aid:
             raise ValueError("invalid artifact id (path traversal rejected)")
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("INSERT OR REPLACE INTO task_artifacts(artifact_id,task_id,path,sha256,created_at) VALUES(?,?,?,?,?)",
                        (aid, task_id, str(path or "")[:300], str(sha256 or "")[:64], self.now()))
         self.journal(task_id, "ARTIFACT_MARKED", output_summary=aid)
         return {"ok": True, "artifact_id": aid}
 
     def artifact_exists(self, artifact_id: str) -> bool:
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             return db.execute("SELECT 1 FROM task_artifacts WHERE artifact_id=?", (artifact_id,)).fetchone() is not None
 
     def dependency_state(self, task_id: str) -> dict:
@@ -400,7 +402,7 @@ class TaskEngine:
     def _save(self, task: dict, transition: str | None = None) -> None:
         if transition: self._transition(task, transition)
         task["updated_at"] = self.now()
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""INSERT OR REPLACE INTO tasks
                 (id,goal,kind,status,priority,steps,current_step,checkpoint,retry_count,budgets,result,error,created_at,started_at,updated_at,needs,deadline_soft,deadline_hard,template_key,failure_streak)
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
@@ -414,7 +416,7 @@ class TaskEngine:
                  task.get("deadline_hard"), task.get("template_key"), int(task.get("failure_streak") or 0)))
 
     def get(self, task_id: str) -> dict | None:
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.row_factory = sqlite3.Row
             row = db.execute("SELECT * FROM tasks WHERE id=?", (task_id,)).fetchone()
         if not row: return None
@@ -425,7 +427,7 @@ class TaskEngine:
         return t
 
     def list(self, limit=100) -> list[dict]:
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             rows = db.execute("SELECT id FROM tasks ORDER BY updated_at DESC LIMIT ?", (int(limit),)).fetchall()
         return [self.get(r[0]) for r in rows if self.get(r[0])]
 

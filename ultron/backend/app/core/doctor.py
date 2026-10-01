@@ -55,6 +55,7 @@ def check_ollama(host: str, want=("qwen", "llava")) -> dict:
 
 def check_dbs(paths) -> dict:
     import sqlite3
+    from app.core.database import transaction as sqlite_transaction
     rows, bad = [], 0
     for p in paths:
         p = Path(p)
@@ -63,7 +64,7 @@ def check_dbs(paths) -> dict:
             bad += 1
             continue
         try:
-            with sqlite3.connect(p) as db:
+            with sqlite_transaction(p) as db:
                 ok = db.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
         except Exception as exc:
             ok = False

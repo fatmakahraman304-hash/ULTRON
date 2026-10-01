@@ -53,7 +53,7 @@ def test_v3_browser_requires_grant():
 
 
 # V4 — capability escalation (multimodal katmandan)
-def test_v4_capability_escalation_blocked():
+def test_v4_capability_escalation_blocked(tmp_path):
     """Wave 3 token: RESEARCH worker WRITE_WORKSPACE alamaz — multimodal
     fusion da aynı sınırı aşamaz."""
     from app.observability.trace import Tracer
@@ -63,7 +63,7 @@ def test_v4_capability_escalation_blocked():
     from app.orchestr.scheduler import DAGScheduler
     from app.orchestr.tokens import CapabilityTokenAuthority, TokenError
     from app.orchestr.worker import WorkerRegistry
-    tmp = os.path.join("/tmp", f"sec4-{os.getpid()}")
+    tmp = os.path.join(str(tmp_path), f"sec4-{os.getpid()}")
     os.makedirs(tmp, exist_ok=True)
     reg = WorkerRegistry(db_path=os.path.join(tmp, "w.db"))
     orch = SupervisorOrchestrator(

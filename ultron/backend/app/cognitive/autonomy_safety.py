@@ -13,6 +13,7 @@ onaysız high-risk. Her karar denetlenebilir gerekçeli.
 from __future__ import annotations
 
 import sqlite3
+from app.core.database import connect as managed_connect
 import threading
 import time
 from pathlib import Path
@@ -43,7 +44,7 @@ class AutonomySafety:
         self.path = Path(db_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
-        self.db = sqlite3.connect(str(self.path), check_same_thread=False)
+        self.db = managed_connect(str(self.path), check_same_thread=False)
         self.db.execute("""CREATE TABLE IF NOT EXISTS evaluations(
             id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL,
             goal TEXT, action TEXT, risk TEXT, reversibility TEXT,

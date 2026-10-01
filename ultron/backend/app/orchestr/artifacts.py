@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from app.core.database import connect as managed_connect
 import threading
 import time
 import uuid
@@ -33,7 +34,7 @@ class ArtifactManager:
         self.redact_fn = redact_fn or (lambda t: t)
         self.now = now or time.time
         self._lock = threading.RLock()   # paylaşılan bağlantı: race önle
-        self._db = sqlite3.connect(self.path, check_same_thread=False)
+        self._db = managed_connect(self.path, check_same_thread=False)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA busy_timeout=5000")
         with self._db:

@@ -71,7 +71,15 @@ def load_whisper(configured: str | None = None):
     _configure_cuda_dlls()
 
     try:
+        if os.name == "nt":
+            import ctypes
+            ctypes.WinDLL("cublas64_12.dll")
+            ctypes.WinDLL("cudnn64_9.dll")
         model = WhisperModel(str(model_path), device="cuda", compute_type="float16")
+        # Native CUDA libraries may load only on the first inference.
+        import numpy as np
+        segments, _ = model.transcribe(np.zeros(16000, dtype=np.float32), language="tr")
+        list(segments)
         return model, {
             "model": str(model_path),
             "device": "cuda",

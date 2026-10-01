@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from app.core.database import connect as managed_connect
 import statistics
 import time
 from pathlib import Path
@@ -34,7 +35,7 @@ class WorldStore:
 
     def _conn(self):
         if self._db is None:
-            self._db = sqlite3.connect(self.path, check_same_thread=False)
+            self._db = managed_connect(self.path, check_same_thread=False)
             self._db.execute("PRAGMA journal_mode=WAL")
             self._db.execute("PRAGMA busy_timeout=5000")
             self._db.execute("PRAGMA foreign_keys=ON")

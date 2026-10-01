@@ -1,4 +1,5 @@
 """Wave 5 §3-4 — Goal Intelligence + Decision Engine testleri."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -13,15 +14,15 @@ def make_g(tmp):
     return GoalEngine(db_path=os.path.join(tmp, "g.db"))
 
 
-def test_goal_create_and_active():
-    with tempfile.TemporaryDirectory() as d:
+def test_goal_create_and_active(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         r = ge.create("CI'yi yeşile çek", intent="kullanıcı: build kırık")
         assert r["ok"] and ge.active_goals()[0]["title"].startswith("CI")
 
 
-def test_decompose_sequential_subgoals():
-    with tempfile.TemporaryDirectory() as d:
+def test_decompose_sequential_subgoals(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         g = ge.create("release")["goal"]
         out = ge.decompose(g, ["test", "tag", "publish"])
@@ -31,8 +32,8 @@ def test_decompose_sequential_subgoals():
         assert ge.blocked_by(subs[2]) == [subs[1]]
 
 
-def test_circular_dependency_rejected():
-    with tempfile.TemporaryDirectory() as d:
+def test_circular_dependency_rejected(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         a = ge.create("A")["goal"]
         b = ge.create("B")["goal"]
@@ -42,8 +43,8 @@ def test_circular_dependency_rejected():
         assert ge.add_dependency(a, a)["ok"] is False  # self
 
 
-def test_complete_requires_evidence():
-    with tempfile.TemporaryDirectory() as d:
+def test_complete_requires_evidence(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         g = ge.create("doğrulanabilir iş")["goal"]
         r = ge.complete(g)                            # kanıtsız
@@ -52,8 +53,8 @@ def test_complete_requires_evidence():
         assert r2["ok"] is True
 
 
-def test_complete_blocked_by_open_subgoals_and_deps():
-    with tempfile.TemporaryDirectory() as d:
+def test_complete_blocked_by_open_subgoals_and_deps(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         g = ge.create("parent")["goal"]
         subs = ge.decompose(g, ["a", "b"])["subgoals"]
@@ -64,8 +65,8 @@ def test_complete_blocked_by_open_subgoals_and_deps():
         assert r2["ok"] is False and subs[1] in r2.get("open", [])
 
 
-def test_progress_real_induction():
-    with tempfile.TemporaryDirectory() as d:
+def test_progress_real_induction(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         g = ge.create("root")["goal"]
         s1, s2 = ge.decompose(g, ["s1", "s2"])["subgoals"]
@@ -79,8 +80,8 @@ def test_progress_real_induction():
         assert ge.complete(g, evidence="her iki alt done")["ok"] is True
 
 
-def test_blockers_block_and_unblock():
-    with tempfile.TemporaryDirectory() as d:
+def test_blockers_block_and_unblock(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         g = ge.create("iş")["goal"]
         ge.add_blocker(g, "API anahtarı yok")
@@ -89,8 +90,8 @@ def test_blockers_block_and_unblock():
         assert ge.active_goals()[0]["status"] == "ACTIVE"
 
 
-def test_cancel_with_reason_and_guard():
-    with tempfile.TemporaryDirectory() as d:
+def test_cancel_with_reason_and_guard(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         g = ge.create("eski iş")["goal"]
         assert ge.cancel(g, "kullanıcı vazgeçti")["ok"] is True
@@ -100,8 +101,8 @@ def test_cancel_with_reason_and_guard():
         assert r2["ok"] is False and "already" in r2["error"]
 
 
-def test_plan_versioning_keeps_history():
-    with tempfile.TemporaryDirectory() as d:
+def test_plan_versioning_keeps_history(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         g = ge.create("planlı")["goal"]
         ge.set_plan(g, ["adım1", "adım2"])
@@ -115,8 +116,8 @@ def test_plan_versioning_keeps_history():
         assert old and "adım2" in old[0] and "adım2b" not in old[0]
 
 
-def test_deadline_risk_levels():
-    with tempfile.TemporaryDirectory() as d:
+def test_deadline_risk_levels(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = make_g(d)
         now = 1000.0
         late = ge.create("geç", deadline=1100.0)["goal"]
@@ -133,8 +134,8 @@ def make_d(d):
     return DecisionEngine(db_path=os.path.join(d, "d.db"))
 
 
-def test_decide_picks_highest_scored_option():
-    with tempfile.TemporaryDirectory() as d:
+def test_decide_picks_highest_scored_option(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         r = de.decide("deploy", "v1.2", options=[
             {"id": "canary", "value": 80, "cost": 10, "confidence": 0.9},
@@ -145,8 +146,8 @@ def test_decide_picks_highest_scored_option():
         assert r["authority"] == "AUTONOMOUS"        # low risk + reversible
 
 
-def test_decision_record_stores_all_fields():
-    with tempfile.TemporaryDirectory() as d:
+def test_decision_record_stores_all_fields(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         r = de.decide("tool", "hangi aracı", options=[
             {"id": "a", "value": 10, "confidence": 0.9,
@@ -160,8 +161,8 @@ def test_decision_record_stores_all_fields():
         assert rec["goals_json"] == '["g1"]'
 
 
-def test_constraint_filters_viable_options():
-    with tempfile.TemporaryDirectory() as d:
+def test_constraint_filters_viable_options(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         r = de.decide("tts", "motor", options=[
             {"id": "cloud", "value": 90, "confidence": 0.9,
@@ -171,8 +172,8 @@ def test_constraint_filters_viable_options():
         assert r["chosen"] == "local"
 
 
-def test_no_viable_option_is_honest_rejection():
-    with tempfile.TemporaryDirectory() as d:
+def test_no_viable_option_is_honest_rejection(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         r = de.decide("x", "y", options=[
             {"id": "only", "value": 10, "violates": "no-mutation"}],
@@ -181,8 +182,8 @@ def test_no_viable_option_is_honest_rejection():
         assert r["authority"] == "APPROVAL"
 
 
-def test_low_confidence_requires_human():
-    with tempfile.TemporaryDirectory() as d:
+def test_low_confidence_requires_human(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         r = de.decide("crit", "karar", options=[
             {"id": "guess", "value": 10, "confidence": 0.2}])
@@ -190,8 +191,8 @@ def test_low_confidence_requires_human():
         assert r["reason_code"] == "LOW_CONFIDENCE"
 
 
-def test_tie_reduces_confidence():
-    with tempfile.TemporaryDirectory() as d:
+def test_tie_reduces_confidence(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         r = de.decide("t", "berabere", options=[
             {"id": "x", "value": 50, "confidence": 0.9},
@@ -201,8 +202,8 @@ def test_tie_reduces_confidence():
         assert rec["confidence"] < 0.9 * 0.6 + 1e-9  # belirsizlik→güven düşüşü
 
 
-def test_policy_matrix_high_irreversible_needs_approval():
-    with tempfile.TemporaryDirectory() as d:
+def test_policy_matrix_high_irreversible_needs_approval(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         r = de.decide("del", "dosya sil", options=[
             {"id": "rm", "value": 50, "confidence": 0.9}],
@@ -211,8 +212,8 @@ def test_policy_matrix_high_irreversible_needs_approval():
         assert r["authority"] == "APPROVAL"
 
 
-def test_risk_guard_critical_when_blocked():
-    with tempfile.TemporaryDirectory() as d:
+def test_risk_guard_critical_when_blocked(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         # security core yazımı: guard RED der → critical risk
         r = de.decide("codegen", "vault'a dokun", options=[
@@ -223,8 +224,8 @@ def test_risk_guard_critical_when_blocked():
         assert r["authority"] == "APPROVAL"
 
 
-def test_verify_outcome_closure():
-    with tempfile.TemporaryDirectory() as d:
+def test_verify_outcome_closure(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         de = make_d(d)
         r = de.decide("k", "s", options=[{"id": "o", "value": 1,
                                           "confidence": 0.9}],

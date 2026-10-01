@@ -1,4 +1,5 @@
 """PHASE 11: spike-suppressed proactive monitoring + IoT real/mock separation."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -82,8 +83,8 @@ class FakeVault:
         return "VAULT-HA-TOKEN" if name == "homeassistant_token" else None
 
 
-def test_iot_devices_flagged_simulated():
-    with tempfile.TemporaryDirectory() as d:
+def test_iot_devices_flagged_simulated(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         n = IoTNexus(db_path=os.path.join(d, "i.db"))
         devs = n.list()
         assert devs and all(d["is_simulated"] for d in devs)  # demo envanteri mock
@@ -95,15 +96,15 @@ def test_iot_devices_flagged_simulated():
         assert [x["device_id"] for x in only_real] == ["real_plug"]
 
 
-def test_iot_mock_control_labels_simulated():
-    with tempfile.TemporaryDirectory() as d:
+def test_iot_mock_control_labels_simulated(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         n = IoTNexus(db_path=os.path.join(d, "i.db"))
         res = n.control("light_masa", "turn_on")
         assert res["ok"] is True and res["is_simulated"] is True
 
 
-def test_iot_unreachable_http_driver_never_fakes():
-    with tempfile.TemporaryDirectory() as d:
+def test_iot_unreachable_http_driver_never_fakes(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         n = IoTNexus(db_path=os.path.join(d, "i.db"))
         n.register("dead_plug", "Ölü Priz", "switch", "Salon",
                    driver="http", address="http://127.0.0.1:1/x?state={action}")
@@ -111,16 +112,16 @@ def test_iot_unreachable_http_driver_never_fakes():
         assert res["ok"] is False and "error" in res
 
 
-def test_iot_vault_token_resolution():
-    with tempfile.TemporaryDirectory() as d:
+def test_iot_vault_token_resolution(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         n = IoTNexus(db_path=os.path.join(d, "i.db"), vault=FakeVault())
         assert n._ha_token() == "VAULT-HA-TOKEN"
         n2 = IoTNexus(db_path=os.path.join(d, "i2.db"), ha_token="ARG-TOKEN")
         assert n2._ha_token() == "ARG-TOKEN"
 
 
-def test_iot_fuzzy_match_real_vs_mock():
-    with tempfile.TemporaryDirectory() as d:
+def test_iot_fuzzy_match_real_vs_mock(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         n = IoTNexus(db_path=os.path.join(d, "i.db"))
         m = n.fuzzy_match("masa lambasını aç")
         assert m and m["intent"] == "turn_on"

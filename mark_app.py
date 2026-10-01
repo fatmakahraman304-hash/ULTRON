@@ -2312,6 +2312,7 @@ def main():
     attach(ui)
     if os.environ.get("MARK_SMOKE_SECONDS"):
         from PyQt6.QtCore import QTimer
+        QTimer.singleShot(3000, lambda: ui._win.grab().save(str(get_base_dir() / "logs/mark-ui-smoke.png")))
         QTimer.singleShot(int(os.environ["MARK_SMOKE_SECONDS"]) * 1000, ui._app.quit)
 
     def runner():

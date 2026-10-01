@@ -7,6 +7,7 @@ any tamper is detected and the canonical rules are restored.
 import hashlib
 import json
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import time
 from pathlib import Path
 
@@ -54,7 +55,7 @@ class UserDNA:
     def __init__(self, path="data/dna/user_dna.db"):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS user_dna(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 ts REAL, activity_type TEXT, app_name TEXT,
@@ -62,7 +63,7 @@ class UserDNA:
 
     def insert(self, activity_type, app_name=None, focus_duration_min=None,
                mood_hint=None, note=None, ts=None):
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("INSERT INTO user_dna(ts,activity_type,app_name,focus_duration_min,mood_hint,note)"
                        " VALUES(?,?,?,?,?,?)",
                        (ts or time.time(), activity_type, app_name,
@@ -70,7 +71,7 @@ class UserDNA:
 
     def recent(self, days=7):
         since = time.time() - days * 86400
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             return db.execute("SELECT ts,activity_type,app_name,focus_duration_min,note"
                               " FROM user_dna WHERE ts>=? ORDER BY ts", (since,)).fetchall()
 

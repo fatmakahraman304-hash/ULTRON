@@ -7,6 +7,7 @@ NEUTRAL  → classic Ultron
 Manual override ("sarkazm aç/kapat") bypasses auto adaptation.
 """
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import time
 from pathlib import Path
 
@@ -23,7 +24,7 @@ class AdaptivePersona:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.override = None  # None | "sarkazm-on" | "sarkazm-off"
-        with sqlite3.connect(self.path) as db:
+        with sqlite_transaction(self.path) as db:
             db.execute("""CREATE TABLE IF NOT EXISTS emotion_adaptations(
                 id INTEGER PRIMARY KEY AUTOINCREMENT, ts REAL,
                 detected_state TEXT, applied_mode TEXT, confidence REAL)""")
@@ -48,7 +49,7 @@ class AdaptivePersona:
         else:
             applied, hint = state, HINTS.get(state)
         try:
-            with sqlite3.connect(self.path) as db:
+            with sqlite_transaction(self.path) as db:
                 db.execute("INSERT INTO emotion_adaptations(ts,detected_state,applied_mode,confidence)"
                            " VALUES(?,?,?,?)", (time.time(), state, applied or "none", confidence))
         except Exception:
@@ -57,7 +58,7 @@ class AdaptivePersona:
 
     def trends(self, limit=50):
         try:
-            with sqlite3.connect(self.path) as db:
+            with sqlite_transaction(self.path) as db:
                 rows = db.execute("SELECT ts,detected_state,applied_mode,confidence FROM"
                                   " emotion_adaptations ORDER BY id DESC LIMIT ?", (limit,)).fetchall()
             return [{"ts": r[0], "state": r[1], "applied": r[2], "confidence": r[3]}

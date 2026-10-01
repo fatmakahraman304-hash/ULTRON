@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from app.core.database import connect as managed_connect
 import time
 import uuid
 from pathlib import Path
@@ -86,7 +87,7 @@ class Worker:
 class WorkerRegistry:
     """Kalıcı worker kaydı (SQLite) — supervisor restart kurtarması için."""
     def __init__(self, db_path="data/orchestr/workers.db", max_workers=500):
-        self.path = Path(db_path); self.path.parent.mkdir(parents=True, exist_ok=True); self.max_workers = max(1, int(max_workers)); self._db = sqlite3.connect(self.path, check_same_thread=False)
+        self.path = Path(db_path); self.path.parent.mkdir(parents=True, exist_ok=True); self.max_workers = max(1, int(max_workers)); self._db = managed_connect(self.path, check_same_thread=False)
         self._db.execute("PRAGMA journal_mode=WAL")
         # WAL + NORMAL preserves transactional commits while avoiding an fsync per worker transition.
         self._db.execute("PRAGMA synchronous=NORMAL")

@@ -12,6 +12,7 @@ def test_backend_never_reports_cloud_engine(monkeypatch, tmp_path):
 def test_piper_is_selected_when_local_binary_and_model_exist(monkeypatch, tmp_path):
     model = tmp_path / "model.onnx"
     model.write_bytes(b"model")
+    model.with_suffix(".onnx.json").write_text("{}")
     monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/piper" if name == "piper" else None)
     tts = TextToSpeech({"voice": {"tts": "piper-local", "piper_model": str(model)}})
     assert tts.backend() == "piper-local"
@@ -31,6 +32,7 @@ def test_missing_local_tts_is_honest(monkeypatch, tmp_path):
 def test_piper_synthesis_uses_local_subprocess(monkeypatch, tmp_path):
     model = tmp_path / "model.onnx"
     model.write_bytes(b"model")
+    model.with_suffix(".onnx.json").write_text("{}")
     monkeypatch.setattr("shutil.which", lambda name: "/usr/bin/piper" if name == "piper" else None)
 
     def fake_run(cmd, **kwargs):

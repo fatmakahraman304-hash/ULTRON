@@ -43,6 +43,7 @@ class ShellExecutor:
             "stdout": asyncio.subprocess.PIPE,
             "stderr": asyncio.subprocess.STDOUT,
             "cwd": workdir,
+            "env": {**os.environ, "PATH": str(Path(sys.executable).parent) + os.pathsep + os.environ.get("PATH", "")},
         }
         if sys.platform.startswith("win"):
             proc = await asyncio.create_subprocess_shell(command, **kwargs)

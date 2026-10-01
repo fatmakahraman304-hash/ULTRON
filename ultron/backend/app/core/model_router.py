@@ -158,7 +158,9 @@ class ModelRouter:
 
     def race_local(self, models=None, messages=None, *, temperature=None, max_tokens=None, task=""):
         engine, cfg = self._local_engine()
-        models = models or cfg.get("models") or list(self.get_models() or [])
+        available = list(self.get_models() or [])
+        requested = models or cfg.get("models") or available
+        models = [m for m in requested if m in available] or available
         if not models:
             return []
         return engine.score_results(engine.race(
@@ -168,12 +170,14 @@ class ModelRouter:
 
     def race_local_and_judge(self, models=None, messages=None, *, system="", temperature=None, max_tokens=None, task=""):
         engine, cfg = self._local_engine()
-        models = models or cfg.get("models") or list(self.get_models() or [])
+        available = list(self.get_models() or [])
+        requested = models or cfg.get("models") or available
+        models = [m for m in requested if m in available] or available
         if not models:
             return None, []
         options = self._local_eval_options(cfg)
         return engine.race_and_judge(
-            models, messages or [], judge_model=cfg.get("judge_model"), system=system, task=task,
+            models, messages or [], judge_model=(cfg.get("judge_model") if cfg.get("judge_model") in models else models[0]), system=system, task=task,
             temperature=float(cfg.get("temperature", .2) if temperature is None else temperature),
             max_tokens=int(cfg.get("max_tokens", 2048) if max_tokens is None else max_tokens),
             liquid_min_delta=options["liquid_min_delta"],

@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 """PHASE 11: email foundation — REAL protocol-level tests.
 
 Local SMTP and IMAP servers implemented over real TCP sockets; the
@@ -146,8 +148,8 @@ def make_email(smtp_port, imap_port, addr="boss@ultron.test", pwd="s3cret"):
         settings={"email": {"smtp_host": "127.0.0.1", "smtp_port": smtp_port,
                             "imap_host": "127.0.0.1", "imap_port": imap_port,
                             "timeout_s": 5}},
-        drafts_dir="/tmp/ultron_email_test/drafts",
-        attachments_dir="/tmp/ultron_email_test/att")
+        drafts_dir=str(Path(tempfile.gettempdir()) / "ultron_email_test/drafts"),
+        attachments_dir=str(Path(tempfile.gettempdir()) / "ultron_email_test/att"))
 
 
 @pytest.fixture(scope="module")

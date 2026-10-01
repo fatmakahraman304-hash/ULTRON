@@ -16,6 +16,7 @@ from __future__ import annotations
 import fnmatch
 import json
 import sqlite3
+from app.core.database import connect as managed_connect
 import time
 import uuid
 from pathlib import Path
@@ -44,7 +45,7 @@ class AgentMessageBus:
         self.redact_fn = redact_fn or (lambda t: t)
         self.now = now or time.time
         self.registry = registry
-        self._db = sqlite3.connect(self.path, check_same_thread=False)
+        self._db = managed_connect(self.path, check_same_thread=False)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA busy_timeout=5000")
         self._waiters: dict[str, list] = {}

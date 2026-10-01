@@ -1,4 +1,5 @@
 """Wave 5 §15+§16+§19 — Proactive link, Communication, Observability."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -18,16 +19,16 @@ def make_cortex(tmp, **kw):
                            cooldown_s=30.0, **kw)
 
 
-def test_notify_high_importance_event():
-    with tempfile.TemporaryDirectory() as d:
+def test_notify_high_importance_event(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pc = make_cortex(tmp=d)
         r = pc.ingest({"kind": "deadline", "summary": "release bugüne",
                        "importance": 0.9})
         assert r["action"] == "NOTIFY"
 
 
-def test_dedup_suppresses_same_signature():
-    with tempfile.TemporaryDirectory() as d:
+def test_dedup_suppresses_same_signature(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pc = make_cortex(tmp=d)
         pc.ingest({"kind": "alert", "summary": "cpu yüksek", "importance": 0.9})
         r2 = pc.ingest({"kind": "alert", "summary": "cpu yüksek",
@@ -35,8 +36,8 @@ def test_dedup_suppresses_same_signature():
         assert r2["action"] == "suppressed" and r2["suppressed_by"] == "dedup"
 
 
-def test_cooldown_suppresses_same_kind():
-    with tempfile.TemporaryDirectory() as d:
+def test_cooldown_suppresses_same_kind(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pc = make_cortex(tmp=d)
         pc.ingest({"kind": "alert", "summary": "disk doluyor",
                    "importance": 0.9})
@@ -45,8 +46,8 @@ def test_cooldown_suppresses_same_kind():
         assert r2["suppressed_by"] == "cooldown"
 
 
-def test_low_importance_suppressed():
-    with tempfile.TemporaryDirectory() as d:
+def test_low_importance_suppressed(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pc = make_cortex(tmp=d)
         r = pc.ingest({"kind": "info", "summary": "sayaç arttı",
                        "importance": 0.2})
@@ -54,8 +55,8 @@ def test_low_importance_suppressed():
         assert pc.stats()["notified"] == 0
 
 
-def test_goal_alignment_boosts_importance():
-    with tempfile.TemporaryDirectory() as d:
+def test_goal_alignment_boosts_importance(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = GoalEngine(db_path=os.path.join(d, "g.db"))
         ge.create("release hazırla ve duyur")
         pc = make_cortex(tmp=d, goal_engine=ge)
@@ -64,8 +65,8 @@ def test_goal_alignment_boosts_importance():
         assert r["action"] == "NOTIFY" and r["importance"] >= 0.7
 
 
-def test_autonomous_action_requires_safety_gate():
-    with tempfile.TemporaryDirectory() as d:
+def test_autonomous_action_requires_safety_gate(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         s = AutonomySafety(db_path=os.path.join(d, "s.db"))
         pc = make_cortex(tmp=d, safety=s)
         r = pc.ingest({"kind": "maintenance", "summary": "log temizliği",
@@ -75,8 +76,8 @@ def test_autonomous_action_requires_safety_gate():
         assert r["action"] == "suppressed" and r["suppressed_by"] == "risk-gate-deny"
 
 
-def test_autonomous_without_safety_engine_never_autonomous():
-    with tempfile.TemporaryDirectory() as d:
+def test_autonomous_without_safety_engine_never_autonomous(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         pc = make_cortex(tmp=d)  # safety motoru YOK
         r = pc.ingest({"kind": "info", "summary": "rapor",
                        "importance": 0.9, "proposed_action": "read file"})
@@ -84,8 +85,8 @@ def test_autonomous_without_safety_engine_never_autonomous():
         assert r["action"] == "NOTIFY"
 
 
-def test_minimal_style_preference_reduces_noise():
-    with tempfile.TemporaryDirectory() as d:
+def test_minimal_style_preference_reduces_noise(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ui = UserIntelligence(db_path=os.path.join(d, "u.db"))
         for _ in range(6):
             ui.note_response_length(30)     # concise öğrenildi
@@ -130,8 +131,8 @@ def test_ambiguity_detection():
     assert c["ambiguous"] is False
 
 
-def test_response_plan_style_and_confidence():
-    with tempfile.TemporaryDirectory() as d:
+def test_response_plan_style_and_confidence(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ui = UserIntelligence(db_path=os.path.join(d, "u.db"))
         for _ in range(6):
             ui.note_response_length(200)   # deep
@@ -146,8 +147,8 @@ def test_response_plan_style_and_confidence():
 
 
 # ---------------------------------------------------------------- §19
-def test_trace_kinds_and_redaction():
-    with tempfile.TemporaryDirectory() as d:
+def test_trace_kinds_and_redaction(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         tr = CognitiveTrace(db_path=os.path.join(d, "t.db"))
         tr.log("goal", "g1", {"state": "ACTIVE"})
         tr.log("decision", "d1", {"chosen": "canary", "confidence": 0.8})
@@ -158,8 +159,8 @@ def test_trace_kinds_and_redaction():
         assert got[0]["data"]["chosen"] == "canary"
 
 
-def test_trace_secret_never_persisted():
-    with tempfile.TemporaryDirectory() as d:
+def test_trace_secret_never_persisted(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         tr = CognitiveTrace(db_path=os.path.join(d, "t.db"))
         tr.log("research", "kanıt", {"text": "token=supersecret99 bağlandı"})
         tr.log("autonomous", "aksiyon",
@@ -169,8 +170,8 @@ def test_trace_secret_never_persisted():
             assert secret not in raw      # secret DB'ye YAZILMADI bile
 
 
-def test_trace_unknown_kind_rejected():
-    with tempfile.TemporaryDirectory() as d:
+def test_trace_unknown_kind_rejected(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         tr = CognitiveTrace(db_path=os.path.join(d, "t.db"))
         try:
             tr.log("casual", "x", {})

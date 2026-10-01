@@ -103,7 +103,7 @@ class UltronRuntime:
         # ── TTS (Text-to-Speech) ──────────────────────────────────────────
         try:
             from app.voice.tts import TextToSpeech
-            self.tts = TextToSpeech()
+            self.tts = TextToSpeech(self.settings)
         except Exception as e:
             print(f"[WARN] tts: {e}")
             self.tts = _NullTTS()
@@ -556,6 +556,13 @@ class UltronRuntime:
     # ── Live Voice control ───────────────────────────────────────────────
     def start_live_voice(self) -> dict:
         """Wake-word tabanlı sesi başlat (LiveVoiceV2)."""
+        import os
+        from app.voice.live_voice_v2 import LiveVoiceV2
+        if os.environ.get("MARK_AUDIO_OWNER") == "mark":
+            return {"ok": False, "error": "Microphone owned by MARK"}
+        if not isinstance(self.live_voice, LiveVoiceV2):
+            self.live_voice_error = "Acoustic wake-word engine unavailable"
+            return {"ok": False, "error": self.live_voice_error}
         if not self.live_voice:
             return {"ok": False, "error": "live_voice bileşeni yok (sounddevice/faster-whisper kurulu mu?)"}
         try:

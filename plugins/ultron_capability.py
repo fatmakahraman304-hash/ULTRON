@@ -5,7 +5,7 @@ PLUGIN = {
     'description': 'Yerel/offline düşünme, kod yazma/analiz, planlama ve uzun agent görevleri için birleşik ULTRON motoru. Normal ses, tarayıcı ve masaüstü işlemlerinde mevcut MARK araçlarını kullan. Onay veremez; onay isteyen görevleri kullanıcıya bildir.',
     'parameters': {'type': 'OBJECT', 'properties': {
         'text': {'type': 'STRING', 'description': 'İstek'},
-        'mode': {'type': 'STRING', 'enum': ['auto', 'coding', 'fast', 'general', 'agent']}
+        'mode': {'type': 'STRING', 'enum': ['auto', 'coding', 'fast', 'general', 'agent', 'task', 'multi']}
     }, 'required': ['text']},
 }
 

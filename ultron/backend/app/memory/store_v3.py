@@ -15,6 +15,7 @@ import os
 import re
 import shutil
 import sqlite3
+from app.core.database import connect as managed_connect
 import stat
 import time
 import uuid
@@ -70,8 +71,19 @@ class MemoryStore:
     # ------------------------------------------------------------ db core
     def _conn(self) -> sqlite3.Connection:
         if self._db is None:
-            self._db = sqlite3.connect(self.path, check_same_thread=False)
-            self._db.execute("PRAGMA journal_mode=WAL")
+            # Windows can retain the killed writer's WAL mapping briefly after
+            # its process handle is signalled. Retry opening; never discard WAL.
+            for attempt in range(5):
+                self._db = managed_connect(self.path, check_same_thread=False)
+                try:
+                    self._db.execute("PRAGMA journal_mode=WAL")
+                    break
+                except sqlite3.OperationalError as exc:
+                    self._db.close()
+                    self._db = None
+                    if os.name != 'nt' or attempt == 4 or 'disk I/O' not in str(exc):
+                        raise
+                    time.sleep(0.1 * (attempt + 1))
             self._db.execute("PRAGMA synchronous=NORMAL")
             self._db.execute("PRAGMA busy_timeout=5000")
             self._db.execute("PRAGMA foreign_keys=ON")
@@ -368,7 +380,7 @@ class MemoryStore:
         backup = bdir / f"memory_v16_premigrate_{int(self.now())}.db"
         try:
             shutil.copy2(src, backup)
-            sdb = sqlite3.connect(f"file:{src}?mode=ro", uri=True)
+            sdb = managed_connect(f"file:{src}?mode=ro", uri=True)
             rows = sdb.execute("SELECT kind,content,created_at,importance,"
                                " last_access FROM memories").fetchall()
             sdb.close()

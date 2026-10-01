@@ -6,6 +6,7 @@ persona anchor is force-injected into the next system prompts (armed turns).
 """
 import re
 import sqlite3
+from app.core.database import transaction as sqlite_transaction
 import time
 from pathlib import Path
 
@@ -55,7 +56,7 @@ class PersonaGuard:
         self.emotion_state = None
         try:
             self.log_path.parent.mkdir(parents=True, exist_ok=True)
-            with sqlite3.connect(self.log_path) as db:
+            with sqlite_transaction(self.log_path) as db:
                 db.execute("""CREATE TABLE IF NOT EXISTS drift(
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     ts REAL, score REAL, violation_score REAL, violations INTEGER, mode TEXT)""")
@@ -72,7 +73,7 @@ class PersonaGuard:
 
     def _log_drift(self, rep: dict) -> None:
         try:
-            with sqlite3.connect(self.log_path) as db:
+            with sqlite_transaction(self.log_path) as db:
                 db.execute("INSERT INTO drift(ts,score,violation_score,violations,mode,emotion_state)"
                            " VALUES(?,?,?,?,?,?)",
                            (time.time(), rep["score"], rep["violation_score"],
@@ -82,7 +83,7 @@ class PersonaGuard:
 
     def trends(self, limit: int = 50) -> list[dict]:
         try:
-            with sqlite3.connect(self.log_path) as db:
+            with sqlite_transaction(self.log_path) as db:
                 rows = db.execute(
                     "SELECT ts,score,violation_score,mode FROM drift ORDER BY id DESC LIMIT ?",
                     (limit,)).fetchall()

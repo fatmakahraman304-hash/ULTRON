@@ -1,4 +1,5 @@
 """Wave 5 §12+§13+§18 — Autonomy loop, simulation, safety testleri."""
+from contextlib import nullcontext
 import os
 import sys
 import tempfile
@@ -17,15 +18,15 @@ def make_safety(tmp, **pol):
 
 
 # ---------------------------------------------------------------- §18
-def test_safety_low_risk_autonomous():
-    with tempfile.TemporaryDirectory() as d:
+def test_safety_low_risk_autonomous(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         s = make_safety(d)
         r = s.evaluate("rapor oku", "read status file")
         assert r["decision"] == "ALLOW"
 
 
-def test_safety_high_risk_needs_user_approval():
-    with tempfile.TemporaryDirectory() as d:
+def test_safety_high_risk_needs_user_approval(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         s = make_safety(d)
         r = s.evaluate("temizlik", "delete all temp files",
                        reversibility="irreversible")
@@ -35,8 +36,8 @@ def test_safety_high_risk_needs_user_approval():
         assert r2["decision"] == "NOTIFY"
 
 
-def test_safety_medium_policy_gate():
-    with tempfile.TemporaryDirectory() as d:
+def test_safety_medium_policy_gate(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         s = make_safety(d)
         r = s.evaluate("dağıt", "write config file",
                        reversibility="partially-reversible")
@@ -47,8 +48,8 @@ def test_safety_medium_policy_gate():
         assert r2["decision"] == "DENY"
 
 
-def test_safety_policy_override_and_audit():
-    with tempfile.TemporaryDirectory() as d:
+def test_safety_policy_override_and_audit(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         s = make_safety(d, **{"git push": "high"})
         r = s.evaluate("yayınla", "git push origin main")
         assert r["risk"] == "high"
@@ -57,8 +58,8 @@ def test_safety_policy_override_and_audit():
 
 
 # ---------------------------------------------------------------- §13
-def test_dry_run_previews_and_never_executes():
-    with tempfile.TemporaryDirectory() as d:
+def test_dry_run_previews_and_never_executes(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         target = os.path.join(d, "file.txt")
         with open(target, "w", encoding="utf-8") as f:
             f.write("eski içerik")
@@ -84,8 +85,8 @@ def json_dumps(x):
     return json.dumps(x)
 
 
-def test_dry_run_shell_risk_hint_and_outside_workspace():
-    with tempfile.TemporaryDirectory() as d:
+def test_dry_run_shell_risk_hint_and_outside_workspace(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         sim = Simulator(db_path=os.path.join(d, "sim.db"), root=d)
         r = sim.dry_run("tehlike", [
             {"name": "rm logs", "type": "shell", "command": "rm -rf /tmp/x"},
@@ -98,8 +99,8 @@ def test_dry_run_shell_risk_hint_and_outside_workspace():
             "inside_workspace"] is False
 
 
-def test_what_if_variants_and_history():
-    with tempfile.TemporaryDirectory() as d:
+def test_what_if_variants_and_history(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         sim = Simulator(db_path=os.path.join(d, "sim.db"), root=d)
         w = sim.what_if("deploy", {
             "hızlı": [{"name": "shell push", "type": "shell",
@@ -123,8 +124,8 @@ def ok_exec(action):
             "cost": 0.01, "tokens": 10}
 
 
-def test_loop_completes_plan_with_checkpoints():
-    with tempfile.TemporaryDirectory() as d:
+def test_loop_completes_plan_with_checkpoints(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         loop = make_loop(d)
         r = loop.run("hedef", [
             {"name": "adım1"}, {"name": "adım2"}], ok_exec,
@@ -135,8 +136,8 @@ def test_loop_completes_plan_with_checkpoints():
         assert len(cps) == 2 and not any(c["rolled_back"] for c in cps)
 
 
-def test_loop_budget_iteration_limit():
-    with tempfile.TemporaryDirectory() as d:
+def test_loop_budget_iteration_limit(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         loop = make_loop(d)
         r = loop.run("sonsuz", [{"name": f"a{i}"} for i in range(10)],
                      ok_exec, budgets=Budgets(max_iterations=3))
@@ -145,8 +146,8 @@ def test_loop_budget_iteration_limit():
         assert r["iterations"] == 3
 
 
-def test_loop_budget_time_limit():
-    with tempfile.TemporaryDirectory() as d:
+def test_loop_budget_time_limit(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         loop = make_loop(d)
 
         def slow(a):
@@ -159,8 +160,8 @@ def test_loop_budget_time_limit():
         assert "seconds" in r["stop_reason"]
 
 
-def test_loop_cancel_stops_immediately():
-    with tempfile.TemporaryDirectory() as d:
+def test_loop_cancel_stops_immediately(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         loop = make_loop(d)
 
         def cancelling_exec(a):
@@ -171,8 +172,8 @@ def test_loop_cancel_stops_immediately():
         assert r["status"] == "CANCELLED" and r["iterations"] == 1
 
 
-def test_loop_verify_fail_without_replan_stops():
-    with tempfile.TemporaryDirectory() as d:
+def test_loop_verify_fail_without_replan_stops(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         loop = make_loop(d)
         r = loop.run("doğrulanamaz", [{"name": "a"}], ok_exec,
                      verifier=lambda res, goal: False)
@@ -180,8 +181,8 @@ def test_loop_verify_fail_without_replan_stops():
         assert r["results"][0]["verified"] is False
 
 
-def test_loop_replan_then_success():
-    with tempfile.TemporaryDirectory() as d:
+def test_loop_replan_then_success(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         loop = make_loop(d)
         calls = {"n": 0}
 
@@ -202,8 +203,8 @@ def test_loop_replan_then_success():
         assert r["results"][-1]["action"] == "dayanıklı"
 
 
-def test_loop_safety_deny_stops_run():
-    with tempfile.TemporaryDirectory() as d:
+def test_loop_safety_deny_stops_run(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         s = make_safety(d)
         loop = make_loop(d, safety=s)
         # politika kapısı REDdediyor → döngü güvenlik nedeniyle durur
@@ -213,8 +214,8 @@ def test_loop_safety_deny_stops_run():
         assert "delete" in r["stop_reason"]
 
 
-def test_loop_goal_completion_requires_evidence_path():
-    with tempfile.TemporaryDirectory() as d:
+def test_loop_goal_completion_requires_evidence_path(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         ge = GoalEngine(db_path=os.path.join(d, "g.db"))
         loop = make_loop(d, goal_engine=ge)
         gid = ge.create("otonom hedef")["goal"]
@@ -226,8 +227,8 @@ def test_loop_goal_completion_requires_evidence_path():
         assert g["status"] == "DONE" and "çıktı" in g["evidence"]
 
 
-def test_checkpoint_rollback_restores_state():
-    with tempfile.TemporaryDirectory() as d:
+def test_checkpoint_rollback_restores_state(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         loop = make_loop(d)
         r = loop.run("cp", [{"name": "a"}, {"name": "b"}], ok_exec)
         cps = loop.checkpoints(r["run_id"])
@@ -237,8 +238,8 @@ def test_checkpoint_rollback_restores_state():
         assert loop.rollback_to(9999)["ok"] is False
 
 
-def test_run_status_persisted():
-    with tempfile.TemporaryDirectory() as d:
+def test_run_status_persisted(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
         loop = make_loop(d)
         r = loop.run("kalıcı", [{"name": "x"}], ok_exec)
         st = loop.run_status(r["run_id"])
