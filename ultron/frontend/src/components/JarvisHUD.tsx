@@ -41,19 +41,24 @@ export function JarvisHUD() {
 
   useEffect(() => {
     fetch("/api/capabilities").then((r) => r.ok ? r.json() : Promise.reject()).then((d) => {
-      if (Array.isArray(d)) setItems(d);
+      if (Array.isArray(d)) setItems(d.map((row: Capability & { label?: string; detail?: string }) => ({
+        ...row,
+        name: row.name ?? row.label ?? row.id,
+        description: row.description ?? row.detail,
+        status: String(row.status ?? "unavailable").toLowerCase(),
+      })));
     }).catch(() => undefined);
   }, []);
 
   const visible = useMemo(() => items.filter((x) => `${x.name} ${x.id} ${x.description ?? ""}`.toLowerCase().includes(query.toLowerCase())), [items, query]);
   const active = items.find((x) => x.id === selected) ?? items[0];
-  const implemented = items.filter((x) => x.status === "implemented").length;
+  const implemented = items.filter((x) => x.status === "ready").length;
 
   return (
     <section className="jarvis-hud" aria-label="ULTRON JARVIS capability cockpit">
       <header className="jarvis-head">
         <div><div className="jarvis-kicker">JARVIS → ULTRON</div><h2>NEURAL COCKPIT</h2></div>
-        <div className="jarvis-count">{implemented}/{items.length} LIVE</div>
+        <div className="jarvis-count">{implemented}/{items.length} READY</div>
       </header>
       <div className="jarvis-search"><Search size={13} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search capability…" /></div>
       <div className="jarvis-grid">

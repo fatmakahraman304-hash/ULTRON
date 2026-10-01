@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import time
+import tempfile
 from urllib.request import urlopen
 from .paths import ROOT, BACKEND, LOGS, DATA
 
@@ -91,7 +92,10 @@ def main():
         if not run([sys.executable, '-m', 'playwright', 'install', 'chromium'], optional=True):
             warnings.append('Playwright browser download failed')
         warnings += prepare_models()
-        run([sys.executable, '-m', 'pytest', 'tests', '-q'], timeout=600)
+        # Isolate each run from ACLs and locks in another session's pytest temp area.
+        test_temp = Path(tempfile.mkdtemp(prefix='install-tests-', dir=ROOT/'cache'))/'run'
+        run([sys.executable, '-m', 'pytest', 'tests', '-q', '-p', 'no:cacheprovider',
+             '--basetemp', str(test_temp)], timeout=600)
         run([sys.executable, '-m', 'integration.doctor', '--quick'], timeout=600)
         (LOGS/'install-result.json').write_text(json.dumps({'core':'PASS','warnings':warnings},indent=2),encoding='utf-8')
         print('Kurulum tamamlandi.' if not warnings else 'Kurulum tamamlandi; optional WARN: '+ '; '.join(warnings), flush=True)
