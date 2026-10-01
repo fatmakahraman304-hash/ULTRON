@@ -89,7 +89,7 @@ def test_metrics_aggregation(tmp_path):
         assert m["total_errors"] == 2
 
 
-def test_production_code_untouched(tmp_path=None):
+def test_production_code_untouched(tmp_path):
     """Öğrenme yalnız bilgi katmanına yazar — kod dosyası DEĞİŞMEZ."""
     import hashlib
     with nullcontext(str(tmp_path)) as d:

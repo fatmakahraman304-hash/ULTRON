@@ -13,8 +13,16 @@ def install(app, hub):
 
     @web.middleware
     async def boundary(req, handler):
-        if token and not hmac.compare_digest(req.headers.get('X-MARK-Token', ''), token):
-            return web.json_response({'ok': False, 'error': 'unauthorized'}, status=401)
+        if req.path == '/merged/dashboard' and req.method == 'GET':
+            return await handler(req)
+        if token:
+            header_ok = hmac.compare_digest(req.headers.get('X-MARK-Token', ''), token)
+            cookie_ok = hmac.compare_digest(req.cookies.get('mark_session', ''), token)
+            origin = req.headers.get('Origin')
+            same_origin = origin == f'{req.scheme}://{req.host}'
+            if not header_ok and (not cookie_ok or (origin and not same_origin)
+                    or (req.method not in ('GET', 'HEAD') and not same_origin)):
+                return web.json_response({'ok': False, 'error': 'unauthorized'}, status=401)
         if os.environ.get('MARK_AUDIO_OWNER') == 'mark' and req.path in {
             '/api/voice/live', '/api/voice/ptt'} and req.method == 'POST':
             return web.json_response({'ok': False, 'status': 'OWNED_BY_MARK'}, status=409)
@@ -106,8 +114,30 @@ def install(app, hub):
             raise web.HTTPNotFound()
         return web.FileResponse(target)
 
+    async def dashboard(req):
+        # Fragment never reaches HTTP logs. Exchange it for a session-only cookie.
+        return web.Response(text='''<!doctype html><html lang="tr"><meta charset="utf-8">
+<title>MARK · ULTRON</title><p id="status">Panel açılıyor…</p><script>
+const token = location.hash.slice(1); history.replaceState(null, '', location.pathname);
+fetch('/api/merged/session', {method:'POST', headers:{'X-MARK-Token':token}})
+.then(r => {if (!r.ok) throw Error('Yetkilendirme başarısız. MARK panelinden tekrar açın.');
+location.replace('/frontend/index.html');})
+.catch(e => document.getElementById('status').textContent=e.message);
+</script></html>''', content_type='text/html', headers={'Cache-Control':'no-store',
+            'Referrer-Policy':'no-referrer', 'Content-Security-Policy':
+            "default-src 'none'; script-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"})
+
+    async def session(req):
+        if not token or not hmac.compare_digest(req.headers.get('X-MARK-Token', ''), token):
+            raise web.HTTPUnauthorized()
+        response = web.json_response({'ok': True}, headers={'Cache-Control':'no-store'})
+        response.set_cookie('mark_session', token, httponly=True, samesite='Strict', path='/')
+        return response
+
     app.router.add_get('/api/merged/health', health)
     app.router.add_post('/api/merged/invoke', invoke)
     app.router.add_post('/api/merged/tool', tool)
     app.router.add_post('/api/merged/shutdown', shutdown)
+    app.router.add_get('/merged/dashboard', dashboard)
+    app.router.add_post('/api/merged/session', session)
     app.router.add_get('/{surface:frontend|frontend-mobile}/{asset:.*}', frontend)

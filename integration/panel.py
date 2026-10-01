@@ -2,7 +2,8 @@
 import json
 import os
 import threading
-from PyQt6.QtCore import QObject, QThread, pyqtSignal, Qt
+from PyQt6.QtCore import QObject, pyqtSignal, Qt, QUrl
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QDockWidget, QWidget, QVBoxLayout, QLineEdit, QPushButton, QTextEdit, QComboBox, QMessageBox
 from .bridge import Bridge
 
@@ -17,11 +18,13 @@ class Worker(QObject):
     def run(self):
         try:
             result = Bridge().ask(self.text, self.mode)
-            self.done.emit(result.get('text') or json.dumps(result, ensure_ascii=False))
-        except RuntimeError:
-            return  # UI was closed while a bounded request was pending
+            message = result.get('text') or json.dumps(result, ensure_ascii=False)
         except Exception as exc:
-            self.done.emit(f'Yerel motor: {exc}')
+            message = f'Yerel motor: {exc}'
+        try:
+            self.done.emit(message)
+        except RuntimeError:
+            return  # Qt widget was deleted during the bounded request.
         finally:
             try: self.finished.emit()
             except RuntimeError: return
@@ -44,7 +47,8 @@ def attach(ui):
     send = QPushButton('Gönder')
     status = QPushButton('Sağlık / Görev durumu')
     approval = QPushButton('Bekleyen onayı incele')
-    for widget in (output, mode, entry, send, status, approval):
+    dashboard = QPushButton('ULTRON görev panelini aç')
+    for widget in (output, mode, entry, send, status, approval, dashboard):
         layout.addWidget(widget)
     dock.setWidget(panel)
     ui._win.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
@@ -88,5 +92,12 @@ def attach(ui):
     entry.returnPressed.connect(submit)
     status.clicked.connect(check)
     approval.clicked.connect(review)
+    def open_dashboard():
+        b = Bridge()
+        if b.url:
+            QDesktopServices.openUrl(QUrl(b.url + '/merged/dashboard#' + b.token))
+        else:
+            output.append('ULTRON servisi hazır değil.')
+    dashboard.clicked.connect(open_dashboard)
     ui._merged_dock = dock
     ui._merged_workers = workers

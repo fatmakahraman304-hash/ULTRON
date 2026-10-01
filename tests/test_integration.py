@@ -99,6 +99,32 @@ def test_service_rejects_bad_token(service):
     assert exc.value.code==401
 
 
+def test_browser_session_assets_and_csrf(service):
+    from urllib.request import Request, urlopen
+    url=service.bridge.url
+    with urlopen(Request(url+'/api/merged/session',data=b'',headers={'X-MARK-Token':service.bridge.token})) as response:
+        cookie=response.headers['Set-Cookie']
+        assert 'HttpOnly' in cookie and 'SameSite=Strict' in cookie
+    headers={'Cookie':cookie.split(';')[0]}
+    for surface in ('frontend','frontend-mobile'):
+        with urlopen(Request(url+'/'+surface+'/index.html',headers=headers)) as response:
+            html=response.read().decode()
+        import re
+        assets=re.findall(r'(?:src|href)="(\./assets/[^\"]+)"',html)
+        assert assets
+        for asset in assets:
+            with urlopen(Request(url+'/'+surface+'/'+asset[2:],headers=headers)) as response:
+                assert response.status==200
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urlopen(Request(url+'/api/merged/tool',data=b'{}',headers={**headers,'Origin':'https://untrusted.example'}))
+    assert exc.value.code==401
+    with pytest.raises(urllib.error.HTTPError):
+        urlopen(Request(url+'/api/merged/tool',data=b'{}',headers=headers))
+    payload=json.dumps({'name':'calculate','arguments':{'text':'2+3'}}).encode()
+    with urlopen(Request(url+'/api/merged/tool',data=payload,headers={**headers,'Origin':url,'Content-Type':'application/json'})) as response:
+        assert json.load(response)['result']==['5']
+
+
 def test_microphone_cannot_be_claimed_by_backend(service):
     with pytest.raises(urllib.error.HTTPError) as exc:
         service.bridge.request('/api/voice/live',{'action':'start'})

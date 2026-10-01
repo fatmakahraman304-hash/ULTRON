@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 $env:PYTHONUTF8 = '1'
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $projectRoot 'cache\playwright'
 $pythonExe = Join-Path $projectRoot '.venv\Scripts\python.exe'
 try {
     if ($Mode -eq 'install' -and -not (Test-Path -LiteralPath $pythonExe)) {

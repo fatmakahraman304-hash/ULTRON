@@ -30,9 +30,18 @@ def run(args, cwd=ROOT, timeout=1200, optional=False):
 
 
 def ollama_executable():
-    return shutil.which('ollama') or next((str(p) for p in (
+    executable = shutil.which('ollama')
+    if executable:
+        return executable
+    for p in (
         Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'Programs/Ollama/ollama.exe',
-        ROOT / 'runtime/ollama/ollama.exe') if p.is_file()), None)
+        ROOT / 'runtime/ollama/ollama.exe'):
+        try:
+            if p.is_file():
+                return str(p)
+        except PermissionError:
+            continue
+    return None
 
 
 def prepare_models():
@@ -42,17 +51,17 @@ def prepare_models():
     if ollama:
         run([ollama, '--version'], optional=True)
         run([ollama, 'list'], optional=True)
-        try:
-            with urlopen('http://127.0.0.1:11434/api/tags', timeout=5) as response:
-                installed = {m['name'] for m in json.load(response).get('models', [])}
-            desired = {settings['llm']['model']} | {v for k,v in settings['llm']['routing'].items() if k != 'note'}
-            for model in sorted(desired - installed):
-                if not run([ollama, 'pull', model], timeout=1800, optional=True):
-                    warnings.append('Ollama model: '+model)
-        except (OSError, ValueError) as exc:
-            warnings.append('Ollama API unavailable: '+str(exc))
     else:
-        warnings.append('Ollama executable unavailable; Gemini and MARK remain available')
+        warnings.append('Ollama CLI unavailable; checking running API separately')
+    try:
+        with urlopen('http://127.0.0.1:11434/api/tags', timeout=5) as response:
+            installed = {m['name'] for m in json.load(response).get('models', [])}
+        desired = {settings['llm']['model']} | {v for k,v in settings['llm']['routing'].items() if k != 'note'}
+        for model in sorted(desired - installed):
+            if not ollama or not run([ollama, 'pull', model], timeout=1800, optional=True):
+                warnings.append('Ollama model: '+model)
+    except (OSError, ValueError) as exc:
+        warnings.append('Ollama API unavailable: '+str(exc))
     if not run([sys.executable, '-m', 'integration.models'], optional=True, timeout=900):
         warnings.append('Voice model preparation incomplete')
     return warnings
@@ -62,6 +71,9 @@ def main():
     os.chdir(ROOT)
     LOGS.mkdir(exist_ok=True)
     DATA.mkdir(exist_ok=True)
+    os.environ['npm_config_cache'] = str(ROOT/'cache/npm')
+    os.environ['PIP_CACHE_DIR'] = str(ROOT/'cache/pip')
+    os.environ['PLAYWRIGHT_BROWSERS_PATH'] = str(ROOT/'cache/playwright')
     try:
         run([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip', 'setuptools', 'wheel'])
         for group in ('requirements.txt', 'requirements-local-ai.txt', 'requirements-dev.txt'):
@@ -85,6 +97,7 @@ def main():
         print('Kurulum tamamlandi.' if not warnings else 'Kurulum tamamlandi; optional WARN: '+ '; '.join(warnings), flush=True)
         return 0
     except Exception as exc:
+        (LOGS/'install-result.json').write_text(json.dumps({'core':'FAIL','error':str(exc)},indent=2),encoding='utf-8')
         print('INSTALL FAIL:', exc, flush=True)
         return 1
 

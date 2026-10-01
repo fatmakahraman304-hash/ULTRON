@@ -19,19 +19,25 @@ def main():
     errors = []
     try:
         import openwakeword.utils
-        openwakeword.utils.download_models(['hey_jarvis'])
         from openwakeword.model import Model
-        Model(wakeword_models=['hey_jarvis'], inference_framework='onnx')
+        try:
+            Model(wakeword_models=['hey_jarvis'], inference_framework='onnx')
+        except (OSError, ValueError):
+            openwakeword.utils.download_models(['hey_jarvis'])
+            Model(wakeword_models=['hey_jarvis'], inference_framework='onnx')
         print('PASS: pretrained hey_jarvis model load')
     except Exception as exc:
         errors.append('Wake: '+str(exc))
     try:
         from huggingface_hub import snapshot_download
         path = ROOT/'ultron/models/whisper-tiny'
-        snapshot_download('Systran/faster-whisper-tiny',local_dir=path,
-            allow_patterns=['config.json','model.bin','tokenizer.json','vocabulary.*','preprocessor_config.json'])
         from faster_whisper import WhisperModel
-        WhisperModel(str(path),device='cpu',compute_type='int8',local_files_only=True)
+        try:
+            WhisperModel(str(path),device='cpu',compute_type='int8',local_files_only=True)
+        except (OSError, RuntimeError, ValueError):
+            snapshot_download('Systran/faster-whisper-tiny',local_dir=path,
+                allow_patterns=['config.json','model.bin','tokenizer.json','vocabulary.*','preprocessor_config.json'])
+            WhisperModel(str(path),device='cpu',compute_type='int8',local_files_only=True)
         print('PASS: Whisper tiny CPU int8 load')
     except Exception as exc:
         errors.append('STT: '+str(exc))

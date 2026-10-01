@@ -148,7 +148,9 @@ def main():
             return 0
         except (Unavailable,FileNotFoundError,ModuleNotFoundError) as exc:
             print(type(exc).__name__+': '+str(exc)); return 2
-        except Exception:
+        except Exception as exc:
+            if (args.probe == 'Playwright' and ('spawn EPERM' in str(exc) or 'Executable doesn\'t exist' in str(exc))) or (args.probe == 'Screen capture' and isinstance(exc, OSError) and 'screen grab failed' in str(exc)):
+                print('UNAVAILABLE: OS session/access restriction: '+str(exc)); return 2
             import traceback
             traceback.print_exc(); return 1
     rows=[]
@@ -167,7 +169,8 @@ def main():
             record(name,status,(result.stdout+result.stderr) if result.returncode else '')
         except subprocess.TimeoutExpired:
             record(name,'FAIL','timeout')
-    record('Custom ULTRON wake','WARN','CUSTOM_MODEL_NOT_INSTALLED')
+    custom=[p for p in (BACKEND/'data/voice/wake/ultron.onnx',BACKEND/'data/voice/wake/ultron.tflite') if p.is_file()]
+    record('Custom ULTRON wake','WARN','Custom model present; acoustic validation required' if custom else 'CUSTOM_MODEL_NOT_INSTALLED')
     try:
         with Services() as service:
             health=service.start()
@@ -185,8 +188,12 @@ def main():
             record('MARK-ULTRON bridge','PASS' if found else 'FAIL')
             if mem.get('id'):
                 service.bridge.request('/api/memory/v16/delete',{'id':mem['id']})
-            pending=service.bridge.request('/api/task/pending')
-            record('Security approval','PASS' if not pending else 'WARN','No automatic approval issued')
+            with tempfile.TemporaryDirectory() as folder:
+                target=Path(folder)/'forbidden.txt'
+                denied=service.bridge.request('/api/merged/tool',{'name':'write_text','arguments':{'path':str(target),'content':'forbidden'},'approved':True})
+                record('Security approval','PASS' if not denied.get('ok') and not target.exists() else 'FAIL','Caller self-approval rejected')
+            calculated=service.bridge.request('/api/merged/tool',{'name':'calculate','arguments':{'text':'2+3'}})
+            record('Tool invocation','PASS' if calculated.get('result')==['5'] else 'FAIL')
             for folder,label in [('frontend','Desktop frontend'),('frontend-mobile','Mobile frontend')]:
                 from urllib.request import Request,urlopen
                 with urlopen(Request(service.bridge.url+'/'+folder+'/index.html',headers={'X-MARK-Token':service.bridge.token}),timeout=10) as response:
@@ -198,6 +205,23 @@ def main():
                 record('Ollama inference','PASS' if reply.get('ok') and reply.get('text') else 'FAIL',reply.get('error',''))
             else:
                 record('Ollama inference','WARN','Not run in quick mode' if args.quick else 'UNAVAILABLE')
+            models=health['ollama'].get('models',[])
+            models=[m if isinstance(m,str) else m.get('name','') for m in models]
+            vision=next((m for m in models if 'llava' in m),None)
+            if args.quick or not vision:
+                record('Vision model','WARN','Not run in quick mode' if args.quick else 'NOT_INSTALLED')
+            else:
+                from urllib.request import Request,urlopen
+                from PIL import Image
+                import base64,io
+                buffer=io.BytesIO();Image.new('RGB',(64,64),'red').save(buffer,format='PNG')
+                body={'model':vision,'prompt':'Name the main color. One word.', 'images':[base64.b64encode(buffer.getvalue()).decode()], 'stream':False,'options':{'num_predict':20}}
+                try:
+                    with urlopen(Request('http://127.0.0.1:11434/api/generate',data=json.dumps(body).encode(),headers={'Content-Type':'application/json'}),timeout=180) as response:
+                        answer=json.load(response)
+                    record('Vision model','PASS' if answer.get('response','').strip() else 'FAIL','Actual image inference: '+answer.get('response',''))
+                except (OSError,ValueError) as exc:
+                    record('Vision model','WARN','Inference unavailable: '+str(exc))
     except Exception as exc:
         record('Backend/bridge','FAIL',exc)
     (LOGS/'doctor.json').write_text(json.dumps(rows,ensure_ascii=False,indent=2),encoding='utf-8')
