@@ -31,6 +31,12 @@ class Worker(QObject):
 
 
 def attach(ui):
+    try:
+        from .web_panel import attach as attach_web
+        if attach_web(ui):
+            return
+    except ImportError:
+        ui.write_log('SYS: WebEngine yok; yerel MARK arayüzü kullanılacak. INSTALL.bat ile kurulabilir.')
     dock = QDockWidget('MARK · Yerel AI / Görevler', ui._win)
     panel = QWidget()
     layout = QVBoxLayout(panel)

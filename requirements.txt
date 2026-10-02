@@ -109,3 +109,4 @@ pynvml                       # system_monitor + the HUD's GPU meter (NVIDIA)
 # packages are needed there — nothing Windows-specific is ever pulled in.
 
 charset-normalizer==3.4.4
+PyQt6-WebEngine>=6.8,<7

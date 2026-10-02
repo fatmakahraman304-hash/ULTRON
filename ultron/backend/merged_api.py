@@ -104,6 +104,36 @@ def install(app, hub):
         asyncio.get_running_loop().call_later(0.2, stop)
         return web.json_response({'ok': True})
 
+    async def document(req):
+        import base64
+        import binascii
+        import io
+        try:
+            body=await req.json()
+            name=str(body.get('name',''))
+            data=base64.b64decode(body.get('data',''),validate=True)
+            if not data or len(data)>8*1024*1024:
+                raise ValueError('Dosya boş veya 8 MB sınırını aşıyor.')
+            suffix=Path(name).suffix.lower()
+            def extract():
+                if suffix=='.pdf':
+                    from pypdf import PdfReader
+                    reader=PdfReader(io.BytesIO(data))
+                    if reader.is_encrypted:
+                        raise ValueError('Şifreli PDF desteklenmiyor.')
+                    return '\n'.join((page.extract_text() or '')[:12000] for page in reader.pages[:30])[:36000]
+                if suffix not in {'.txt','.md','.json','.csv','.py','.js','.ts','.tsx','.html','.css'}:
+                    raise ValueError('PDF veya metin dosyası seçin.')
+                return data.decode('utf-8-sig')[:36000]
+            text=await asyncio.wait_for(asyncio.to_thread(extract),20)
+            if not text.strip():
+                raise ValueError('Dosyada okunabilir metin bulunamadı; taranmış PDF için OCR gerekir.')
+            return web.json_response({'ok':True,'text':text})
+        except (ValueError,TypeError,AttributeError,binascii.Error,UnicodeError) as exc:
+            return web.json_response({'ok':False,'error':str(exc)},status=400)
+        except Exception:
+            return web.json_response({'ok':False,'error':'Dosya okunamadı. Geçerli bir PDF veya UTF-8 metin dosyası seçin.'},status=400)
+
     async def frontend(req):
         root = Path(__file__).resolve().parents[1] / req.match_info['surface'] / 'dist'
         relative = req.match_info.get('asset') or 'index.html'
@@ -138,6 +168,7 @@ location.replace('/frontend/index.html');})
     app.router.add_post('/api/merged/invoke', invoke)
     app.router.add_post('/api/merged/tool', tool)
     app.router.add_post('/api/merged/shutdown', shutdown)
+    app.router.add_post('/api/merged/document', document)
     app.router.add_get('/merged/dashboard', dashboard)
     app.router.add_post('/api/merged/session', session)
     app.router.add_get('/{surface:frontend|frontend-mobile}/{asset:.*}', frontend)

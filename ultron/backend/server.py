@@ -1581,7 +1581,7 @@ async def cors_middleware(req: web.Request, handler):
 
 def main() -> None:
     os.chdir(BASE)  # V16 relative data paths (data/memory, data/logs, data/vault)
-    app = web.Application(middlewares=[auth_middleware, cors_middleware])
+    app = web.Application(middlewares=[auth_middleware, cors_middleware], client_max_size=12*1024*1024)
     from merged_api import install
     install(app, hub)
     app.on_startup.append(on_startup)

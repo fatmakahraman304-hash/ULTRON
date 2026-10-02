@@ -1,44 +1,5 @@
-import { useEffect, useState } from "react";
-import { connectWS, handshake } from "./lib/api";
-import { startMeshWatch } from "./lib/mesh_client";
-import { useMeshTheme } from "./lib/useMeshTheme";
-import { useM } from "./lib/store";
-import { TabBar } from "./components/TabBar";
-import { Home } from "./pages/Home";
-import { Chat } from "./pages/Chat";
-import { Voice } from "./pages/Voice";
-import { Vision } from "./pages/Vision";
-import { More } from "./pages/More";
-
-export type Page = "home" | "chat" | "voice" | "vision" | "more";
-
-export default function App() {
-  const [page, setPage] = useState<Page>("home");
-  const connected = useM((s) => s.connected);
-  const agentState = useM((s) => s.agentState);
-  useMeshTheme(); // PC tema senkronu (offline → local)
-
-  useEffect(() => {
-    void handshake().finally(() => { connectWS(); startMeshWatch(); });
-  }, []);
-
-  return (
-    <div className="app">
-      <div className="top">
-        <span className="logo"><b>ULTRON</b> MOBILE</span>
-        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span className="state-chip">{agentState}</span>
-          <span className={"badge " + (connected ? "g" : "r")}>{connected ? "ONLINE" : "OFFLINE"}</span>
-        </span>
-      </div>
-      <div className="page">
-        {page === "home" && <Home go={setPage} />}
-        {page === "chat" && <Chat />}
-        {page === "voice" && <Voice />}
-        {page === "vision" && <Vision />}
-        {page === "more" && <More />}
-      </div>
-      <TabBar page={page} go={setPage} />
-    </div>
-  );
-}
+import { lazy, Suspense } from 'react';
+import Cockpit from '../../frontend/src/cockpit/Cockpit';
+const Legacy=lazy(()=>import('./LegacyApp'));
+export type Page = 'home' | 'chat' | 'voice' | 'vision' | 'more';
+export default function App(){return location.search.includes('legacy=1')?<Suspense fallback={<p>Yükleniyor…</p>}><Legacy/><button style={{position:'fixed',top:50,right:12,zIndex:9999,padding:8,background:'#181d24',color:'white',border:'1px solid #66313e'}} onClick={()=>location.assign('/frontend-mobile/index.html')}>← Yeni arayüz</button></Suspense>:<Cockpit mobile/>;}

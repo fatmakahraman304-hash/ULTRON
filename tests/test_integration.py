@@ -164,3 +164,17 @@ def test_plugin_reaches_real_backend(service,monkeypatch):
     plugin=load_file('merged_plugin_test',ROOT/'plugins/ultron_capability.py')
     # Invalid mode proves a real HTTP roundtrip and an intelligible failure, no model dependency.
     assert '400' in plugin.run({'text':'test','mode':'invalid'})
+
+
+def test_document_extracts_utf8_and_bounds_content(service):
+    import base64
+    text='Türkçe belge\n'+'a'*40000
+    result=service.bridge.request('/api/merged/document',{'name':'belge.txt','data':base64.b64encode(text.encode()).decode()})
+    assert result['ok'] and result['text']==text[:36000]
+
+
+@pytest.mark.parametrize('name,data',[('bad.txt','%%%'),('empty.txt',''),('program.exe','aGVsbG8='),('broken.pdf','aGVsbG8=')])
+def test_document_rejects_invalid_files(service,name,data):
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        service.bridge.request('/api/merged/document',{'name':name,'data':data})
+    assert exc.value.code==400
