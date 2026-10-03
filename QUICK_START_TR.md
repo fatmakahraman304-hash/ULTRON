@@ -16,4 +16,4 @@ Ana masaüstü siyah metal paneller, kırmızı vurgu, gümüş başlık ve yük
 
 Parçacık halkası 3.000 ışık noktası ve hareketli yörüngelerle çizilir; ölçek ve ekran yoğunluğu değiştiğinde önbellek yeniden üretilir. Yüz maskesi ve sağ alttaki imza kaldırılmıştır.
 
-Paneller kesik köşeli metal katmanlarla çizilir. Konuşma, dosya ve komut alanları ayrı çerçevelerdedir. Merkez arka planındaki teknik şemalar dekoratiftir; sistem kartlarının küçük grafikleri gerçek ölçüm geçmişini gösterir.
+Paneller kesik köşeli metal katmanlarla çizilir. Konuşma, dosya ve komut alanları ayrı çerçevelerdedir. İşlevsiz yan şemalar kaldırılmıştır. Merkezde metal dokulu bir sahne görseli bulunur; parçacık halkası canlı çizilir. Sistem kartlarının küçük grafikleri gerçek ölçüm geçmişini gösterir.

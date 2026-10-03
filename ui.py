@@ -858,7 +858,6 @@ class HudCanvas(QWidget):
         if self._grid_cache is None or self._grid_key != _gkey:
             self._grid_cache = self._make_grid(W, H)
             self._grid_key   = _gkey
-        p.drawPixmap(0, 0, self._grid_cache)
         paint_environment(p, W, H, self._core_phase)
 
         # ── holographic head ────────────────────────────────────────────────
@@ -1025,7 +1024,7 @@ class LogWidget(QTextEdit):
         # without bound — keeps memory flat and every insert cheap. Oldest
         # lines drop off the top automatically.
         self.document().setMaximumBlockCount(600)
-        self.setFont(QFont("Consolas", 10))
+        self.setFont(QFont("Consolas", 11))
         self.setStyleSheet(f"""
             QTextEdit {{
                 background: {C.PANEL};
@@ -1276,7 +1275,7 @@ class _DropCanvas(QWidget):
         p.setFont(QFont("Courier New", 8))
         p.setPen(QPen(qcol(C.PRI_DIM if not hover else C.TEXT), 1))
         p.drawText(QRectF(0, cy + 8, W, 16), Qt.AlignmentFlag.AlignCenter,
-                   "Drop file here  or  Click to Browse")
+                   "Dosyayı bırak veya seç")
         p.setFont(QFont("Courier New", 7))
         p.setPen(QPen(qcol("#1a4a5a"), 1))
         p.drawText(QRectF(0, cy + 24, W, 14), Qt.AlignmentFlag.AlignCenter,
@@ -3959,7 +3958,7 @@ class MainWindow(QMainWindow):
 
         
         lay.addSpacing(8)
-        self._drawer_btn = QPushButton("AYARLAR")
+        self._drawer_btn = QPushButton("Ayarlar")
         self._drawer_btn.setFixedSize(86, 34)
         self._drawer_btn.setFont(QFont("Segoe UI", 9))
         self._drawer_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -3983,7 +3982,7 @@ class MainWindow(QMainWindow):
         # the assistant up sitting next to the ones you flick on and off every
         # day. Separating them by that — setup behind ⚙, everyday behind 🎛 —
         # is what makes each list short enough to read at a glance.
-        self._ctrl_btn = QPushButton("KONTROL")
+        self._ctrl_btn = QPushButton("Kontroller")
         self._ctrl_btn.setFixedSize(86, 34)
         self._ctrl_btn.setFont(QFont("Segoe UI", 9))
         self._ctrl_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -4137,7 +4136,7 @@ class MainWindow(QMainWindow):
         files_layout.addWidget(self._drop_zone)
         lay.addWidget(files)
 
-        self._file_hint = QLabel("No file loaded — drop or click above to upload")
+        self._file_hint = QLabel("PDF, metin veya görsel dosyanı ekle.")
         self._file_hint.setFont(QFont("Courier New", 7))
         self._file_hint.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
         self._file_hint.setWordWrap(True)
@@ -4154,7 +4153,7 @@ class MainWindow(QMainWindow):
         command_layout.addLayout(self._build_input_row())
         lay.addWidget(command_panel)
 
-        self._interrupt_btn = QPushButton("✋  INTERRUPT  [ESC]")
+        self._interrupt_btn = QPushButton("KONUŞMAYI DURDUR   [ESC]")
         self._interrupt_btn.setFixedHeight(34)
         self._interrupt_btn.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
         self._interrupt_btn.setCursor(Qt.CursorShape.PointingHandCursor)
