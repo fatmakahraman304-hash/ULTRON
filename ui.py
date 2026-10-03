@@ -67,6 +67,8 @@ def _base_dir() -> Path:
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent
 
+from core.ultron_visual import MetalPanel, ParticleCore
+
 BASE_DIR   = _base_dir()
 CONFIG_DIR = BASE_DIR / "config"
 API_FILE   = CONFIG_DIR / "api_keys.json"
@@ -891,9 +893,10 @@ class HudCanvas(QWidget):
             _band_t = 12.0
             _band_h = max(60.0, _sy_status - 12.0 - _band_t)
             _r = min(W * 0.46, _band_h / 2.0)
-            self._paint_core(p, cx, _band_t + _band_h / 2.0, _r, W, _band_h)
-            from core.ultron_visual import paint_mask
-            paint_mask(p, cx, _band_t + _band_h / 2.0, _r*.87, self._core_phase, self._amp_disp)
+            if not hasattr(self, '_particle_core'):
+                self._particle_core = ParticleCore()
+            self._particle_core.paint(p, cx, _band_t + _band_h / 2.0, _r*.88,
+                                      self._core_phase, self._amp_disp, self._assistant_name)
 
         # status text
         sy = _sy_status
@@ -1013,7 +1016,7 @@ class LogWidget(QTextEdit):
         # without bound — keeps memory flat and every insert cheap. Oldest
         # lines drop off the top automatically.
         self.document().setMaximumBlockCount(600)
-        self.setFont(QFont("Courier New", 9))
+        self.setFont(QFont("Consolas", 10))
         self.setStyleSheet(f"""
             QTextEdit {{
                 background: {C.PANEL};
@@ -3933,9 +3936,9 @@ class MainWindow(QMainWindow):
 
 
     def _build_header(self) -> QWidget:
-        w = QWidget()
+        w = MetalPanel()
         w.setFixedHeight(84)
-        w.setStyleSheet(f"background: {C.DARK}; border-bottom: 1px solid {C.BORDER_B};")
+        w.setStyleSheet("background: transparent; border: none;")
         lay = QHBoxLayout(w)
         lay.setContentsMargins(16, 0, 16, 0)
 
@@ -3945,11 +3948,11 @@ class MainWindow(QMainWindow):
             l.setStyleSheet(f"color: {color}; background: transparent;")
             return l
 
-        lay.addWidget(_badge(APP_VERSION, C.PRI_DIM))
+        
         lay.addSpacing(8)
-        self._drawer_btn = QPushButton("⚙")
-        self._drawer_btn.setFixedSize(26, 26)
-        self._drawer_btn.setFont(QFont("Courier New", 11))
+        self._drawer_btn = QPushButton("AYARLAR")
+        self._drawer_btn.setFixedSize(86, 34)
+        self._drawer_btn.setFont(QFont("Segoe UI", 9))
         self._drawer_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._drawer_btn.setToolTip("Settings & Controls")
         self._drawer_btn.setStyleSheet(f"""
@@ -3971,9 +3974,9 @@ class MainWindow(QMainWindow):
         # the assistant up sitting next to the ones you flick on and off every
         # day. Separating them by that — setup behind ⚙, everyday behind 🎛 —
         # is what makes each list short enough to read at a glance.
-        self._ctrl_btn = QPushButton("🎛")
-        self._ctrl_btn.setFixedSize(26, 26)
-        self._ctrl_btn.setFont(QFont("Courier New", 11))
+        self._ctrl_btn = QPushButton("KONTROL")
+        self._ctrl_btn.setFixedSize(86, 34)
+        self._ctrl_btn.setFont(QFont("Segoe UI", 9))
         self._ctrl_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
         self._ctrl_btn.setStyleSheet(self._drawer_btn.styleSheet())
@@ -3990,7 +3993,7 @@ class MainWindow(QMainWindow):
         self._title_lbl.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
         self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         mid.addWidget(self._title_lbl)
-        _sub_text = ("P E R S O N A L   A I   S Y S T E M"
+        _sub_text = ("K İ Ş İ S E L   Y A P A Y   Z E K Â"
                      if _disp in ("ULTRON", "ULTRON")
                      else "Personal AI Assistant")
         self._sub_lbl = QLabel(_sub_text)
@@ -4020,14 +4023,14 @@ class MainWindow(QMainWindow):
         self._date_lbl.setText(time.strftime("%a %d %b %Y"))
 
     def _build_left_panel(self) -> QWidget:
-        w = QWidget()
+        w = MetalPanel()
         w.setFixedWidth(_LEFT_W)
-        w.setStyleSheet(f"background: {C.DARK}; border-right: 1px solid {C.BORDER};")
+        w.setStyleSheet("background: transparent; border: none;")
         lay = QVBoxLayout(w)
-        lay.setContentsMargins(8, 10, 8, 10)
+        lay.setContentsMargins(14, 19, 14, 16)
         lay.setSpacing(6)
 
-        hdr = QLabel("▰  SYSTEM MONITOR")
+        hdr = QLabel("SİSTEM DURUMU")
         hdr.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         hdr.setStyleSheet(f"color: {C.PRI}; background: transparent; "
                           f"border-bottom: 1px solid {C.BORDER}; padding-bottom: 4px;")
@@ -4091,11 +4094,11 @@ class MainWindow(QMainWindow):
 
         return w
     def _build_right_panel(self) -> QWidget:
-        w = QWidget()
+        w = MetalPanel()
         w.setFixedWidth(_RIGHT_W)
-        w.setStyleSheet(f"background: {C.DARK}; border-left: 1px solid {C.BORDER};")
+        w.setStyleSheet("background: transparent; border: none;")
         lay = QVBoxLayout(w)
-        lay.setContentsMargins(8, 8, 8, 8)
+        lay.setContentsMargins(14, 19, 14, 16)
         lay.setSpacing(6)
 
         def _sec(txt):
@@ -4104,7 +4107,7 @@ class MainWindow(QMainWindow):
             l.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
             return l
 
-        lay.addWidget(_sec("ACTIVITY LOG"))
+        lay.addWidget(_sec("KONUŞMA / AKTİVİTE"))
         self._log = LogWidget()
         lay.addWidget(self._log, stretch=1)
 
@@ -4112,7 +4115,7 @@ class MainWindow(QMainWindow):
         sep.setStyleSheet(f"color: {C.BORDER}; margin: 2px 0;")
         lay.addWidget(sep)
 
-        lay.addWidget(_sec("FILE UPLOAD"))
+        lay.addWidget(_sec("DOSYALAR"))
         self._drop_zone = FileDropZone()
         self._drop_zone.file_selected.connect(self._on_file_selected)
         lay.addWidget(self._drop_zone)
@@ -4127,7 +4130,7 @@ class MainWindow(QMainWindow):
         sep2.setStyleSheet(f"color: {C.BORDER}; margin: 2px 0;")
         lay.addWidget(sep2)
 
-        lay.addWidget(_sec("COMMAND INPUT"))
+        lay.addWidget(_sec("KOMUT"))
         lay.addLayout(self._build_input_row())
 
         self._interrupt_btn = QPushButton("✋  INTERRUPT  [ESC]")
@@ -4896,7 +4899,7 @@ class MainWindow(QMainWindow):
 
         lay.addWidget(_fl("[F4] Mute  ·  [F11] Fullscreen"))
         lay.addStretch()
-        lay.addWidget(_fl("By FatihMakes", C.PRI_DIM))
+
         return w
 
     def _on_file_selected(self, path: str):
@@ -5150,7 +5153,7 @@ class MainWindow(QMainWindow):
                 text-align: left; padding: 0 8px; }}
             QPushButton:hover {{ color: {C.WHITE}; border: 1px solid {C.BORDER_B}; }}"""
         self._hud_btn.setText("🧑  HUD: ANIMATED FACE" if face
-                              else "◉  HUD: ULTRON CORE")
+                              else "◉  HUD: PARÇACIK HALKASI")
         self._hud_btn.setStyleSheet(style)
         self._hud_btn.setToolTip(
             "An animated head that speaks your words and shows what ULTRON is "

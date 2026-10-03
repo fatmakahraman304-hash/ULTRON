@@ -1,58 +1,87 @@
-"""Resolution-independent metallic ULTRON mask for the native HUD."""
+"""High-DPI particle reactor and machined panel frames for the native desktop."""
+import math
+import random
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QPainterPath, QPen, QLinearGradient, QRadialGradient
+from PyQt6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
+from PyQt6.QtWidgets import QWidget
 
 
-def paint_mask(p, cx, cy, radius, phase, amplitude):
-    p.save()
-    p.translate(cx, cy)
-    p.scale(radius, radius)
-    glow = QRadialGradient(0, 0, .95)
-    glow.setColorAt(0, QColor(255, 20, 42, 48))
-    glow.setColorAt(1, QColor(255, 20, 42, 0))
-    p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(glow)
-    p.drawEllipse(QRectF(-1,-1,2,2))
-    def plate(points, bright=False):
-        path = QPainterPath(QPointF(*points[0]))
-        for point in points[1:]: path.lineTo(QPointF(*point))
-        path.closeSubpath()
-        metal = QLinearGradient(-.45,-.7,.45,.65)
-        metal.setColorAt(0,QColor('#b5bec8' if bright else '#59636f'))
-        metal.setColorAt(.35,QColor('#353e49'))
-        metal.setColorAt(.55,QColor('#73808c' if bright else '#272f39'))
-        metal.setColorAt(1,QColor('#080b10'))
-        p.setBrush(metal)
-        p.setPen(QPen(QColor('#8a949e' if bright else '#414955'),.006))
-        p.drawPath(path)
-    # Dark silhouette and independently shaded armor plates.
-    plate([(-.32,-.66),(-.47,-.36),(-.42,.29),(-.2,.64),(0,.76),(.2,.64),(.42,.29),(.47,-.36),(.32,-.66),(0,-.78)])
-    for side in (-1,1):
-        def mirrored(points): return [(side*x,y) for x,y in points]
-        plate(mirrored([(.025,-.74),(.27,-.65),(.36,-.43),(.26,-.16),(.08,-.07),(.025,-.3)]),True)
-        plate(mirrored([(.31,-.64),(.45,-.36),(.39,.01),(.28,-.1),(.36,-.44)]))
-        plate(mirrored([(.39,.06),(.25,.04),(.12,.22),(.13,.37),(.3,.29),(.4,.15)]),True)
-        plate(mirrored([(.4,.2),(.29,.36),(.12,.48),(.1,.66),(.2,.6),(.37,.32)]))
-        plate(mirrored([(.08,-.06),(.18,.08),(.1,.28),(.015,.33),(.015,.05)]))
-        eye = QPainterPath(QPointF(side*.09,.025))
-        for x,y in [(.32,-.075),(.27,.055),(.12,.115)]: eye.lineTo(side*x,y)
-        eye.closeSubpath()
-        p.setBrush(QColor('#ff3344'))
-        for width,alpha in [(.055,22),(.032,55),(.012,160)]:
-            p.setPen(QPen(QColor(255,25,45,alpha),width));p.drawPath(eye)
-        p.setPen(QPen(QColor('#ffe0df'),.006));p.drawPath(eye)
-        p.setPen(QPen(QColor('#e82436'),.007))
-        p.drawLine(QPointF(side*.035,-.65),QPointF(side*.06,-.28))
-        p.drawLine(QPointF(side*.34,.25),QPointF(side*.18,.52))
-    plate([(-.095,.31),(0,.35),(.095,.31),(.085,.51),(0,.59),(-.085,.51)],True)
-    p.setPen(QPen(QColor('#06070b'),.022))
-    for y in (.38,.425,.47):p.drawLine(QPointF(-.06,y),QPointF(.06,y))
-    # Floating projection platform; pulse follows the real audio level.
-    p.setBrush(Qt.BrushStyle.NoBrush)
-    for i in range(5):
-        width=.52+i*.08
-        p.setPen(QPen(QColor(255,40,55,190-i*25),.007 if i%2 else .013))
-        p.drawEllipse(QRectF(-width,.78-i*.015,width*2,.14+i*.025))
-    p.setPen(QPen(QColor(255,80,95,int(90+100*amplitude)),.012))
-    p.drawLine(QPointF(0,.72),QPointF(0,.86))
-    p.restore()
+class MetalPanel(QWidget):
+    def paintEvent(self, event):
+        p=QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w,h=self.width()-2,self.height()-2
+        shape=QPainterPath(QPointF(1,16))
+        for x,y in [(16,1),(w-18,1),(w,18),(w,h-17),(w-17,h),(17,h),(1,h-16)]:shape.lineTo(x,y)
+        shape.closeSubpath()
+        metal=QLinearGradient(0,0,w,h)
+        for pos,col in [(0,'#20232a'),(.035,'#0c0f14'),(.5,'#080b10'),(1,'#14171d')]:metal.setColorAt(pos,QColor(col))
+        p.setBrush(metal);p.setPen(QPen(QColor('#3a3e48'),1));p.drawPath(shape)
+        p.setPen(QPen(QColor('#ff344b'),2))
+        p.drawLine(QPointF(2,34),QPointF(2,16));p.drawLine(QPointF(2,16),QPointF(16,2));p.drawLine(QPointF(16,2),QPointF(min(84,w-25),2))
+        p.setPen(QPen(QColor('#81303d'),1));p.drawLine(QPointF(w-88,h-1),QPointF(w-18,h-1))
+        p.setPen(QPen(QColor('#68717e'),1));p.drawLine(QPointF(w-18,5),QPointF(w-5,18))
+        p.end()
+
+
+class ParticleCore:
+    def __init__(self):
+        self.key=None
+        self.texture=None
+
+    def paint(self,p,cx,cy,r,phase,amplitude,name='ULTRON'):
+        dpr=p.device().devicePixelRatioF()
+        key=(round(r),round(dpr,2))
+        if self.key!=key:
+            self.key=key
+            side=int(math.ceil(r*2.3))
+            self.texture=QPixmap(int(side*dpr),int(side*dpr))
+            self.texture.setDevicePixelRatio(dpr);self.texture.fill(Qt.GlobalColor.transparent)
+            q=QPainter(self.texture);q.setRenderHint(QPainter.RenderHint.Antialiasing)
+            q.translate(side/2,side/2)
+            glow=QRadialGradient(0,0,r)
+            for pos,rgba in [(0,(0,0,0,0)),(.58,(255,15,45,0)),(.70,(230,5,30,12)),(.775,(255,18,48,80)),(.805,(255,60,80,150)),(.825,(255,12,35,65)),(.95,(255,0,30,0)),(1,(0,0,0,0))]:glow.setColorAt(pos,QColor(*rgba))
+            q.setPen(Qt.PenStyle.NoPen);q.setBrush(glow);q.drawEllipse(QRectF(-r,-r,2*r,2*r))
+            rng=random.Random(2207)
+            for i in range(3000):
+                a=rng.random()*math.tau
+                rad=r*(.805+rng.gauss(0,.028 if i%4 else .065))
+                x,y=math.cos(a)*rad,math.sin(a)*rad
+                size=rng.uniform(.4,1.5)*(r/300)**.35
+                bright=i%11==0
+                q.setBrush(QColor(255,180 if bright else 32,185 if bright else 57,rng.randint(90,245)))
+                q.drawEllipse(QRectF(x-size,y-size,size*2,size*2))
+            q.end()
+        p.save();p.translate(cx,cy)
+        # Sparse telemetry rings outside the particulate volume.
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        for scale in (.94,1.025):
+            p.setPen(QPen(QColor('#35323c'),.7));p.drawEllipse(QRectF(-r*scale,-r*scale,2*r*scale,2*r*scale))
+        for i in range(120):
+            a=i*math.tau/120
+            p.setPen(QPen(QColor('#8d4754' if i%5==0 else '#382a34'),1))
+            p.drawLine(QPointF(math.cos(a)*r*.96,math.sin(a)*r*.96),QPointF(math.cos(a)*r*(1.015 if i%5==0 else .987),math.sin(a)*r*(1.015 if i%5==0 else .987)))
+        p.save();p.rotate(phase*3)
+        scale=1+min(amplitude,.9)*.025
+        p.scale(scale,scale)
+        logical=self.texture.width()/self.texture.devicePixelRatioF()
+        p.drawPixmap(QPointF(-logical/2,-logical/2),self.texture);p.restore()
+        # Tilted orbital paths give the circular field spatial depth.
+        for k,angle in enumerate((-27,31,-51)):
+            p.save();p.rotate(angle+math.sin(phase*.2+k)*5)
+            orbit=QRectF(-r*1.04,-r*(.27+k*.035),r*2.08,r*(.54+k*.07))
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            for width,alpha in [(5,12),(2,55),(.7,190)]:
+                p.setPen(QPen(QColor(255,75,95,alpha) if k!=1 else QColor(192,209,220,alpha),width));p.drawEllipse(orbit)
+            a=phase*(.3+k*.08)+k*2
+            x,y=math.cos(a)*r*1.04,math.sin(a)*r*(.27+k*.035)
+            flare=QRadialGradient(x,y,12)
+            flare.setColorAt(0,QColor('#ffffff'));flare.setColorAt(.15,QColor('#ff8290'));flare.setColorAt(1,QColor(255,20,50,0))
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(flare);p.drawEllipse(QRectF(x-12,y-12,24,24));p.restore()
+        p.setPen(QPen(QColor('#e8edf4'),1))
+        font=QFont('Segoe UI',max(14,int(r*.085)),QFont.Weight.DemiBold)
+        font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing,5);p.setFont(font)
+        p.drawText(QRectF(-r*.6,-25,r*1.2,50),Qt.AlignmentFlag.AlignCenter,name.upper())
+        font=QFont('Segoe UI',8);font.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing,3);p.setFont(font);p.setPen(QColor('#a47b85'))
+        p.drawText(QRectF(-r*.6,29,r*1.2,24),Qt.AlignmentFlag.AlignCenter,'N E U R A L   C O R E')
+        p.restore()

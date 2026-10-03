@@ -12,4 +12,6 @@ Hologram çalışma alanını üstteki düğmeden veya Ctrl+H ile açın. Modeli
 
 ## Kırmızı ULTRON görünümü
 
-Ana masaüstü siyah metal paneller, kırmızı vurgu, gümüş başlık ve yerel olarak çizilen metalik robot maskesi kullanır. Ana pencerede MARK LV etiketi yoktur. Merkez görünümü ayarlardan değiştirilebilir; hologram Ctrl+H, yerel AI paneli Ctrl+L ile açılır.
+Ana masaüstü siyah metal paneller, kırmızı vurgu, gümüş başlık ve yüksek DPI destekli kırmızı parçacık halkası kullanır. Ana pencerede MARK LV etiketi yoktur. Merkez görünümü ayarlardan değiştirilebilir; hologram Ctrl+H, yerel AI paneli Ctrl+L ile açılır.
+
+Parçacık halkası 3.000 ışık noktası ve hareketli yörüngelerle çizilir; ölçek ve ekran yoğunluğu değiştiğinde önbellek yeniden üretilir. Yüz maskesi ve sağ alttaki imza kaldırılmıştır.
