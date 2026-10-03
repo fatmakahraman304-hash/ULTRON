@@ -13,8 +13,9 @@ def install(app, hub):
 
     @web.middleware
     async def boundary(req, handler):
-        if req.path == '/merged/dashboard' and req.method == 'GET':
-            return await handler(req)
+        if req.path == '/merged/dashboard' or req.path.startswith(('/frontend/', '/frontend-mobile/')):
+            return web.json_response({'ok': False, 'error': 'DESKTOP_ONLY',
+                'message': 'ULTRON uses the original MARK desktop interface. Start START.bat.'}, status=410)
         if token:
             header_ok = hmac.compare_digest(req.headers.get('X-MARK-Token', ''), token)
             cookie_ok = hmac.compare_digest(req.cookies.get('mark_session', ''), token)

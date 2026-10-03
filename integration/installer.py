@@ -83,12 +83,6 @@ def main():
         if not run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements-voice.txt'], optional=True):
             warnings.append('Local voice dependencies incomplete')
         run([sys.executable, '-m', 'pip', 'check'])
-        npm = shutil.which('npm.cmd') or shutil.which('npm')
-        if not npm:
-            raise RuntimeError('Node/npm bulunamadi. Frontend build yapilamadi.')
-        for folder in ('frontend', 'frontend-mobile'):
-            run([npm, 'ci', '--no-audit', '--no-fund'], cwd=ROOT/'ultron'/folder)
-            run([npm, 'run', 'build'], cwd=ROOT/'ultron'/folder)
         if not run([sys.executable, '-m', 'playwright', 'install', 'chromium'], optional=True):
             warnings.append('Playwright browser download failed')
         warnings += prepare_models()

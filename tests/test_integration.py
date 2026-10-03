@@ -106,15 +106,10 @@ def test_browser_session_assets_and_csrf(service):
         cookie=response.headers['Set-Cookie']
         assert 'HttpOnly' in cookie and 'SameSite=Strict' in cookie
     headers={'Cookie':cookie.split(';')[0]}
-    for surface in ('frontend','frontend-mobile'):
-        with urlopen(Request(url+'/'+surface+'/index.html',headers=headers)) as response:
-            html=response.read().decode()
-        import re
-        assets=re.findall(r'(?:src|href)="(\./assets/[^\"]+)"',html)
-        assert assets
-        for asset in assets:
-            with urlopen(Request(url+'/'+surface+'/'+asset[2:],headers=headers)) as response:
-                assert response.status==200
+    for surface in ('frontend/index.html', 'frontend-mobile/index.html', 'merged/dashboard'):
+        with pytest.raises(urllib.error.HTTPError) as disabled:
+            urlopen(Request(url+'/'+surface, headers=headers))
+        assert disabled.value.code == 410
     with pytest.raises(urllib.error.HTTPError) as exc:
         urlopen(Request(url+'/api/merged/tool',data=b'{}',headers={**headers,'Origin':'https://untrusted.example'}))
     assert exc.value.code==401
@@ -178,17 +173,6 @@ def test_document_rejects_invalid_files(service,name,data):
     with pytest.raises(urllib.error.HTTPError) as exc:
         service.bridge.request('/api/merged/document',{'name':name,'data':data})
     assert exc.value.code==400
-
-
-def test_hand_worker_only_allows_same_origin_network(service):
-    from urllib.request import Request, urlopen
-    assets=list((ROOT/'ultron/frontend/dist/assets').glob('hand.worker-*.js'))
-    assert assets, 'Build frontend before integration checks'
-    request=Request(service.bridge.url+'/frontend/assets/'+assets[0].name,headers={'X-MARK-Token':service.bridge.token})
-    with urlopen(request) as response:
-        policy=response.headers.get('Content-Security-Policy','')
-        assert "connect-src 'self'" in policy
-        assert "script-src 'self' 'wasm-unsafe-eval'" in policy
 
 
 def test_unrelated_wake_model_is_not_ultron(tmp_path, monkeypatch):

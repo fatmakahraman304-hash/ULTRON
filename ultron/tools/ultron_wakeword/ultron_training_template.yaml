@@ -3,12 +3,10 @@ model_name: ultron
 target_phrase:
   - ULTRON
 custom_negative_phrases:
-  - hey ultron
   - hey google
   - alexa
   - computer
   - ultra
-  - ultron
 
 # Fill these paths when using the local train.py pipeline.
 piper_sample_generator_path: ./piper-sample-generator
@@ -22,12 +20,16 @@ n_samples_val: 1000
 tts_batch_size: 8
 augmentation_rounds: 3
 augmentation_batch_size: 32
-batch_n_per_class: 256
+batch_n_per_class:
+  background: 256
+  adversarial_negative: 50
+  positive: 50
 model_type: dnn
 model_size: 128
 layer_size: 128
 steps: 50000
 max_negative_weight: 1000
 target_false_positives_per_hour: 0.2
-feature_data_files: {}
+feature_data_files:
+  background: ./data/voice/wake_training/negative_features.npy
 false_positive_validation_data_path: ./data/voice/wake_training/false_positive_features.npy

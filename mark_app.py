@@ -2307,11 +2307,6 @@ class UltronLive:
 def main():
     import os
     os.chdir(get_base_dir())
-    try:
-        from integration.web_panel import prepare
-        prepare()
-    except ImportError:
-        pass  # Existing native MARK UI remains the installation fallback.
     ui = UltronUI(str(get_base_dir() / "face.png"))
     from integration.panel import attach
     attach(ui)

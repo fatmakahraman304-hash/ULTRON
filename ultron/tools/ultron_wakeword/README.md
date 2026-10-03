@@ -1,21 +1,16 @@
-# ULTRON Wake-Word Training Kit
+# ULTRON akustik uyandırma modeli
 
-Goal: produce a real OpenWakeWord model for the phrase `ULTRON`.
+Henüz eğitilmiş ultron.onnx yoktur. Eğitim şablonu düzeltilmiştir: hedef kelime negatif sınıfa eklenmez; batch_n_per_class veri kümelerine göre tanımlanır.
 
-## Important
-- An unrelated keyword model is only an inference test and is not renamed into an ULTRON model.
-- The included training config is a template for the OpenWakeWord training notebook/pipeline.
-- The final artifact expected by ULTRON is `ultron.onnx`.
+Birleşik proje kökünden hazırlık kontrolü:
 
-## Colab
-Use the OpenWakeWord custom-model training notebook. Set the target word/phrase to `ULTRON` and the model name to `ultron`. The notebook can generate synthetic positives and adversarial negatives, augment them, train, and export ONNX.
+```
+.venv\Scripts\python.exe ultron\tools\ultron_wakeword\check_training.py
+```
 
-## Windows install
-After obtaining `ultron.onnx`, copy it to:
-`backend/data/voice/wake/ultron.onnx`
+Çıkış kodu 2, eğitim girdilerinin eksik olduğunu belirtir. Bu kontrol model üretmez. Piper örnek üreticisi, eğitim bağımlılıkları, arka plan sesleri, oda yankısı kayıtları, negatif özellikler ve bağımsız yanlış tetiklenme doğrulama verileri gereklidir. Yapılandırmadaki göreli veri yolları ultron/backend dizininden çözülür.
 
-The runtime prefers a model whose filename stem is `ultron`, so a leftover An unrelated keyword model model cannot silently become the active model.
+Resmi eğitim not defteri:
+https://github.com/dscripka/openWakeWord/blob/main/notebooks/automatic_model_training.ipynb
 
-## Quick test
-Run from the project root:
-`\.venv\Scripts\python.exe scripts\test_ultron_wakeword.py`
+Hedef ifade ULTRON, model adı ultron olmalıdır. Eğitimden çıkan gerçek ultron.onnx dosyasını backend/data/voice/wake/ultron.onnx konumuna kurun. Başka kelimenin modelini yeniden adlandırmayın. Yükleme testi tek başına doğru algılama kanıtı değildir; gerçek mikrofonla olumlu örnekler, benzer kelimeler ve uzun arka plan kayıtları ayrıca ölçülmelidir.

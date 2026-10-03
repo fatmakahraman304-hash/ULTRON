@@ -2,8 +2,8 @@
 import json
 import os
 import threading
-from PyQt6.QtCore import QObject, pyqtSignal, Qt, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import QObject, pyqtSignal, Qt
+from PyQt6.QtGui import QAction, QKeySequence
 from PyQt6.QtWidgets import QDockWidget, QWidget, QVBoxLayout, QLineEdit, QPushButton, QTextEdit, QComboBox, QMessageBox
 from .bridge import Bridge
 
@@ -31,12 +31,6 @@ class Worker(QObject):
 
 
 def attach(ui):
-    try:
-        from .web_panel import attach as attach_web
-        if attach_web(ui):
-            return
-    except ImportError:
-        ui.write_log('SYS: WebEngine yok; yerel MARK arayüzü kullanılacak. INSTALL.bat ile kurulabilir.')
     dock = QDockWidget('MARK · Yerel AI / Görevler', ui._win)
     panel = QWidget()
     layout = QVBoxLayout(panel)
@@ -53,12 +47,17 @@ def attach(ui):
     send = QPushButton('Gönder')
     status = QPushButton('Sağlık / Görev durumu')
     approval = QPushButton('Bekleyen onayı incele')
-    dashboard = QPushButton('ULTRON görev panelini aç')
-    for widget in (output, mode, entry, send, status, approval, dashboard):
+    for widget in (output, mode, entry, send, status, approval):
         layout.addWidget(widget)
     dock.setWidget(panel)
     ui._win.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
     dock.setMinimumWidth(300)
+    toggle = dock.toggleViewAction()
+    toggle.setText('Yerel AI / Görevler')
+    toggle.setShortcut(QKeySequence('Ctrl+L'))
+    ui._win.addAction(toggle)
+    dock.hide()
+    ui.write_log('SYS: Yerel AI / Görevler paneli: Ctrl+L')
     workers = []
     def submit():
         text = entry.text().strip()
@@ -98,12 +97,5 @@ def attach(ui):
     entry.returnPressed.connect(submit)
     status.clicked.connect(check)
     approval.clicked.connect(review)
-    def open_dashboard():
-        b = Bridge()
-        if b.url:
-            QDesktopServices.openUrl(QUrl(b.url + '/merged/dashboard#' + b.token))
-        else:
-            output.append('ULTRON servisi hazır değil.')
-    dashboard.clicked.connect(open_dashboard)
     ui._merged_dock = dock
     ui._merged_workers = workers

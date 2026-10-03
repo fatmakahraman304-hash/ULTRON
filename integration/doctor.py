@@ -197,11 +197,7 @@ def main():
                 record('Security approval','PASS' if not denied.get('ok') and not target.exists() else 'FAIL','Caller self-approval rejected')
             calculated=service.bridge.request('/api/merged/tool',{'name':'calculate','arguments':{'text':'2+3'}})
             record('Tool invocation','PASS' if calculated.get('result')==['5'] else 'FAIL')
-            for folder,label in [('frontend','Desktop frontend'),('frontend-mobile','Mobile frontend')]:
-                from urllib.request import Request,urlopen
-                with urlopen(Request(service.bridge.url+'/'+folder+'/index.html',headers={'X-MARK-Token':service.bridge.token}),timeout=10) as response:
-                    assert b'<html' in response.read()
-                record(label,'PASS','Built HTML served over HTTP')
+            record('Interface','PASS','Original MARK desktop; alternate web interfaces disabled')
             record('Ollama','PASS' if health['ollama']['connected'] else 'WARN')
             if not args.quick and health['ollama']['connected']:
                 reply=service.bridge.ask('Sadece TAMAM yaz.','fast')
