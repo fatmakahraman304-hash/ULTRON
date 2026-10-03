@@ -33,14 +33,14 @@ class Worker(QObject):
 def attach(ui):
     from .hologram_panel import attach as attach_hologram
     attach_hologram(ui)
-    dock = QDockWidget('MARK · Yerel AI / Görevler', ui._win)
+    dock = QDockWidget('ULTRON · Yerel AI / Görevler', ui._win)
     panel = QWidget()
     layout = QVBoxLayout(panel)
     output = QTextEdit()
     output.setReadOnly(True)
-    output.setPlainText('Gemini Live: MARK ses arayüzü. Yerel AI: aşağıdaki kutu. Agent görevlerinde mevcut güvenlik kuralları uygulanır.')
+    output.setPlainText('Gemini Live: ULTRON ses arayüzü. Yerel AI: aşağıdaki kutu. Agent görevlerinde mevcut güvenlik kuralları uygulanır.')
     if os.environ.get('MARK_ULTRON_WARNING'):
-        output.append('UYARI: Yerel ULTRON motoru kullanılamıyor; MARK özellikleri kullanılabilir. logs/backend.log')
+        output.append('UYARI: Yerel ULTRON motoru kullanılamıyor; masaüstü özellikleri kullanılabilir. logs/backend.log')
     mode = QComboBox()
     for label, value in [('Otomatik', 'auto'), ('Kod', 'coding'), ('Hızlı', 'fast'), ('Genel', 'general'), ('Agent görevi', 'agent'), ('Uzun görev', 'task'), ('Çoklu model', 'multi')]:
         mode.addItem(label, value)

@@ -82,39 +82,39 @@ def _read_full_config() -> dict:
 
 # Single source of truth for the release name — the window title, the header
 # badge and the readme must never disagree again.
-APP_VERSION  = "MARK LV"
-APP_PROTOCOL = APP_VERSION.split()[-1]
+APP_VERSION  = "ULTRON"
+APP_PROTOCOL = "V22"
 
-_DEFAULT_W, _DEFAULT_H = 980, 700
-_MIN_W,     _MIN_H     = 820, 580
-_LEFT_W  = 148
-_RIGHT_W = 340
+_DEFAULT_W, _DEFAULT_H = 1280, 820
+_MIN_W,     _MIN_H     = 1040, 700
+_LEFT_W  = 220
+_RIGHT_W = 360
 
 _OS = platform.system()  # "Windows" | "Darwin" | "Linux"
 
 
 class C:
-    BG        = "#00060a"
-    PANEL     = "#010d14"
-    PANEL2    = "#010f18"
-    BORDER    = "#0d3347"
-    BORDER_B  = "#1a5c7a"
-    BORDER_A  = "#0f4060"
-    PRI       = "#00d4ff"
-    PRI_DIM   = "#007a99"
-    PRI_GHO   = "#001f2e"
+    BG        = "#050609"
+    PANEL     = "#0c0d11"
+    PANEL2    = "#13151a"
+    BORDER    = "#42242c"
+    BORDER_B  = "#a43b49"
+    BORDER_A  = "#66313c"
+    PRI       = "#ff3047"
+    PRI_DIM   = "#b84050"
+    PRI_GHO   = "#251016"
     ACC       = "#ff6b00"
     ACC2      = "#ffcc00"
     GREEN     = "#00ff88"
     GREEN_D   = "#00aa55"
     RED       = "#ff3355"
     MUTED_C   = "#ff3366"
-    TEXT      = "#8ffcff"
-    TEXT_DIM  = "#3a8a9a"
-    TEXT_MED  = "#5ab8cc"
-    WHITE     = "#d8f8ff"
-    DARK      = "#000d14"
-    BAR_BG    = "#011520"
+    TEXT      = "#e1e5eb"
+    TEXT_DIM  = "#83909e"
+    TEXT_MED  = "#b5bfc9"
+    WHITE     = "#f1f3f6"
+    DARK      = "#080a0e"
+    BAR_BG    = "#20232b"
 
 
 # Keys tied to the accent colour — status colours (ACC, GREEN, RED…) stay fixed
@@ -403,7 +403,7 @@ class _SysMetrics:
 _metrics = _SysMetrics()
 
 class HudCanvas(QWidget):
-    def __init__(self, face_path: str, assistant_name: str = "J.A.R.V.I.S", parent=None):
+    def __init__(self, face_path: str, assistant_name: str = "ULTRON", parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.setMinimumSize(300, 300)
@@ -824,7 +824,7 @@ class HudCanvas(QWidget):
         p.drawEllipse(QRectF(cx - inner, cy - inner, inner * 2, inner * 2))
 
         # 9. The name, sized from the string rather than from the radius alone:
-        #    "J.A.R.V.I.S" and a name someone renamed to "MAX" are very
+        #    "ULTRON" and a name someone renamed to "MAX" are very
         #    different widths, and a fixed fraction of r spills one of them past
         #    the ring it is supposed to sit inside.
         name = self._assistant_name or ""
@@ -892,6 +892,8 @@ class HudCanvas(QWidget):
             _band_h = max(60.0, _sy_status - 12.0 - _band_t)
             _r = min(W * 0.46, _band_h / 2.0)
             self._paint_core(p, cx, _band_t + _band_h / 2.0, _r, W, _band_h)
+            from core.ultron_visual import paint_mask
+            paint_mask(p, cx, _band_t + _band_h / 2.0, _r*.87, self._core_phase, self._amp_disp)
 
         # status text
         sy = _sy_status
@@ -948,7 +950,7 @@ class MetricBar(QWidget):
         self._color = color
         self._value = 0.0       # 0–100
         self._text  = "--"
-        self.setFixedHeight(38)
+        self.setFixedHeight(58)
         self.setMinimumWidth(80)
 
     def set_value(self, pct: float, text: str):
@@ -991,13 +993,13 @@ class MetricBar(QWidget):
             p.setBrush(QBrush(bar_col))
             p.drawRoundedRect(QRectF(bar_x, bar_y, fill_w, bar_h), 2, 2)
 
-        p.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        p.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         p.setPen(QPen(qcol(C.TEXT_DIM), 1))
-        p.drawText(QRectF(8, 5, 50, 14), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self._label)
+        p.drawText(QRectF(10, 9, 100, 18), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter, self._label)
 
         p.setFont(QFont("Courier New", 9, QFont.Weight.Bold))
         p.setPen(QPen(bar_col if self._text != "--" else qcol(C.TEXT_DIM), 1))
-        p.drawText(QRectF(0, 4, W - 6, 16), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, self._text)
+        p.drawText(QRectF(0, 9, W - 10, 18), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, self._text)
 
         p.end()
 
@@ -1099,7 +1101,7 @@ class LogWidget(QTextEdit):
             QTimer.singleShot(20, self._next)
 
 _FILE_ICONS = {
-    "image":   ("🖼", "#00d4ff"), "video":   ("🎬", "#ff6b00"),
+    "image":   ("🖼", "#ff3047"), "video":   ("🎬", "#ff6b00"),
     "audio":   ("🎵", "#cc44ff"), "pdf":     ("📄", "#ff4444"),
     "word":    ("📝", "#4488ff"), "excel":   ("📊", "#44bb44"),
     "code":    ("💻", "#ffcc00"), "archive": ("📦", "#ff8844"),
@@ -1346,7 +1348,7 @@ class _CameraPreview(QWidget):
 
         hdr = QHBoxLayout()
         title = QLabel("◈  VISUAL INPUT")
-        title.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        title.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         title.setStyleSheet(f"color: {C.PRI}; background: transparent;")
         hdr.addWidget(title)
         hdr.addStretch()
@@ -1423,7 +1425,7 @@ class SetupOverlay(QWidget):
             return w
 
         layout.addWidget(_lbl("◈  INITIALISATION REQUIRED", 13, True))
-        layout.addWidget(_lbl("Configure J.A.R.V.I.S. before first boot.", 9, color=C.PRI_DIM))
+        layout.addWidget(_lbl("Configure ULTRON before first boot.", 9, color=C.PRI_DIM))
         layout.addSpacing(6)
 
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
@@ -1589,7 +1591,7 @@ class HueWheel(QWidget):
         ang = self._hue * 2 * math.pi
         hx  = center.x() + r * math.cos(ang)
         hy  = center.y() - r * math.sin(ang)
-        p.setPen(QPen(QColor("#00060a"), 2))
+        p.setPen(QPen(QColor("#050609"), 2))
         p.setBrush(QBrush(QColor("#ffffff")))
         p.drawEllipse(QPointF(hx, hy), 7.5, 7.5)
         p.end()
@@ -1700,7 +1702,7 @@ class CustomizeOverlay(QWidget):
         clr_hdr.addStretch()
         df_btn = QPushButton("DEFAULT")
         df_btn.setFixedSize(64, 20)
-        df_btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        df_btn.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         df_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         df_btn.setStyleSheet(f"""
             QPushButton {{
@@ -1725,7 +1727,7 @@ class CustomizeOverlay(QWidget):
         self._wheel.hue_committed.connect(self._on_wheel_commit)
 
         self._hex_input = QLineEdit(self._sel_color)
-        self._hex_input.setPlaceholderText("#00d4ff   (custom hex colour)")
+        self._hex_input.setPlaceholderText("#ff3047   (custom hex colour)")
         self._hex_input.setFont(QFont("Courier New", 10))
         self._hex_input.setFixedHeight(28)
         self._hex_input.setStyleSheet(_fs)
@@ -1898,7 +1900,7 @@ class PluginManagerOverlay(QWidget):
 
         btn = QPushButton()
         btn.setFixedSize(72, 24)
-        btn.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        btn.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         if not p["valid"]:
             btn.setText("BROKEN")
             btn.setEnabled(False)
@@ -2394,7 +2396,7 @@ class ClipboardPanel(QWidget):
 
         hdr = QHBoxLayout(); hdr.setSpacing(4)
         icon_lbl = QLabel("◈  CLIPBOARD DETECTED")
-        icon_lbl.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        icon_lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         icon_lbl.setStyleSheet(f"color: {C.ACC2}; background: transparent;")
         hdr.addWidget(icon_lbl); hdr.addStretch()
         x_btn = QPushButton("✕")
@@ -2428,7 +2430,7 @@ class ClipboardPanel(QWidget):
         ]:
             b = QPushButton(label)
             b.setFixedHeight(22)
-            b.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+            b.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
             b.setCursor(Qt.CursorShape.PointingHandCursor)
             b.setStyleSheet(_bs)
             b.clicked.connect(lambda _, c=cmd_fmt: self._trigger(c))
@@ -2973,7 +2975,7 @@ class MainWindow(QMainWindow):
         if _ui_color and _ui_color.lower() != DEFAULT_UI_COLOR:
             apply_ui_accent(_ui_color)
 
-        self.setWindowTitle(f"{_display} — {APP_VERSION}")
+        self.setWindowTitle(_display)
         self.setMinimumSize(_MIN_W, _MIN_H)
         self.resize(_DEFAULT_W, _DEFAULT_H)
 
@@ -3605,7 +3607,7 @@ class MainWindow(QMainWindow):
             sc.TargetPath       = target
             sc.Arguments        = f'"{args}"'
             sc.WorkingDirectory = work_dir
-            sc.Description      = "J.A.R.V.I.S AI Assistant"
+            sc.Description      = "ULTRON AI Assistant"
             sc.IconLocation     = icon_loc
             sc.save()
             return
@@ -3620,7 +3622,7 @@ class MainWindow(QMainWindow):
             f'sc.TargetPath = "{target}"',
             f'sc.Arguments = Chr(34) & "{args}" & Chr(34)',
             f'sc.WorkingDirectory = "{work_dir}"',
-            'sc.Description = "J.A.R.V.I.S AI Assistant"',
+            'sc.Description = "ULTRON AI Assistant"',
             f'sc.IconLocation = "{icon_loc}"',
             'sc.Save',
         ])
@@ -3743,14 +3745,14 @@ class MainWindow(QMainWindow):
             if _os == "Windows":
                 pythonw  = python.parent / "pythonw.exe"
                 target   = str(pythonw if pythonw.exists() else python)
-                lnk      = str(desktop / "J.A.R.V.I.S.lnk")
+                lnk      = str(desktop / "ULTRONlnk")
                 icon_loc = str(ico_path) if ico_path.exists() else f"{target},0"
                 self._create_lnk_windows(lnk, target, str(script),
                                          str(script.parent), icon_loc)
 
             # ── macOS — proper .app bundle (no Terminal window) ───────────────
             elif _os == "Darwin":
-                app     = desktop / "J.A.R.V.I.S.app"
+                app     = desktop / "ULTRONapp"
                 mac_dir = app / "Contents" / "MacOS"
                 res_dir = app / "Contents" / "Resources"
                 mac_dir.mkdir(parents=True, exist_ok=True)
@@ -3776,7 +3778,7 @@ class MainWindow(QMainWindow):
                     '  <key>CFBundleExecutable</key><string>ULTRON</string>\n'
                     '  <key>CFBundleIdentifier</key>'
                     '<string>com.ultron.assistant</string>\n'
-                    '  <key>CFBundleName</key><string>J.A.R.V.I.S</string>\n'
+                    '  <key>CFBundleName</key><string>ULTRON</string>\n'
                     '  <key>CFBundlePackageType</key><string>APPL</string>\n'
                     '  <key>CFBundleVersion</key><string>1.0</string>\n'
                     '</dict></plist>\n'
@@ -3814,10 +3816,10 @@ class MainWindow(QMainWindow):
                         png_path = ico_path  # fallback to .ico
 
                 icon_line = f"Icon={png_path}\n" if png_path.exists() else ""
-                desk = desktop / "J.A.R.V.I.S.desktop"
+                desk = desktop / "ULTRONdesktop"
                 desk.write_text(
                     "[Desktop Entry]\n"
-                    "Name=J.A.R.V.I.S\n"
+                    "Name=ULTRON\n"
                     f"Exec={python} {script}\n"
                     f"Path={script.parent}\n"
                     "Type=Application\n"
@@ -3932,7 +3934,7 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QWidget:
         w = QWidget()
-        w.setFixedHeight(54)
+        w.setFixedHeight(84)
         w.setStyleSheet(f"background: {C.DARK}; border-bottom: 1px solid {C.BORDER_B};")
         lay = QHBoxLayout(w)
         lay.setContentsMargins(16, 0, 16, 0)
@@ -3985,11 +3987,11 @@ class MainWindow(QMainWindow):
         _disp = self._assistant_name.upper()
         self._title_lbl = QLabel(_disp)
         self._title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._title_lbl.setFont(QFont("Courier New", 17, QFont.Weight.Bold))
-        self._title_lbl.setStyleSheet(f"color: {C.PRI}; background: transparent;")
+        self._title_lbl.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         mid.addWidget(self._title_lbl)
-        _sub_text = ("A Friendly Assistant"
-                     if _disp in ("ULTRON", "J.A.R.V.I.S")
+        _sub_text = ("P E R S O N A L   A I   S Y S T E M"
+                     if _disp in ("ULTRON", "ULTRON")
                      else "Personal AI Assistant")
         self._sub_lbl = QLabel(_sub_text)
         self._sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -4025,18 +4027,18 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(8, 10, 8, 10)
         lay.setSpacing(6)
 
-        hdr = QLabel("◈ SYS MONITOR")
-        hdr.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        hdr = QLabel("▰  SYSTEM MONITOR")
+        hdr.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         hdr.setStyleSheet(f"color: {C.PRI}; background: transparent; "
                           f"border-bottom: 1px solid {C.BORDER}; padding-bottom: 4px;")
         lay.addWidget(hdr)
         lay.addSpacing(2)
 
         self._bar_cpu = MetricBar("CPU", C.PRI)
-        self._bar_mem = MetricBar("MEM", C.ACC2)
-        self._bar_net = MetricBar("NET", C.GREEN)
-        self._bar_gpu = MetricBar("GPU", C.ACC)
-        self._bar_tmp = MetricBar("TMP", "#ff6688")
+        self._bar_mem = MetricBar("MEMORY", C.PRI)
+        self._bar_net = MetricBar("NETWORK", C.WHITE)
+        self._bar_gpu = MetricBar("GPU", C.PRI)
+        self._bar_tmp = MetricBar("TEMP", C.PRI)
 
         for bar in [self._bar_cpu, self._bar_mem, self._bar_net,
                     self._bar_gpu, self._bar_tmp]:
@@ -4079,7 +4081,7 @@ class MainWindow(QMainWindow):
             ("PROTOCOL\n" + APP_PROTOCOL,   C.TEXT_DIM),
         ]:
             lbl = QLabel(txt)
-            lbl.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+            lbl.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             lbl.setStyleSheet(
                 f"color: {col}; background: {C.PANEL2};"
@@ -4098,7 +4100,7 @@ class MainWindow(QMainWindow):
 
         def _sec(txt):
             l = QLabel(f"▸ {txt}")
-            l.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+            l.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
             l.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
             return l
 
@@ -4194,7 +4196,7 @@ class MainWindow(QMainWindow):
         lay.setSpacing(5)
 
         hdr = QLabel("◈ SETUP")
-        hdr.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        hdr.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         hdr.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent; "
                           f"border-bottom: 1px solid {C.BORDER}; padding-bottom: 4px;")
         lay.addWidget(hdr)
@@ -4277,7 +4279,7 @@ class MainWindow(QMainWindow):
         lay.setSpacing(5)
 
         hdr = QLabel("◈ CONTROLS")
-        hdr.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+        hdr.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         hdr.setStyleSheet(f"color: {C.PRI_DIM}; background: transparent; "
                           f"border-bottom: 1px solid {C.BORDER}; padding-bottom: 4px;")
         lay.addWidget(hdr)
@@ -4395,7 +4397,7 @@ class MainWindow(QMainWindow):
         self._input.setFixedHeight(30)
         self._input.setStyleSheet(f"""
             QLineEdit {{
-                background: #000d14; color: {C.WHITE};
+                background: #080a0e; color: {C.WHITE};
                 border: 1px solid {C.BORDER}; border-radius: 3px; padding: 3px 7px;
             }}
             QLineEdit:focus {{ border: 1px solid {C.PRI}; }}
@@ -5148,7 +5150,7 @@ class MainWindow(QMainWindow):
                 text-align: left; padding: 0 8px; }}
             QPushButton:hover {{ color: {C.WHITE}; border: 1px solid {C.BORDER_B}; }}"""
         self._hud_btn.setText("🧑  HUD: ANIMATED FACE" if face
-                              else "◉  HUD: REACTOR CORE")
+                              else "◉  HUD: ULTRON CORE")
         self._hud_btn.setStyleSheet(style)
         self._hud_btn.setToolTip(
             "An animated head that speaks your words and shows what ULTRON is "
@@ -5335,9 +5337,9 @@ class MainWindow(QMainWindow):
         """Update all name/theme-dependent UI elements and persist to config."""
         self._assistant_name = name.strip() or "ULTRON"
         display = self._assistant_name.upper()
-        self.setWindowTitle(f"{display} — {APP_VERSION}")
+        self.setWindowTitle(display)
         self._title_lbl.setText(display)
-        if display in ("ULTRON", "J.A.R.V.I.S"):
+        if display in ("ULTRON", "ULTRON"):
             self._sub_lbl.setText("Just A Rather Very Intelligent System")
         else:
             self._sub_lbl.setText("Personal AI Assistant")

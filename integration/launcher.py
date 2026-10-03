@@ -125,7 +125,7 @@ def main(argv=None):
         with Services() as services:
             try:
                 health = services.start()
-                print('ULTRON hazır; MARK arayüzü açılıyor.', flush=True)
+                print('ULTRON hazır; masaüstü açılıyor.', flush=True)
             except Exception as exc:
                 if args.smoke or args.backend_only:
                     raise
@@ -134,7 +134,7 @@ def main(argv=None):
                 services.env = os.environ.copy()
                 services.env['MARK_ULTRON_WARNING'] = str(exc)
                 services.env['PYTHONUTF8'] = '1'
-                print('UYARI: ULTRON kullanılamıyor. MARK açılıyor; logs/backend.log', flush=True)
+                print('UYARI: Yerel motor kullanılamıyor. ULTRON masaüstü açılıyor; logs/backend.log', flush=True)
             if not args.backend_only:
                 cmd = [sys.executable, '-u', str(ROOT / 'mark_app.py')]
                 if args.smoke:
@@ -144,7 +144,7 @@ def main(argv=None):
                 if services.ui:
                     code = services.ui.wait(timeout=40)
                     if code:
-                        raise RuntimeError('MARK arayüz testi başarısız; logs/mark.log dosyasına bakın.')
+                        raise RuntimeError('ULTRON arayüz testi başarısız; logs/mark.log dosyasına bakın.')
                 assert services.bridge.health()['ok'], 'Backend died while MARK was running'
                 (LOGS / 'startup.json').write_text(json.dumps(health, indent=2), encoding='utf-8')
             elif services.ui:

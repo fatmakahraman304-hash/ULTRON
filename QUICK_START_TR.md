@@ -9,3 +9,7 @@ Sesle uyandırma için gerçek ultron.onnx modeli gerekir. Model henüz mevcut d
 Kişisel API ayarları config/api_keys.json içinde kalır ve Git'e eklenmez. Uygulama kapalıyken START.bat -Smoke ile gerçek pencere açılışı doğrulanabilir.
 
 Hologram çalışma alanını üstteki düğmeden veya Ctrl+H ile açın. Modeli parçalarına ayırabilir, parçaları inceleyebilir, GLB yükleyebilir ve .ultron.json projesi kaydedebilirsiniz. Hologram penceresi kapanınca orijinal masaüstü açık kalır. El kontrolü için hologram içindeki tarayıcı düğmesini kullanın; kamera yalnız tarayıcıdaki düğmeyle başlar.
+
+## Kırmızı ULTRON görünümü
+
+Ana masaüstü siyah metal paneller, kırmızı vurgu, gümüş başlık ve yerel olarak çizilen metalik robot maskesi kullanır. Ana pencerede MARK LV etiketi yoktur. Merkez görünümü ayarlardan değiştirilebilir; hologram Ctrl+H, yerel AI paneli Ctrl+L ile açılır.

@@ -24,7 +24,7 @@ class HologramBridge(NativeBridge):
 def attach(ui):
     toolbar = QToolBar('Hologram araçları', ui._win)
     toolbar.setMovable(False)
-    toolbar.setStyleSheet('QToolBar {background:#021017;color:#00dfff;border:0;padding:3px;} QToolButton {color:#00dfff;padding:7px;}')
+    toolbar.setStyleSheet('QToolBar {background:#080a0e;color:#ff3047;border:0;padding:3px;} QToolButton {color:#ff3047;padding:7px;}')
     action = toolbar.addAction('◈ Hologram çalışma alanı')
     action.setShortcut(QKeySequence('Ctrl+H'))
     ui._win.addToolBar(toolbar)
