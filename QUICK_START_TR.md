@@ -17,3 +17,8 @@ Tanılama çıktıları `logs/doctor.json`, kurulum sonucu `logs/install-result.
 `START.bat -Smoke` gerçek Qt penceresini ve backend'i açıp sekiz saniye sonra kapatan test kipidir. Bu kip Gemini görüşmesini başlatmaz. Normal `START.bat` bu sınırlamayı kullanmaz.
 
 Eski `ultron/ULTRON.bat`, `ultron/scripts/start_ultron.bat` ve `install_windows.bat` birleşik başlatıcıya yönlendirilir. Eski Electron paketleme ve otomatik başlatma yardımcıları kaynak referansı olarak korunmuştur; birleşik sürümün kurulum yolu değildir.
+
+
+## Hologram çalışma alanı
+
+Ana çekirdeğin üstündeki **Hologram çalışma alanı** düğmesini aç. Modeli parçalara ayırabilir, tek parçayı inceleyebilir veya **El kontrolünü tarayıcıda aç** ile tarayıcıya geçip oradaki kamera düğmesiyle ellerini kullanabilirsin. Ayrıntılar: [HOLOGRAM_KULLANIM_TR.md](HOLOGRAM_KULLANIM_TR.md).

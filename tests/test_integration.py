@@ -178,3 +178,14 @@ def test_document_rejects_invalid_files(service,name,data):
     with pytest.raises(urllib.error.HTTPError) as exc:
         service.bridge.request('/api/merged/document',{'name':name,'data':data})
     assert exc.value.code==400
+
+
+def test_hand_worker_only_allows_same_origin_network(service):
+    from urllib.request import Request, urlopen
+    assets=list((ROOT/'ultron/frontend/dist/assets').glob('hand.worker-*.js'))
+    assert assets, 'Build frontend before integration checks'
+    request=Request(service.bridge.url+'/frontend/assets/'+assets[0].name,headers={'X-MARK-Token':service.bridge.token})
+    with urlopen(request) as response:
+        policy=response.headers.get('Content-Security-Policy','')
+        assert "connect-src 'self'" in policy
+        assert "script-src 'self' 'wasm-unsafe-eval'" in policy

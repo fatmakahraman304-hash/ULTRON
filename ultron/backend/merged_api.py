@@ -142,16 +142,21 @@ def install(app, hub):
             raise web.HTTPForbidden()
         if not target.is_file():
             raise web.HTTPNotFound()
-        return web.FileResponse(target)
+        headers={}
+        if target.name.startswith('hand.worker-') and target.suffix=='.js':
+            # Local hand inference needs local WASM/model files only; block metrics endpoints.
+            headers['Content-Security-Policy']="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'"
+        return web.FileResponse(target,headers=headers)
 
     async def dashboard(req):
         # Fragment never reaches HTTP logs. Exchange it for a session-only cookie.
         return web.Response(text='''<!doctype html><html lang="tr"><meta charset="utf-8">
 <title>MARK · ULTRON</title><p id="status">Panel açılıyor…</p><script>
+const showHologram = new URLSearchParams(location.search).has('hologram');
 const token = location.hash.slice(1); history.replaceState(null, '', location.pathname);
 fetch('/api/merged/session', {method:'POST', headers:{'X-MARK-Token':token}})
 .then(r => {if (!r.ok) throw Error('Yetkilendirme başarısız. MARK panelinden tekrar açın.');
-location.replace('/frontend/index.html');})
+location.replace('/frontend/index.html'+(showHologram?'?hologram=1':''));})
 .catch(e => document.getElementById('status').textContent=e.message);
 </script></html>''', content_type='text/html', headers={'Cache-Control':'no-store',
             'Referrer-Policy':'no-referrer', 'Content-Security-Policy':

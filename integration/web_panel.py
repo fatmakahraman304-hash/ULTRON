@@ -59,7 +59,14 @@ class NativeBridge(QObject):
     @pyqtSlot(str)
     def action(self, name):
         win=self.ui._win
-        if name=='mute':
+        if name=='hologrambrowser':
+            import webbrowser
+            self.ui.stop_camera_stream()
+            base=os.environ.get('MARK_ULTRON_URL','')
+            token=os.environ.get('MARK_ULTRON_TOKEN','')
+            if base and token:
+                webbrowser.open(base+'/merged/dashboard?hologram=1#'+token)
+        elif name=='mute':
             win._toggle_mute()
             self.state()
         elif name=='interrupt':
@@ -117,9 +124,24 @@ def attach(ui):
     win.addToolBar(toolbar)
     toolbar.hide()
     native=NativeBridge(ui,stack,toolbar)
+    page.permissionRequested.connect(lambda permission: permission.deny())
     channel=QWebChannel(page)
     channel.registerObject('mark',native)
     page.setWebChannel(channel)
+    def save_hologram_image(download):
+        # Only the explicitly generated PNG is handled by this native download hook.
+        if not download.url().toString().startswith('data:image/png'):
+            download.cancel()
+            return
+        filename,_=QFileDialog.getSaveFileName(win,'Hologram görüntüsünü kaydet','ultron-hologram.png','PNG (*.png)')
+        if not filename:
+            download.cancel()
+            return
+        destination=Path(filename)
+        download.setDownloadDirectory(str(destination.parent))
+        download.setDownloadFileName(destination.name)
+        download.accept()
+    profile.downloadRequested.connect(save_hologram_image)
     stack.setCurrentIndex(1)
     win.setWindowTitle('ULTRON · MARK AI')
     win.resize(1440,900)
