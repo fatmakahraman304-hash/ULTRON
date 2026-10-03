@@ -67,7 +67,7 @@ def _base_dir() -> Path:
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent
 
-from core.ultron_visual import MetalPanel, ParticleCore
+from core.ultron_visual import MetalPanel, ParticleCore, hull, paint_environment
 
 BASE_DIR   = _base_dir()
 CONFIG_DIR = BASE_DIR / "config"
@@ -859,6 +859,7 @@ class HudCanvas(QWidget):
             self._grid_cache = self._make_grid(W, H)
             self._grid_key   = _gkey
         p.drawPixmap(0, 0, self._grid_cache)
+        paint_environment(p, W, H, self._core_phase)
 
         # ── holographic head ────────────────────────────────────────────────
         # Sized to the band between the top of the canvas and the status line,
@@ -895,7 +896,7 @@ class HudCanvas(QWidget):
             _r = min(W * 0.46, _band_h / 2.0)
             if not hasattr(self, '_particle_core'):
                 self._particle_core = ParticleCore()
-            self._particle_core.paint(p, cx, _band_t + _band_h / 2.0, _r*.88,
+            self._particle_core.paint(p, cx, _band_t + _band_h / 2.0 - 22, _r*.78,
                                       self._core_phase, self._amp_disp, self._assistant_name)
 
         # status text
@@ -952,6 +953,7 @@ class MetricBar(QWidget):
         self._label = label
         self._color = color
         self._value = 0.0       # 0–100
+        self._history = []
         self._text  = "--"
         self.setFixedHeight(58)
         self.setMinimumWidth(80)
@@ -961,6 +963,7 @@ class MetricBar(QWidget):
         if v == self._value and text == self._text:
             return          # unchanged — skip the repaint
         self._value = v
+        self._history = (self._history + [v])[-40:]
         self._text  = text
         self.update()
 
@@ -971,15 +974,21 @@ class MetricBar(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         W, H = self.width(), self.height()
 
-        p.setBrush(QBrush(qcol(C.PANEL2)))
-        p.setPen(QPen(qcol(C.BORDER_A), 1))
-        p.drawRoundedRect(QRectF(1, 1, W - 2, H - 2), 4, 4)
+        hull(p, QRectF(1,1,W-2,H-2), True)
 
         bar_h   = 4
         bar_y   = H - bar_h - 5
-        bar_w   = W - 12
-        bar_x   = 6
+        bar_w   = W * .53
+        bar_x   = 12
         fill_w  = int(bar_w * self._value / 100)
+        if len(self._history)>1:
+            path=QPainterPath()
+            for i,value in enumerate(self._history):
+                xx=W*.64+i/max(1,len(self._history)-1)*(W*.29)
+                yy=H-10-value*.2
+                if i==0:path.moveTo(xx,yy)
+                else:path.lineTo(xx,yy)
+            p.setBrush(Qt.BrushStyle.NoBrush);p.setPen(QPen(qcol(C.TEXT_MED),.8));p.drawPath(path)
 
         p.setBrush(QBrush(qcol(C.BAR_BG)))
         p.setPen(Qt.PenStyle.NoPen)
@@ -3937,10 +3946,10 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QWidget:
         w = MetalPanel()
-        w.setFixedHeight(84)
+        w.setFixedHeight(96)
         w.setStyleSheet("background: transparent; border: none;")
         lay = QHBoxLayout(w)
-        lay.setContentsMargins(16, 0, 16, 0)
+        lay.setContentsMargins(24, 10, 24, 10)
 
         def _badge(txt, color=C.TEXT_MED):
             l = QLabel(txt)
@@ -4094,7 +4103,7 @@ class MainWindow(QMainWindow):
 
         return w
     def _build_right_panel(self) -> QWidget:
-        w = MetalPanel()
+        w = QWidget()
         w.setFixedWidth(_RIGHT_W)
         w.setStyleSheet("background: transparent; border: none;")
         lay = QVBoxLayout(w)
@@ -4107,18 +4116,26 @@ class MainWindow(QMainWindow):
             l.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
             return l
 
-        lay.addWidget(_sec("KONUŞMA / AKTİVİTE"))
+        conversation = MetalPanel()
+        conversation_layout = QVBoxLayout(conversation)
+        conversation_layout.setContentsMargins(16,18,16,15)
+        conversation_layout.addWidget(_sec("KONUŞMA / AKTİVİTE"))
         self._log = LogWidget()
-        lay.addWidget(self._log, stretch=1)
+        conversation_layout.addWidget(self._log)
+        lay.addWidget(conversation, stretch=1)
 
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
         sep.setStyleSheet(f"color: {C.BORDER}; margin: 2px 0;")
         lay.addWidget(sep)
 
-        lay.addWidget(_sec("DOSYALAR"))
+        files = MetalPanel()
+        files_layout = QVBoxLayout(files)
+        files_layout.setContentsMargins(16,18,16,15)
+        files_layout.addWidget(_sec("DOSYALAR"))
         self._drop_zone = FileDropZone()
         self._drop_zone.file_selected.connect(self._on_file_selected)
-        lay.addWidget(self._drop_zone)
+        files_layout.addWidget(self._drop_zone)
+        lay.addWidget(files)
 
         self._file_hint = QLabel("No file loaded — drop or click above to upload")
         self._file_hint.setFont(QFont("Courier New", 7))
@@ -4130,8 +4147,12 @@ class MainWindow(QMainWindow):
         sep2.setStyleSheet(f"color: {C.BORDER}; margin: 2px 0;")
         lay.addWidget(sep2)
 
-        lay.addWidget(_sec("KOMUT"))
-        lay.addLayout(self._build_input_row())
+        command_panel = MetalPanel()
+        command_layout = QVBoxLayout(command_panel)
+        command_layout.setContentsMargins(16,18,16,16)
+        command_layout.addWidget(_sec("KOMUT"))
+        command_layout.addLayout(self._build_input_row())
+        lay.addWidget(command_panel)
 
         self._interrupt_btn = QPushButton("✋  INTERRUPT  [ESC]")
         self._interrupt_btn.setFixedHeight(34)
