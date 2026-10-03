@@ -85,6 +85,11 @@ def main():
         run([sys.executable, '-m', 'pip', 'check'])
         if not run([sys.executable, '-m', 'playwright', 'install', 'chromium'], optional=True):
             warnings.append('Playwright browser download failed')
+        npm = shutil.which('npm.cmd') or shutil.which('npm')
+        if not npm:
+            raise RuntimeError('Hologram derlemesi için Node/npm gerekli.')
+        run([npm, 'ci', '--no-audit', '--no-fund'], cwd=ROOT/'ultron/frontend')
+        run([npm, 'run', 'build'], cwd=ROOT/'ultron/frontend')
         warnings += prepare_models()
         # Isolate each run from ACLs and locks in another session's pytest temp area.
         test_temp = Path(tempfile.mkdtemp(prefix='install-tests-', dir=ROOT/'cache'))/'run'

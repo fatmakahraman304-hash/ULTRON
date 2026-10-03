@@ -16,6 +16,8 @@ def install(app, hub):
         if req.path == '/merged/dashboard' or req.path.startswith(('/frontend/', '/frontend-mobile/')):
             return web.json_response({'ok': False, 'error': 'DESKTOP_ONLY',
                 'message': 'ULTRON uses the original MARK desktop interface. Start START.bat.'}, status=410)
+        if req.path == '/merged/hologram' and req.method == 'GET':
+            return await handler(req)
         if token:
             header_ok = hmac.compare_digest(req.headers.get('X-MARK-Token', ''), token)
             cookie_ok = hmac.compare_digest(req.cookies.get('mark_session', ''), token)
@@ -136,8 +138,10 @@ def install(app, hub):
             return web.json_response({'ok':False,'error':'Dosya okunamadı. Geçerli bir PDF veya UTF-8 metin dosyası seçin.'},status=400)
 
     async def frontend(req):
-        root = Path(__file__).resolve().parents[1] / req.match_info['surface'] / 'dist'
-        relative = req.match_info.get('asset') or 'index.html'
+        root = Path(__file__).resolve().parents[1] / req.match_info.get('surface', 'frontend') / 'dist'
+        relative = req.match_info.get('asset') or 'hologram.html'
+        if relative.endswith('.html') and relative != 'hologram.html':
+            raise web.HTTPNotFound()
         target = (root / relative).resolve()
         if not target.is_relative_to(root.resolve()):
             raise web.HTTPForbidden()
@@ -157,7 +161,7 @@ const showHologram = new URLSearchParams(location.search).has('hologram');
 const token = location.hash.slice(1); history.replaceState(null, '', location.pathname);
 fetch('/api/merged/session', {method:'POST', headers:{'X-MARK-Token':token}})
 .then(r => {if (!r.ok) throw Error('Yetkilendirme başarısız. MARK panelinden tekrar açın.');
-location.replace('/frontend/index.html'+(showHologram?'?hologram=1':''));})
+location.replace('/hologram/hologram.html');})
 .catch(e => document.getElementById('status').textContent=e.message);
 </script></html>''', content_type='text/html', headers={'Cache-Control':'no-store',
             'Referrer-Policy':'no-referrer', 'Content-Security-Policy':
@@ -176,5 +180,7 @@ location.replace('/frontend/index.html'+(showHologram?'?hologram=1':''));})
     app.router.add_post('/api/merged/shutdown', shutdown)
     app.router.add_post('/api/merged/document', document)
     app.router.add_get('/merged/dashboard', dashboard)
+    app.router.add_get('/merged/hologram', dashboard)
+    app.router.add_get('/hologram/{asset:.*}', frontend)
     app.router.add_post('/api/merged/session', session)
     app.router.add_get('/{surface:frontend|frontend-mobile}/{asset:.*}', frontend)

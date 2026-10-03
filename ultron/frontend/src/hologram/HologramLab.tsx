@@ -24,7 +24,7 @@ export default function HologramLab({accent,onClose,onAsk,nativeAction}:Props){
       stream.current=media;media.getVideoTracks().forEach(track=>track.addEventListener('ended',()=>{if(id===session.current){stopCamera();setError('Kamera akışı sona erdi. El kontrolünü yeniden açabilirsiniz.');}}));if(skeleton.current)skeleton.current.dataset.handFrames='0';video.current!.srcObject=media;await video.current!.play();
       if(id!==session.current)return;
       const w=new Worker(new URL('./hand.worker.ts',import.meta.url),{type:'module'});worker.current=w;
-      const base=new URL('/frontend/handtracking',location.href).href;
+      const base=new URL('/hologram/handtracking',location.href).href;
       let last=-1;
       const frameCanvas=new OffscreenCanvas(640,480);const frameContext=frameCanvas.getContext('2d');
       if(!frameContext)throw Error('Kamera kareleri hazırlanamadı.');

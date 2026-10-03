@@ -2307,6 +2307,8 @@ class UltronLive:
 def main():
     import os
     os.chdir(get_base_dir())
+    from integration.web_panel import prepare
+    prepare()
     ui = UltronUI(str(get_base_dir() / "face.png"))
     from integration.panel import attach
     attach(ui)

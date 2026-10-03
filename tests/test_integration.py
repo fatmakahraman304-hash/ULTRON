@@ -190,3 +190,17 @@ def test_missing_custom_model_cannot_download_different_keyword(tmp_path, monkey
     assert not ok
     assert 'ULTRON' in message
     assert not wake_word.is_ready()
+
+
+def test_hologram_is_available_without_alternate_desktop(service):
+    from urllib.request import Request, urlopen
+    headers = {'X-MARK-Token': service.bridge.token}
+    with urlopen(Request(service.bridge.url+'/hologram/hologram.html',headers=headers)) as response:
+        assert b'<title>ULTRON Hologram</title>' in response.read()
+    with pytest.raises(urllib.error.HTTPError) as disabled:
+        urlopen(Request(service.bridge.url+'/hologram/index.html',headers=headers))
+    assert disabled.value.code == 404
+    assets = list((ROOT/'ultron/frontend/dist/assets').glob('hand.worker-*.js'))
+    assert assets
+    with urlopen(Request(service.bridge.url+'/hologram/assets/'+assets[0].name,headers=headers)) as response:
+        assert "connect-src 'self'" in response.headers.get('Content-Security-Policy','')

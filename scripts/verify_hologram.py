@@ -18,7 +18,7 @@ with Services() as service:
   browser=p.chromium.launch(headless=True,args=['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream'])
   page=browser.new_page(viewport={'width':1440,'height':1000},permissions=['camera'])
   errors=[];console=[];page.on('pageerror',lambda e:errors.append(str(e)));page.on('console',lambda msg:console.append(msg.text) if msg.type=='error' else None)
-  page.goto(service.bridge.url+'/merged/dashboard?hologram=1#'+service.bridge.token)
+  page.goto(service.bridge.url+'/merged/hologram#'+service.bridge.token)
   page.get_by_role('dialog',name='Hologram çalışma alanı').wait_for()
   page.wait_for_function("document.querySelectorAll('.holo-parts button').length===14")
   assert page.locator('.holo-canvas canvas').count()==1
@@ -64,7 +64,7 @@ with Services() as service:
    assert page.locator('.holo-lab').evaluate('e=>e.scrollWidth<=e.clientWidth'),width
   page.set_viewport_size({'width':430,'height':932});page.screenshot(path=str(out/'mobile.png'),full_page=True)
   page.get_by_role('button',name='Hologramı kapat').click();assert page.get_by_role('dialog',name='Hologram çalışma alanı').count()==0
-  page.get_by_role('button',name='Hologram çalışma alanı').click();page.get_by_role('dialog',name='Hologram çalışma alanı').wait_for();page.keyboard.press('Escape');assert page.get_by_role('dialog',name='Hologram çalışma alanı').count()==0
+  page.get_by_role('button',name='Yeniden aç').click();page.get_by_role('dialog',name='Hologram çalışma alanı').wait_for();page.keyboard.press('Escape');assert page.get_by_role('dialog',name='Hologram çalışma alanı').count()==0
   assert not errors,errors
   (out/'checks.json').write_text(json.dumps({'status':'PASS','checks':['authenticated browser handoff','PNG export','WebGL render','orbit','explode and assemble','select and isolate','wireframe','commands','GLB import','invalid GLB preserves scene','real MediaPipe inference on synthetic camera','camera stop releases stream','responsive layouts','close and reopen'],'javascript_errors':errors,'console_errors':console},ensure_ascii=False,indent=2),encoding='utf-8')
   browser.close()

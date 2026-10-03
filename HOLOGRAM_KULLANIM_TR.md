@@ -2,8 +2,8 @@
 
 ## Açılış
 
-START.bat → ana çekirdeğin üstündeki **Hologram çalışma alanı** düğmesi.
-Sohbete `hologramı aç` da yazılabilir. Gemini Live zaten çalışıyorsa sesle aynı komut söylenebilir.
+START.bat → orijinal MARK masaüstündeki **Hologram çalışma alanı** düğmesi veya **Ctrl+H**.
+Hologram ayrı araç penceresinde açılır; kapatınca orijinal ULTRON masaüstü açık kalır.
 
 ## Eklenen özellikler
 
@@ -52,7 +52,7 @@ Kamera kareleri MediaPipe ile Web Worker içinde cihazda işlenir; sunucuya yük
 
 ## Doğrulama
 
-- Masaüstü ve mobil üretim derlemeleri.
+- Yalnız hologram sayfasının üretim derlemesi; diğer ana arayüzler devre dışıdır.
 - Gerçek WebGL etkileşim testi: döndürme, parça seçme/yalıtma, parçalama/birleştirme, tel kafes, metin komutu, GLB yükleme ve bozuk dosyada sahneyi koruma.
 - Gerçek MediaPipe modeli, yapay kamera kareleri üzerinde çıkarım yaptı; kameranın durdurulması ve pencerenin kapanması kontrol edildi.
 - El işaretleyici algoritması: sıkıştırma, iki el, ölçekten bağımsız algılama, aynalı imleç ve eksik el verisi testleri.

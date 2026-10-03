@@ -12,7 +12,7 @@ with Services() as service:
   browser=p.chromium.launch(headless=True)
   page=browser.new_page(viewport={'width':1440,'height':1000})
   errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-  page.goto(service.bridge.url+'/merged/dashboard?hologram=1#'+service.bridge.token)
+  page.goto(service.bridge.url+'/merged/hologram#'+service.bridge.token)
   page.get_by_role('button',name='Parçalara ayır',exact=True).wait_for()
   assert page.get_by_role('button',name='Geri al',exact=True).is_disabled()
   page.get_by_role('button',name='Parçalara ayır',exact=True).click()

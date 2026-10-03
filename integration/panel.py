@@ -31,6 +31,8 @@ class Worker(QObject):
 
 
 def attach(ui):
+    from .hologram_panel import attach as attach_hologram
+    attach_hologram(ui)
     dock = QDockWidget('MARK · Yerel AI / Görevler', ui._win)
     panel = QWidget()
     layout = QVBoxLayout(panel)
