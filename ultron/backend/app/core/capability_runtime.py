@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.core.jarvis_capabilities import capability_inventory
+from app.core.ultron_capabilities import capability_inventory
 from app.multimodal.camera_adapter import CameraAdapter
 from app.multimodal.image_generation import ImageGenerationAdapter
 from app.multimodal.pdf_workspace import PDFWorkspace

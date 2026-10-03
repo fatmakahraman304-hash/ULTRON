@@ -13,16 +13,16 @@ from app.voice.wake import (  # noqa: E402
 
 # ------------------------------------------------------------ porcupine
 def test_porcupine_keyword_file_found():
-    e = PorcupineEngine(keyword="jarvis", access_key="x")
+    e = PorcupineEngine(keyword="computer", access_key="x")
     if e.keyword_path is None:  # pvporcupine kurulu değilse dürüst hata
         assert "pvporcupine" in (e.error or "")
         return
     assert e.keyword_path.endswith(".ppn")
-    assert "jarvis" in e.keyword_path
+    assert "computer" in e.keyword_path
 
 
 def test_porcupine_unavailable_without_key():
-    e = PorcupineEngine(keyword="jarvis", access_key=None)
+    e = PorcupineEngine(keyword="computer", access_key=None)
     old = os.environ.pop("PICOVOICE_ACCESS_KEY", None)
     try:
         assert e.available is False
@@ -34,7 +34,7 @@ def test_porcupine_unavailable_without_key():
 
 
 def test_porcupine_start_requires_availability():
-    e = PorcupineEngine(keyword="jarvis", access_key=None)
+    e = PorcupineEngine(keyword="computer", access_key=None)
     with pytest.raises(RuntimeError):
         e.start()
 
@@ -101,13 +101,13 @@ def test_manager_unavailable_reports_all_engines():
 
 
 def test_manager_chunking_and_detection():
-    eng = FakeEngine("fake", fire_on=["jarvis"])
+    eng = FakeEngine("fake", fire_on=["ultron"])
     m = WakeWordManager(engines=[eng])
     m.start()
     # 3.5 çerçeve gönder: arabellek doğru bölünmeli, tek event dönmeli
     chunk = b"\x01\x00" * int(OWW_FRAME * 3.5)
     res = m.process_chunk(chunk)
-    assert res == ("jarvis", 0.87)
+    assert res == ("ultron", 0.87)
     assert len(m._buf) == (len(chunk) % (OWW_FRAME * 2))
 
 
@@ -121,7 +121,7 @@ def test_real_porcupine_if_key(monkeypatch):
     key = os.environ.get("PICOVOICE_ACCESS_KEY", "")
     if not key:
         pytest.skip("PICOVOICE_ACCESS_KEY yok (kullanıcı anahtarı) — PHASE 5 PARTIAL")
-    e = PorcupineEngine(keyword="jarvis", access_key=key)
+    e = PorcupineEngine(keyword="computer", access_key=key)
     e.start()
     try:
         import array

@@ -1,5 +1,5 @@
 """
-Local wake-word detection for JARVIS ("Hey Jarvis").
+Local wake-word detection for ULTRON ("Ultron").
 
 Design goals:
   • ZERO cost when the feature is off — openwakeword is imported ONLY inside
@@ -10,26 +10,24 @@ Design goals:
     this module's own background thread, so the real-time audio thread and the
     Gemini stream are never slowed.
   • Fully local & offline — audio fed here never leaves the machine; there is no
-    network call except the one-time model download the user triggers from the UI.
+    network call during detection. Install a trained ULTRON model separately.
 
 openwakeword ships small ONNX models (a few MB each) and runs comfortably on a
-CPU. The pretrained wake phrase used here is "Hey Jarvis".
+CPU. A separately trained ULTRON model is required.
 """
 from __future__ import annotations
 
 import queue
-import subprocess
-import sys
 import threading
 from pathlib import Path
 from typing import Callable
 
-# Pretrained openwakeword model that listens for "Hey Jarvis".
-WAKE_MODEL = "hey_jarvis"
+# Custom acoustic model; renaming another model does not change its wake phrase.
+WAKE_MODEL = "ultron"
 
 def selected_model():
     custom = Path(__file__).resolve().parents[1] / "ultron/backend/data/voice/wake/ultron.onnx"
-    return str(custom) if custom.is_file() else WAKE_MODEL
+    return str(custom)
 
 # Score in [0,1]; above this counts as a detection. Tunable per environment.
 DEFAULT_THRESHOLD = 0.5
@@ -61,8 +59,7 @@ def is_ready() -> bool:
         models_dir = Path(openwakeword.__file__).resolve().parent / "resources" / "models"
         if not models_dir.is_dir():
             return False
-        has_wake = (Path(selected_model()).is_file() or any(models_dir.glob(f"{WAKE_MODEL}*.onnx"))
-                    or any(models_dir.glob(f"{WAKE_MODEL}*.tflite")))
+        has_wake = Path(selected_model()).is_file()
         has_mel = (any(models_dir.glob("melspectrogram*.onnx"))
                    or any(models_dir.glob("melspectrogram*.tflite")))
         has_emb = (any(models_dir.glob("embedding_model*.onnx"))
@@ -75,40 +72,18 @@ def is_ready() -> bool:
 def install_and_download(logger: Callable[[str], None] = print,
                          notify: Callable[[str], None] | None = None) -> tuple[bool, str]:
     """
-    One-click setup for the UI button: pip-install openwakeword if missing, then
-    download the wake model. Returns (ok, message). Never raises — every failure
+    Validate the custom ULTRON model for the UI button. Returns (ok, message). Never raises — every failure
     is reported through the returned message and the logger.
     """
-    _tell = notify or (lambda _msg: None)
-    try:
-        if not is_installed():
-            logger("Wake word: installing openwakeword (one-time)…")
-            _tell("Wake word: installing openwakeword (one-time)…")
-            r = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "openwakeword"],
-                capture_output=True, text=True,
-            )
-            if r.returncode != 0:
-                tail = (r.stderr or r.stdout or "").strip().splitlines()[-1:] or [""]
-                return False, f"pip install failed: {tail[0][:160]}"
-        # Download the pretrained melspectrogram/embedding + wake models.
-        logger("Wake word: downloading models…")
-        _tell("Wake word: downloading models…")
-        try:
-            import openwakeword.utils as _u
-            try:
-                _u.download_models([WAKE_MODEL])
-            except TypeError:
-                _u.download_models()   # older signature downloads the default set
-        except Exception as e:
-            return False, f"model download failed: {e}"
-
-        if not is_ready():
-            return False, "installed, but the wake model could not be loaded."
-        logger("Wake word: ready.")
-        return True, "Wake word installed and ready."
-    except Exception as e:
-        return False, f"setup error: {e}"
+    if not Path(selected_model()).is_file():
+        message = "ULTRON uyandırma modeli eksik: data/voice/wake/ultron.onnx. Manuel uyandırmayı kullanın."
+        logger(message)
+        if notify:
+            notify(message)
+        return False, message
+    if not is_ready():
+        return False, "ULTRON model dependencies are missing; run the application setup."
+    return True, "ULTRON wake word ready."
 
 
 class WakeWordDetector:
@@ -151,7 +126,7 @@ class WakeWordDetector:
         self._ready = True
         self._thread = threading.Thread(target=self._loop, daemon=True, name="WakeWordThread")
         self._thread.start()
-        self._logger("Wake word: listening for 'Hey Jarvis'.")
+        self._logger("Wake word: listening for 'Ultron'.")
         return True
 
     def stop(self) -> None:
@@ -192,9 +167,9 @@ class WakeWordDetector:
                 scores = self._model.predict(np.asarray(frame, dtype=np.int16))
                 score = 0.0
                 if isinstance(scores, dict):
-                    # match the jarvis model regardless of exact key suffix
+                    # match the ultron model regardless of exact key suffix
                     for k, v in scores.items():
-                        if "jarvis" in k.lower():
+                        if "ultron" in k.lower():
                             score = max(score, float(v))
                     if score == 0.0 and scores:
                         score = max(float(v) for v in scores.values())

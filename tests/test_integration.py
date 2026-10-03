@@ -35,7 +35,7 @@ def test_wake_fields_always_initialized(tmp_path,exists):
 
 def test_custom_wake_preferred(tmp_path,monkeypatch):
     monkeypatch.setenv('ULTRON_WAKE_MODEL','ultron')
-    for name in ('ultron.onnx','hey_jarvis.onnx'):
+    for name in ('ultron.onnx','other_keyword.onnx'):
         (tmp_path/name).write_bytes(b'file-presence-fixture')
     engine=wake.OpenWakeWordEngine(tmp_path)
     assert [m.name for m in engine.models]==['ultron.onnx']
@@ -189,3 +189,20 @@ def test_hand_worker_only_allows_same_origin_network(service):
         policy=response.headers.get('Content-Security-Policy','')
         assert "connect-src 'self'" in policy
         assert "script-src 'self' 'wasm-unsafe-eval'" in policy
+
+
+def test_unrelated_wake_model_is_not_ultron(tmp_path, monkeypatch):
+    monkeypatch.setenv('ULTRON_WAKE_MODEL', 'ultron')
+    (tmp_path/'other_keyword.onnx').write_bytes(b'fixture')
+    engine = wake.OpenWakeWordEngine(tmp_path)
+    assert not engine.available
+    assert engine.models == []
+
+
+def test_missing_custom_model_cannot_download_different_keyword(tmp_path, monkeypatch):
+    from core import wake_word
+    monkeypatch.setattr(wake_word, 'selected_model', lambda: str(tmp_path/'ultron.onnx'))
+    ok, message = wake_word.install_and_download(logger=lambda _: None)
+    assert not ok
+    assert 'ULTRON' in message
+    assert not wake_word.is_ready()

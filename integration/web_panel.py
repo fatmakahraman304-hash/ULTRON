@@ -42,7 +42,7 @@ class NativeBridge(QObject):
         # Only conversation output is mirrored. Technical logs stay in MARK's tools.
         if text.startswith('You:'):
             self.emit(kind='log', role='user', text=text.partition(':')[2].strip())
-        elif text.startswith((self.ui.assistant_name+':', 'JARVIS:', 'ULTRON:')):
+        elif text.startswith((self.ui.assistant_name+':', 'ULTRON:', 'ULTRON:')):
             self.emit(kind='log', role='assistant', text=text.partition(':')[2].strip())
         elif text.startswith('ERR:'):
             self.emit(kind='error', text=text[4:].strip())

@@ -24,9 +24,11 @@ class KeywordSpotter:
         from openwakeword.model import Model
         root=Path(__file__).resolve().parents[2]/'data/voice/wake'
         custom=root/'ultron.onnx'
-        selected=str(custom) if custom.is_file() else 'hey_jarvis'
+        if not custom.is_file():
+            raise FileNotFoundError('Custom ULTRON wake model missing: ultron.onnx')
+        selected=str(custom)
         self._model=Model(wakeword_models=[selected],inference_framework='onnx')
-        self.keyword='ultron' if custom.is_file() else 'hey_jarvis'
+        self.keyword='ultron'
 
     def start(self):
         if os.environ.get('MARK_AUDIO_OWNER')=='mark':

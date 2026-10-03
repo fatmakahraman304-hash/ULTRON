@@ -4,7 +4,7 @@ Searching for a word inside an STT transcript is NOT wake-word detection;
 these engines analyze raw audio frames:
 
 - PorcupineEngine (pvporcupine): highly efficient on-device spotting.
-  Bundled keyword files include 'jarvis' and 'computer'. Requires the
+  Bundled keyword files include 'computer'; ULTRON requires a custom model. Requires the
   user's free Picovoice AccessKey (PICOVOICE_ACCESS_KEY env or vault
   secret 'picovoice_access_key'). Without a key -> honestly unavailable.
 - OpenWakeWordEngine (openwakeword): open-source alternative using
@@ -36,9 +36,9 @@ def _platform_suffix() -> str:
 class PorcupineEngine:
     NAME = "porcupine"
 
-    def __init__(self, keyword="jarvis", access_key=None, vault=None,
+    def __init__(self, keyword="ultron", access_key=None, vault=None,
                  sensitivity=0.6):
-        self.keyword = (keyword or "jarvis").lower()
+        self.keyword = (keyword or "ultron").lower()
         self.sensitivity = float(sensitivity)
         self._pv = None
         self._handle = None
@@ -122,9 +122,9 @@ class OpenWakeWordEngine:
             [p for p in self.model_dir.glob("*.tflite")] +
             [p for p in self.model_dir.glob("*.onnx")]) if self.model_dir.exists() else []
         # Prefer the configured wake keyword model. This prevents a leftover
-        # hey_jarvis model from becoming an accidental trigger once ULTRON is installed.
+        # different keyword model from becoming an accidental trigger once ULTRON is installed.
         preferred = [p for p in all_models if p.stem.lower() == self._configured_keyword()]
-        self.models = preferred or all_models
+        self.models = preferred
 
     def _configured_keyword(self):
         return os.environ.get("ULTRON_WAKE_MODEL", "ultron").strip().lower()
@@ -170,7 +170,7 @@ class WakeWordManager:
 
     def __init__(self, settings=None, vault=None, engines=None):
         cfg = (settings or {}).get("wake", {})
-        self.keyword = cfg.get("keyword", "jarvis")
+        self.keyword = cfg.get("keyword", "ultron")
         self.threshold = float(cfg.get("threshold", 0.5))
         if engines is not None:  # DI (tests)
             self.engines = engines

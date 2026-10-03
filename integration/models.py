@@ -18,14 +18,14 @@ def download(url, destination):
 def main():
     errors = []
     try:
-        import openwakeword.utils
+        from core.wake_word import selected_model
         from openwakeword.model import Model
-        try:
-            Model(wakeword_models=['hey_jarvis'], inference_framework='onnx')
-        except (OSError, ValueError):
-            openwakeword.utils.download_models(['hey_jarvis'])
-            Model(wakeword_models=['hey_jarvis'], inference_framework='onnx')
-        print('PASS: pretrained hey_jarvis model load')
+        custom = Path(selected_model())
+        if custom.is_file():
+            Model(wakeword_models=[str(custom)], inference_framework='onnx')
+            print('PASS: custom ULTRON model load')
+        else:
+            print('WARN: custom ULTRON wake model missing; manual activation available')
     except Exception as exc:
         errors.append('Wake: '+str(exc))
     try:

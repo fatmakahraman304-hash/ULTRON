@@ -37,7 +37,10 @@ def probe(name):
     elif name=='Wake word':
         import numpy as np
         from openwakeword.model import Model
-        model=Model(wakeword_models=['hey_jarvis'],inference_framework='onnx')
+        from core.wake_word import selected_model
+        if not Path(selected_model()).is_file():
+            raise Unavailable('Custom ULTRON model missing; use manual activation')
+        model=Model(wakeword_models=[selected_model()],inference_framework='onnx')
         model.predict(np.zeros(1280,dtype=np.int16))
     elif name=='STT':
         sys.path.insert(0,str(BACKEND))

@@ -1,4 +1,4 @@
-# ULTRON — JARVIS Foundation
+# ULTRON — ULTRON Foundation
 
 Yerel-öncelikli (sovereign) kişisel yapay zekâ asistanı: tek kullanıcıya ("Boss") hizmet veren,
 Windows hedefli, tarayıcı + mobil arayüzü olan gerçek bir agent çekirdeği.

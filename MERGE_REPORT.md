@@ -15,7 +15,7 @@ Backend yalnız loopback üzerinde dinamik port kullanır. Her başlatmada üret
 ## Düzeltilen sorunlar
 
 - `OpenWakeWordEngine` içindeki erişilemeyen model başlatma kodu düzeltildi; `self.models` her durumda tanımlı. Eksik model çökme yaratmaz.
-- Kaynaklarda özel `ultron.onnx` / `ultron.tflite` yok. Önceden eğitilmiş `hey_jarvis` ONNX modeli gerçekten yüklendi ve örnek sinyalle çalıştırıldı. STT metninde kelime arayan eski keyword spotter gerçek akustik algılamaya çevrildi.
+- Özel ULTRON uyandırma modeli sağlanmalıdır; başka kelimeye ait model kullanılmaz. Model yokken manuel uyandırma kullanılabilir.
 - Mikrofon, hoparlör ve canlı wake-word sahibi MARK'tır. Birleşik kipte ULTRON otomatik dinleme/proaktif başlangıcı ve ikinci canlı ses/PTT açılması engellenir.
 - Model router yalnız mevcut listeden model seçer; eksik primary/config modeli kurulu modele düşer. Çoklu model seçimi de kurulu listeyle sınırlanır. Çevrimdışı durumda sınırlı deneme ve görünür hata vardır.
 - Faster-Whisper CUDA DLL/yükleme başarısızlığında CPU int8 kullanır; gerçek tiny model ve transcribe çalıştırması doğrulandı.
@@ -53,7 +53,7 @@ Ollama API şu modelleri bildirdi: `qwen2.5-coder:7b`, `qwen3:4b`, `qwen3:8b`, `
 
 ## Sınırlar
 
-- Özel ULTRON wake modeli bulunmuyor: `CUSTOM_MODEL_NOT_INSTALLED`. Hey Jarvis alternatifi yüklüdür.
+- Özel ULTRON uyandırma modeli sağlanmalıdır; başka kelimeye ait model kullanılmaz. Model yokken manuel uyandırma kullanılabilir.
 - Gemini yapılandırması ve Live modülleri doğrulandı; insanla canlı konuşma, fiziksel mikrofon/hoparlör ses kalitesi ve lip-sync görüşmesi uçtan uca doğrulanmadı.
 - Startup smoke kipinde gerçek Qt penceresi açılır; bu test Gemini oturumunu başlatmaz. Normal START aynı kısıtlamayı uygulamaz.
 - Masaüstü ekran yakalama ve kamera erişimi bu otomasyon oturumunda kısıtlı olabilir; cihaz bulunması görüntü/ses kalitesi testi değildir. OCR bilinen bir görsel üzerinde gerçekten çalıştırıldı.

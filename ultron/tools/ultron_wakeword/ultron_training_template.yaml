@@ -3,7 +3,7 @@ model_name: ultron
 target_phrase:
   - ULTRON
 custom_negative_phrases:
-  - hey jarvis
+  - hey ultron
   - hey google
   - alexa
   - computer

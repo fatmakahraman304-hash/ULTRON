@@ -44,7 +44,7 @@ Kamera görüntüsü aynalı gösterilir. Takip imlecini parçanın üzerine get
 
 ## Çalışma biçimi ve sınırlar
 
-Bu özellik ekranda hologram görünümünde 3B etkileşim sağlar. Havada görüntü oluşturmaz; bunun için AR gözlüğü veya uygun görüntüleme donanımı gerekir. Filmdeki JARVIS'in tüm kurgusal yetenekleri uygulanmış değildir. Mevcut konuşma, dosya analizi, sistem izleme ve görev araçlarına bu çalışma alanı eklenmiştir.
+Bu özellik ekranda hologram görünümünde 3B etkileşim sağlar. Havada görüntü oluşturmaz; bunun için AR gözlüğü veya uygun görüntüleme donanımı gerekir. Filmdeki ULTRON'in tüm kurgusal yetenekleri uygulanmış değildir. Mevcut konuşma, dosya analizi, sistem izleme ve görev araçlarına bu çalışma alanı eklenmiştir.
 
 Örnek modeller çizim amaçlıdır; çalışan reaktör, doğrulanmış mühendislik hesabı veya fizik simülasyonu değildir. İçe aktarılan modellerde işlev ve malzeme bilgisi tahmin edilip gerçekmiş gibi gösterilmez. Fotoğraftaki gerçek nesneyi otomatik 3B tarama veya malzeme tanıma eklenmemiştir.
 

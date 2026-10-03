@@ -240,7 +240,7 @@ class Agent:
             self._save("ULTRON",browser); return browser
         history=self._history(24)
         semantic=(self.semantic_memory.context(text,5) if self.semantic_memory else "")
-        base=("Sen Ultron'sın, JARVIS tarzı Windows masaüstü agentısın. Türkçe konuş. "
+        base=("Sen Ultron'sın, ULTRON tarzı Windows masaüstü agentısın. Türkçe konuş. "
                 "Gerçek bir aracı çalıştırmadan bir işlemi yaptığını asla iddia etme. "
                 "Araç başarısızsa açıkça başarısız olduğunu söyle. Bağlamdaki önceki mesajları kullan. "
                 "Kısa cevap isteğinde kısa, ayrıntılı isteğinde ayrıntılı cevap ver. "

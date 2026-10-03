@@ -21,7 +21,7 @@ def main() -> None:
     required = [
         ROOT / "backend" / "server.py",
         ROOT / "backend" / "app" / "core" / "capability_runtime.py",
-        ROOT / "backend" / "app" / "core" / "jarvis_capabilities.py",
+        ROOT / "backend" / "app" / "core" / "ultron_capabilities.py",
         ROOT / "desktop" / "main.cjs",
         ROOT / "desktop" / "package.json",
         ROOT / "frontend" / "package.json",
@@ -47,7 +47,7 @@ def main() -> None:
         except SyntaxError as exc:
             fail(f"syntax error in {path.relative_to(ROOT)}: {exc}")
 
-    inventory = (ROOT / "backend" / "app" / "core" / "jarvis_capabilities.py").read_text(encoding="utf-8")
+    inventory = (ROOT / "backend" / "app" / "core" / "ultron_capabilities.py").read_text(encoding="utf-8")
     runtime = (ROOT / "backend" / "app" / "core" / "capability_runtime.py").read_text(encoding="utf-8")
     if 'allowed = {"implemented", "adapter", "planned"}' not in inventory:
         fail("capability lifecycle validation missing")

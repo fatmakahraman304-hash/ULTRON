@@ -54,7 +54,7 @@ def test_wake_gate_degraded_without_engine():
 
 
 def test_wake_gate_accepts_strong_hit():
-    gate = WakeGate(ScriptedWake([("jarvis", 0.9)]), threshold=0.5)
+    gate = WakeGate(ScriptedWake([("ultron", 0.9)]), threshold=0.5)
     ev = gate.process_chunk(loud_frame())
     assert ev is not None and ev["type"] == "wake_detected"
     assert ev["score"] == 0.9 and gate.state == "LISTEN"
@@ -63,7 +63,7 @@ def test_wake_gate_accepts_strong_hit():
 
 
 def test_wake_gate_suppresses_low_score_false_positive():
-    gate = WakeGate(ScriptedWake([("jarvis", 0.2), ("jarvis", 0.3)]),
+    gate = WakeGate(ScriptedWake([("ultron", 0.2), ("ultron", 0.3)]),
                     threshold=0.5)
     assert gate.process_chunk(loud_frame()) is None
     assert gate.process_chunk(loud_frame()) is None   # 2. düşük hit de
@@ -72,7 +72,7 @@ def test_wake_gate_suppresses_low_score_false_positive():
 
 
 def test_wake_gate_cooldown_blocks_rapid_retrigger():
-    hits = [("jarvis", 0.9), ("jarvis", 0.9)]
+    hits = [("ultron", 0.9), ("ultron", 0.9)]
     gate = WakeGate(ScriptedWake(hits), cooldown_s=5.0)
     first = gate.process_chunk(loud_frame())
     assert first is not None
@@ -83,7 +83,7 @@ def test_wake_gate_cooldown_blocks_rapid_retrigger():
 
 
 def test_wake_gate_debounce_requires_consecutive():
-    gate = WakeGate(ScriptedWake([("jarvis", 0.8), ("jarvis", 0.8)]),
+    gate = WakeGate(ScriptedWake([("ultron", 0.8), ("ultron", 0.8)]),
                     debounce_hits=2)
     assert gate.process_chunk(loud_frame()) is None    # ilk tek hit yetmez
     ev = gate.process_chunk(loud_frame())

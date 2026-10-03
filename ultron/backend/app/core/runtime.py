@@ -548,7 +548,7 @@ class UltronRuntime:
                 # Fallback: brain
         if self.brain is not None:
             try:
-                return self.brain.ask(text, system="Sen Ultron'sun, JARVIS tarzı AI asistanısın. Türkçe konuş.")
+                return self.brain.ask(text, system="Sen Ultron'sun, ULTRON tarzı AI asistanısın. Türkçe konuş.")
             except Exception as e:
                 return f"İşlemi tamamlayamadım: {e}"
         return "Ultron şu anda çevrimdışı — Ollama çalışıyor mu?"

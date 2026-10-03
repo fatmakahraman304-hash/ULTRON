@@ -1,7 +1,7 @@
 # WAVE 4 REMOTE ↔ LOCAL AUDIT — READ-ONLY COMPARISON REPORT
 
 Tarih: 2026-08-29 · Dal: `arena/01a0489d-ultron`
-REMOTE HEAD: `54f5cdb510a23db463ddbf01d7904e74e6a2c079` (orijinal JARVIS Foundation zinciri, PR #1 head)
+REMOTE HEAD: `54f5cdb510a23db463ddbf01d7904e74e6a2c079` (orijinal ULTRON Foundation zinciri, PR #1 head)
 LOCAL HEAD : `dfa1702ab25b385f278917d784da57de0a401233` (integrity + Wave 4 + repair + FREEZE)
 merge-base: `2252f99` (ULTRON Clean Neural baseline) → zincirler DIVERGE.
 Metot: `git diff FETCH_HEAD HEAD`, `git show`, kaynak incelemesi. **Hiçbir dosya

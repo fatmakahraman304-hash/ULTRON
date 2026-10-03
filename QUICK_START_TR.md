@@ -6,7 +6,7 @@ Günlük kullanım: **START.bat** dosyasına çift tıklayın. MARK penceresi ve
 
 MARK'ın Gemini sesli görüşmesi ve mevcut avatar/aksiyon arayüzü korunmuştur. Sağdaki **Yerel AI / Görevler** bölümünden Ollama'ya metin gönderilebilir. Otomatik, kod, hızlı, genel, agent, uzun görev ve çoklu model seçenekleri vardır. **ULTRON görev panelini aç** düğmesi ayrıntılı web panelini yetkili oturumla açar. Tarayıcı paneli yalnız bu bilgisayarda erişilebilen dinamik porta bağlanır.
 
-Mikrofonun sahibi MARK'tır. ULTRON'un ikinci bir ses dinleyicisi başlatması engellenir. Hazır wake phrase **Hey Jarvis**'tir. Özel `ultron.onnx` kaynaklarda bulunmadığından “Ultron” kelimesiyle uyanma doğrulanmış değildir. Model sağlanırsa konumu `ultron/backend/data/voice/wake/ultron.onnx` olur; gerçek akustik doğrulama ayrıca gerekir.
+Mikrofonun sahibi MARK uygulamasıdır. İkinci ses dinleyicisi başlatılmaz. Sesle uyandırmak için gerçek ULTRON modeli `ultron/backend/data/voice/wake/ultron.onnx` konumuna eklenmelidir. Model henüz bulunmadığından manuel uyandırmayı kullanın.
 
 Gemini ayarları `config/api_keys.json` içindedir. Bu dosya kişiseldir, Git'e alınmaz. API anahtarlarını raporlara veya sohbetlere kopyalamayın. Ollama varsayılan olarak `127.0.0.1:11434` adresinde beklenir. Eksik modelde router kurulu modellerden seçim yapar; servis kapalıysa hata görünür, sonsuz bekleme olmaz.
 

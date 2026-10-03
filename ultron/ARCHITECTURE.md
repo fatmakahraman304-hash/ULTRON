@@ -80,7 +80,7 @@ behind the existing V15.1 aiohttp/WebSocket layer. PySide6 desktop UI, `main.py`
 - Ollama offline → conversation ends in ERROR with the real backend message
   (verified); with Ollama up on the user's machine the same path answers via LLM.
 
-## V17 JARVIS capability layer
+## V17 ULTRON capability layer
 - Code Intelligence (`app/code_intel/analyzer.py`): stdlib static analysis
   (structure, deps, bugs, security, unused, duplicates, TODO, arch violations).
 - CodeGen pipeline (`codegen.py`): REQUEST→…→APPROVAL→APPLY with difflib diffs,
@@ -110,7 +110,7 @@ behind the existing V15.1 aiohttp/WebSocket layer. PySide6 desktop UI, `main.py`
 
 ---
 
-# JARVIS FOUNDATION (2026-08-29)
+# ULTRON FOUNDATION (2026-08-29)
 
 V15 tabanının üzerine eklenen foundation katmanları (tümü testli, mock'suz):
 

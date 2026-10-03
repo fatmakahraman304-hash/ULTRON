@@ -10,11 +10,11 @@ import { TerminalChat } from "./components/TerminalChat";
 import { PTTBar } from "./components/PTTBar";
 import { Drawer } from "./components/Drawer";
 import { Modals } from "./components/Modals";
-import { JarvisHUD } from "./components/JarvisHUD";
+import { UltronHUD } from "./components/UltronHUD";
 
 /**
  * ULTRON ÔÇö Void Core UI.
- * JARVIS capability cockpit is layered on top of the existing 3D/voice/runtime
+ * ULTRON capability cockpit is layered on top of the existing 3D/voice/runtime
  * stack; it does not replace the established controls or safety boundaries.
  */
 export default function App() {
@@ -73,7 +73,7 @@ export default function App() {
             <ParticleSphere />
             <PTTBar onVoice={voice.toggle} />
           </div>
-          <JarvisHUD />
+          <UltronHUD />
         </>
       )}
       <div className="void-corner">

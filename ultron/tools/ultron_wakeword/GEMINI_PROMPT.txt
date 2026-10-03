@@ -1,8 +1,8 @@
 Gemini Flash görevi: Bu ULTRON-v22 projesindeki gerçek wake-word sistemini tamamla.
 Hedef: gerçek “ULTRON” akustik wake word modeli üretmek ve `backend/data/voice/wake/ultron.onnx` olarak yerleştirmek.
 
-Mevcut durum: Windows Python 3.13; OpenWakeWord inference çalışıyor; gerçek mikrofonda hey_jarvis modeli 0.9406 skor verdi; PyTorch 2.14.0+cpu kurulu; torchinfo ve torchmetrics kurulu.
+Mevcut durum: Özel ULTRON akustik modeli henüz sağlanmadı. Kurulu Python ve eğitim bağımlılıklarını doğrula.
 
 Colab/OpenWakeWord custom training notebook kullan. `target_word=ULTRON`, model name=`ultron`. Eğer `piper_phonemize` eksikse önce Colab Python sürümünü ve notebook bağımlılıklarını kontrol et; uyumlu Piper phonemization bağımlılığını kur. Gereksiz paketleri kurma ve güvenlik ayarlarını kapatma.
 
-Eğitim bitince gerçek ONNX modelini üret. `hey_jarvis` modelini yeniden adlandırma. Sonuç dosyasını bu projeye `backend/data/voice/wake/ultron.onnx` olarak koy ve model yükleme testi yap.
+Eğitim bitince gerçek ONNX modelini üret. Başka bir kelimenin modelini yeniden adlandırma. Sonuç dosyasını bu projeye `backend/data/voice/wake/ultron.onnx` olarak koy ve model yükleme testi yap.

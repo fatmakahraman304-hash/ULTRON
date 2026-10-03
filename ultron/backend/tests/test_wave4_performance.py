@@ -64,7 +64,7 @@ def test_wake_gate_decision_latency():
         def status(self):
             return {"available": True}
         def process_chunk(self, a):
-            return ("jarvis", 0.9)
+            return ("ultron", 0.9)
 
     gate = WakeGate(Hit(), cooldown_s=0.0)
     data = b"x" * 960

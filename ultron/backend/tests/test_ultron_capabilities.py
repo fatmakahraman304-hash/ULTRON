@@ -1,7 +1,7 @@
-from app.core.jarvis_capabilities import capability_ids, capability_inventory, validate_inventory
+from app.core.ultron_capabilities import capability_ids, capability_inventory, validate_inventory
 
 
-def test_jarvis_inventory_is_unique_and_valid():
+def test_ultron_inventory_is_unique_and_valid():
     validate_inventory()
     ids = capability_ids()
     assert len(ids) == len(set(ids))
