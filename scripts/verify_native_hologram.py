@@ -1,10 +1,12 @@
 """Verify native hologram rendering and its authenticated browser handoff."""
-import os,sys,json,subprocess
+import os,sys,json,subprocess,time
 from pathlib import Path
 root=Path(__file__).resolve().parents[1];sys.path.insert(0,str(root))
 if '--child' in sys.argv:
  os.environ['MARK_SMOKE_SECONDS']='40'
  from PyQt6.QtCore import QTimer
+ from PyQt6.QtWidgets import QFileDialog
+ QFileDialog.getSaveFileName=lambda *args,**kwargs:(str(root/'logs/hologram/native-project.ultron.json'),'ULTRON proje (*.ultron.json)')
  import integration.panel,webbrowser
  from urllib.parse import urlparse,parse_qs
  def capture_browser(url):
@@ -16,6 +18,7 @@ if '--child' in sys.argv:
  def attach(ui):
   original(ui);page=ui._web_cockpit[1]
   QTimer.singleShot(4500,lambda:page.runJavaScript("document.querySelector('.open-hologram')?.click()"))
+  QTimer.singleShot(7500,lambda:page.runJavaScript("Array.from(document.querySelectorAll('.holo-project-actions button')).find(b=>b.textContent==='Projeyi kaydet')?.click()"))
   QTimer.singleShot(9000,lambda:page.runJavaScript("document.querySelector('.holo-camera-button')?.click()"))
   def result(data):
    (root/'logs/hologram/native-check.json').write_text(data or '{}',encoding='utf-8')
@@ -29,10 +32,14 @@ else:
  from integration.launcher import Services
  with Services() as service:
   service.start()
+  started=time.time()
   result=subprocess.run([sys.executable,'-u',__file__,'--child'],cwd=root,env=service.env,timeout=65)
   assert result.returncode==0,result.returncode
   data=json.loads((root/'logs/hologram/native-check.json').read_text(encoding='utf-8'))
   assert data.get('hologram') and data.get('canvas') and data.get('parts') in (11,14) and not data.get('error'),data
   handoff=json.loads((root/'logs/hologram/browser-handoff.json').read_text(encoding='utf-8'))
   assert handoff=={'path':'/merged/dashboard','hologram':True,'authenticated':True},handoff
-  print('NATIVE_HOLOGRAM_AND_BROWSER_HANDOFF_PASS',flush=True)
+  saved=root/'logs/hologram/native-project.ultron.json'
+  assert saved.stat().st_mtime>=started
+  assert json.loads(saved.read_text(encoding='utf-8'))['schema']=='ultron-project-v1'
+  print('NATIVE_HOLOGRAM_PROJECT_AND_BROWSER_HANDOFF_PASS',flush=True)

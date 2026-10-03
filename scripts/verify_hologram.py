@@ -46,9 +46,9 @@ with Services() as service:
   assert (out/'export.png').read_bytes().startswith(b'\x89PNG')
   page.get_by_role('button',name='Robot kolu',exact=False).click();assert page.locator('.holo-parts button').count()==11
   page.get_by_role('button',name='Parçalara ayır',exact=True).click();page.wait_for_timeout(500);page.screenshot(path=str(out/'robot-arm.png'))
-  page.locator('.holo-lab input[type=file]').set_input_files({'name':'test.glb','mimeType':'model/gltf-binary','buffer':glb})
+  page.locator(".holo-lab input[accept='.glb']").set_input_files({'name':'test.glb','mimeType':'model/gltf-binary','buffer':glb})
   page.wait_for_function("document.querySelectorAll('.holo-parts button').length===2")
-  page.locator('.holo-lab input[type=file]').set_input_files({'name':'bad.glb','mimeType':'model/gltf-binary','buffer':b'broken'})
+  page.locator(".holo-lab input[accept='.glb']").set_input_files({'name':'bad.glb','mimeType':'model/gltf-binary','buffer':b'broken'})
   page.get_by_role('alert').wait_for();assert page.locator('.holo-parts button').count()==2
   page.get_by_label('Hologram uyarısını kapat').click()
   page.get_by_role('button',name='Enerji çekirdeği',exact=False).first.click()

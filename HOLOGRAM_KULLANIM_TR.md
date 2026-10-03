@@ -65,3 +65,19 @@ Görüntüler ve sonuçlar: `logs/hologram/`.
 Teknik kaynak: [Google MediaPipe el takip kılavuzu](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker/web_js).
 
 Son sonuç: 26 entegrasyon testi ve 8 el hareketi algoritması kontrolü geçti. Tarayıcı etkileşim testi ile Windows sahne/tarayıcı geçiş testi başarılı.
+
+
+## 3 Ekim güncellemesi: çalışma projeleri
+
+- **Projeyi kaydet**: geometriyi, parça konumlarını, kamera açısını, notları, tel kafesi ve kesit durumunu tek `.ultron.json` dosyasında saklar. Windows uygulamasında kaydetme penceresi, tarayıcıda indirme açılır. GLB'den açılan model de dosyaya gömülür; yeniden orijinal GLB'yi seçmek gerekmez.
+- **Proje aç**: en fazla 80 MB proje dosyasını doğrulayıp geri yükler. Bozuk dosya mevcut sahneyi değiştirmez. Bu dosyalar otomatik kaydedilmez; çalışmanı kapatmadan önce kaydet.
+- **Geri al / İleri al**: aynı modeldeki son 60 düzenleme grubu. Parça taşıma/ayırma, not, yalıtma, tel kafes ve kesit değişiklikleri kapsanır. Model değiştirme veya proje açma düzenleme geçmişini sıfırlar; serbest kamera döndürme ayrı bir geri-al işlemi oluşturmaz.
+- **Parça notu**: seçilen parça için en fazla 2.000 karakterlik not; proje içinde saklanır.
+- **Parça boyutu**: modelin birleştirilmiş halindeki eksenlere paralel X/Y/Z sınır kutusu. Normalize edilmiş model birimi kullanır; metre veya santimetre değildir.
+- **Kesit görünümü**: X yönündeki düzlemle geometrinin bir bölümünü gizler; dolgu yüzeyi üretmez ve fiziksel kesme simülasyonu değildir.
+
+Yeni komutlar: `geri al`, `ileri al`, `kesit aç`, `kesit kapat`, `projeyi kaydet`. Windows'taki mevcut Gemini Live transkripti de açık Windows laboratuvarındaki bu kısa komutlara bağlanır. Tarayıcı laboratuvarında alt komut kutusunu kullan. Yeni bir mikrofon oturumu eklenmedi.
+
+Kısayollar: sahne odaktayken Ctrl+Z, Ctrl+Y / Ctrl+Shift+Z ve Ctrl+S. Not veya komut yazarken metin kutusunun standart kısayolları korunur.
+
+Doğrulama: proje gidiş-dönüşü, not/kesit korunması, geri al/ileri al, bozuk dosyada sahneyi koruma, komut olayları ve 375/820/1440 px ekranlar geçti. Windows'ta proje kaydı da doğrulandı. Gerçek mikrofonla ses tanıma yerine transkript olay bağlantısı test edildi.

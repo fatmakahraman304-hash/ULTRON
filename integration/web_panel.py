@@ -129,11 +129,17 @@ def attach(ui):
     channel.registerObject('mark',native)
     page.setWebChannel(channel)
     def save_hologram_image(download):
-        # Only the explicitly generated PNG is handled by this native download hook.
-        if not download.url().toString().startswith('data:image/png'):
+        address=download.url().toString()
+        is_png=address.startswith('data:image/png')
+        is_project=(address.startswith('blob:'+url.rstrip('/')+'/')
+                    and download.suggestedFileName().endswith('.ultron.json')
+                    and download.mimeType()=='application/json')
+        if not (is_png or is_project):
             download.cancel()
             return
-        filename,_=QFileDialog.getSaveFileName(win,'Hologram görüntüsünü kaydet','ultron-hologram.png','PNG (*.png)')
+        suggested='ultron-hologram.png' if is_png else 'ultron-proje.ultron.json'
+        pattern='PNG (*.png)' if is_png else 'ULTRON proje (*.ultron.json)'
+        filename,_=QFileDialog.getSaveFileName(win,'Hologramı kaydet',suggested,pattern)
         if not filename:
             download.cancel()
             return
