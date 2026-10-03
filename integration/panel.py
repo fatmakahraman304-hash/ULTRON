@@ -101,3 +101,6 @@ def attach(ui):
     approval.clicked.connect(review)
     ui._merged_dock = dock
     ui._merged_workers = workers
+    ui._review_action = review
+    from .mission_control import attach as attach_mission
+    attach_mission(ui)

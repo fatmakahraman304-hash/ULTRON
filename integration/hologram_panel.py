@@ -85,3 +85,4 @@ def attach(ui):
     action.triggered.connect(open_hologram)
     ui._open_hologram = open_hologram
     ui._hologram_action = action
+    ui._hologram_toolbar = toolbar

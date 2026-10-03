@@ -1,4 +1,10 @@
-# ULTRON — Orijinal MARK masaüstü
+# ULTRON kontrol merkezi
+
+Güncel ana ekran Mission Control referansının sahnesini ve yerleşimini kullanır. Aşağıdaki eski ekran açıklamaları araç görünümü içindir. SETTINGS ve VISION mevcut ayar/kamera ekranını açar; üstteki dönüş düğmesi kontrol merkezine döner. CPU, RAM, GPU, ağ ve disk değerleri gerçek sistem ölçümleridir.
+
+HOLOGRAMI AÇ veya Ctrl+H gerçek 3D çalışma alanını açar. Ana ekrandaki küre, araç ve şehir görüntüleri sabit görsellerdir. Canlı kamera, harita ve hava durumu bağlanmadığında ekranda belirtilir. BROWSER ve TERMINAL ilgili isteği mesaj kutusuna hazırlar.
+
+Doğrulanmış önizleme `logs/mission/ultron-mission-control-4k.png`: 3840×2160 piksel. Arka plan kaynağı 1672×941 olup ölçeklenir; yazılar ve düğmeler Qt tarafından çıktı çözünürlüğünde çizilir. Yeni görünüm için uygulamayı yeniden başlatın.
 
 START.bat dosyasını açın. Tek ana ekran, MARK'ın orijinal masaüstü arayüzüdür; asistan adı ULTRON'dur. Yeni web kokpitleri, mobil alternatif ve arayüz değiştirme düğmeleri devre dışıdır. Bu ekranların kaynakları henüz fiziksel olarak silinmemiştir.
 
