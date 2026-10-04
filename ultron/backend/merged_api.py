@@ -179,7 +179,10 @@ def install(app, hub):
     async def frontend(req):
         root = Path(__file__).resolve().parents[1] / req.match_info.get('surface', 'frontend') / 'dist'
         relative = req.match_info.get('asset') or 'index.html'
-        if relative.endswith('.html') and relative not in ('index.html', 'hologram.html'):
+        if req.path.startswith('/hologram/'):
+            if relative.endswith('.html') and relative != 'hologram.html':
+                raise web.HTTPNotFound()
+        elif relative.endswith('.html') and relative != 'index.html':
             raise web.HTTPNotFound()
         target = (root / relative).resolve()
         if not target.is_relative_to(root.resolve()):
