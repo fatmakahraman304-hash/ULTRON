@@ -4,6 +4,7 @@ import glob
 import shutil
 import subprocess
 import time
+import platform
 
 import psutil
 
@@ -113,6 +114,9 @@ class Telemetry:
         return {
             "ts": time.time(),
             "uptime_s": round(time.time() - self.started_at, 0),
+            "process_count": len(psutil.pids()),
+            "os": platform.system()+' '+platform.release(),
+            "platform": platform.system(),
             "cpu": {"percent": round(self.cpu, 1), "freq_mhz": round(cpu_freq.current, 0) if cpu_freq else None},
             "ram": {
                 "percent": round(vm.percent, 1),

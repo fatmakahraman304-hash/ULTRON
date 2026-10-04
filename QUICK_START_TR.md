@@ -1,25 +1,15 @@
-# ULTRON kontrol merkezi
+# ULTRON masaüstü
 
-Güncel ana ekran Mission Control referansının sahnesini ve yerleşimini kullanır. Aşağıdaki eski ekran açıklamaları araç görünümü içindir. SETTINGS ve VISION mevcut ayar/kamera ekranını açar; üstteki dönüş düğmesi kontrol merkezine döner. CPU, RAM, GPU, ağ ve disk değerleri gerçek sistem ölçümleridir.
+START.bat tek ana pencereyi açar: PyQt6 içinde React/TypeScript dashboard ve gerçek Three.js Core. Ana ekranlar arasında seçim veya eski dashboarda dönüş yoktur. Hologram Çalışma Alanı (Ctrl+H), GLB/parça/el kontrolü için ayrı uzman araçtır.
 
-HOLOGRAMI AÇ veya Ctrl+H gerçek 3D çalışma alanını açar. Ana ekrandaki küre, araç ve şehir görüntüleri sabit görsellerdir. Canlı kamera, harita ve hava durumu bağlanmadığında ekranda belirtilir. BROWSER ve TERMINAL ilgili isteği mesaj kutusuna hazırlar.
+1920×1080 tasarım alanı pencereye orantılı ölçeklenir; 1366×768 de desteklenir. Merkez sahne, mekanik halkalar, parçacıklar, oda ve platform tamamen geometridir; arka plan resmi/video kullanılmaz. Sistem kartları gerçek backend ölçümlerini gösterir; eksik veri N/A olur.
 
-Doğrulanmış önizleme `logs/mission/ultron-mission-control-4k.png`: 3840×2160 piksel. Arka plan kaynağı 1672×941 olup ölçeklenir; yazılar ve düğmeler Qt tarafından çıktı çözünürlüğünde çizilir. Yeni görünüm için uygulamayı yeniden başlatın.
+Üst menü ayarları, ses kontrollerini, dosyaları, araç ve eklenti kayıtlarını açar. Alt menü mevcut browser, dosya, terminal, ekran, OCR, görev ve kod araçlarını kullanır. Terminal ve dosya işlemleri mevcut sandbox/onay sisteminden geçer. Model seçimi Ayarlar içindedir ve kurulu Ollama modellerinden gelir. Canlı ses motoru native STT/TTS akışını kullanır; mikrofon düğmesi ve ESC mevcut ses kontrolüne bağlıdır.
 
-START.bat dosyasını açın. Tek ana ekran, MARK'ın orijinal masaüstü arayüzüdür; asistan adı ULTRON'dur. Yeni web kokpitleri, mobil alternatif ve arayüz değiştirme düğmeleri devre dışıdır. Bu ekranların kaynakları henüz fiziksel olarak silinmemiştir.
+Kurulum: INSTALL.bat. Tanılama: DOCTOR.bat. Uygulama kapalıyken START.bat -Smoke ile otomatik masaüstü açılışı denenebilir. Frontend değişirse ultron/frontend klasöründe npm ci ve npm run build çalıştırın.
 
-Orijinal avatar, ses, kamera ve araç kontrolleri korunur. Ctrl+L ile açılan Yerel AI / Görevler bölümünde Ollama, kod, agent ve uzun görev seçenekleri bulunur. Kurulum INSTALL.bat; tanılama DOCTOR.bat. Hologram aracının kurulumu için Node/npm gerekir; INSTALL.bat yalnız hologram sayfasını derler.
+Yerel model yanıtları mevcut backend sözleşmesine göre tamamlanmış yanıt olarak gelir; sahte token akışı gösterilmez. Backend kapalıysa ULTRON BACKEND OFFLINE, model yoksa MODEL NOT AVAILABLE görünür.
 
-Sesle uyandırma için gerçek ultron.onnx modeli gerekir. Model henüz mevcut değildir. Eğitim hazırlığı: ultron/tools/ultron_wakeword/README.md. Normal sesli görüşme ve elle kontrol kullanılabilir.
+Özel sesle uyandırma için gerçek ultron.onnx modeli gerekir; henüz kurulu değildir. Elle mikrofon/bas konuş kullanılabilir. config/api_keys.json kişiseldir ve Git'e dahil edilmez.
 
-Kişisel API ayarları config/api_keys.json içinde kalır ve Git'e eklenmez. Uygulama kapalıyken START.bat -Smoke ile gerçek pencere açılışı doğrulanabilir.
-
-Hologram çalışma alanını üstteki düğmeden veya Ctrl+H ile açın. Modeli parçalarına ayırabilir, parçaları inceleyebilir, GLB yükleyebilir ve .ultron.json projesi kaydedebilirsiniz. Hologram penceresi kapanınca orijinal masaüstü açık kalır. El kontrolü için hologram içindeki tarayıcı düğmesini kullanın; kamera yalnız tarayıcıdaki düğmeyle başlar.
-
-## Kırmızı ULTRON görünümü
-
-Ana masaüstü siyah metal paneller, kırmızı vurgu, gümüş başlık ve yüksek DPI destekli kırmızı parçacık halkası kullanır. Ana pencerede MARK LV etiketi yoktur. Merkez görünümü ayarlardan değiştirilebilir; hologram Ctrl+H, yerel AI paneli Ctrl+L ile açılır.
-
-Parçacık halkası 3.000 ışık noktası ve hareketli yörüngelerle çizilir; ölçek ve ekran yoğunluğu değiştiğinde önbellek yeniden üretilir. Yüz maskesi ve sağ alttaki imza kaldırılmıştır.
-
-Paneller kesik köşeli metal katmanlarla çizilir. Konuşma, dosya ve komut alanları ayrı çerçevelerdedir. İşlevsiz yan şemalar kaldırılmıştır. Merkezde metal dokulu bir sahne görseli bulunur; parçacık halkası canlı çizilir. Sistem kartlarının küçük grafikleri gerçek ölçüm geçmişini gösterir.
+Doğrulama: scripts/verify_dashboard.py gerçek backend/model ile tarayıcıyı; scripts/verify_native_dashboard.py Qt ses seviyesi ve hologram köprüsünü kontrol eder. Son ekranlar logs/final-ultron-1920x1080.png ve logs/final-ultron-1366x768.png dosyalarındadır. Test ekranları/cache/backups Git'e eklenmez.

@@ -895,7 +895,7 @@ class HudCanvas(QWidget):
             _r = min(W * 0.46, _band_h / 2.0)
             if not hasattr(self, '_particle_core'):
                 self._particle_core = ParticleCore()
-            self._particle_core.paint(p, cx, _band_t + _band_h / 2.0 - 22, _r*.78,
+            self._particle_core.paint(p, cx, _band_t + _band_h / 2.0 - 22, _r*.90,
                                       self._core_phase, self._amp_disp, self._assistant_name)
 
         # status text
@@ -3945,10 +3945,10 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QWidget:
         w = MetalPanel()
-        w.setFixedHeight(96)
+        w.setFixedHeight(106)
         w.setStyleSheet("background: transparent; border: none;")
         lay = QHBoxLayout(w)
-        lay.setContentsMargins(24, 10, 24, 10)
+        lay.setContentsMargins(28, 12, 28, 12)
 
         def _badge(txt, color=C.TEXT_MED):
             l = QLabel(txt)
@@ -3959,17 +3959,43 @@ class MainWindow(QMainWindow):
         
         lay.addSpacing(8)
         self._drawer_btn = QPushButton("Ayarlar")
-        self._drawer_btn.setFixedSize(86, 34)
+        self._drawer_btn.setFixedSize(94, 38)
         self._drawer_btn.setFont(QFont("Segoe UI", 9))
         self._drawer_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._drawer_btn.setToolTip("Settings & Controls")
         self._drawer_btn.setStyleSheet(f"""
             QPushButton {{
-                background: transparent; color: {C.TEXT_DIM};
-                border: 1px solid {C.BORDER}; border-radius: 4px;
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #151820,
+                    stop:0.48 #090b10,
+                    stop:1 #050609
+                );
+                color: {C.TEXT_MED};
+                border: 1px solid {C.BORDER_A};
+                border-radius: 5px;
+                padding: 0 10px;
             }}
-            QPushButton:hover {{ color: {C.PRI}; border-color: {C.PRI_DIM}; }}
-            QPushButton:checked {{ color: {C.PRI}; border-color: {C.PRI}; background: {C.PRI_GHO}; }}
+            QPushButton:hover {{
+                color: {C.WHITE};
+                border: 1px solid {C.PRI};
+                background: qlineargradient(
+                    x1:0, y1:0, x2:0, y2:1,
+                    stop:0 #251018,
+                    stop:0.50 #10080c,
+                    stop:1 #070609
+                );
+            }}
+            QPushButton:pressed {{
+                color: {C.PRI};
+                border: 1px solid {C.PRI};
+                background: #19080d;
+            }}
+            QPushButton:checked {{
+                color: {C.WHITE};
+                border: 1px solid {C.PRI};
+                background: {C.PRI_GHO};
+            }}
         """)
         self._drawer_btn.setCheckable(True)
         self._drawer_btn.setToolTip("Setup — things you set once")
@@ -3983,7 +4009,7 @@ class MainWindow(QMainWindow):
         # day. Separating them by that — setup behind ⚙, everyday behind 🎛 —
         # is what makes each list short enough to read at a glance.
         self._ctrl_btn = QPushButton("Kontroller")
-        self._ctrl_btn.setFixedSize(86, 34)
+        self._ctrl_btn.setFixedSize(104, 38)
         self._ctrl_btn.setFont(QFont("Segoe UI", 9))
         self._ctrl_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
@@ -3992,13 +4018,25 @@ class MainWindow(QMainWindow):
         self._ctrl_btn.clicked.connect(self._toggle_controls)
         lay.addSpacing(4)
         lay.addWidget(self._ctrl_btn)
+
+        self._hologram_btn = QPushButton('Hologram Çalışma Alanı')
+        self._hologram_btn.setFixedSize(200, 38)
+        self._hologram_btn.setFont(QFont("Segoe UI", 9))
+        self._hologram_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._hologram_btn.setToolTip('ULTRON hologram çalışma alanını aç')
+        self._hologram_btn.setStyleSheet(self._drawer_btn.styleSheet())
+        self._hologram_btn.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
+        self._hologram_btn.setEnabled(False)
+        lay.addSpacing(4)
+        lay.addWidget(self._hologram_btn)
+
         lay.addStretch()
 
         mid = QVBoxLayout(); mid.setSpacing(1)
         _disp = self._assistant_name.upper()
         self._title_lbl = QLabel(_disp)
         self._title_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._title_lbl.setFont(QFont("Segoe UI", 28, QFont.Weight.Bold))
+        self._title_lbl.setFont(QFont("Segoe UI", 31, QFont.Weight.Bold))
         self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         mid.addWidget(self._title_lbl)
         _sub_text = ("K İ Ş İ S E L   Y A P A Y   Z E K Â"

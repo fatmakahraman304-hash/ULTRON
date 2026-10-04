@@ -92,10 +92,11 @@ def test_event_bridge_publishes_with_origin_and_dedup():
     def pub(topic, payload):
         published.append((topic, payload))
 
-    br = MultimodalEventBridge(publisher=pub, now=lambda: time.monotonic())
+    clock = [100.0]
+    br = MultimodalEventBridge(publisher=pub, now=lambda: clock[0])
     assert br.emit("screen.changed", {"hash": "ab"}) is True
     assert br.emit("screen.changed", {"hash": "ab"}) is False  # dedup
-    time.sleep(0.06)
+    clock[0] += 0.06  # Test the window boundary independently of OS timer resolution.
     assert br.emit("screen.changed", {"hash": "cd"}) is True
     assert published[0][1]["origin"] == "multimodal"         # etiket ZORUNLU
     assert br.suppressed == 1 and br.published == 2

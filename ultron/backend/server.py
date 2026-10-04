@@ -1531,6 +1531,12 @@ def _sentinel_loop() -> None:
         _t.sleep(30)
 
 
+async def on_shutdown(app: web.Application) -> None:
+    # Close persistent clients before aiohttp waits for active request handlers.
+    await asyncio.gather(*(ws.close(code=1001, message=b'ULTRON shutdown')
+                           for ws in list(hub.clients)), return_exceptions=True)
+
+
 async def on_cleanup(app: web.Application) -> None:
     for t in app.get("loops", []):
         t.cancel()
@@ -1587,6 +1593,7 @@ def main() -> None:
     from merged_api import install
     install(app, hub)
     app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
     app.on_cleanup.append(on_cleanup)
     app.router.add_get("/api/system", api_system)
     app.router.add_get("/api/ai", api_ai)

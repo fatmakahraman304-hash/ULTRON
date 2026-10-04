@@ -33,6 +33,15 @@ class NativeBridge(QObject):
     @pyqtSlot()
     def ready(self):
         self.state()
+        self.plugins()
+
+    def plugins(self):
+        getter=getattr(self.ui,'get_plugins',None)
+        if callable(getter):
+            try:
+                self.emit(kind='plugins', data=getter())
+            except Exception:
+                self.emit(kind='plugins', data=None)
 
     def state(self):
         self.emit(kind='state', state=self.ui._win.hud.state, muted=self.ui.muted,
@@ -78,6 +87,14 @@ class NativeBridge(QObject):
             win.start_camera_stream()
         elif name=='settings':
             win._show_setup()
+        elif name=='controls':
+            win._toggle_controls(True)
+        elif name=='plugins':
+            self.plugins()
+        elif name=='hologram':
+            self.ui._open_hologram()
+        elif name=='shutdown':
+            win.close()  # Normal Qt exit; Services performs authenticated graceful backend shutdown.
         elif name=='file':
             filename,_=QFileDialog.getOpenFileName(win,'Dosya ekle')
             if filename:
@@ -132,6 +149,18 @@ def attach(ui):
     win._cam_stream_sig.connect(lambda active:camera_dialog.show() if active else camera_dialog.hide())
     camera_dialog.finished.connect(lambda _:win.stop_camera_stream())
     dialogs.append(camera_dialog)
+    video=getattr(win,'_video_cont',None)
+    if video is not None:
+        video_dialog=QDialog(win);video_dialog.setWindowTitle('ULTRON · Video');video_dialog.resize(960,600)
+        QVBoxLayout(video_dialog).addWidget(video)
+        win._video_open_sig.connect(lambda *args:video_dialog.show())
+        win._video_close_sig.connect(video_dialog.hide)
+        video_dialog.finished.connect(lambda _:win.stop_video())
+        dialogs.append(video_dialog)
+    overlay=getattr(win,'_overlay',None)
+    if overlay is not None:
+        overlay.setParent(view)
+        overlay.show()
     # Move existing functional panels into tool dialogs so their callbacks and rich content survive.
     for name, signals, title in (
         ('_content_panel', ('_content_sig','_review_sig'), 'ULTRON · Sonuç'),

@@ -48,7 +48,11 @@ def test_read_screen_elements_honest_without_display():
     pytest.skip("bu ortamda ekran erişimi var (beklenmedik)")
 
 
-def test_click_text_honest_without_display():
+def test_click_text_honest_without_display(monkeypatch):
     gui = GUIAutomation()
-    with pytest.raises(Exception):
-        gui.click_text("Kaydet")  # pyautogui yok → RuntimeError, sahte success yok
+    def unavailable(*args, **kwargs):
+        raise RuntimeError('screen capture unavailable')
+    # Deterministically exercise missing display, never click the developer's desktop.
+    monkeypatch.setattr(gui, 'read_screen_elements', unavailable)
+    with pytest.raises(RuntimeError, match='screen capture unavailable'):
+        gui.click_text("Kaydet")

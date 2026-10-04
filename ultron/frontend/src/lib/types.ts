@@ -1,4 +1,7 @@
 export interface SystemSnapshot {
+  process_count?: number;
+  os?: string;
+  platform?: string;
   ts: number;
   uptime_s: number;
   cpu: { percent: number; freq_mhz: number | null };
