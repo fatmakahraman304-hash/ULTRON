@@ -106,7 +106,10 @@ def test_browser_session_assets_and_csrf(service):
         cookie=response.headers['Set-Cookie']
         assert 'HttpOnly' in cookie and 'SameSite=Strict' in cookie
     headers={'Cookie':cookie.split(';')[0]}
-    for surface in ('frontend/index.html', 'frontend-mobile/index.html', 'merged/dashboard'):
+    for surface in ('frontend/index.html', 'merged/dashboard'):
+        with urlopen(Request(url+'/'+surface, headers=headers)) as response:
+            assert response.status == 200
+    for surface in ('frontend-mobile/index.html',):
         with pytest.raises(urllib.error.HTTPError) as disabled:
             urlopen(Request(url+'/'+surface, headers=headers))
         assert disabled.value.code == 410

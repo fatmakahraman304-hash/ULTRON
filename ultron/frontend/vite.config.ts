@@ -5,7 +5,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   // Electron loads the production UI via file://, so assets must resolve relatively.
   base: "./",
-  build: {rollupOptions: {input: "hologram.html"}},
+  build: {rollupOptions: {input: {main: "index.html", hologram: "hologram.html"}}},
   plugins: [react(), tailwindcss()],
   server: {
     host: process.env.ULTRON_DEV_HOST || "127.0.0.1",

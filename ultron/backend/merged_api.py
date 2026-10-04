@@ -13,10 +13,10 @@ def install(app, hub):
 
     @web.middleware
     async def boundary(req, handler):
-        if req.path == '/merged/dashboard' or req.path.startswith(('/frontend/', '/frontend-mobile/')):
+        if req.path.startswith('/frontend-mobile/'):
             return web.json_response({'ok': False, 'error': 'DESKTOP_ONLY',
                 'message': 'ULTRON uses the original MARK desktop interface. Start START.bat.'}, status=410)
-        if req.path == '/merged/hologram' and req.method == 'GET':
+        if req.path in ('/merged/hologram', '/merged/dashboard') and req.method == 'GET':
             return await handler(req)
         if token:
             header_ok = hmac.compare_digest(req.headers.get('X-MARK-Token', ''), token)
@@ -49,6 +49,7 @@ def install(app, hub):
             body = await req.json()
             text = str(body.get('text', '')).strip()
             mode = body.get('mode', 'auto')
+            selected_model = body.get('model')
         except (ValueError, AttributeError):
             return web.json_response({'ok': False, 'error': 'bad request'}, status=400)
         if not text or len(text) > 50000 or mode not in ('auto', 'coding', 'general', 'fast', 'agent', 'task', 'multi'):
@@ -79,13 +80,20 @@ def install(app, hub):
                 mode = 'coding' if any(w in text.lower() for w in ('kod', 'code', 'python', 'debug', 'program')) else 'general'
             from app.core.model_router import ModelRouter
             settings = copy.deepcopy(rt.settings)
+            if selected_model:
+                if not isinstance(selected_model, str) or selected_model not in models:
+                    return web.json_response({'ok': False, 'error': 'MODEL NOT AVAILABLE'}, status=400)
+                settings['llm'].setdefault('routing', {})[mode.lower()] = selected_model
             settings['llm'].setdefault('local_multi_model', {})['enabled'] = mode == 'multi'
             router = ModelRouter(rt.brain, settings, get_models=lambda: models)
             try:
+                await hub.broadcast({'type': 'agent', 'state': 'THINKING'})
                 answer = await asyncio.to_thread(router.ask, mode.upper(), text)
                 return web.json_response({'ok': True, 'text': answer, 'model': router.resolve(mode.upper())})
             except Exception as exc:
                 return web.json_response({'ok': False, 'status': 'UNAVAILABLE', 'error': str(exc)})
+            finally:
+                await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
 
     async def tool(req):
         body = await req.json()
@@ -137,10 +145,41 @@ def install(app, hub):
         except Exception:
             return web.json_response({'ok':False,'error':'Dosya okunamadı. Geçerli bir PDF veya UTF-8 metin dosyası seçin.'},status=400)
 
+    async def image(req):
+        """Bounded image adapter to the existing vision implementation; no arbitrary paths."""
+        import base64
+        import io
+        import tempfile
+        from PIL import Image
+        rt = hub.bridge.runtime if hub.bridge and hub.bridge.available else None
+        if rt is None or rt.vision_llm is None:
+            return web.json_response({'ok': False, 'error': 'Vision unavailable'}, status=503)
+        try:
+            body = await req.json()
+            data = base64.b64decode(body.get('data', ''), validate=True)
+            if not data or len(data) > 8*1024*1024:
+                raise ValueError('En fazla 8 MB görüntü seçin.')
+            def analyze():
+                with Image.open(io.BytesIO(data)) as source:
+                    if source.width*source.height > 20000000:
+                        raise ValueError('Görüntü en fazla 20 megapiksel olabilir.')
+                    source.load()
+                    with tempfile.TemporaryDirectory(prefix='ultron-vision-') as folder:
+                        path = Path(folder)/'upload.png'
+                        source.convert('RGB').save(path)
+                        if body.get('mode') == 'ocr':
+                            import pytesseract
+                            return pytesseract.image_to_string(source)
+                        return rt.vision_llm.analyze(path, available_models=hub.ai_status.get('models', []))
+            text = await asyncio.to_thread(analyze)
+            return web.json_response({'ok': True, 'text': text})
+        except Exception as exc:
+            return web.json_response({'ok': False, 'error': str(exc)}, status=400)
+
     async def frontend(req):
         root = Path(__file__).resolve().parents[1] / req.match_info.get('surface', 'frontend') / 'dist'
-        relative = req.match_info.get('asset') or 'hologram.html'
-        if relative.endswith('.html') and relative != 'hologram.html':
+        relative = req.match_info.get('asset') or 'index.html'
+        if relative.endswith('.html') and relative not in ('index.html', 'hologram.html'):
             raise web.HTTPNotFound()
         target = (root / relative).resolve()
         if not target.is_relative_to(root.resolve()):
@@ -156,12 +195,12 @@ def install(app, hub):
     async def dashboard(req):
         # Fragment never reaches HTTP logs. Exchange it for a session-only cookie.
         return web.Response(text='''<!doctype html><html lang="tr"><meta charset="utf-8">
-<title>MARK · ULTRON</title><p id="status">Panel açılıyor…</p><script>
-const showHologram = new URLSearchParams(location.search).has('hologram');
+<title>ULTRON</title><p id="status">Panel açılıyor…</p><script>
+const showHologram = location.pathname.endsWith('/hologram');
 const token = location.hash.slice(1); history.replaceState(null, '', location.pathname);
 fetch('/api/merged/session', {method:'POST', headers:{'X-MARK-Token':token}})
 .then(r => {if (!r.ok) throw Error('Yetkilendirme başarısız. MARK panelinden tekrar açın.');
-location.replace('/hologram/hologram.html');})
+location.replace(showHologram ? '/hologram/hologram.html' : '/frontend/index.html');})
 .catch(e => document.getElementById('status').textContent=e.message);
 </script></html>''', content_type='text/html', headers={'Cache-Control':'no-store',
             'Referrer-Policy':'no-referrer', 'Content-Security-Policy':
@@ -179,6 +218,7 @@ location.replace('/hologram/hologram.html');})
     app.router.add_post('/api/merged/tool', tool)
     app.router.add_post('/api/merged/shutdown', shutdown)
     app.router.add_post('/api/merged/document', document)
+    app.router.add_post('/api/merged/image', image)
     app.router.add_get('/merged/dashboard', dashboard)
     app.router.add_get('/merged/hologram', dashboard)
     app.router.add_get('/hologram/{asset:.*}', frontend)

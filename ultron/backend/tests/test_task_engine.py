@@ -24,6 +24,27 @@ def test_create_and_persist(tmp_path):
     assert t2 and t2["goal"] == "goal A" and t2["steps"][0]["worker"] == "w"
 
 
+def test_operator_pause_cancel_preserve_boundary(tmp_path):
+    async def scenario():
+        engine = make_engine(str(tmp_path))
+        task = engine.create('operator stop', steps=[{'label': 'wait', 'worker': 'w'}])
+        entered = asyncio.Event()
+        async def runner(*args):
+            entered.set()
+            await asyncio.sleep(30)
+            return {'ok': True}
+        assert engine.spawn(task['id'], runner)
+        await entered.wait()
+        assert engine.pause(task['id'])['ok']
+        await asyncio.sleep(0)
+        assert engine.get(task['id'])['status'] == 'PAUSED'
+        assert engine.cancel(task['id'])['ok']
+        assert engine.get(task['id'])['status'] == 'CANCELLED'
+        assert not engine.approve(task['id'])['ok']
+        assert not engine.pause('missing')['ok']
+    run(scenario())
+
+
 def test_invalid_transition_rejected(tmp_path):
     e = make_engine(str(tmp_path)); t = e.create("g")
     try:

@@ -469,8 +469,6 @@ class DashboardServer:
         self._device_sessions: dict[str, dict] = {}  # device_token → {session_key}
         self._phone_audio_queue: asyncio.Queue    = asyncio.Queue(maxsize=200)
         self._uploads_dir                 = UPLOADS_DIR
-        self._login_html                  = _read("login.html")
-        self._app_html                    = _read("app.html")
         self.app                          = self._build_app()
 
     # ── one-time key management ───────────────────────────────────────────
@@ -553,17 +551,11 @@ class DashboardServer:
 
         @app.get("/login", response_class=HTMLResponse)
         async def login_page():
-            return HTMLResponse(self._login_html)
+            return JSONResponse({'error': 'UI_REMOVED', 'message': 'ULTRON: START.bat'}, status_code=410)
 
         @app.get("/", response_class=HTMLResponse)
         async def index():
-            # Auth is handled client-side via sessionStorage bearer token.
-            # Server-side header auth can't work here because browser navigations
-            # don't send custom headers (location.href doesn't carry Authorization).
-            html = (self._app_html
-                    .replace("__IP__", self._ip)
-                    .replace("__PORT__", str(PORT)))
-            return HTMLResponse(html)
+            return JSONResponse({'error': 'UI_REMOVED', 'message': 'ULTRON: START.bat'}, status_code=410)
 
         @app.post("/login")
         async def login(req: Request):

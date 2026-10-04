@@ -1094,7 +1094,9 @@ async def api_tasks_list(req: web.Request) -> web.Response:
         limit = int(req.query.get("limit", "50"))
     except ValueError:
         limit = 50
-    rows = engine.list(status=status, limit=limit)
+    rows = engine.list(limit=max(1, min(limit, 500)))
+    if status:
+        rows = [row for row in rows if row.get('status') == status]
     slim = [{k: t.get(k) for k in ("id", "goal", "kind", "status", "priority",
                                    "current_step", "error", "created_at", "updated_at")}
             | {"steps_total": len(t.get("steps", [])),

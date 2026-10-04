@@ -572,6 +572,29 @@ class TaskEngine:
         if not t: return {"ok": False, "error": "no such task"}
         t["checkpoint"] = None; self._save(t, "RUNNING"); return self.get(task_id)
 
+    def _stop(self, task_id: str, status: str) -> dict:
+        task = self.get(task_id)
+        if not task:
+            return {'ok': False, 'error': 'no such task'}
+        if task['status'] in ('COMPLETED', 'CANCELLED', 'DEAD_LETTER') or task['status'] == status:
+            return {'ok': False, 'error': 'Task cannot transition from '+task['status']}
+        try:
+            self._save(task, status)
+        except InvalidTransition as exc:
+            return {'ok': False, 'error': str(exc)}
+        running = self._running.get(task_id)
+        if running:
+            running.cancel()
+        self.emit(task_id, 'engine', 'TASK_'+status)
+        self.journal(task_id, 'TASK_'+status, output_summary='Operator requested '+status)
+        return {'ok': True, 'task': self.get(task_id)}
+
+    def pause(self, task_id: str) -> dict:
+        return self._stop(task_id, 'PAUSED')
+
+    def cancel(self, task_id: str) -> dict:
+        return self._stop(task_id, 'CANCELLED')
+
     def approve(self, task_id: str) -> dict:
         t = self.get(task_id)
         if not t: return {"ok": False, "error": "no such task"}

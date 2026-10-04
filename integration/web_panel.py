@@ -24,7 +24,7 @@ class NativeBridge(QObject):
         self.ui, self.stack, self.toolbar = ui, stack, toolbar
         self.timer=QTimer(self)
         self.timer.timeout.connect(self.state)
-        self.timer.start(600)
+        self.timer.start(80)
         ui._win._log_sig.connect(self.log)
 
     def emit(self, **data):
@@ -35,7 +35,8 @@ class NativeBridge(QObject):
         self.state()
 
     def state(self):
-        self.emit(kind='state', state=self.ui._win.hud.state, muted=self.ui.muted)
+        self.emit(kind='state', state=self.ui._win.hud.state, muted=self.ui.muted,
+                  amplitude=float(self.ui._win.hud._amp_disp))
 
     @pyqtSlot(str)
     def log(self, text):
@@ -65,7 +66,7 @@ class NativeBridge(QObject):
             base=os.environ.get('MARK_ULTRON_URL','')
             token=os.environ.get('MARK_ULTRON_TOKEN','')
             if base and token:
-                webbrowser.open(base+'/merged/dashboard?hologram=1#'+token)
+                webbrowser.open(base+'/merged/hologram#'+token)
         elif name=='mute':
             win._toggle_mute()
             self.state()
@@ -73,9 +74,10 @@ class NativeBridge(QObject):
             win._do_interrupt()
         elif name=='audio':
             win._open_audio_devices()
-        elif name=='legacy':
-            self.stack.setCurrentIndex(0)
-            self.toolbar.show()
+        elif name=='camera':
+            win.start_camera_stream()
+        elif name=='settings':
+            win._show_setup()
         elif name=='file':
             filename,_=QFileDialog.getOpenFileName(win,'Dosya ekle')
             if filename:
@@ -94,86 +96,66 @@ class LocalPage(QWebEnginePage):
 
     def acceptNavigationRequest(self,url,kind,main):
         # The native command bridge is exposed only to our authenticated local UI.
-        allowed=not main or (url.scheme()=='http' and url.authority()==self.origin)
+        allowed=not main or (url.scheme()=='http' and url.authority()==self.origin) or (not self.origin and url.isLocalFile() and Path(url.toLocalFile()).resolve().is_relative_to((ROOT/'ultron/frontend/dist').resolve()))
         print(f'[Cockpit] Navigation {url.path()}: {allowed}',flush=True)
         return allowed
 
 
 def attach(ui):
-    url=os.environ.get('MARK_ULTRON_URL')
-    token=os.environ.get('MARK_ULTRON_TOKEN')
-    if not url or not token:
-        return False
+    """One dashboard; hidden native widgets continue to service runtime callbacks."""
+    url=os.environ.get('MARK_ULTRON_URL','')
+    token=os.environ.get('MARK_ULTRON_TOKEN','')
     win=ui._win
     original=win.takeCentralWidget()
-    stack=QStackedWidget(win)
-    stack.addWidget(original)
-    view=QWebEngineView(stack)
-    profile=QWebEngineProfile('mark-cockpit',view)
-    profile.setPersistentStoragePath(str(ROOT/'data/webview'))
-    profile.setCachePath(str(ROOT/'cache/webview'))
-    profile.setPersistentCookiesPolicy(QWebEngineProfile.PersistentCookiesPolicy.NoPersistentCookies)
+    original.setParent(win)
+    original.hide()
+    view=QWebEngineView(win)
+    profile=QWebEngineProfile(view)
     page=LocalPage(profile,view,QUrl(url).authority())
     view.setPage(page)
-    stack.addWidget(view)
-    win.setCentralWidget(stack)
-    toolbar=QToolBar('ULTRON',win)
-    toolbar.setStyleSheet('QToolBar {background:#101319;color:#f3f4f6;padding:7px;border:0;}')
-    back=toolbar.addAction('← ULTRON arayüzüne dön')
-    back.triggered.connect(lambda:(stack.setCurrentIndex(1),toolbar.hide()))
-    win.addToolBar(toolbar)
-    toolbar.hide()
-    native=NativeBridge(ui,stack,toolbar)
-    page.permissionRequested.connect(lambda permission: permission.deny())
+    win.setCentralWidget(view)
+    native=NativeBridge(ui,view,None)
     channel=QWebChannel(page)
     channel.registerObject('mark',native)
     page.setWebChannel(channel)
-    def save_hologram_image(download):
-        address=download.url().toString()
-        is_png=address.startswith('data:image/png')
-        is_project=(address.startswith('blob:'+url.rstrip('/')+'/')
-                    and download.suggestedFileName().endswith('.ultron.json')
-                    and download.mimeType()=='application/json')
-        if not (is_png or is_project):
-            download.cancel()
-            return
-        suggested='ultron-hologram.png' if is_png else 'ultron-proje.ultron.json'
-        pattern='PNG (*.png)' if is_png else 'ULTRON proje (*.ultron.json)'
-        filename,_=QFileDialog.getSaveFileName(win,'Hologramı kaydet',suggested,pattern)
-        if not filename:
-            download.cancel()
-            return
-        destination=Path(filename)
-        download.setDownloadDirectory(str(destination.parent))
-        download.setDownloadFileName(destination.name)
-        download.accept()
-    profile.downloadRequested.connect(save_hologram_image)
-    stack.setCurrentIndex(1)
-    win.setWindowTitle('ULTRON · MARK AI')
+    page.permissionRequested.connect(lambda permission:permission.deny())
+    # Retain specialist widgets (reviews, quizzes, approvals and camera), not a second dashboard.
+    for name in ('_quick_drawer','_ctrl_drawer','_confirm_banner','_clipboard_panel','_cam_preview'):
+        widget=getattr(win,name,None)
+        if widget is not None:
+            widget.setParent(view)
+            widget.hide()
+    from PyQt6.QtWidgets import QDialog,QVBoxLayout
+    dialogs=[]
+    camera_dialog=QDialog(win);camera_dialog.setWindowTitle('ULTRON · Kamera');camera_dialog.resize(800,500)
+    camera_layout=QVBoxLayout(camera_dialog);camera_layout.addWidget(win._cam_live_lbl)
+    win._cam_stream_sig.connect(lambda active:camera_dialog.show() if active else camera_dialog.hide())
+    camera_dialog.finished.connect(lambda _:win.stop_camera_stream())
+    dialogs.append(camera_dialog)
+    # Move existing functional panels into tool dialogs so their callbacks and rich content survive.
+    for name, signals, title in (
+        ('_content_panel', ('_content_sig','_review_sig'), 'ULTRON · Sonuç'),
+        ('_quiz_panel', ('_quiz_sig',), 'ULTRON · Çalışma')):
+        widget=getattr(win,name,None)
+        if widget is None:continue
+        dialog=QDialog(win);dialog.setWindowTitle(title);dialog.resize(760,520)
+        layout=QVBoxLayout(dialog);layout.addWidget(widget)
+        for signal in signals:getattr(win,signal).connect(lambda *args,d=dialog:d.show())
+        dialogs.append(dialog)
+    if hasattr(ui,'_hologram_toolbar'):ui._hologram_toolbar.hide()
+    win.addAction(ui._hologram_action)
+    win.setWindowTitle('ULTRON')
     win.resize(1440,900)
-    # Runtime-created quizzes, video and reviews remain available in the original UI.
-    def show_original(*_):
-        stack.setCurrentIndex(0)
-        toolbar.show()
-    for name in ('_content_sig','_quiz_sig','_review_sig','_video_sig'):
-        signal=getattr(win,name,None)
-        if signal is not None:
-            signal.connect(show_original)
-    def load_done(ok):
-        print(f'[Cockpit] Loaded {view.url().path()}: {ok}',flush=True)
-        if ok and view.url().path().startswith('/frontend/'):
-            stack.setCurrentIndex(1)
-            toolbar.hide()
-        elif not ok and view.url().path().startswith('/frontend/'):
-            show_original()
-            ui.write_log('ERR: ULTRON arayüzü yüklenemedi; MARK araçları açıldı.')
-    view.loadFinished.connect(load_done)
-    def loading(info):
-        if info.errorCode() < 0 and info.errorCode() != -3:
-            print(f'[Cockpit] Load error {info.errorCode()}: {info.errorString()}',flush=True)
-    page.loadingChanged.connect(loading)
-    page.renderProcessTerminated.connect(lambda reason,code:show_original())
-    QTimer.singleShot(15000, lambda: show_original() if not view.url().path().startswith('/frontend/') else None)
-    view.setUrl(QUrl(url+'/merged/dashboard#'+token))
-    ui._web_cockpit=(view,page,profile,channel,native,stack,toolbar)
+    def save_download(download):
+        address=download.url().toString()
+        png=address.startswith('data:image/png')
+        project=address.startswith('blob:'+url.rstrip('/')+'/') and download.suggestedFileName().endswith('.ultron.json') and download.mimeType()=='application/json'
+        if not (png or project):download.cancel();return
+        filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.png' if png else 'ultron.ultron.json','PNG (*.png)' if png else 'ULTRON (*.ultron.json)')
+        if not filename:download.cancel();return
+        path=Path(filename);download.setDownloadDirectory(str(path.parent));download.setDownloadFileName(path.name);download.accept()
+    profile.downloadRequested.connect(save_download)
+    if url and token:view.setUrl(QUrl(url+'/merged/dashboard#'+token))
+    else:view.setUrl(QUrl.fromLocalFile(str(ROOT/'ultron/frontend/dist/index.html')))
+    ui._dashboard=(view,page,profile,channel,native,original,dialogs)
     return True

@@ -197,7 +197,7 @@ def main():
                 record('Security approval','PASS' if not denied.get('ok') and not target.exists() else 'FAIL','Caller self-approval rejected')
             calculated=service.bridge.request('/api/merged/tool',{'name':'calculate','arguments':{'text':'2+3'}})
             record('Tool invocation','PASS' if calculated.get('result')==['5'] else 'FAIL')
-            record('Interface','PASS','Original MARK desktop; alternate web interfaces disabled')
+            record('Interface','PASS','Single ULTRON React dashboard with native voice bridge')
             record('Ollama','PASS' if health['ollama']['connected'] else 'WARN')
             if not args.quick and health['ollama']['connected']:
                 reply=service.bridge.ask('Sadece TAMAM yaz.','fast')
