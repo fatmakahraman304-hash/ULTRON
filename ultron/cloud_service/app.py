@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import json
 import os
+import random
 import time
 import uuid
 from pathlib import Path
@@ -238,6 +239,7 @@ def _is_transient_gemini_error(exc: Exception) -> bool:
         "429",
         "RESOURCE_EXHAUSTED",
         "RATE LIMIT",
+        "408",
         "DEADLINE_EXCEEDED",
         "TIMEOUT",
         "TEMPORAR",
@@ -260,11 +262,11 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str, system_i
 def _gemini_reply(prompt: str, system_instruction: str) -> str:
     client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
     primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
-    fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "").strip()
+    fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip() or "gemini-3.5-flash-lite"
     max_retries = max(1, min(int(os.getenv("GEMINI_MAX_RETRIES", "3")), 5))
 
     models = [primary_model]
-    if fallback_model and fallback_model != primary_model:
+    if fallback_model != primary_model:
         models.append(fallback_model)
 
     last_exc: Exception | None = None
@@ -277,7 +279,8 @@ def _gemini_reply(prompt: str, system_instruction: str) -> str:
                 if not _is_transient_gemini_error(exc):
                     raise
                 if attempt < max_retries - 1:
-                    time.sleep(1.5 * (2 ** attempt))
+                    base_delay = min(8.0, 1.25 * (2 ** attempt))
+                    time.sleep(base_delay + random.uniform(0.0, 0.75))
 
     if last_exc is not None:
         raise RuntimeError(f"GEMINI_TEMPORARY_UNAVAILABLE: {last_exc}") from last_exc
@@ -333,7 +336,7 @@ async def chat(request: web.Request) -> web.Response:
             raise web.HTTPServiceUnavailable(
                 text=json.dumps({
                     "error": "gemini_temporarily_unavailable",
-                    "detail": "Gemini şu anda yoğun. ULTRON otomatik olarak tekrar denedi; birkaç saniye sonra yeniden dene.",
+                    "detail": "Gemini şu anda yoğun. ULTRON iki modeli de otomatik olarak denedi; birkaç saniye sonra yeniden dene.",
                 }, ensure_ascii=False),
                 content_type="application/json",
             )
