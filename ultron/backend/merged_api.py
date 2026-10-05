@@ -6,10 +6,13 @@ import copy
 from pathlib import Path
 from aiohttp import web
 
+from cloud_client import CloudClient
+
 
 def install(app, hub):
     token = os.environ.get('MARK_ULTRON_TOKEN', '')
     gate = asyncio.Lock()
+    cloud = CloudClient()
 
     @web.middleware
     async def boundary(req, handler):
@@ -40,9 +43,12 @@ def install(app, hub):
         components.update({name: getattr(hub, name, None) is not None
                            for name in ('task_engine', 'supervisor', 'world')})
         components['vault'] = bool(rt and rt.vault.health().get('available'))
+        components['cloud'] = cloud.enabled
         return web.json_response({'service': 'mark-ultron', 'ok': all(components.values()),
             'components': components, 'audio_owner': os.environ.get('MARK_AUDIO_OWNER'),
-            'ollama': hub.ai_status, 'pid': os.getpid()})
+            'ollama': hub.ai_status, 'cloud': {
+                'enabled': cloud.enabled, 'last_ok_ts': cloud.last_ok_ts,
+                'last_error': cloud.last_error}, 'pid': os.getpid()})
 
     async def invoke(req):
         try:
@@ -68,6 +74,38 @@ def install(app, hub):
             if mode == 'task':
                 task = await hub.supervisor.submit(text, budgets={}, spawn=True)
                 return web.json_response({'ok': True, 'task_id': task['id'], 'status': task['status']})
+
+            effective_mode = mode
+            if effective_mode == 'auto':
+                effective_mode = 'coding' if any(
+                    w in text.lower() for w in ('kod', 'code', 'python', 'debug', 'program')
+                ) else 'general'
+
+            # Desktop chat uses the exact same Render/Supabase brain as the phone.
+            # Explicit local model selection, coding/multi modes and agent/task tools stay local.
+            if cloud.enabled and selected_model is None and effective_mode in ('general', 'fast'):
+                try:
+                    await hub.broadcast({'type': 'agent', 'state': 'THINKING'})
+                    data = await cloud.chat(text)
+                    answer = str(data.get('reply', '')).strip()
+                    if not answer:
+                        raise RuntimeError('ULTRON Cloud returned an empty reply')
+                    hub.memory.add_session('assistant', answer)
+                    await hub.on_activity('Desktop chat answered by shared ULTRON Cloud', 'success')
+                    return web.json_response({
+                        'ok': True,
+                        'text': answer,
+                        'model': 'cloud-gemini',
+                        'source': 'cloud',
+                        'conversation_id': data.get('conversation_id'),
+                    })
+                except Exception as exc:
+                    # Cloud outage must never disable the desktop; fall back to local Ollama.
+                    await hub.on_activity(
+                        f'Cloud unavailable; local Ollama fallback: {str(exc)[:120]}', 'warn')
+                finally:
+                    await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
+
             check = await hub.check_ollama()
             hub.ai_status = check['status']
             models = hub.ai_status.get('models', [])
@@ -76,8 +114,7 @@ def install(app, hub):
             if not models:
                 return web.json_response({'ok': False, 'status': 'UNAVAILABLE',
                     'error': 'Ollama veya yerel model yok. INSTALL.bat model kurulumunu deneyebilir.'})
-            if mode == 'auto':
-                mode = 'coding' if any(w in text.lower() for w in ('kod', 'code', 'python', 'debug', 'program')) else 'general'
+            mode = effective_mode
             from app.core.model_router import ModelRouter
             settings = copy.deepcopy(rt.settings)
             if selected_model:
@@ -89,7 +126,8 @@ def install(app, hub):
             try:
                 await hub.broadcast({'type': 'agent', 'state': 'THINKING'})
                 answer = await asyncio.to_thread(router.ask, mode.upper(), text)
-                return web.json_response({'ok': True, 'text': answer, 'model': router.resolve(mode.upper())})
+                return web.json_response({'ok': True, 'text': answer,
+                                          'model': router.resolve(mode.upper()), 'source': 'local'})
             except Exception as exc:
                 return web.json_response({'ok': False, 'status': 'UNAVAILABLE', 'error': str(exc)})
             finally:
