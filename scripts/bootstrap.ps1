@@ -3,6 +3,9 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 $env:PYTHONUTF8 = '1'
+$backendPath = Join-Path $projectRoot 'ultron\backend'
+if ($env:PYTHONPATH) { $env:PYTHONPATH = $backendPath + ';' + $env:PYTHONPATH }
+else { $env:PYTHONPATH = $backendPath }
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $projectRoot 'cache\playwright'
 $pythonExe = Join-Path $projectRoot '.venv\Scripts\python.exe'
 try {
