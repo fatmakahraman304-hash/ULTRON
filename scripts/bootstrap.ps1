@@ -49,6 +49,11 @@ try {
         else { & $pythonExe -m integration.doctor }
     }
     else {
+        # Voice/Gemini Live builds its prompt from local memory. Pull the shared
+        # Cloud memories into that store before launching so phone, typed desktop
+        # and spoken desktop all know the same persistent facts. Best-effort only:
+        # the sync module always exits 0 when Cloud is unavailable.
+        & $pythonExe -m integration.cloud_memory_sync
         if ($Smoke) { & $pythonExe main.py --smoke }
         else { & $pythonExe main.py }
     }
