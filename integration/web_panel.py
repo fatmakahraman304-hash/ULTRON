@@ -2,6 +2,7 @@
 import json
 import os
 import threading
+import urllib.request
 from pathlib import Path
 from PyQt6.QtCore import QObject, Qt, QCoreApplication, QTimer, QUrl, pyqtSignal, pyqtSlot
 from PyQt6.QtWebChannel import QWebChannel
@@ -25,6 +26,10 @@ class NativeBridge(QObject):
         self.timer=QTimer(self)
         self.timer.timeout.connect(self.state)
         self.timer.start(80)
+        self._cloud_busy=False
+        self.cloud_timer=QTimer(self)
+        self.cloud_timer.timeout.connect(self.cloud_messages)
+        self.cloud_timer.start(3000)
         ui._win._log_sig.connect(self.log)
 
     def emit(self, **data):
@@ -34,6 +39,7 @@ class NativeBridge(QObject):
     def ready(self):
         self.state()
         self.plugins()
+        self.cloud_messages()
 
     def plugins(self):
         getter=getattr(self.ui,'get_plugins',None)
@@ -46,6 +52,40 @@ class NativeBridge(QObject):
     def state(self):
         self.emit(kind='state', state=self.ui._win.hud.state, muted=self.ui.muted,
                   amplitude=float(self.ui._win.hud._amp_disp))
+
+    def cloud_messages(self):
+        """Poll shared Cloud chat without exposing the device token to React."""
+        if self._cloud_busy:
+            return
+        base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
+        token=os.environ.get('ULTRON_DEVICE_TOKEN','').strip()
+        if not base or not token:
+            return
+        self._cloud_busy=True
+
+        def worker():
+            try:
+                request=urllib.request.Request(
+                    base+'/api/messages?limit=200',
+                    headers={
+                        'Authorization':f'Bearer {token}',
+                        'X-ULTRON-DEVICE':'desktop-ultron-ui',
+                        'Accept':'application/json',
+                    },
+                    method='GET',
+                )
+                with urllib.request.urlopen(request,timeout=12) as response:
+                    payload=json.loads(response.read().decode('utf-8'))
+                rows=payload.get('messages',[])
+                if isinstance(rows,list):
+                    self.emit(kind='cloud_messages',data=rows)
+            except Exception:
+                # Cloud history is additive; an outage must never affect the native app.
+                pass
+            finally:
+                self._cloud_busy=False
+
+        threading.Thread(target=worker,daemon=True).start()
 
     @pyqtSlot(str)
     def log(self, text):
