@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import type {SystemSnapshot,AIStatus,TaskProposal,PatchProposal} from '../lib/types';
 export type CoreState='IDLE'|'LISTENING'|'THINKING'|'SPEAKING'|'WORKING'|'ERROR';
 export const coreState=(value:string):CoreState=>({PLANNING:'THINKING',EXECUTING:'WORKING',VERIFYING:'WORKING',DONE:'IDLE',WAITING_APPROVAL:'IDLE'}[value]??(['IDLE','LISTENING','THINKING','SPEAKING','WORKING','ERROR'].includes(value)?value:'IDLE')) as CoreState;
@@ -8,13 +8,31 @@ export async function request(path:string,body?:unknown,signal?:AbortSignal){
  const res=await fetch(path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:signal??AbortSignal.timeout(200000)});
  const data=await res.json();if(!res.ok||data.ok===false)throw Error(data.error||`HTTP ${res.status}`);return data;
 }
-export type Message={role:'user'|'assistant';text:string;id:number;time:number};
+export type Message={role:'user'|'assistant';text:string;id:number;time:number;cloudId?:number};
 export function useUltron(){
  const [connected,setConnected]=useState(false),[system,setSystem]=useState<SystemSnapshot|null>(null),[ai,setAi]=useState<AIStatus|null>(null);
  const [state,setState]=useState<CoreState>('IDLE'),[nativeState,setNativeState]=useState<CoreState>('IDLE'),[amplitude,setAmplitude]=useState(0),[muted,setMuted]=useState(true),[native,setNative]=useState<Native|null>(null);
  const [messages,setMessages]=useState<Message[]>([]),[pending,setPending]=useState<TaskProposal|null>(null),[patch,setPatch]=useState<PatchProposal|null>(null),[notice,setNotice]=useState(''),[notifications,setNotifications]=useState<any[]>([]);
  const [health,setHealth]=useState<any>(null),[tools,setTools]=useState<any[]>([]),[memory,setMemory]=useState<any>(null),[plugins,setPlugins]=useState<any[]|null>(null),[history,setHistory]=useState<SystemSnapshot[]>([]),[taskState,setTaskState]=useState<CoreState>('IDLE');
+ const cloudKnown=useRef<Set<number>>(new Set());
  const add=(role:Message['role'],text:string)=>setMessages(p=>[...p,{role,text,id:Date.now()+Math.random(),time:Date.now()}].slice(-300));
+ const mergeCloud=(rows:any[])=>setMessages(previous=>{
+  const next=[...previous];
+  for(const row of Array.isArray(rows)?rows:[]){
+   const cloudId=Number(row?.id);
+   const role:Message['role']|null=row?.role==='user'?'user':row?.role==='assistant'?'assistant':null;
+   const text=String(row?.content??'').trim();
+   if(!Number.isFinite(cloudId)||!role||!text||cloudKnown.current.has(cloudId))continue;
+   cloudKnown.current.add(cloudId);
+   const parsed=Date.parse(String(row?.created_at??''));
+   const time=Number.isFinite(parsed)?parsed:Date.now();
+   const match=next.findIndex(m=>m.cloudId===undefined&&m.role===role&&m.text===text&&Math.abs(m.time-time)<120000);
+   if(match>=0)next[match]={...next[match],cloudId,time};
+   else next.push({role,text,id:-cloudId,time,cloudId});
+  }
+  next.sort((a,b)=>a.time-b.time||a.id-b.id);
+  return next.slice(-300);
+ });
  useEffect(()=>{if(system)setHistory(p=>[...p,system].slice(-40));},[system]);
  useEffect(()=>{let active=true;const ctl=new AbortController();const poll=()=>{if(location.protocol==='file:')return;request('/api/merged/health',undefined,ctl.signal).then(h=>{if(active)setHealth(h);}).catch(()=>{if(active)setHealth(null);});};poll();const t=setInterval(poll,8000);return()=>{active=false;ctl.abort();clearInterval(t);};},[]);
  useEffect(()=>{
@@ -38,7 +56,7 @@ export function useUltron(){
   request('/api/codegen/pending',undefined,ctl.signal).then(p=>setPatch(p.id?p:null)).catch(()=>{});
   return()=>{stopped=true;ctl.abort();clearTimeout(retry);if(ws){ws.onclose=null;ws.close();}};
  },[]);
- useEffect(()=>{if(!window.qt)return;let active=true,bridge:Native|undefined;const receive=(raw:string)=>{if(!active)return;const e=JSON.parse(raw);if(e.kind==='state'){setNativeState(coreState(e.state));setMuted(e.muted);setAmplitude(Number(e.amplitude)||0);}if(e.kind==='file')setNotice(e.name+' ses motoruna eklendi.');if(e.kind==='plugins')setPlugins(e.data);if(e.kind==='log')add(e.role,e.text);if(e.kind==='error'){setNotice(e.text);setNativeState('ERROR');}};
+ useEffect(()=>{if(!window.qt)return;let active=true,bridge:Native|undefined;const receive=(raw:string)=>{if(!active)return;let e:any;try{e=JSON.parse(raw);}catch{return;}if(e.kind==='state'){setNativeState(coreState(e.state));setMuted(e.muted);setAmplitude(Number(e.amplitude)||0);}if(e.kind==='file')setNotice(e.name+' ses motoruna eklendi.');if(e.kind==='plugins')setPlugins(e.data);if(e.kind==='cloud_messages')mergeCloud(e.data??[]);if(e.kind==='log')add(e.role,e.text);if(e.kind==='error'){setNotice(e.text);setNativeState('ERROR');}};
   const script=document.createElement('script');script.src='qrc:///qtwebchannel/qwebchannel.js';script.onload=()=>{if(window.QWebChannel)new window.QWebChannel(window.qt!.webChannelTransport,c=>{if(!active)return;bridge=c.objects.mark;setNative(bridge);bridge.message.connect(receive);bridge.ready();});};document.head.appendChild(script);
   return()=>{active=false;bridge?.message.disconnect?.(receive);script.remove();};
  },[]);
