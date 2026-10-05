@@ -1,19 +1,29 @@
 """Optional ULTRON Cloud desktop integration.
 
 Python imports ``sitecustomize`` automatically at startup when this directory is
-on sys.path (which it is for ``python server.py``). The patch is intentionally
-additive and disabled unless ULTRON_CLOUD_URL + ULTRON_DEVICE_TOKEN are set.
+on sys.path. The patch is intentionally additive and disabled unless the Cloud
+URL + device token are configured.
 
-Why this lives here instead of replacing the large desktop backend:
-- local tools, voice, vision and Ollama remain untouched;
-- only GENERAL_CONVERSATION fallback is redirected to ULTRON Cloud;
-- if cloud is unavailable, the original local Ollama fallback still runs;
-- explicit "remember / hatırla / not et" notes are mirrored to shared memory.
+Desktop behavior:
+- normal backend conversation can use ULTRON Cloud first;
+- local tools, voice, vision and Ollama stay available;
+- explicit local remember commands are mirrored to shared Cloud memory;
+- MARK/Gemini Live voice receives the same shared Cloud memory snapshot in its
+  system prompt, so typed and spoken conversations know the same persistent facts.
 """
 from __future__ import annotations
 
+import json
+import os
+import sys
 import time
+import urllib.request
+from pathlib import Path
 
+
+# ---------------------------------------------------------------------------
+# Backend Agent patch: normal fallback chat -> Cloud first, local Ollama second
+# ---------------------------------------------------------------------------
 try:
     from agent import Agent
     from cloud_client import CloudClient
@@ -31,9 +41,6 @@ if Agent is not None and not getattr(Agent, "_ultron_cloud_patch", False):
         _original_setattr(self, "cloud", CloudClient())
 
     def _patched_setattr(self, name, value):
-        # server.on_startup assigns bridge.run to agent.fallback. Wrap that
-        # assignment once so ordinary conversation goes to the shared cloud,
-        # while all deterministic/local commands continue through Agent.run.
         if name == "fallback" and callable(value) and not getattr(value, "_ultron_cloud_wrapped", False):
             original_fallback = value
 
@@ -60,11 +67,7 @@ if Agent is not None and not getattr(Agent, "_ultron_cloud_patch", False):
         _original_setattr(self, name, value)
 
     async def _patched_run(self, text: str, approved: bool = False):
-        # Let the original state machine preserve all security gates and tools.
         result = await _original_run(self, text, approved)
-
-        # Mirror explicit persistent-memory commands after the local write
-        # succeeds. A cloud failure never breaks the local command.
         try:
             intent = self.parse_intent(text)
             cloud = getattr(self, "cloud", None)
@@ -92,3 +95,95 @@ if Agent is not None and not getattr(Agent, "_ultron_cloud_patch", False):
     Agent.__setattr__ = _patched_setattr
     Agent.run = _patched_run
     Agent._ultron_cloud_patch = True
+
+
+# ---------------------------------------------------------------------------
+# MARK / Gemini Live voice patch
+# ---------------------------------------------------------------------------
+def _is_mark_voice_process() -> bool:
+    try:
+        return Path(sys.argv[0]).name.lower() == "mark_app.py"
+    except Exception:
+        return False
+
+
+def _shared_cloud_memory_text() -> str:
+    """Fetch the persistent Cloud memory without exposing credentials.
+
+    Voice startup must never fail because Render is asleep/offline, therefore
+    every failure returns an empty string and the existing local memory remains
+    available. This is a short startup snapshot; restarting/reconnecting ULTRON
+    refreshes it.
+    """
+    base = os.getenv("ULTRON_CLOUD_URL", "").strip().rstrip("/")
+    token = os.getenv("ULTRON_DEVICE_TOKEN", "").strip()
+    if not base or not token:
+        return ""
+    try:
+        request = urllib.request.Request(
+            base + "/api/memories",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-ULTRON-DEVICE": os.getenv("ULTRON_CLOUD_DEVICE_ID", "desktop-ultron-voice"),
+                "Accept": "application/json",
+            },
+            method="GET",
+        )
+        with urllib.request.urlopen(request, timeout=8) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        rows = payload.get("memories", [])
+        if not isinstance(rows, list) or not rows:
+            return ""
+        lines = [
+            "[SHARED ULTRON CLOUD MEMORY — persistent across phone, typed desktop and voice]",
+            "Treat these as known facts. Do not say they are unknown if listed here.",
+        ]
+        for row in rows[:100]:
+            if not isinstance(row, dict):
+                continue
+            key = str(row.get("key", "")).strip()
+            value = str(row.get("value", "")).strip()
+            category = str(row.get("category", "FACT")).strip() or "FACT"
+            if key and value:
+                lines.append(f"- [{category}] {key}: {value}")
+        return "\n".join(lines) + "\n" if len(lines) > 2 else ""
+    except Exception:
+        return ""
+
+
+if _is_mark_voice_process():
+    try:
+        # mark_app imports this function directly after Python startup. Import the
+        # root memory package now (before mark_app does) and wrap the formatter so
+        # Gemini Live gets the same persistent Cloud facts as typed chat.
+        project_root = Path(__file__).resolve().parents[2]
+        root_text = str(project_root)
+        inserted = False
+        if root_text not in sys.path:
+            sys.path.insert(0, root_text)
+            inserted = True
+        try:
+            from memory import memory_manager as _voice_memory
+        finally:
+            if inserted:
+                try:
+                    sys.path.remove(root_text)
+                except ValueError:
+                    pass
+
+        if not getattr(_voice_memory, "_ultron_cloud_voice_patch", False):
+            _local_formatter = _voice_memory.format_memory_for_prompt
+
+            def _cloud_voice_formatter(memory):
+                local_text = _local_formatter(memory)
+                cloud_text = _shared_cloud_memory_text()
+                if cloud_text:
+                    return local_text + ("\n" if local_text else "") + cloud_text
+                return local_text
+
+            _voice_memory.format_memory_for_prompt = _cloud_voice_formatter
+            _voice_memory._ultron_cloud_voice_patch = True
+    except Exception:
+        # Voice must still start with its original local memory if Cloud sync
+        # cannot be installed for any reason.
+        pass
