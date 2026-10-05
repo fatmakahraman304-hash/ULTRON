@@ -180,5 +180,22 @@ if _is_mark_voice_process():
 
             _voice_memory.format_memory_for_prompt = _cloud_voice_formatter
             _voice_memory._ultron_cloud_voice_patch = True
+
+        # Gemini Live sometimes copies an exact stored snake_case key (for
+        # example ``test_rengi``) into recall_memory. The local search pretty-
+        # prints keys to spaces before matching, while Python's ``\w`` keeps an
+        # underscore inside the query token. The result was the exact failure
+        # seen in mark.log: ``test rengi`` finds the fact, ``test_rengi`` does
+        # not. Normalize separators before the existing search so both forms are
+        # equivalent without changing the memory store or tool contract.
+        if not getattr(_voice_memory, "_ultron_recall_separator_patch", False):
+            _local_search_memory = _voice_memory.search_memory
+
+            def _cloud_voice_search_memory(query: str, limit: int = 8):
+                normalized = str(query or "").replace("_", " ").replace("-", " ")
+                return _local_search_memory(normalized, limit=limit)
+
+            _voice_memory.search_memory = _cloud_voice_search_memory
+            _voice_memory._ultron_recall_separator_patch = True
     except Exception:
         pass
