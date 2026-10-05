@@ -229,9 +229,23 @@ async def _recent_context(pool: asyncpg.Pool, user_id: str, limit: int = 24) -> 
     return "\n".join(f"{r['role'].upper()}: {r['content']}" for r in rows)
 
 
-def _gemini_reply(prompt: str, system_instruction: str) -> str:
-    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
-    model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+def _is_transient_gemini_error(exc: Exception) -> bool:
+    message = str(exc).upper()
+    transient_markers = (
+        "503",
+        "UNAVAILABLE",
+        "HIGH DEMAND",
+        "429",
+        "RESOURCE_EXHAUSTED",
+        "RATE LIMIT",
+        "DEADLINE_EXCEEDED",
+        "TIMEOUT",
+        "TEMPORAR",
+    )
+    return any(marker in message for marker in transient_markers)
+
+
+def _generate_with_model(client: genai.Client, model: str, prompt: str, system_instruction: str) -> str:
     response = client.models.generate_content(
         model=model,
         contents=prompt,
@@ -241,6 +255,33 @@ def _gemini_reply(prompt: str, system_instruction: str) -> str:
     if not text:
         raise RuntimeError("Gemini returned an empty response")
     return text
+
+
+def _gemini_reply(prompt: str, system_instruction: str) -> str:
+    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
+    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+    fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "").strip()
+    max_retries = max(1, min(int(os.getenv("GEMINI_MAX_RETRIES", "3")), 5))
+
+    models = [primary_model]
+    if fallback_model and fallback_model != primary_model:
+        models.append(fallback_model)
+
+    last_exc: Exception | None = None
+    for model in models:
+        for attempt in range(max_retries):
+            try:
+                return _generate_with_model(client, model, prompt, system_instruction)
+            except Exception as exc:
+                last_exc = exc
+                if not _is_transient_gemini_error(exc):
+                    raise
+                if attempt < max_retries - 1:
+                    time.sleep(1.5 * (2 ** attempt))
+
+    if last_exc is not None:
+        raise RuntimeError(f"GEMINI_TEMPORARY_UNAVAILABLE: {last_exc}") from last_exc
+    raise RuntimeError("Gemini request failed")
 
 
 async def chat(request: web.Request) -> web.Response:
@@ -283,11 +324,26 @@ async def chat(request: web.Request) -> web.Response:
     try:
         reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction)
     except Exception as exc:
+        raw_error = str(exc)[:1000]
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_error',$2,$3)",
-            request["user_id"], str(exc)[:1000], request["device_id"],
+            request["user_id"], raw_error, request["device_id"],
         )
-        raise web.HTTPBadGateway(text=json.dumps({"error": "gemini_failed", "detail": str(exc)[:300]}), content_type="application/json")
+        if "GEMINI_TEMPORARY_UNAVAILABLE" in raw_error or _is_transient_gemini_error(exc):
+            raise web.HTTPServiceUnavailable(
+                text=json.dumps({
+                    "error": "gemini_temporarily_unavailable",
+                    "detail": "Gemini şu anda yoğun. ULTRON otomatik olarak tekrar denedi; birkaç saniye sonra yeniden dene.",
+                }, ensure_ascii=False),
+                content_type="application/json",
+            )
+        raise web.HTTPBadGateway(
+            text=json.dumps({
+                "error": "gemini_failed",
+                "detail": "Gemini isteği tamamlanamadı. Lütfen tekrar dene.",
+            }, ensure_ascii=False),
+            content_type="application/json",
+        )
 
     await pool.execute(
         "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini')",
