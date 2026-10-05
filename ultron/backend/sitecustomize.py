@@ -102,19 +102,16 @@ if Agent is not None and not getattr(Agent, "_ultron_cloud_patch", False):
 # ---------------------------------------------------------------------------
 def _is_mark_voice_process() -> bool:
     try:
-        return Path(sys.argv[0]).name.lower() == "mark_app.py"
+        # START.bat launches main.py, which then imports/runs mark_app.py.
+        # Accept both entrypoints so the voice memory patch is installed in the
+        # real desktop launch path as well as direct mark_app.py runs.
+        return Path(sys.argv[0]).name.lower() in {"main.py", "mark_app.py"}
     except Exception:
         return False
 
 
 def _shared_cloud_memory_text() -> str:
-    """Fetch the persistent Cloud memory without exposing credentials.
-
-    Voice startup must never fail because Render is asleep/offline, therefore
-    every failure returns an empty string and the existing local memory remains
-    available. This is a short startup snapshot; restarting/reconnecting ULTRON
-    refreshes it.
-    """
+    """Fetch the persistent Cloud memory without exposing credentials."""
     base = os.getenv("ULTRON_CLOUD_URL", "").strip().rstrip("/")
     token = os.getenv("ULTRON_DEVICE_TOKEN", "").strip()
     if not base or not token:
@@ -136,7 +133,10 @@ def _shared_cloud_memory_text() -> str:
             return ""
         lines = [
             "[SHARED ULTRON CLOUD MEMORY — persistent across phone, typed desktop and voice]",
-            "Treat these as known facts. Do not say they are unknown if listed here.",
+            "These facts are authoritative persistent memory for this user.",
+            "If the user asks about a fact listed below, answer from it directly.",
+            "Never say a listed fact is unknown or unsaved.",
+            "Match keys semantically across underscores, spaces, casing and Turkish/English wording.",
         ]
         for row in rows[:100]:
             if not isinstance(row, dict):
@@ -146,16 +146,13 @@ def _shared_cloud_memory_text() -> str:
             category = str(row.get("category", "FACT")).strip() or "FACT"
             if key and value:
                 lines.append(f"- [{category}] {key}: {value}")
-        return "\n".join(lines) + "\n" if len(lines) > 2 else ""
+        return "\n".join(lines) + "\n" if len(lines) > 5 else ""
     except Exception:
         return ""
 
 
 if _is_mark_voice_process():
     try:
-        # mark_app imports this function directly after Python startup. Import the
-        # root memory package now (before mark_app does) and wrap the formatter so
-        # Gemini Live gets the same persistent Cloud facts as typed chat.
         project_root = Path(__file__).resolve().parents[2]
         root_text = str(project_root)
         inserted = False
@@ -184,6 +181,4 @@ if _is_mark_voice_process():
             _voice_memory.format_memory_for_prompt = _cloud_voice_formatter
             _voice_memory._ultron_cloud_voice_patch = True
     except Exception:
-        # Voice must still start with its original local memory if Cloud sync
-        # cannot be installed for any reason.
         pass
