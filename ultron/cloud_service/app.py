@@ -1182,7 +1182,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use cancel_laptop_task when the user explicitly asks to cancel the latest queued laptop task. "
           "send_laptop_task may schedule a task for later by setting delay_minutes. "
           "For complex laptop tasks, include a short ordered plan of 2-7 concrete steps so the desktop agent can report progress and resume from checkpoints. "
-          "For an online immediate desktop task, wait for the desktop result returned by send_laptop_task and speak that result naturally on the phone. Do not make the user ask a second time for the result. "
+          "For an online immediate desktop task, send_laptop_task returns quickly so the phone's Gemini Live audio session never blocks. The actual desktop result will arrive automatically as a later [DESKTOP TASK RESULT] turn. "
+          "After send_laptop_task returns accepted/running, only acknowledge briefly that the task was sent or is being processed; NEVER claim completion yet. When [DESKTOP TASK RESULT] arrives, speak that real result naturally without calling send_laptop_task again. "
           "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it completed, failed, was scheduled, or remains queued. "
           "The phone is in always-listening mode while the microphone session is active; no wake word is required. "
           "When the user gives a direct phone/app command, execute the appropriate tool immediately before speaking. "
@@ -1361,6 +1362,109 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 
     try:
         async with client.aio.live.connect(model=model, config=config) as session:
+            desktop_task_watchers: set[asyncio.Task] = set()
+
+            def _decode_json_value(value: Any, fallback: Any) -> Any:
+                if isinstance(value, str):
+                    try:
+                        return json.loads(value)
+                    except Exception:
+                        return fallback
+                return value if value is not None else fallback
+
+            async def watch_desktop_task_result(command_id: int, task_text: str) -> None:
+                """Watch a desktop task without blocking Gemini Live tool handling."""
+                deadline = time.monotonic() + 180.0
+                last_status = ""
+                last_progress_len = -1
+                try:
+                    while time.monotonic() < deadline and not ws.closed:
+                        row = await pool.fetchrow(
+                            """
+                            SELECT status,result,progress,delivered_at,completed_at
+                            FROM device_commands
+                            WHERE id=$1 AND user_id=$2 AND target='desktop'
+                            """,
+                            command_id, user_id,
+                        )
+                        if not row:
+                            return
+
+                        status = str(row["status"] or "")
+                        result = _decode_json_value(row["result"], {})
+                        progress = _decode_json_value(row["progress"], [])
+                        if not isinstance(result, dict):
+                            result = {}
+                        if not isinstance(progress, list):
+                            progress = []
+
+                        if status != last_status or len(progress) != last_progress_len:
+                            last_status = status
+                            last_progress_len = len(progress)
+                            await send_json({
+                                "type": "laptop_task_update",
+                                "id": command_id,
+                                "status": status,
+                                "progress": progress[-4:],
+                            })
+
+                        if status in {"completed", "failed", "cancelled", "expired"}:
+                            assistant_reply = str(
+                                result.get("assistant_reply")
+                                or result.get("message")
+                                or ""
+                            ).strip()
+                            await send_json({
+                                "type": "laptop_task_result",
+                                "id": command_id,
+                                "status": status,
+                                "task": task_text,
+                                "result": result,
+                                "assistant_reply": assistant_reply,
+                            })
+                            if not ws.closed:
+                                outcome = assistant_reply or (
+                                    "Görev tamamlandı." if status == "completed"
+                                    else f"Görev {status} durumuyla sonuçlandı."
+                                )
+                                await session.send_client_content(
+                                    turns={
+                                        "role": "user",
+                                        "parts": [{
+                                            "text": (
+                                                "[DESKTOP TASK RESULT]\n"
+                                                f"Original task: {task_text}\n"
+                                                f"Status: {status}\n"
+                                                f"Result: {outcome}\n\n"
+                                                "This is the trusted result from the paired desktop ULTRON. "
+                                                "Tell the phone user this result briefly and naturally. "
+                                                "Do not call send_laptop_task or any other tool for this result."
+                                            )
+                                        }],
+                                    },
+                                    turn_complete=True,
+                                )
+                            return
+                        await asyncio.sleep(0.45)
+
+                    if not ws.closed:
+                        await send_json({
+                            "type": "laptop_task_update",
+                            "id": command_id,
+                            "status": "running",
+                            "message": "Laptop görevi arka planda çalışmaya devam ediyor.",
+                        })
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    if not ws.closed:
+                        await send_json({
+                            "type": "laptop_task_update",
+                            "id": command_id,
+                            "status": "watch_error",
+                            "message": str(exc)[:180],
+                        })
+
             await send_json({
                 "type": "ready",
                 "model": model.split("/")[-1],
@@ -1579,91 +1683,34 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                                 "run_after": str(row["run_after"]),
                                 "task": task_text,
                                 "origin": "voice",
+                                "result_will_arrive_async": not scheduled,
                             },
                         )
 
-                    # For a live laptop, keep the phone voice turn open and wait
-                    # for the same desktop agent/tool stack to finish. The
-                    # desktop publishes its final transcript into result so the
-                    # phone can speak the real outcome instead of merely saying
-                    # "task sent".
-                    deadline = time.monotonic() + 120.0
-                    last_status = ""
-                    last_progress_len = -1
-                    while time.monotonic() < deadline:
-                        task_row = await pool.fetchrow(
-                            """
-                            SELECT status,result,progress,delivered_at,completed_at
-                            FROM device_commands
-                            WHERE id=$1 AND user_id=$2 AND target='desktop'
-                            """,
-                            command_id, user_id,
-                        )
-                        if not task_row:
-                            return types.FunctionResponse(
-                                id=fc.id, name=name,
-                                response={"ok": False, "error": "desktop_task_disappeared", "command_id": command_id},
-                            )
-
-                        status = str(task_row["status"] or "")
-                        result = task_row["result"] or {}
-                        progress = task_row["progress"] or []
-                        if isinstance(result, str):
-                            try:
-                                result = json.loads(result)
-                            except Exception:
-                                result = {"message": result}
-                        if isinstance(progress, str):
-                            try:
-                                progress = json.loads(progress)
-                            except Exception:
-                                progress = []
-                        if not isinstance(result, dict):
-                            result = {}
-                        if not isinstance(progress, list):
-                            progress = []
-
-                        if status != last_status or len(progress) != last_progress_len:
-                            last_status = status
-                            last_progress_len = len(progress)
-                            await send_json({
-                                "type": "laptop_task_update",
-                                "id": command_id,
-                                "status": status,
-                                "progress": progress[-4:],
-                            })
-
-                        if status in {"completed", "failed", "cancelled", "expired"}:
-                            assistant_reply = str(
-                                result.get("assistant_reply")
-                                or result.get("message")
-                                or ""
-                            ).strip()
-                            return types.FunctionResponse(
-                                id=fc.id, name=name,
-                                response={
-                                    "ok": status == "completed",
-                                    "command_id": command_id,
-                                    "status": status,
-                                    "desktop_online": True,
-                                    "queued": False,
-                                    "task": task_text,
-                                    "result": result,
-                                    "assistant_reply": assistant_reply,
-                                },
-                            )
-                        await asyncio.sleep(0.45)
+                    # CRITICAL: never block the Gemini Live function call while
+                    # the laptop works. Long-running function calls were causing
+                    # the phone Live websocket to be torn down and reconnect.
+                    # Watch completion in a background task and inject the real
+                    # desktop result back into the same Live session later.
+                    watcher = asyncio.create_task(
+                        watch_desktop_task_result(command_id, task_text)
+                    )
+                    desktop_task_watchers.add(watcher)
+                    watcher.add_done_callback(desktop_task_watchers.discard)
 
                     return types.FunctionResponse(
                         id=fc.id, name=name,
                         response={
                             "ok": True,
                             "command_id": command_id,
-                            "status": "running",
+                            "status": "accepted",
                             "desktop_online": True,
                             "queued": False,
+                            "scheduled": False,
                             "task": task_text,
-                            "message": "Laptop görevi hâlâ çalışıyor; Son Görevler bölümünden ilerleme izlenebilir.",
+                            "origin": "voice",
+                            "result_will_arrive_async": True,
+                            "message": "Laptop ULTRON görevi aldı. Sonuç tamamlanınca bu sesli oturuma otomatik gelecek.",
                         },
                     )
 
@@ -1899,6 +1946,10 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 exc = task.exception()
                 if exc:
                     raise exc
+            for task in list(desktop_task_watchers):
+                task.cancel()
+            if desktop_task_watchers:
+                await asyncio.gather(*desktop_task_watchers, return_exceptions=True)
     except asyncio.CancelledError:
         raise
     except Exception as exc:
