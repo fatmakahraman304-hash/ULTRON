@@ -285,13 +285,37 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 """,
                 request["user_id"], target,
             )
+            # A desktop crash must not leave the agent queue blocked forever.
+            # Six hours is intentionally generous for long-running local tasks.
+            await conn.execute(
+                """
+                UPDATE device_commands
+                SET status='failed',
+                    result='{"message":"Görev teslim edildi ancak 6 saat içinde tamamlanmadı."}'::jsonb,
+                    completed_at=NOW()
+                WHERE user_id=$1 AND target=$2 AND command='agent_task'
+                  AND status='delivered'
+                  AND delivered_at <= NOW() - INTERVAL '6 hours'
+                """,
+                request["user_id"], target,
+            )
             rows = await conn.fetch(
                 """
                 WITH picked AS (
-                  SELECT id FROM device_commands
-                  WHERE user_id=$1 AND target=$2 AND status='queued'
-                    AND created_at > NOW() - INTERVAL '24 hours'
-                  ORDER BY id ASC
+                  SELECT id FROM device_commands d
+                  WHERE d.user_id=$1 AND d.target=$2 AND d.status='queued'
+                    AND d.created_at > NOW() - INTERVAL '24 hours'
+                    AND (
+                      d.command <> 'agent_task'
+                      OR NOT EXISTS (
+                        SELECT 1 FROM device_commands active
+                        WHERE active.user_id=d.user_id
+                          AND active.target=d.target
+                          AND active.command='agent_task'
+                          AND active.status='delivered'
+                      )
+                    )
+                  ORDER BY (d.command='agent_task') ASC, d.id ASC
                   LIMIT 20
                   FOR UPDATE SKIP LOCKED
                 )
