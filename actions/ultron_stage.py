@@ -41,7 +41,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 pass
 
     for key in ("wireframe", "pulse", "auto_orbit", "grid", "loop", "show_labels",
-                "show_trails", "visible", "locked", "clip_paused"):
+                "show_trails", "audio_reactive", "visible", "locked", "clip_paused"):
         value = parameters.get(key)
         if isinstance(value, bool):
             body[key] = value
@@ -145,6 +145,7 @@ TOOL = {
             "loop": {"type": "BOOLEAN"},
             "show_labels": {"type": "BOOLEAN"},
             "show_trails": {"type": "BOOLEAN"},
+            "audio_reactive": {"type": "BOOLEAN"},
             "visible": {"type": "BOOLEAN"},
             "locked": {"type": "BOOLEAN"},
             "clip_paused": {"type": "BOOLEAN"},
