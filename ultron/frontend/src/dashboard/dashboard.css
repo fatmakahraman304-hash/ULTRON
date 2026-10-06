@@ -108,3 +108,6 @@
 .scene-recording i{width:9px;height:9px;border-radius:50%;background:#ff3047;box-shadow:0 0 10px #ff3047;animation:recordPulse .7s ease-in-out infinite alternate}
 .scene-recording span{color:#ff6075}
 @keyframes recordPulse{from{opacity:.3;transform:scale(.75)}to{opacity:1;transform:scale(1.15)}}
+
+.scene-name{width:100%;height:27px;padding:4px 6px;background:#070a0f;border:1px solid #512331;color:#fff;font:10px Consolas,monospace;letter-spacing:.8px}
+.scene-inspector-actions button.active{border-color:#fff;background:#541023}
