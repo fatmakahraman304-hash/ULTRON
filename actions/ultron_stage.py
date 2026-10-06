@@ -27,7 +27,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
 
     for key in ("glow", "speed", "scale", "opacity", "duration", "progress",
                 "x", "y", "z", "rx", "ry", "rz", "spin", "explode", "time",
-                "motion_speed", "radius", "amplitude", "snap"):
+                "motion_speed", "radius", "amplitude", "snap", "clip_speed"):
         value = _num(parameters.get(key))
         if value is not None:
             body[key] = value
@@ -41,7 +41,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 pass
 
     for key in ("wireframe", "pulse", "auto_orbit", "grid", "loop", "show_labels",
-                "show_trails", "visible", "locked"):
+                "show_trails", "visible", "locked", "clip_paused"):
         value = parameters.get(key)
         if isinstance(value, bool):
             body[key] = value
@@ -128,6 +128,7 @@ TOOL = {
             "radius": {"type": "NUMBER"},
             "amplitude": {"type": "NUMBER"},
             "snap": {"type": "NUMBER"},
+            "clip_speed": {"type": "NUMBER"},
             "motion": {"type": "STRING"},
             "axis": {"type": "STRING"},
             "theme": {"type": "STRING"},
@@ -146,6 +147,7 @@ TOOL = {
             "show_trails": {"type": "BOOLEAN"},
             "visible": {"type": "BOOLEAN"},
             "locked": {"type": "BOOLEAN"},
+            "clip_paused": {"type": "BOOLEAN"},
         },
         "required": ["operation"],
     },
