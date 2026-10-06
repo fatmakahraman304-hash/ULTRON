@@ -58,6 +58,8 @@ CREATE INDEX IF NOT EXISTS idx_device_commands_pending
 ALTER TABLE device_commands
   ADD COLUMN IF NOT EXISTS result JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE device_commands
+  ADD COLUMN IF NOT EXISTS progress JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE device_commands
   ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 ALTER TABLE device_commands
   DROP CONSTRAINT IF EXISTS device_commands_status_check;
