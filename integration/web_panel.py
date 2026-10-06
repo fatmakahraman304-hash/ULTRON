@@ -29,12 +29,17 @@ class NativeBridge(QObject):
         self.timer.start(80)
         self._cloud_busy=False
         self._command_busy=False
+        self._presence_busy=False
+        self._remote_task_ids=[]
         self.cloud_timer=QTimer(self)
         self.cloud_timer.timeout.connect(self.cloud_messages)
         self.cloud_timer.start(3000)
         self.command_timer=QTimer(self)
         self.command_timer.timeout.connect(self.cloud_commands)
         self.command_timer.start(2200)
+        self.presence_timer=QTimer(self)
+        self.presence_timer.timeout.connect(self.cloud_presence)
+        self.presence_timer.start(5000)
         self.remote_command.connect(self._apply_remote_command)
         ui._win._log_sig.connect(self.log)
 
@@ -46,6 +51,7 @@ class NativeBridge(QObject):
         self.state()
         self.plugins()
         self.cloud_messages()
+        self.cloud_presence()
 
     def plugins(self):
         getter=getattr(self.ui,'get_plugins',None)
@@ -93,6 +99,64 @@ class NativeBridge(QObject):
 
         threading.Thread(target=worker,daemon=True).start()
 
+    def _cloud_control_request(self, path, body, timeout=10):
+        base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
+        token=os.environ.get('ULTRON_DEVICE_TOKEN','').strip()
+        if not base or not token:
+            raise RuntimeError('Cloud not configured')
+        data=json.dumps(body,ensure_ascii=False).encode('utf-8')
+        request=urllib.request.Request(
+            base+path,
+            data=data,
+            headers={
+                'Authorization':f'Bearer {token}',
+                'X-ULTRON-DEVICE':'desktop-ultron-control',
+                'Accept':'application/json',
+                'Content-Type':'application/json; charset=utf-8',
+            },
+            method='POST',
+        )
+        with urllib.request.urlopen(request,timeout=timeout) as response:
+            raw=response.read().decode('utf-8')
+        return json.loads(raw) if raw else {}
+
+    def cloud_presence(self):
+        """Publish desktop liveness/state so the phone can show online/offline."""
+        if self._presence_busy:
+            return
+        self._presence_busy=True
+        try:
+            state={
+                'ui_state':str(self.ui._win.hud.state),
+                'muted':bool(self.ui.muted),
+                'assistant':str(getattr(self.ui,'assistant_name','ULTRON')),
+            }
+        except Exception:
+            state={'ui_state':'UNKNOWN'}
+
+        def worker():
+            try:
+                self._cloud_control_request('/api/device-presence/heartbeat',{'state':state},timeout=8)
+            except Exception:
+                pass
+            finally:
+                self._presence_busy=False
+        threading.Thread(target=worker,daemon=True).start()
+
+    def _complete_remote_command(self, command_id, ok=True, message=''):
+        if not command_id:
+            return
+        def worker():
+            try:
+                self._cloud_control_request(
+                    f'/api/device-commands/{int(command_id)}/complete',
+                    {'status':'completed' if ok else 'failed','result':{'message':str(message)[:2000]}},
+                    timeout=8,
+                )
+            except Exception:
+                pass
+        threading.Thread(target=worker,daemon=True).start()
+
     def cloud_commands(self):
         """Claim safe phone->desktop control commands from ULTRON Cloud."""
         if self._command_busy:
@@ -138,6 +202,7 @@ class NativeBridge(QObject):
             try:
                 item=json.loads(raw)
                 command=str(item.get('command','')).strip().lower()
+                command_id=item.get('id')
                 payload=item.get('payload', {})
                 if isinstance(payload, str):
                     try:
@@ -156,30 +221,37 @@ class NativeBridge(QObject):
                 if state.get('enabled') and not state.get('awake') and callable(manual):
                     manual()
                 self.emit(kind='remote_notice',text='Telefon: ULTRON uyandırma komutu alındı.')
+                self._complete_remote_command(command_id,True,'ULTRON uyandırıldı.')
             elif command=='mute':
                 if not self.ui.muted:
                     win._toggle_mute()
                 self.emit(kind='remote_notice',text='Telefon: laptop mikrofonu kapatıldı.')
+                self._complete_remote_command(command_id,True,'Laptop mikrofonu kapatıldı.')
             elif command=='unmute':
                 if self.ui.muted:
                     win._toggle_mute()
                 self.emit(kind='remote_notice',text='Telefon: laptop mikrofonu açıldı.')
+                self._complete_remote_command(command_id,True,'Laptop mikrofonu açıldı.')
             elif command=='interrupt':
                 win._do_interrupt()
                 self.emit(kind='remote_notice',text='Telefon: konuşma durduruldu.')
+                self._complete_remote_command(command_id,True,'Konuşma durduruldu.')
             elif command=='sync_memory':
                 def sync_worker():
                     try:
                         from integration.cloud_memory_sync import sync
                         ok,message=sync()
                         self.emit(kind='remote_notice',text=message if ok else 'Cloud hafıza eşitlemesi atlandı.')
-                    except Exception:
+                        self._complete_remote_command(command_id,ok,message)
+                    except Exception as exc:
                         self.emit(kind='remote_notice',text='Cloud hafıza eşitlemesi başarısız.')
+                        self._complete_remote_command(command_id,False,str(exc))
                 threading.Thread(target=sync_worker,daemon=True).start()
             elif command=='agent_task':
                 text=str(payload.get('text','')).strip()
                 if not text:
                     self.emit(kind='remote_notice',text='Telefondan boş görev geldi; çalıştırılmadı.')
+                    self._complete_remote_command(command_id,False,'Görev metni boş.')
                     return
                 if len(text)>50000:
                     text=text[:50000]
@@ -195,16 +267,23 @@ class NativeBridge(QObject):
                 self.ui.write_log('You: '+text)
                 handler=getattr(self.ui,'on_text_command',None)
                 if callable(handler):
+                    if command_id:
+                        self._remote_task_ids.append(int(command_id))
                     handler(text)
                     self.emit(kind='remote_notice',text='Telefon görevi ULTRON agente gönderildi.')
                 else:
                     self.emit(kind='remote_notice',text='ULTRON agent henüz hazır değil.')
+                    self._complete_remote_command(command_id,False,'ULTRON agent henüz hazır değil.')
         except Exception as exc:
             self.emit(kind='remote_notice',text='Uzaktan komut uygulanamadı: '+str(exc)[:100])
+            try:
+                self._complete_remote_command(locals().get('command_id'),False,str(exc))
+            except Exception:
+                pass
 
     def phone_command(self, command):
         """Send a safe desktop->phone UI command through Cloud."""
-        if command not in {'ping','refresh','open_memory','focus_chat'}:
+        if command not in {'ping','refresh','open_memory','focus_chat','open_remote','vibrate','scroll_top'}:
             return
         base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
         token=os.environ.get('ULTRON_DEVICE_TOKEN','').strip()
@@ -240,9 +319,17 @@ class NativeBridge(QObject):
         if text.startswith('You:'):
             self.emit(kind='log', role='user', text=text.partition(':')[2].strip())
         elif text.startswith((self.ui.assistant_name+':', 'ULTRON:', 'ULTRON:')):
-            self.emit(kind='log', role='assistant', text=text.partition(':')[2].strip())
+            answer=text.partition(':')[2].strip()
+            self.emit(kind='log', role='assistant', text=answer)
+            if self._remote_task_ids:
+                command_id=self._remote_task_ids.pop(0)
+                self._complete_remote_command(command_id,True,answer or 'Görev tamamlandı.')
         elif text.startswith('ERR:'):
-            self.emit(kind='error', text=text[4:].strip())
+            error=text[4:].strip()
+            self.emit(kind='error', text=error)
+            if self._remote_task_ids:
+                command_id=self._remote_task_ids.pop(0)
+                self._complete_remote_command(command_id,False,error or 'Görev başarısız.')
 
     @pyqtSlot(str)
     def send(self, text):
