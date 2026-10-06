@@ -78,6 +78,8 @@ class Hub:
             "progress": 0,
             "revision": 1,
             "job_id": None,
+            "save_nonce": 0,
+            "save_kind": "",
             "hologram": {
                 "kind": "energy", "color": "#ff3047", "glow": 1.0,
                 "speed": 1.0, "rings": 4, "particles": 900, "scale": 1.0,
@@ -831,6 +833,14 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state.update({"mode": "video_rendering", "title": "VIDEO RENDER",
                       "subtitle": template.replace("_", " ").upper(),
                       "progress": 0, "job_id": job_id})
+    elif op == "hologram_save":
+        state["save_nonce"] = int(state.get("save_nonce", 0)) + 1
+        state["save_kind"] = "hologram"
+    elif op == "video_save":
+        if not bool((state.get("video") or {}).get("ready")):
+            return web.json_response({"ok": False, "error": "video_not_ready"}, status=409)
+        state["save_nonce"] = int(state.get("save_nonce", 0)) + 1
+        state["save_kind"] = "video"
     elif op in {"video_play", "play"}:
         if bool((state.get("video") or {}).get("ready")):
             state["mode"] = "video_preview"
