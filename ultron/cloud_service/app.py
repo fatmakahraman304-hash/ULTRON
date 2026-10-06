@@ -1134,6 +1134,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use recall_memory when current persistent memory is needed instead of guessing from stale session context. "
           "Use get_latest_image_context whenever the user refers to the photo/image they just sent. "
           "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
+          "Use control_phone_ui when the user asks to open chat, memory, remote control, camera, scroll to top, or vibrate the phone. "
           "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used. "
           "The phone uses an ULTRON wake-word gate. When the gate is asleep, any audio may be ambient and must not be treated as a command. "
           "When the user says ULTRON and the gate wakes, answer normally and naturally."
@@ -1230,6 +1231,18 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 "name": "get_latest_document_context",
                 "description": "Get the analysis of the most recent PDF uploaded from the phone. Use when the user says this PDF, this document, this file, or asks a follow-up about the uploaded PDF.",
                 "parameters": {"type": "OBJECT", "properties": {}}
+            }
+,
+            {
+                "name": "control_phone_ui",
+                "description": "Control the current ULTRON phone interface when the user explicitly asks. Supported actions: chat, memory, remote, camera, vibrate, scroll_top.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top."}
+                    },
+                    "required": ["action"]
+                }
             }
         ]}],
     )
@@ -1391,6 +1404,20 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     return types.FunctionResponse(
                         id=fc.id, name=name,
                         response={"ok": True, "analysis": row["detail"], "created_at": str(row["created_at"])},
+                    )
+
+                if name == "control_phone_ui":
+                    action = str(args.get("action", "")).strip().lower()
+                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top"}
+                    if action not in allowed:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "unsupported_action"},
+                        )
+                    await send_json({"type": "phone_action", "action": action})
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={"ok": True, "action": action},
                     )
 
                 return types.FunctionResponse(
