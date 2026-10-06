@@ -134,7 +134,10 @@ async def health(request: web.Request) -> web.Response:
 
 
 async def index(request: web.Request) -> web.FileResponse:
-    return web.FileResponse(STATIC_DIR / "index.html")
+    response = web.FileResponse(STATIC_DIR / "index.html")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 async def login(request: web.Request) -> web.Response:
