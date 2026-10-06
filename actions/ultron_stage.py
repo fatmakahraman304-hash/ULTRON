@@ -20,7 +20,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
     for key in ("kind", "color", "label", "template", "title", "subtitle",
                 "object_id", "camera", "layout", "preset", "animation", "objects_json",
                 "motion", "axis", "theme", "keyframe_id", "cinematic", "scene_json",
-                "source_id", "target_id", "link_id"):
+                "source_id", "target_id", "source_label", "target_label", "link_id"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -135,6 +135,8 @@ TOOL = {
             "cinematic": {"type": "STRING"},
             "source_id": {"type": "STRING"},
             "target_id": {"type": "STRING"},
+            "source_label": {"type": "STRING"},
+            "target_label": {"type": "STRING"},
             "link_id": {"type": "STRING"},
             "auto_orbit": {"type": "BOOLEAN"},
             "grid": {"type": "BOOLEAN"},
