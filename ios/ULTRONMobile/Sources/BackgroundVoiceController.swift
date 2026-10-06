@@ -207,7 +207,7 @@ final class BackgroundVoiceController: ObservableObject {
             startPingLoop(task)
         } catch {
             connected = false
-            if case URLError.userAuthenticationRequired = error {
+            if let urlError = error as? URLError, urlError.code == .userAuthenticationRequired {
                 needsLogin = true
                 status = "Önce Cloud girişi gerekli"
             } else {
@@ -226,7 +226,7 @@ final class BackgroundVoiceController: ObservableObject {
 
         reconnectTask = Task { [weak self] in
             guard let self else { return }
-            try? await Task.sleep(for: .seconds(delay))
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled, self.desiredListening else {
                 self.reconnectTask = nil
                 return
@@ -250,7 +250,7 @@ final class BackgroundVoiceController: ObservableObject {
                     "background": self.isBackground,
                     "session_id": self.sessionID
                 ])
-                try? await Task.sleep(for: .seconds(10))
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
             }
         }
     }
@@ -261,7 +261,7 @@ final class BackgroundVoiceController: ObservableObject {
             guard let self, let task else { return }
 
             while !Task.isCancelled, self.desiredListening, self.socket === task {
-                try? await Task.sleep(for: .seconds(20))
+                try? await Task.sleep(nanoseconds: 20_000_000_000)
                 guard !Task.isCancelled, self.desiredListening, self.socket === task else { return }
 
                 task.sendPing { error in
