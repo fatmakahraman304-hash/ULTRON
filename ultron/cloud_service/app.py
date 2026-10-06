@@ -1259,6 +1259,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use control_phone_ui when the user asks to open chat, memory, remote control, camera, scroll to top, or vibrate the phone. "
           "Use send_laptop_task when the user explicitly asks ULTRON to do something on the paired laptop, such as open Chrome, find a file, inspect system status, or carry out a desktop task. "
           "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
+          "Use get_latest_laptop_task when the user asks what happened to the last laptop task, whether it finished, or for its result. "
+          "Use cancel_laptop_task when the user explicitly asks to cancel the latest queued laptop task. "
           "send_laptop_task may schedule a task for later by setting delay_minutes. "
           "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it was sent live, scheduled, queued, retried, or completed. "
           "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used. "
@@ -1385,6 +1387,16 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             {
                 "name": "get_laptop_status",
                 "description": "Read the paired laptop's current ULTRON presence/status.",
+                "parameters": {"type": "OBJECT", "properties": {}}
+            },
+            {
+                "name": "get_latest_laptop_task",
+                "description": "Get the latest desktop ULTRON agent task status, progress, and result.",
+                "parameters": {"type": "OBJECT", "properties": {}}
+            },
+            {
+                "name": "cancel_laptop_task",
+                "description": "Cancel the latest queued desktop ULTRON agent task. Only queued tasks can be cancelled.",
                 "parameters": {"type": "OBJECT", "properties": {}}
             }
         ]}],
@@ -1646,6 +1658,73 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             "last_seen": str(row["last_seen"]),
                             "state": state if isinstance(state, dict) else {},
                         },
+                    )
+
+                if name == "get_latest_laptop_task":
+                    row = await pool.fetchrow(
+                        """
+                        SELECT id,status,payload,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
+                        FROM device_commands
+                        WHERE user_id=$1 AND target='desktop' AND command='agent_task'
+                        ORDER BY id DESC
+                        LIMIT 1
+                        """,
+                        user_id,
+                    )
+                    if not row:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": True, "found": False},
+                        )
+                    item = dict(row)
+                    for key in ("payload", "result", "progress"):
+                        value = item.get(key)
+                        if isinstance(value, str):
+                            try:
+                                value = json.loads(value)
+                            except Exception:
+                                value = [] if key == "progress" else {}
+                        item[key] = value
+                    item["found"] = True
+                    item["ok"] = True
+                    return types.FunctionResponse(id=fc.id, name=name, response=item)
+
+                if name == "cancel_laptop_task":
+                    row = await pool.fetchrow(
+                        """
+                        WITH latest AS (
+                          SELECT id FROM device_commands
+                          WHERE user_id=$1 AND target='desktop' AND command='agent_task'
+                            AND status='queued'
+                          ORDER BY id DESC
+                          LIMIT 1
+                        )
+                        UPDATE device_commands d
+                        SET status='cancelled',
+                            result='{"message":"Görev sesli komutla iptal edildi."}'::jsonb,
+                            completed_at=NOW(),
+                            progress=COALESCE(progress,'[]'::jsonb) ||
+                              jsonb_build_array(jsonb_build_object(
+                                'stage','cancelled',
+                                'message','Görev sesli komutla iptal edildi.',
+                                'percent',NULL,
+                                'at',EXTRACT(EPOCH FROM NOW())
+                              ))
+                        FROM latest
+                        WHERE d.id=latest.id
+                        RETURNING d.id,d.status,d.result
+                        """,
+                        user_id,
+                    )
+                    if not row:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "no_queued_task"},
+                        )
+                    await send_json({"type": "laptop_task_cancelled", "id": int(row["id"])})
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={"ok": True, "command_id": int(row["id"]), "status": "cancelled"},
                     )
 
                 return types.FunctionResponse(
