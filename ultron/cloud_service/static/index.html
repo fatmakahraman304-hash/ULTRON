@@ -925,7 +925,7 @@ async function openLiveSocket(){
     let d={};try{d=JSON.parse(e.data)}catch{return}
     if(d.type==='ready'){
       if(d.session_id){liveSessionId=String(d.session_id);localStorage.setItem('ultronLiveSessionId',liveSessionId)}
-      liveStatus('“ULTRON” diyerek uyandır',true);
+      liveStatus('“ULTRON” diyerek uyandır • telefon veya laptop komutu ver',true);
       $('#stageVoiceText').textContent=(d.resumed?'Gemini Live hazır • ':'Gemini Live • ')+(d.voice||'ULTRON')+' • wake-word bekliyor';
     }
     if(d.type==='wake_state'){
@@ -943,6 +943,13 @@ async function openLiveSocket(){
       setWakeUi(false);
       liveStatus('“ULTRON” diyerek uyandır',true);
       $('#stageVoiceText').textContent='Ortam sesi yok sayıldı • ULTRON bekliyor';
+    }
+    if(d.type==='laptop_task'){
+      const task=String(d.task||'Görev');
+      const online=!!d.online;
+      toast(online?'Laptop ULTRON görevi aldı: '+task.slice(0,80):'Laptop çevrimdışı • görev kuyruğa alındı');
+      $('#stageVoiceText').textContent=online?'Laptop görevi gönderildi':'Laptop görevi kuyruğa alındı';
+      if(currentView==='remote')setTimeout(()=>loadRemoteHistory().catch(()=>{}),500);
     }
     if(d.type==='phone_action'){
       const action=String(d.action||'');
