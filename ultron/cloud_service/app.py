@@ -1172,14 +1172,18 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "If the user asks to prepare a WhatsApp message, use whatsapp_message. "
           "For direct phone/app actions, perform the tool call immediately and do not add a conversational confirmation afterward unless the action fails. "
           "Use run_ios_action only for iPhone system settings that truly require Apple Shortcuts: set_focus, set_volume, set_brightness, bluetooth, wifi, and compose_message. "
-          "Use send_laptop_task when the user explicitly asks ULTRON to do something on the paired laptop, such as open Chrome, find a file, inspect system status, or carry out a desktop task. "
+          "You are ONE ULTRON across the phone and paired Windows laptop, not two separate assistants. "
+          "The paired laptop's local agent is an extension of your own capability set. Whenever the user asks for something the desktop ULTRON can do, use send_laptop_task automatically even if the user does not explicitly say 'on the laptop'. "
+          "Desktop capabilities include file/folder operations, Windows and desktop control, system status/settings, opening and controlling desktop apps, browser automation, coding/development-agent work, screen inspection, local file processing, web/news/weather/flight lookups, reminders, messaging, media/video/YouTube actions, monitoring, and any other action/plugin available to the desktop ULTRON. "
+          "Never answer 'I cannot do that from the phone' merely because the capability lives on the laptop; delegate it through send_laptop_task. "
+          "If the user explicitly says iPhone/phone, use phone tools. If the user explicitly says laptop/computer/Windows, use send_laptop_task. If no device is named, use phone tools for clearly iPhone-local intents and use the desktop agent for desktop/tool/file/system/automation tasks. "
           "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
           "Use get_latest_laptop_task when the user asks what happened to the last laptop task, whether it finished, or for its result. "
           "Use cancel_laptop_task when the user explicitly asks to cancel the latest queued laptop task. "
           "send_laptop_task may schedule a task for later by setting delay_minutes. "
           "For complex laptop tasks, include a short ordered plan of 2-7 concrete steps so the desktop agent can report progress and resume from checkpoints. "
-          "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it was sent live, scheduled, queued, retried, or completed. "
-          "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used. "
+          "For an online immediate desktop task, wait for the desktop result returned by send_laptop_task and speak that result naturally on the phone. Do not make the user ask a second time for the result. "
+          "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it completed, failed, was scheduled, or remains queued. "
           "The phone is in always-listening mode while the microphone session is active; no wake word is required. "
           "When the user gives a direct phone/app command, execute the appropriate tool immediately before speaking. "
           "Do not ask follow-up closing questions such as 'Başka bir emriniz var mı?' after completing a command. "
@@ -1293,7 +1297,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "send_laptop_task",
-                "description": "Send an explicit natural-language task to the paired desktop ULTRON agent. Use only when the user asks to do something on the laptop.",
+                "description": "Delegate any task that the paired Windows desktop ULTRON can perform. This is the phone voice assistant's gateway to the full desktop action/plugin/tool set; use it automatically for desktop-capable tasks, not only when the user literally says laptop.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1550,26 +1554,116 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         delay_minutes,
                     )
                     scheduled = delay_minutes > 0
+                    command_id = int(row["id"])
                     await send_json({
                         "type": "laptop_task",
-                        "id": int(row["id"]),
+                        "id": command_id,
                         "task": task_text,
                         "online": online,
                         "queued": (not online) or scheduled,
                         "scheduled": scheduled,
                         "run_after": str(row["run_after"]),
                     })
+
+                    # Scheduled/offline work cannot finish inside this Live tool
+                    # call. Return its durable queue state immediately.
+                    if scheduled or not online:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={
+                                "ok": True,
+                                "command_id": command_id,
+                                "desktop_online": online,
+                                "queued": True,
+                                "scheduled": scheduled,
+                                "run_after": str(row["run_after"]),
+                                "task": task_text,
+                                "origin": "voice",
+                            },
+                        )
+
+                    # For a live laptop, keep the phone voice turn open and wait
+                    # for the same desktop agent/tool stack to finish. The
+                    # desktop publishes its final transcript into result so the
+                    # phone can speak the real outcome instead of merely saying
+                    # "task sent".
+                    deadline = time.monotonic() + 120.0
+                    last_status = ""
+                    last_progress_len = -1
+                    while time.monotonic() < deadline:
+                        task_row = await pool.fetchrow(
+                            """
+                            SELECT status,result,progress,delivered_at,completed_at
+                            FROM device_commands
+                            WHERE id=$1 AND user_id=$2 AND target='desktop'
+                            """,
+                            command_id, user_id,
+                        )
+                        if not task_row:
+                            return types.FunctionResponse(
+                                id=fc.id, name=name,
+                                response={"ok": False, "error": "desktop_task_disappeared", "command_id": command_id},
+                            )
+
+                        status = str(task_row["status"] or "")
+                        result = task_row["result"] or {}
+                        progress = task_row["progress"] or []
+                        if isinstance(result, str):
+                            try:
+                                result = json.loads(result)
+                            except Exception:
+                                result = {"message": result}
+                        if isinstance(progress, str):
+                            try:
+                                progress = json.loads(progress)
+                            except Exception:
+                                progress = []
+                        if not isinstance(result, dict):
+                            result = {}
+                        if not isinstance(progress, list):
+                            progress = []
+
+                        if status != last_status or len(progress) != last_progress_len:
+                            last_status = status
+                            last_progress_len = len(progress)
+                            await send_json({
+                                "type": "laptop_task_update",
+                                "id": command_id,
+                                "status": status,
+                                "progress": progress[-4:],
+                            })
+
+                        if status in {"completed", "failed", "cancelled", "expired"}:
+                            assistant_reply = str(
+                                result.get("assistant_reply")
+                                or result.get("message")
+                                or ""
+                            ).strip()
+                            return types.FunctionResponse(
+                                id=fc.id, name=name,
+                                response={
+                                    "ok": status == "completed",
+                                    "command_id": command_id,
+                                    "status": status,
+                                    "desktop_online": True,
+                                    "queued": False,
+                                    "task": task_text,
+                                    "result": result,
+                                    "assistant_reply": assistant_reply,
+                                },
+                            )
+                        await asyncio.sleep(0.45)
+
                     return types.FunctionResponse(
                         id=fc.id, name=name,
                         response={
                             "ok": True,
-                            "command_id": int(row["id"]),
-                            "desktop_online": online,
-                            "queued": (not online) or scheduled,
-                            "scheduled": scheduled,
-                            "run_after": str(row["run_after"]),
+                            "command_id": command_id,
+                            "status": "running",
+                            "desktop_online": True,
+                            "queued": False,
                             "task": task_text,
-                            "origin": "voice",
+                            "message": "Laptop görevi hâlâ çalışıyor; Son Görevler bölümünden ilerleme izlenebilir.",
                         },
                     )
 
