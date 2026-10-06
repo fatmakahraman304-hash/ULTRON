@@ -3,49 +3,132 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#090909" />
-  <title>ULTRON Cloud</title>
+  <meta name="theme-color" content="#050608" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>ULTRON Mobile</title>
   <style>
-    :root{color-scheme:dark;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    *{box-sizing:border-box} body{margin:0;background:#050505;color:#f4f4f4;min-height:100vh}
-    .shell{max-width:780px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 14px env(safe-area-inset-bottom)}
-    header{display:flex;align-items:center;justify-content:space-between;padding:18px 2px 12px;border-bottom:1px solid #2a1111}
-    h1{font-size:19px;letter-spacing:.22em;margin:0;color:#ff4d4d}.status{font-size:12px;color:#9b9b9b}
-    .panel{background:#0b0b0b;border:1px solid #261010;border-radius:18px;padding:14px;margin-top:14px;box-shadow:0 0 40px rgba(160,0,0,.08)}
-    #login{margin:auto 0}.hidden{display:none!important}input,textarea,button{font:inherit}
-    input,textarea{width:100%;border:1px solid #3a1717;border-radius:12px;background:#111;color:#fff;padding:12px;outline:none}
-    button{border:0;border-radius:12px;background:#8f1111;color:white;padding:12px 16px;font-weight:700;cursor:pointer}button.secondary{background:#1b1b1b;color:#ddd;border:1px solid #333}
-    .row{display:flex;gap:8px;align-items:center}.row>*{min-width:0}.grow{flex:1}
-    #app{display:flex;flex-direction:column;min-height:calc(100vh - 80px)}
-    #messages{flex:1;overflow:auto;padding:16px 0 110px;display:flex;flex-direction:column;gap:10px}
-    .msg{max-width:88%;padding:11px 13px;border-radius:14px;white-space:pre-wrap;line-height:1.45}.user{align-self:flex-end;background:#3a1111}.assistant{align-self:flex-start;background:#121212;border:1px solid #2c2c2c}
-    .composer{position:fixed;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));width:min(752px,calc(100% - 28px));background:rgba(8,8,8,.96);backdrop-filter:blur(14px);border:1px solid #321313;border-radius:18px;padding:10px}
-    .composer textarea{resize:none;min-height:48px;max-height:140px}.tiny{font-size:12px;color:#8f8f8f}.memories{display:grid;gap:8px}.memory{padding:10px;border:1px solid #292929;border-radius:12px;background:#0d0d0d}.memory b{color:#ff6b6b}
-    dialog{border:1px solid #3a1717;border-radius:18px;background:#090909;color:#fff;width:min(620px,92vw)}
+    :root{
+      color-scheme:dark;
+      font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      --bg:#050608;--panel:#0b0d10;--panel2:#11141a;--line:#2b3038;
+      --red:#ff3047;--red2:#8f1324;--text:#f2f4f7;--muted:#8d97a6;--ok:#5df29a;
+    }
+    *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text)}
+    body{
+      min-height:100dvh;
+      background:
+        radial-gradient(circle at 50% -10%,rgba(255,48,71,.17),transparent 35%),
+        linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px),
+        var(--bg);
+      background-size:auto,28px 28px,28px 28px,auto;
+      overflow-x:hidden;
+    }
+    button,input,textarea{font:inherit}
+    button{-webkit-tap-highlight-color:transparent}
+    .shell{width:min(100%,760px);margin:auto;min-height:100dvh;padding:max(12px,env(safe-area-inset-top)) 14px calc(92px + env(safe-area-inset-bottom))}
+    .topbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:12px 2px 14px;background:linear-gradient(var(--bg) 65%,transparent)}
+    .brand{display:flex;align-items:center;gap:10px}.brand-mark{width:34px;height:34px;border:1px solid rgba(255,48,71,.65);border-radius:50%;display:grid;place-items:center;box-shadow:0 0 24px rgba(255,48,71,.28)}
+    .brand-mark:before{content:"";width:14px;height:14px;border-radius:50%;background:var(--red);box-shadow:0 0 16px var(--red)}
+    .brand b{display:block;letter-spacing:.22em;font-size:16px}.brand small{display:block;color:var(--muted);font-size:9px;letter-spacing:.18em;margin-top:2px}
+    .online{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:11px}.dot{width:8px;height:8px;border-radius:50%;background:#555;box-shadow:0 0 0 3px rgba(255,255,255,.04)}.dot.ok{background:var(--ok);box-shadow:0 0 14px rgba(93,242,154,.7)}
+    .hidden{display:none!important}.panel{background:linear-gradient(180deg,rgba(17,20,26,.96),rgba(8,10,13,.97));border:1px solid var(--line);border-radius:22px;box-shadow:0 16px 50px rgba(0,0,0,.35)}
+    #login{padding:20px;margin-top:18vh}#login h2{margin:0 0 6px;letter-spacing:.12em}.tiny{font-size:12px;color:var(--muted);line-height:1.45}
+    input,textarea{width:100%;border:1px solid #303641;border-radius:13px;background:#0b0e12;color:#fff;padding:13px;outline:none}
+    input:focus,textarea:focus{border-color:rgba(255,48,71,.75);box-shadow:0 0 0 3px rgba(255,48,71,.08)}
+    button{border:1px solid rgba(255,48,71,.34);border-radius:13px;background:linear-gradient(180deg,#b71930,#7f0d20);color:#fff;padding:12px 15px;font-weight:800;cursor:pointer}
+    button.secondary{background:#10141a;border-color:#303641;color:#d9dee6}
+    button:disabled{opacity:.5}.row{display:flex;gap:9px;align-items:center}.grow{flex:1;min-width:0}
+    .hero{position:relative;overflow:hidden;padding:19px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;min-height:132px}
+    .hero:after{content:"";position:absolute;inset:auto -30px -60px auto;width:180px;height:180px;border:1px solid rgba(255,48,71,.16);border-radius:50%;box-shadow:0 0 0 18px rgba(255,48,71,.025),0 0 0 36px rgba(255,48,71,.018)}
+    .hero h1{margin:0;font-size:18px;letter-spacing:.18em}.hero p{margin:6px 0 0;color:var(--muted);font-size:12px;max-width:230px}
+    .core{position:relative;width:84px;height:84px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(255,48,71,.38);box-shadow:0 0 32px rgba(255,48,71,.18)}
+    .core:before,.core:after{content:"";position:absolute;border-radius:50%;border:1px solid rgba(255,48,71,.4);animation:spin 7s linear infinite}
+    .core:before{inset:10px;border-style:dashed}.core:after{inset:22px;animation-direction:reverse;animation-duration:4s}.core i{width:24px;height:24px;border-radius:50%;background:var(--red);box-shadow:0 0 24px var(--red)}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .view{display:none}.view.active{display:block}
+    #messages{display:flex;flex-direction:column;gap:10px;padding:3px 0 104px;min-height:48vh}
+    .msg{max-width:88%;padding:12px 14px;border-radius:16px;white-space:pre-wrap;line-height:1.48;font-size:14px;border:1px solid transparent}
+    .msg.user{align-self:flex-end;background:linear-gradient(180deg,#44101a,#2a0b11);border-color:#651827}.msg.assistant{align-self:flex-start;background:#0e1217;border-color:#272d36}
+    .composer{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:6;width:min(732px,calc(100% - 28px));padding:9px;background:rgba(8,10,13,.92);border:1px solid #2b3038;border-radius:18px;backdrop-filter:blur(18px)}
+    .composer textarea{resize:none;min-height:48px;max-height:130px}.busy{padding:5px 3px 0;font-size:11px;color:var(--muted)}
+    .section-title{display:flex;justify-content:space-between;align-items:center;margin:4px 2px 10px}.section-title h2{font-size:13px;letter-spacing:.16em;margin:0}.section-title small{color:var(--muted)}
+    .remote-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.remote-card{padding:16px;text-align:left;min-height:96px;background:linear-gradient(155deg,#12161d,#0a0d11);border:1px solid #2e343e;border-radius:18px;color:#fff}
+    .remote-card b{display:block;font-size:13px;margin-bottom:7px}.remote-card span{display:block;color:var(--muted);font-size:11px;font-weight:500;line-height:1.4}.remote-card.primary{border-color:rgba(255,48,71,.45);box-shadow:inset 0 0 28px rgba(255,48,71,.04)}
+    .remote-note{margin-top:12px;padding:13px 14px;border-radius:15px;background:#0b0f14;border:1px solid #252b33;color:var(--muted);font-size:12px;line-height:1.5}
+    .memory-form{padding:14px;margin-bottom:12px}.memory-form textarea{margin-top:9px}.memory-list{display:grid;gap:9px}.memory{padding:13px;border:1px solid #292f38;border-radius:15px;background:#0d1116}.memory b{color:#ff6578;font-size:12px}.memory div{margin-top:5px;line-height:1.45}.memory small{display:block;color:var(--muted);margin-top:6px}
+    .tabs{position:fixed;z-index:8;left:50%;transform:translateX(-50%);bottom:max(8px,env(safe-area-inset-bottom));width:min(732px,calc(100% - 28px));display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:7px;background:rgba(8,10,13,.94);border:1px solid #2b3038;border-radius:19px;backdrop-filter:blur(18px)}
+    .tabs button{background:transparent;border-color:transparent;color:#8f99a7;padding:10px 8px;font-size:11px}.tabs button.active{background:#181016;border-color:#4c1721;color:#fff}
+    .toast{position:fixed;left:50%;transform:translateX(-50%);top:max(72px,calc(env(safe-area-inset-top) + 60px));z-index:20;width:min(650px,calc(100% - 32px));padding:12px 14px;border-radius:14px;background:#14191f;border:1px solid #343c46;box-shadow:0 14px 45px #000;color:#fff;font-size:13px;display:none}
+    .toast.show{display:block}
+    @media(max-width:430px){.shell{padding-left:11px;padding-right:11px}.remote-grid{grid-template-columns:1fr 1fr}.hero{min-height:118px}.core{width:74px;height:74px}.composer,.tabs{width:calc(100% - 22px)}}
   </style>
 </head>
 <body>
 <div class="shell">
-  <header><h1>ULTRON</h1><div class="status" id="status">Bağlantı kontrol ediliyor…</div></header>
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark"></div><div><b>ULTRON</b><small>MOBILE NEURAL LINK</small></div></div>
+    <div class="online"><span class="dot" id="statusDot"></span><span id="status">Bağlantı…</span></div>
+  </header>
+
   <section id="login" class="panel hidden">
-    <h2>Giriş</h2><p class="tiny">Bu parola yalnızca ULTRON Cloud sunucuna gönderilir.</p>
-    <div class="row"><input id="password" type="password" placeholder="ULTRON parolası" autocomplete="current-password"/><button id="loginBtn">Giriş</button></div><p id="loginError" class="tiny"></p>
+    <h2>GÜVENLİ GİRİŞ</h2>
+    <p class="tiny">ULTRON Cloud oturumunu aç. Parolan cihazında saklanmaz.</p>
+    <div class="row"><input id="password" type="password" placeholder="ULTRON parolası" autocomplete="current-password"/><button id="loginBtn">Giriş</button></div>
+    <p id="loginError" class="tiny"></p>
   </section>
+
   <main id="app" class="hidden">
-    <div class="row" style="margin-top:12px"><button class="secondary" id="memoryBtn">Hafıza</button><button class="secondary" id="logoutBtn">Çıkış</button></div>
-    <div id="messages"></div>
-    <div class="composer"><div class="row"><textarea id="message" class="grow" placeholder="ULTRON'a yaz…"></textarea><button id="sendBtn">Gönder</button></div><div id="busy" class="tiny" style="padding-top:6px"></div></div>
+    <section class="hero panel">
+      <div><h1>NEURAL LINK</h1><p>Telefon, laptop ve ortak hafıza aynı ULTRON çekirdeğine bağlı.</p></div>
+      <div class="core" aria-hidden="true"><i></i></div>
+    </section>
+
+    <section id="chatView" class="view active">
+      <div id="messages"></div>
+      <div class="composer">
+        <div class="row"><textarea id="message" class="grow" placeholder="ULTRON'a yaz…"></textarea><button id="sendBtn">Gönder</button></div>
+        <div id="busy" class="busy"></div>
+      </div>
+    </section>
+
+    <section id="remoteView" class="view">
+      <div class="section-title"><h2>LAPTOP KONTROLÜ</h2><small>Cloud relay</small></div>
+      <div class="remote-grid">
+        <button class="remote-card primary" data-command="wake"><b>ULTRON'U UYANDIR</b><span>Uyku modundaysa dinlemeye geçir.</span></button>
+        <button class="remote-card" data-command="interrupt"><b>KONUŞMAYI DURDUR</b><span>Devam eden sesli yanıtı kes.</span></button>
+        <button class="remote-card" data-command="mute"><b>MİKROFONU KAPAT</b><span>Laptop ULTRON mikrofonunu sessize al.</span></button>
+        <button class="remote-card" data-command="unmute"><b>MİKROFONU AÇ</b><span>Laptop ULTRON mikrofonunu yeniden aç.</span></button>
+        <button class="remote-card" data-command="sync_memory"><b>HAFIZAYI EŞİTLE</b><span>Cloud hafızasını laptopa hemen çek.</span></button>
+      </div>
+      <div class="remote-note">Güvenlik için uzaktan terminal, dosya silme ve kamera açma gibi riskli işlemler bu panelden otomatik çalıştırılmaz.</div>
+    </section>
+
+    <section id="memoryView" class="view">
+      <div class="section-title"><h2>ORTAK HAFIZA</h2><button class="secondary" id="reloadMemory">Yenile</button></div>
+      <div class="memory-form panel">
+        <div class="row"><input id="memoryKey" placeholder="Anahtar"/><input id="memoryCategory" placeholder="Kategori" value="FACT"/></div>
+        <textarea id="memoryValue" placeholder="Hatırlanacak bilgi"></textarea>
+        <button id="saveMemory" style="margin-top:9px;width:100%">Cloud Hafızasına Kaydet</button>
+      </div>
+      <div id="memories" class="memory-list"></div>
+    </section>
   </main>
 </div>
-<dialog id="memoryDialog">
-  <h3>Ortak Hafıza</h3>
-  <div class="row"><input id="memoryKey" placeholder="Anahtar (örn. laptop_modeli)"/><input id="memoryCategory" placeholder="Kategori" value="FACT"/></div>
-  <textarea id="memoryValue" placeholder="Değer" style="margin-top:8px"></textarea>
-  <div class="row" style="margin-top:8px"><button id="saveMemory">Kaydet</button><button class="secondary" id="closeMemory">Kapat</button></div>
-  <div id="memories" class="memories" style="margin-top:12px"></div>
-</dialog>
+
+<nav id="tabs" class="tabs hidden">
+  <button class="active" data-view="chat">SOHBET</button>
+  <button data-view="remote">UZAKTAN</button>
+  <button data-view="memory">HAFIZA</button>
+</nav>
+<div id="toast" class="toast"></div>
+
 <script>
-const $=s=>document.querySelector(s);let conversationId=localStorage.getItem('ultronConversationId')||'';
+const $=s=>document.querySelector(s);
+let conversationId=localStorage.getItem('ultronConversationId')||'';
+let currentView='chat',messageSignature='',toastTimer=null;
+
 async function api(path,options={}){
   let res;
   try{
@@ -55,19 +138,103 @@ async function api(path,options={}){
     e.network=true;e.cause=err;throw e;
   }
   let data={};try{data=await res.json()}catch{}
-  if(!res.ok){const e=new Error(data.error||`HTTP ${res.status}`);e.status=res.status;e.data=data;throw e}
-  return data
+  if(!res.ok){const e=new Error(data.error||('HTTP '+res.status));e.status=res.status;e.data=data;throw e}
+  return data;
 }
-function addMessage(role,content){const d=document.createElement('div');d.className=`msg ${role}`;d.textContent=content;$('#messages').appendChild(d);d.scrollIntoView({block:'end'})}
-async function loadMessages(){const d=await api('/api/messages?limit=80');$('#messages').innerHTML='';d.messages.forEach(m=>addMessage(m.role,m.content))}
-async function boot(){try{await api('/api/session');$('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#status').textContent='Cloud bağlı';await loadMessages()}catch(e){$('#app').classList.add('hidden');$('#login').classList.remove('hidden');$('#status').textContent='Giriş gerekli'}}
-$('#loginBtn').onclick=async()=>{try{await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});$('#loginError').textContent='';await boot()}catch(e){$('#loginError').textContent='Parola yanlış veya sunucu hazır değil.'}};
-$('#logoutBtn').onclick=async()=>{await api('/api/logout',{method:'POST'});location.reload()};
-async function send(){const text=$('#message').value.trim();if(!text)return;$('#message').value='';addMessage('user',text);$('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;try{const d=await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);addMessage('assistant',d.reply)}catch(e){const msg=e.network?'Bağlantı geçici olarak koptu. Mesajın sunucuya ulaşmış olabilir; birkaç saniye sonra sayfayı yenileyip kontrol et.':(e.data?.detail||e.message);addMessage('assistant',`Hata: ${msg}`)}finally{$('#busy').textContent='';$('#sendBtn').disabled=false}}
-$('#sendBtn').onclick=send;$('#message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
-async function loadMemories(){const d=await api('/api/memories');$('#memories').innerHTML='';d.memories.forEach(m=>{const x=document.createElement('div');x.className='memory';x.innerHTML='<b></b><div></div><small></small>';x.querySelector('b').textContent=`[${m.category}] ${m.key}`;x.querySelector('div').textContent=m.value;x.querySelector('small').textContent=`v${m.version} • ${m.updated_by_device||'cihaz'}`;$('#memories').appendChild(x)})}
-$('#memoryBtn').onclick=async()=>{$('#memoryDialog').showModal();await loadMemories()};$('#closeMemory').onclick=()=>$('#memoryDialog').close();
-$('#saveMemory').onclick=async()=>{await api('/api/memories',{method:'PUT',body:JSON.stringify({key:$('#memoryKey').value,value:$('#memoryValue').value,category:$('#memoryCategory').value})});$('#memoryKey').value='';$('#memoryValue').value='';await loadMemories()};boot();
+function toast(text){
+  const el=$('#toast');el.textContent=text;el.classList.add('show');clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),2600);
+}
+function setOnline(ok,text){
+  $('#status').textContent=text;$('#statusDot').classList.toggle('ok',!!ok);
+}
+function addMessage(role,content){
+  const d=document.createElement('div');d.className='msg '+role;d.textContent=content;$('#messages').appendChild(d);
+  if(currentView==='chat')d.scrollIntoView({block:'end'});
+}
+async function loadMessages(){
+  const d=await api('/api/messages?limit=120');
+  const sig=(d.messages||[]).map(m=>m.id).join(',');
+  if(sig===messageSignature)return;
+  messageSignature=sig;$('#messages').innerHTML='';
+  (d.messages||[]).forEach(m=>{if(m.role==='user'||m.role==='assistant')addMessage(m.role,m.content)});
+}
+async function loadMemories(){
+  const d=await api('/api/memories');$('#memories').innerHTML='';
+  (d.memories||[]).forEach(m=>{
+    const x=document.createElement('div');x.className='memory';
+    const b=document.createElement('b'),v=document.createElement('div'),s=document.createElement('small');
+    b.textContent='['+m.category+'] '+m.key;v.textContent=m.value;s.textContent='v'+m.version+' • '+(m.updated_by_device||'cihaz');
+    x.append(b,v,s);$('#memories').appendChild(x);
+  });
+}
+function showView(name){
+  currentView=name;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+  $('#'+name+'View').classList.add('active');
+  if(name==='memory')loadMemories().catch(()=>{});
+  if(name==='chat')setTimeout(()=>$('#message').focus(),60);
+}
+async function boot(){
+  try{
+    await api('/api/session');
+    $('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#tabs').classList.remove('hidden');
+    setOnline(true,'Cloud bağlı');await loadMessages();
+  }catch(e){
+    $('#app').classList.add('hidden');$('#tabs').classList.add('hidden');$('#login').classList.remove('hidden');setOnline(false,'Giriş gerekli');
+  }
+}
+$('#loginBtn').onclick=async()=>{
+  try{
+    await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});
+    $('#password').value='';$('#loginError').textContent='';await boot();
+  }catch(e){$('#loginError').textContent='Parola yanlış veya sunucu hazır değil.'}
+};
+async function send(){
+  const text=$('#message').value.trim();if(!text)return;
+  $('#message').value='';addMessage('user',text);$('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
+  try{
+    const d=await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
+    conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);addMessage('assistant',d.reply);messageSignature='';
+  }catch(e){
+    const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir.':(e.data?.detail||e.message);addMessage('assistant','Hata: '+msg);
+  }finally{$('#busy').textContent='';$('#sendBtn').disabled=false}
+}
+$('#sendBtn').onclick=send;
+$('#message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+document.querySelectorAll('[data-command]').forEach(b=>b.onclick=async()=>{
+  const command=b.dataset.command;b.disabled=true;
+  try{await api('/api/device-commands',{method:'POST',body:JSON.stringify({target:'desktop',command})});toast('Laptop komutu gönderildi: '+b.querySelector('b').textContent)}
+  catch(e){toast('Komut gönderilemedi: '+e.message)}
+  finally{setTimeout(()=>b.disabled=false,500)}
+});
+$('#reloadMemory').onclick=()=>loadMemories().catch(e=>toast(e.message));
+$('#saveMemory').onclick=async()=>{
+  const key=$('#memoryKey').value.trim(),value=$('#memoryValue').value.trim(),category=$('#memoryCategory').value.trim()||'FACT';
+  if(!key||!value){toast('Anahtar ve değer gerekli.');return}
+  try{
+    await api('/api/memories',{method:'PUT',body:JSON.stringify({key,value,category})});
+    $('#memoryKey').value='';$('#memoryValue').value='';await loadMemories();toast('Ortak hafıza güncellendi.');
+  }catch(e){toast('Hafıza kaydedilemedi: '+e.message)}
+};
+async function claimPhoneCommands(){
+  if($('#app').classList.contains('hidden'))return;
+  try{
+    const d=await api('/api/device-commands/claim',{method:'POST',body:JSON.stringify({target:'phone'})});
+    for(const item of (d.commands||[])){
+      const cmd=item.command;
+      if(cmd==='ping'){toast('Laptop ULTRON telefona bağlı.');if(navigator.vibrate)navigator.vibrate(80)}
+      if(cmd==='refresh'){messageSignature='';await loadMessages();if(currentView==='memory')await loadMemories();toast('Telefon ULTRON yenilendi.')}
+      if(cmd==='open_memory'){showView('memory');toast('Laptop hafıza panelini açtı.')}
+      if(cmd==='focus_chat'){showView('chat');toast('Laptop sohbet ekranını açtı.')}
+    }
+  }catch(e){}
+}
+setInterval(()=>{if(!$('#app').classList.contains('hidden'))loadMessages().catch(()=>{})},3000);
+setInterval(claimPhoneCommands,2200);
+boot();
 </script>
 </body>
 </html>
