@@ -2093,6 +2093,26 @@ class UltronLive:
         if not isinstance(payload, dict):
             payload = {}
 
+        lease_task: asyncio.Task | None = None
+
+        async def renew_lease() -> None:
+            while True:
+                await asyncio.sleep(5.0)
+                try:
+                    await client.report_task_progress(
+                        command_id,
+                        stage="lease",
+                        message="",
+                    )
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    print(
+                        f"[CloudRemote] lease refresh failed id={command_id}: "
+                        f"{type(exc).__name__}: {str(exc)[:180]}",
+                        flush=True,
+                    )
+
         async def finish(
             ok: bool,
             message: str,
@@ -2147,6 +2167,10 @@ class UltronLive:
             if not task_text:
                 await finish(False, "Laptop görevi boş geldi.")
                 return
+
+            # Keep the Cloud delivery lease alive independently of Gemini/tool
+            # latency. If this process dies, Render releases the lane in ~20 s.
+            lease_task = asyncio.create_task(renew_lease())
 
             # The Cloud queue can claim a task before Gemini Live has finished
             # connecting. Keep the claimed task in-process until the local agent
@@ -2262,6 +2286,9 @@ class UltronLive:
                 retryable=False,
             )
         finally:
+            if lease_task is not None:
+                lease_task.cancel()
+                await asyncio.gather(lease_task, return_exceptions=True)
             if command == "agent_task":
                 self._cloud_remote_silent = False
                 self._cloud_remote_capture = False
@@ -2285,11 +2312,25 @@ class UltronLive:
         except Exception as exc:
             print(f"[CloudRemote] initial health failed • {type(exc).__name__}: {str(exc)[:300]}", flush=True)
 
-        backoff = 1.2
+        backoff = 0.8
+        running: set[asyncio.Task] = set()
+
+        def _worker_done(task: asyncio.Task) -> None:
+            running.discard(task)
+            try:
+                task.result()
+            except asyncio.CancelledError:
+                pass
+            except Exception as exc:
+                print(
+                    f"[CloudRemote] worker crashed: {type(exc).__name__}: {str(exc)[:300]}",
+                    flush=True,
+                )
+
         while True:
             try:
                 commands = await client.claim_desktop_commands()
-                backoff = 1.2
+                backoff = 0.8
                 if commands:
                     ids = [str(item.get("id", "?")) for item in commands]
                     print(f"[CloudRemote] claimed {len(commands)} command(s) • ids={','.join(ids)}", flush=True)
@@ -2299,7 +2340,11 @@ class UltronLive:
                         f"payload={str(item.get('payload', {}))[:240]}",
                         flush=True,
                     )
-                    await self._handle_cloud_remote_command(client, item)
+                    worker = asyncio.create_task(
+                        self._handle_cloud_remote_command(client, item)
+                    )
+                    running.add(worker)
+                    worker.add_done_callback(_worker_done)
             except Exception as exc:
                 print(f"[CloudRemote] {type(exc).__name__}: {str(exc)[:300]}", flush=True)
                 backoff = min(10.0, backoff * 1.7)
