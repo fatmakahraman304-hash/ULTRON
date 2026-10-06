@@ -10,18 +10,33 @@ targets:
     platform: iOS
     sources:
       - Sources
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: ULTRON
+        NSMicrophoneUsageDescription: ULTRON, sürekli sesli komutları dinlemek ve seninle konuşmak için mikrofona erişir.
+        UIBackgroundModes:
+          - audio
+        UIApplicationSupportsIndirectInputEvents: true
+        LSApplicationQueriesSchemes:
+          - youtube
+          - spotify
+          - whatsapp
+          - instagram
+          - googlechrome
+          - facetime
+        CFBundleURLTypes:
+          - CFBundleURLName: com.ultron.mobile
+            CFBundleURLSchemes:
+              - ultron
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ultron.mobile
         SWIFT_VERSION: 5.10
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: ULTRON
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: ULTRON sürekli sesli komutları dinlemek için mikrofona erişir.
-        INFOPLIST_KEY_UIBackgroundModes:
-          - audio
-        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
+        MARKETING_VERSION: 0.2.0
+        CURRENT_PROJECT_VERSION: 2
     scheme:
       testTargets: []
