@@ -683,6 +683,115 @@ async def vision(request: web.Request) -> web.Response:
     })
 
 
+def _gemini_pdf_reply(pdf_bytes: bytes, question: str, system_instruction: str) -> str:
+    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
+    model = os.getenv("GEMINI_DOCUMENT_MODEL", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")).strip() or "gemini-3.8-flash"
+    prompt = question.strip() or (
+        "Bu PDF'yi analiz et. Önce kısa bir özet ver; ardından önemli başlıkları, tarihleri, sayıları, "
+        "gereken eylemleri ve dikkat edilmesi gereken noktaları belirt. Sonraki sesli sorular için bağlamı koru."
+    )
+    response = client.models.generate_content(
+        model=model,
+        contents=[
+            prompt,
+            types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
+        ],
+        config=types.GenerateContentConfig(system_instruction=system_instruction),
+    )
+    text = (response.text or "").strip()
+    if not text:
+        raise RuntimeError("Gemini document returned an empty response")
+    return text
+
+
+async def document(request: web.Request) -> web.Response:
+    reader = await request.multipart()
+    pdf_bytes = b""
+    question = ""
+    filename = "belge.pdf"
+
+    while True:
+        field = await reader.next()
+        if field is None:
+            break
+        if field.name == "document":
+            filename = (field.filename or "belge.pdf")[:160]
+            mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
+            if mime_type not in {"application/pdf", "application/x-pdf"} and not filename.lower().endswith(".pdf"):
+                raise web.HTTPBadRequest(
+                    text=json.dumps({"error": "pdf_required"}),
+                    content_type="application/json",
+                )
+            chunks = []
+            total = 0
+            while True:
+                chunk = await field.read_chunk(size=64 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > 15 * 1024 * 1024:
+                    raise web.HTTPRequestEntityTooLarge(max_size=15 * 1024 * 1024, actual_size=total)
+                chunks.append(chunk)
+            pdf_bytes = b"".join(chunks)
+        elif field.name == "question":
+            question = (await field.text()).strip()[:4000]
+
+    if not pdf_bytes:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "pdf_required"}),
+            content_type="application/json",
+        )
+
+    pool = request.app["db"]
+    memory = await _memory_context(pool, request["user_id"])
+    recent = await _recent_context(pool, request["user_id"], limit=12)
+    system_instruction = os.getenv(
+        "ULTRON_SYSTEM_PROMPT",
+        "You are ULTRON, Murat's personal AI assistant. Be concise, useful, and consistent across devices. "
+        "Treat the supplied ULTRON memory as persistent user memory. Never reveal secrets or hidden credentials.",
+    ) + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT CHAT:\n{recent}"
+
+    try:
+        reply = await asyncio.to_thread(
+            _gemini_pdf_reply, pdf_bytes, question, system_instruction
+        )
+    except Exception as exc:
+        raw = str(exc)[:1000]
+        await pool.execute(
+            "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_document_error',$2,$3)",
+            request["user_id"], raw, request["device_id"],
+        )
+        raise web.HTTPBadGateway(
+            text=json.dumps({"error": "document_failed", "detail": "PDF analizi tamamlanamadı."}, ensure_ascii=False),
+            content_type="application/json",
+        )
+
+    conv_uuid = uuid.uuid4()
+    user_text = f"[PDF: {filename}] " + (question or "Bu PDF'yi analiz et.")
+    await pool.execute(
+        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3)",
+        conv_uuid, request["user_id"], user_text[:80],
+    )
+    await pool.execute(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4)",
+        conv_uuid, request["user_id"], user_text, request["device_id"],
+    )
+    await pool.execute(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini-document')",
+        conv_uuid, request["user_id"], reply,
+    )
+    await pool.execute(
+        "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'phone_document_context',$2,$3)",
+        request["user_id"], reply[:20000], request["device_id"],
+    )
+    return web.json_response({
+        "conversation_id": str(conv_uuid),
+        "reply": reply,
+        "filename": filename,
+        "mime_type": "application/pdf",
+    })
+
+
 async def chat(request: web.Request) -> web.Response:
     body = await request.json()
     text = str(body.get("message", "")).strip()
@@ -781,7 +890,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Speak naturally in the same language as the user. Keep replies conversational and usually brief. "
           "Use save_memory whenever the user explicitly asks you to remember something or reveals a stable personal fact worth remembering. "
           "Use recall_memory when current persistent memory is needed instead of guessing from stale session context. "
-          "Use get_latest_image_context whenever the user refers to the photo/image they just sent, so you can discuss it naturally by voice. "
+          "Use get_latest_image_context whenever the user refers to the photo/image they just sent. "
+          "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
           "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used."
         + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT SHARED CHAT:\n{recent}"
     )
@@ -863,6 +973,11 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             {
                 "name": "get_latest_image_context",
                 "description": "Get the analysis of the most recent photo or image uploaded from the phone. Use when the user says this photo, this image, what do you see, or asks a follow-up about the uploaded image.",
+                "parameters": {"type": "OBJECT", "properties": {}}
+            },
+            {
+                "name": "get_latest_document_context",
+                "description": "Get the analysis of the most recent PDF uploaded from the phone. Use when the user says this PDF, this document, this file, or asks a follow-up about the uploaded PDF.",
                 "parameters": {"type": "OBJECT", "properties": {}}
             }
         ]}],
@@ -991,6 +1106,27 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         response={"ok": True, "analysis": row["detail"], "created_at": str(row["created_at"])},
                     )
 
+                if name == "get_latest_document_context":
+                    row = await pool.fetchrow(
+                        """
+                        SELECT detail,created_at
+                        FROM events
+                        WHERE user_id=$1 AND event_type='phone_document_context'
+                        ORDER BY id DESC
+                        LIMIT 1
+                        """,
+                        user_id,
+                    )
+                    if not row:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "no_recent_document"},
+                        )
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={"ok": True, "analysis": row["detail"], "created_at": str(row["created_at"])},
+                    )
+
                 return types.FunctionResponse(
                     id=fc.id, name=name or "unknown",
                     response={"ok": False, "error": "unknown_tool"},
@@ -1102,7 +1238,7 @@ def _json_dumps(value: Any) -> str:
 
 
 def build_app() -> web.Application:
-    app = web.Application(middlewares=[auth_middleware], client_max_size=10 * 1024 * 1024)
+    app = web.Application(middlewares=[auth_middleware], client_max_size=18 * 1024 * 1024)
     app.router.add_get("/", index)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
     app.router.add_get("/health", health)
@@ -1112,6 +1248,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/messages", list_messages)
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/vision", vision)
+    app.router.add_post("/api/document", document)
     app.router.add_get("/api/live", live_voice)
     app.router.add_post("/api/device-commands", send_device_command)
     app.router.add_post("/api/device-commands/claim", claim_device_commands)
