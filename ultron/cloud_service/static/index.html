@@ -55,6 +55,8 @@
     .view{display:none}.view.active{display:block}
     #messages{display:flex;flex-direction:column;gap:10px;padding:3px 0 104px;min-height:48vh}
     .msg{max-width:88%;padding:12px 14px;border-radius:16px;white-space:pre-wrap;line-height:1.48;font-size:14px;border:1px solid transparent}
+    .msg{position:relative}.msg-time{display:block;margin-top:6px;font-size:9px;line-height:1;color:#6f7885;text-align:right}.msg.assistant .msg-time{text-align:left}.tab-badge{display:none;min-width:17px;height:17px;padding:0 5px;margin-left:5px;border-radius:999px;align-items:center;justify-content:center;background:#ff3047;color:white;font-size:9px;font-weight:800;vertical-align:middle}.tab-badge.show{display:inline-flex}
+
     .msg.user{align-self:flex-end;background:linear-gradient(180deg,#44101a,#2a0b11);border-color:#651827}.msg.assistant{align-self:flex-start;background:#0e1217;border-color:#272d36}
     .composer{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom));z-index:6;width:min(732px,calc(100% - 28px));padding:9px;background:rgba(8,10,13,.92);border:1px solid #2b3038;border-radius:18px;backdrop-filter:blur(18px)}
     .composer textarea{resize:none;min-height:48px;max-height:130px}.busy{padding:5px 3px 0;font-size:11px;color:var(--muted)}
@@ -200,7 +202,7 @@
 </div>
 
 <nav id="tabs" class="tabs hidden">
-  <button class="active" data-view="chat">SOHBET</button>
+  <button class="active" data-view="chat">SOHBET <span id="chatBadge" class="tab-badge">0</span></button>
   <button data-view="remote">UZAKTAN</button>
   <button data-view="memory">HAFIZA</button>
 </nav>
@@ -209,7 +211,8 @@
 <script>
 const $=s=>document.querySelector(s);
 let conversationId=localStorage.getItem('ultronConversationId')||'';
-let currentView='chat',messageSignature='',toastTimer=null;
+let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initialMessagesLoaded=false;
+const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
 const scheduledSources=new Set();
@@ -221,6 +224,16 @@ function setAttachMenu(open){
 }
 function toggleAttachMenu(){setAttachMenu(!attachMenuOpen)}
 
+
+function saveDraft(){localStorage.setItem('ultronDraft',$('#message')?.value||'')}
+function restoreDraft(){const v=localStorage.getItem('ultronDraft')||'';if($('#message')&&!$('#message').value)$('#message').value=v}
+function clearDraft(){localStorage.removeItem('ultronDraft')}
+function setUnread(count){
+  unreadCount=Math.max(0,Number(count)||0);
+  const badge=$('#chatBadge');if(badge){badge.textContent=String(Math.min(unreadCount,99));badge.classList.toggle('show',unreadCount>0)}
+  document.title=unreadCount>0?'('+unreadCount+') ULTRON Mobile':'ULTRON Mobile';
+  if('setAppBadge' in navigator){if(unreadCount>0)navigator.setAppBadge(unreadCount).catch(()=>{});else navigator.clearAppBadge?.().catch(()=>{})}
+}
 
 async function api(path,options={}){
   let res;
@@ -529,16 +542,39 @@ function scrollChatToBottom(smooth=false){
     if(last)last.scrollIntoView({block:'end',inline:'nearest',behavior:smooth?'smooth':'auto'});
   }));
 }
-function addMessage(role,content){
-  const d=document.createElement('div');d.className='msg '+role;d.textContent=content;$('#messages').appendChild(d);
+function formatMessageTime(value){
+  if(!value)return '';
+  try{return new Intl.DateTimeFormat('tr-TR',{hour:'2-digit',minute:'2-digit'}).format(new Date(value))}catch{return ''}
+}
+function addMessage(role,content,meta={}){
+  const d=document.createElement('div');d.className='msg '+role;
+  const body=document.createElement('span');body.textContent=content;d.appendChild(body);
+  if(meta.id!=null)d.dataset.cloudId=String(meta.id);
+  const time=formatMessageTime(meta.created_at);
+  if(time){const t=document.createElement('small');t.className='msg-time';t.textContent=time;d.appendChild(t)}
+  $('#messages').appendChild(d);
   scrollChatToBottom(false);
 }
 async function loadMessages(){
   const d=await api('/api/messages?limit=120');
-  const sig=(d.messages||[]).map(m=>m.id).join(',');
+  const items=(d.messages||[]).filter(m=>m.role==='user'||m.role==='assistant');
+  const sig=items.map(m=>m.id).join(',');
   if(sig===messageSignature)return;
-  messageSignature=sig;$('#messages').innerHTML='';
-  (d.messages||[]).forEach(m=>{if(m.role==='user'||m.role==='assistant')addMessage(m.role,m.content)});
+  const wasInitial=initialMessagesLoaded;
+  let appendedAssistant=0;
+  if(!initialMessagesLoaded){
+    $('#messages').innerHTML='';knownMessageIds.clear();
+    for(const m of items){knownMessageIds.add(Number(m.id));addMessage(m.role,m.content,{id:m.id,created_at:m.created_at})}
+    initialMessagesLoaded=true;
+  }else{
+    for(const m of items){
+      const id=Number(m.id);if(knownMessageIds.has(id))continue;
+      knownMessageIds.add(id);addMessage(m.role,m.content,{id:m.id,created_at:m.created_at});
+      if(m.role==='assistant')appendedAssistant++;
+    }
+  }
+  messageSignature=sig;
+  if(wasInitial&&appendedAssistant>0&&(document.hidden||currentView!=='chat'))setUnread(unreadCount+appendedAssistant);
   scrollChatToBottom(false);
 }
 async function loadMemories(){
@@ -557,14 +593,14 @@ function showView(name){
   $('#'+name+'View').classList.add('active');
   if(name==='memory')loadMemories().catch(()=>{});
   if(name==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}
-  if(name==='chat')setTimeout(()=>{scrollChatToBottom(false);$('#message').focus()},60);
+  if(name==='chat'){setUnread(0);setTimeout(()=>{scrollChatToBottom(false);$('#message').focus()},60)}
 }
 async function boot(){
   try{
     setSplash('Oturum doğrulanıyor');
     await api('/api/session');
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#tabs').classList.remove('hidden');
-    setOnline(true,'Cloud bağlı');setSplash('Ortak sohbet yükleniyor');await loadMessages();scrollChatToBottom(false);setVoiceEnabled(voiceEnabled,false);hideSplash();
+    setOnline(true,'Cloud bağlı');setSplash('Ortak sohbet yükleniyor');await loadMessages();restoreDraft();scrollChatToBottom(false);setVoiceEnabled(voiceEnabled,false);hideSplash();
     if(voiceEnabled&&!sessionStorage.getItem('ultronVoiceGreeted')){sessionStorage.setItem('ultronVoiceGreeted','1');setTimeout(()=>speakUltron('Bağlantı kuruldu. Ben ULTRON. Seni dinliyorum.'),350);}
   }catch(e){
     hideSplash();
@@ -581,7 +617,7 @@ async function send(fromVoice=false){
   if(pendingImage){await sendImage();return}
   if(pendingPdf){await sendPdf();return}
   const text=$('#message').value.trim();if(!text)return;
-  $('#message').value='';addMessage('user',text);$('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
+  $('#message').value='';clearDraft();addMessage('user',text);$('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
   try{
     const d=await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
     conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);addMessage('assistant',d.reply);messageSignature='';if(fromVoice||voiceEnabled)speakUltron(d.reply);
@@ -606,6 +642,7 @@ document.addEventListener('click',e=>{if(attachMenuOpen&&!e.target.closest('.att
 
 $('#voiceToggle').onclick=()=>setVoiceEnabled(!voiceEnabled,true);
 if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=()=>pickUltronVoice()}
+$('#message').addEventListener('input',saveDraft);
 $('#message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
 document.querySelectorAll('[data-command]').forEach(b=>b.onclick=async()=>{
@@ -712,7 +749,7 @@ setInterval(()=>{if(!$('#app').classList.contains('hidden'))loadMessages().catch
 setInterval(claimPhoneCommands,2200);
 setInterval(phoneHeartbeat,5000);
 setInterval(()=>{if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}},3000);
-document.addEventListener('visibilitychange',()=>{if(document.hidden){stopPhoneCamera();return}phoneHeartbeat();if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){stopPhoneCamera();return}if(currentView==='chat')setUnread(0);phoneHeartbeat();messageSignature='';loadMessages().catch(()=>{});if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}});
 window.visualViewport?.addEventListener('resize',()=>{if(currentView==='chat')setTimeout(()=>scrollChatToBottom(false),40)});
 $('#message').addEventListener('focus',()=>setTimeout(()=>scrollChatToBottom(false),180));
 const messageObserver=new MutationObserver(()=>{if(currentView==='chat')scrollChatToBottom(false)});
