@@ -292,6 +292,10 @@
     .topbar{grid-template-columns:1fr auto!important}
     .voice-btn{display:grid!important;place-items:center}
 
+    /* Hands-free voice activity */
+    .voice-status.live .voice-dot{animation:listenPulse 1.15s ease-in-out infinite}
+    @keyframes listenPulse{0%,100%{transform:scale(.9);opacity:.75}50%{transform:scale(1.45);opacity:1}}
+
   </style>
 </head>
 <body>
@@ -398,6 +402,8 @@ const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
 let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false;
+let voiceWakeLock=null;
+const pendingVoiceMessages=[];
 const scheduledSources=new Set();
 let pendingImage=null,pendingImageUrl='',pendingPdf=null;
 let cameraStream=null,cameraFacing='environment',cameraBusy=false,lastCameraAnalysis='';
@@ -622,6 +628,30 @@ function micRms(samples){
   let sum=0;for(let i=0;i<samples.length;i++)sum+=samples[i]*samples[i];
   return Math.sqrt(sum/Math.max(1,samples.length));
 }
+async function acquireVoiceWakeLock(){
+  if(!('wakeLock' in navigator)||document.hidden||!liveDesired)return;
+  try{
+    if(voiceWakeLock&&!voiceWakeLock.released)return;
+    voiceWakeLock=await navigator.wakeLock.request('screen');
+    voiceWakeLock.addEventListener('release',()=>{voiceWakeLock=null});
+  }catch{}
+}
+async function releaseVoiceWakeLock(){
+  try{if(voiceWakeLock&&!voiceWakeLock.released)await voiceWakeLock.release()}catch{}
+  voiceWakeLock=null;
+}
+function rememberPendingVoice(role,text){
+  const clean=cleanChatText(text);
+  if(!clean)return;
+  pendingVoiceMessages.push({role,text:clean,at:Date.now()});
+  while(pendingVoiceMessages.length>12)pendingVoiceMessages.shift();
+}
+function consumePendingVoice(role,text){
+  const clean=cleanChatText(text),now=Date.now();
+  const idx=pendingVoiceMessages.findIndex(x=>x.role===role&&x.text===clean&&now-x.at<45000);
+  if(idx<0)return false;
+  pendingVoiceMessages.splice(idx,1);return true;
+}
 function liveStatus(text,active=false){
   $('#voiceStatusText').textContent=text;$('#voiceStatus').classList.toggle('live',active);
   $('#voiceBtn').classList.toggle('listening',voiceListening);
@@ -646,6 +676,7 @@ async function openLiveSocket(){
   socket.onopen=()=>{
     if(socket!==liveSocket)return;
     liveReconnectAttempts=0;voiceListening=true;
+    acquireVoiceWakeLock().catch(()=>{});
     liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
     micProcessor.onaudioprocess=e=>{
       if(!liveDesired||!voiceListening||!liveSocket||liveSocket.readyState!==WebSocket.OPEN)return;
@@ -691,7 +722,8 @@ async function openLiveSocket(){
     if(d.type==='turn_complete'){
       liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
-      if(input)addMessage('user',input);if(output)addMessage('assistant',output);
+      if(input){rememberPendingVoice('user',input);addMessage('user',input)}
+      if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
       messageSignature='';liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
       loadMemories().catch(()=>{});
     }
@@ -708,7 +740,7 @@ async function openLiveSocket(){
   };
 }
 async function stopLiveVoice(){
-  intentionalVoiceStop=true;liveDesired=false;clearLiveReconnect();
+  intentionalVoiceStop=true;liveDesired=false;clearLiveReconnect();releaseVoiceWakeLock().catch(()=>{});
   voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;stopPlayback();
   try{if(micProcessor)micProcessor.disconnect()}catch{}
   try{if(micSource)micSource.disconnect()}catch{}
@@ -822,8 +854,15 @@ async function loadMessages(){
   }else{
     for(const m of items){
       const id=Number(m.id);if(knownMessageIds.has(id))continue;
-      knownMessageIds.add(id);addMessage(m.role,m.content,{id:m.id,created_at:m.created_at});
-      if(m.role==='assistant')appendedAssistant++;
+      knownMessageIds.add(id);
+      if(consumePendingVoice(m.role,m.content)){
+        const candidates=[...$('#messages').querySelectorAll('.msg:not([data-cloud-id])')].filter(x=>x.classList.contains(m.role));
+        const match=[...candidates].reverse().find(x=>cleanChatText(x.firstChild?.textContent||x.textContent)===cleanChatText(m.content));
+        if(match)match.dataset.cloudId=String(m.id);
+      }else{
+        addMessage(m.role,m.content,{id:m.id,created_at:m.created_at});
+        if(m.role==='assistant')appendedAssistant++;
+      }
     }
   }
   messageSignature=sig;
@@ -1003,7 +1042,20 @@ setInterval(()=>{if(!$('#app').classList.contains('hidden'))loadMessages().catch
 setInterval(claimPhoneCommands,2200);
 setInterval(phoneHeartbeat,5000);
 setInterval(()=>{if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}},3000);
-document.addEventListener('visibilitychange',()=>{if(document.hidden){stopPhoneCamera();return}if(currentView==='chat')setUnread(0);phoneHeartbeat();messageSignature='';loadMessages().catch(()=>{});if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}});
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){stopPhoneCamera();releaseVoiceWakeLock().catch(()=>{});return}
+  if(currentView==='chat')setUnread(0);
+  phoneHeartbeat();messageSignature='';loadMessages().catch(()=>{});
+  if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}
+  if(liveDesired){
+    acquireVoiceWakeLock().catch(()=>{});
+    if(micContext?.state==='suspended')micContext.resume().catch(()=>{});
+    if(playContext?.state==='suspended')playContext.resume().catch(()=>{});
+    if(!voiceListening&&navigator.onLine)scheduleLiveReconnect();
+  }else if(voiceEnabled){
+    setTimeout(()=>startHandsFreeVoice(),180);
+  }
+});
 window.visualViewport?.addEventListener('resize',()=>{if(currentView==='chat')setTimeout(()=>scrollChatToBottom(false),40)});
 $('#message').addEventListener('focus',()=>setTimeout(()=>scrollChatToBottom(false),180));
 const messageObserver=new MutationObserver(()=>{if(currentView==='chat')scrollChatToBottom(false)});
