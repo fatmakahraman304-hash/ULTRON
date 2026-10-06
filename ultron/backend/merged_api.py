@@ -44,7 +44,8 @@ def install(app, hub):
                            for name in ('task_engine', 'supervisor', 'world')})
         components['vault'] = bool(rt and rt.vault.health().get('available'))
         components['cloud'] = cloud.enabled
-        return web.json_response({'service': 'mark-ultron', 'ok': all(components.values()),
+        required_ok = all(value for name, value in components.items() if name != 'cloud')
+        return web.json_response({'service': 'mark-ultron', 'ok': required_ok,
             'components': components, 'audio_owner': os.environ.get('MARK_AUDIO_OWNER'),
             'ollama': hub.ai_status, 'cloud': {
                 'enabled': cloud.enabled, 'last_ok_ts': cloud.last_ok_ts,
