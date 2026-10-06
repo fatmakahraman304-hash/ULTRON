@@ -422,7 +422,7 @@ async def complete_device_command(request: web.Request) -> web.Response:
                 retry_count=retry_count+1,
                 delivered_at=NULL,
                 completed_at=NULL,
-                run_after=NOW()+($2::text || ' seconds')::interval,
+                run_after=NOW()+($2::int * INTERVAL '1 second'),
                 progress = COALESCE(progress, '[]'::jsonb) ||
                   jsonb_build_array(jsonb_build_object(
                     'stage','retry',
@@ -1656,7 +1656,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     row = await pool.fetchrow(
                         """
                         INSERT INTO device_commands(user_id,target,command,payload,source_device,run_after)
-                        VALUES($1,'desktop','agent_task',$2::jsonb,$3,NOW()+($4::text || ' minutes')::interval)
+                        VALUES($1,'desktop','agent_task',$2::jsonb,$3,NOW()+($4::int * INTERVAL '1 minute'))
                         RETURNING id,created_at,run_after
                         """,
                         user_id,
