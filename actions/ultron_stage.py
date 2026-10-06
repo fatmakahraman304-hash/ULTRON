@@ -40,7 +40,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 pass
 
     for key in ("wireframe", "pulse", "auto_orbit", "grid", "loop", "show_labels",
-                "visible", "locked"):
+                "show_trails", "visible", "locked"):
         value = parameters.get(key)
         if isinstance(value, bool):
             body[key] = value
@@ -84,7 +84,7 @@ TOOL = {
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
                     "scene_arrange", "scene_preset", "scene_animation", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
-                    "scene_redo", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
+                    "scene_redo", "scene_focus", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
                     "timeline_remove_keyframe", "timeline_clear", "timeline_seek",
                     "timeline_play", "timeline_pause", "timeline_preset",
                     "video_create", "video_from_stage", "video_play",
@@ -136,6 +136,7 @@ TOOL = {
             "grid": {"type": "BOOLEAN"},
             "loop": {"type": "BOOLEAN"},
             "show_labels": {"type": "BOOLEAN"},
+            "show_trails": {"type": "BOOLEAN"},
             "visible": {"type": "BOOLEAN"},
             "locked": {"type": "BOOLEAN"},
         },
