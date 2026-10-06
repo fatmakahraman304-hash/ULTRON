@@ -173,6 +173,26 @@ function SceneLab({scene,transformMode,onCommand}:{scene:SceneState;transformMod
     const ring=addPart(group,new THREE.TorusGeometry(1.25,.025,8,100),mat,[0,0,0],[0,0,0]);ring.rotation.x=Math.PI/2;
    }else if(kind==='tower'){
     addPart(group,new THREE.CylinderGeometry(.28,.46,2.3,8),dim,[0,0,0],[0,0,0]);for(let i=0;i<4;i++){const r=addPart(group,new THREE.TorusGeometry(.7+i*.16,.012,7,70),mat,[0,-.8+i*.55,0],[0,-.8+i*.55,0]);r.rotation.x=Math.PI/2;}
+   }else if(kind==='robot'){
+    addPart(group,new THREE.BoxGeometry(.82,1.0,.48),dim,[0,.25,0],[0,.4,0]);addPart(group,new THREE.BoxGeometry(.58,.46,.46),mat,[0,1.02,0],[0,1.1,0]);
+    for(const x of [-.62,.62]){addPart(group,new THREE.BoxGeometry(.22,.88,.22),mat,[x,.2,0],[x,.4,0]);addPart(group,new THREE.BoxGeometry(.28,.75,.3),dim,[x*.52,-.75,0],[x*.6,-1,0]);}
+    addPart(group,new THREE.BoxGeometry(.18,.06,.05),mat,[-.14,1.05,.25],[-.14,1.05,.25]);addPart(group,new THREE.BoxGeometry(.18,.06,.05),mat,[.14,1.05,.25],[.14,1.05,.25]);
+   }else if(kind==='arm'){
+    addPart(group,new THREE.CylinderGeometry(.48,.62,.28,18),dim,[0,-.85,0],[0,-1,0]);const shoulder=addPart(group,new THREE.SphereGeometry(.25,16,12),mat,[0,-.55,0],[0,-.55,0]);const upper=addPart(group,new THREE.BoxGeometry(.28,1.15,.28),dim,[.25,-.05,0],[.5,.05,0]);upper.rotation.z=-.42;const elbow=addPart(group,new THREE.SphereGeometry(.22,14,10),mat,[.5,.45,0],[.7,.7,0]);const fore=addPart(group,new THREE.BoxGeometry(.25,1.0,.25),dim,[.72,.82,0],[1.05,1.15,0]);fore.rotation.z=-.55;addPart(group,new THREE.BoxGeometry(.48,.16,.42),mat,[1.0,1.2,0],[1.3,1.5,0]);void shoulder;void elbow;
+   }else if(kind==='satellite'){
+    addPart(group,new THREE.BoxGeometry(.72,.72,.72),dim,[0,0,0],[0,0,0]);for(const x of [-1.15,1.15])addPart(group,new THREE.BoxGeometry(1.35,.06,.72),mat,[x,0,0],[x,0,0]);const dish=addPart(group,new THREE.ConeGeometry(.5,.34,28,1,true),mat,[0,.62,0],[0,.8,0]);dish.rotation.x=Math.PI;
+   }else if(kind==='aircraft'){
+    const fus=addPart(group,new THREE.CylinderGeometry(.18,.3,2.7,16),dim,[0,0,0],[0,0,0]);fus.rotation.z=Math.PI/2;addPart(group,new THREE.BoxGeometry(1.25,.06,3.0),mat,[0,0,0],[0,0,0]);const tail=addPart(group,new THREE.BoxGeometry(.5,.7,.06),mat,[-1.0,.28,0],[-1.3,.5,0]);tail.rotation.z=-.3;
+   }else if(kind==='building'){
+    addPart(group,new THREE.BoxGeometry(1.25,2.35,1.25),dim,[0,0,0],[0,0,0]);for(let y=-.8;y<=.8;y+=.4)for(let x=-.42;x<=.42;x+=.28)addPart(group,new THREE.BoxGeometry(.12,.12,.02),mat,[x,y,.64],[x,y,.8]);addPart(group,new THREE.CylinderGeometry(.04,.04,.65,8),mat,[0,1.48,0],[0,1.8,0]);
+   }else if(kind==='ship'){
+    const hull=addPart(group,new THREE.BoxGeometry(2.6,.48,.86),dim,[0,0,0],[0,0,0]);hull.rotation.z=.03;addPart(group,new THREE.BoxGeometry(.75,.55,.65),mat,[-.35,.48,0],[-.4,.7,0]);for(const x of [-.9,.9]){const eng=addPart(group,new THREE.TorusGeometry(.23,.06,8,28),mat,[x,-.05,-.52],[x,-.05,-.8]);eng.rotation.y=Math.PI/2;}
+   }else if(kind==='radar'){
+    addPart(group,new THREE.CylinderGeometry(.18,.35,1.7,12),dim,[0,-.35,0],[0,-.5,0]);const dish=addPart(group,new THREE.ConeGeometry(.78,.34,32,1,true),mat,[0,.68,0],[0,.95,0]);dish.rotation.z=-.35;addPart(group,new THREE.SphereGeometry(.12,12,8),mat,[.22,.84,0],[.4,1.05,0]);
+   }else if(kind==='portal'){
+    for(let i=0;i<4;i++){const r=addPart(group,new THREE.TorusGeometry(.72+i*.18,.018+i*.004,8,96),i%2?dim:mat,[0,0,0],[0,0,0]);r.rotation.set(i*.35,i*.42,i*.2);}
+   }else if(kind==='cube'){
+    addPart(group,new THREE.BoxGeometry(1.45,1.45,1.45),dim,[0,0,0],[0,0,0]);for(const a of [-.9,.9]){const r=addPart(group,new THREE.TorusGeometry(.9,.012,8,80),mat,[0,0,0],[0,0,0]);r.rotation.x=a;}
    }else{
     addPart(group,new THREE.IcosahedronGeometry(kind==='sphere'?1.05:.9,kind==='sphere'?2:1),kind==='sphere'?dim:mat,[0,0,0],[0,0,0]);
     for(let i=0;i<3;i++){const r=addPart(group,new THREE.TorusGeometry(1.12+i*.16,.012,7,80),mat,[0,0,0],[0,0,0]);r.rotation.set(i*.55,i*.7,i);}
@@ -353,7 +373,7 @@ export default function CenterStage({stage,state,amplitude,notify}:Props){
    <button onClick={()=>command('reset')}><RotateCcw/> CORE</button>
   </div></>}
   {stage.mode==='scene_lab'&&<div className={'scene-lab-shell theme-'+(stage.scene.theme||'crimson')}><SceneLab scene={stage.scene} transformMode={transformMode} onCommand={(op,extra={})=>{void command(op,extra);}}/><div className="scene-object-list"><b>SCENE OBJECTS</b>{stage.scene.objects.map(o=><button key={o.id} className={o.id===stage.scene.selected_id?'active':''} onClick={()=>command('scene_select',{object_id:o.id})}><span>{o.visible===false?'◌ ':o.locked?'▣ ':''}{o.label}</span><small>{o.kind.toUpperCase()}</small></button>)}</div><div className="scene-toolbar">
-   <button onClick={()=>command('scene_add',{kind:'energy',label:'CORE',x:0,y:0,z:0})}>+ CORE</button><button onClick={()=>command('scene_add',{kind:'vehicle',label:'VEHICLE'})}>+ VEHICLE</button><button onClick={()=>command('scene_add',{kind:'drone',label:'DRONE'})}>+ DRONE</button><button onClick={()=>command('scene_add',{kind:'globe',label:'EARTH',color:'#35ffe4'})}>+ GLOBE</button>
+   <button onClick={()=>command('scene_add',{kind:'energy',label:'CORE',x:0,y:0,z:0})}>+ CORE</button><button onClick={()=>command('scene_add',{kind:'vehicle',label:'VEHICLE'})}>+ VEHICLE</button><button onClick={()=>command('scene_add',{kind:'drone',label:'DRONE'})}>+ DRONE</button><button onClick={()=>command('scene_add',{kind:'globe',label:'EARTH',color:'#35ffe4'})}>+ GLOBE</button><select defaultValue="" onChange={e=>{const kind=e.target.value;e.target.value='';if(kind)void command('scene_add',{kind,label:kind.toUpperCase()});}}><option value="">+ OBJECT</option>{['robot','arm','satellite','aircraft','building','ship','radar','portal','cube','tower','network','ring'].map(k=><option key={k} value={k}>{k.toUpperCase()}</option>)}</select>
    <button onClick={()=>command('scene_undo')}>UNDO</button><button onClick={()=>command('scene_redo')}>REDO</button><button onClick={()=>command('scene_arrange',{layout:'orbit'})}>ORBIT DÜZEN</button><button onClick={()=>command('scene_arrange',{layout:'grid'})}>GRID DÜZEN</button><button onClick={()=>command('scene_auto_link',{layout:'star',color:'#35ffe4'})}>LINK STAR</button><button onClick={()=>command('scene_auto_link',{layout:'chain',color:'#ff3047'})}>LINK CHAIN</button><button onClick={()=>command('scene_clear_links')}>LINK CLEAR</button>
    <button onClick={()=>command('scene_camera',{camera:'isometric'})}>ISO CAM</button><button onClick={()=>command('scene_camera',{camera:'top'})}>TOP CAM</button><button onClick={()=>command('scene_cinematic',{cinematic:'orbit',duration:10,loop:true})}>CINEMATIC</button><button onClick={()=>command('scene_cinematic',{cinematic:'off'})}>CAM STOP</button>
    <button onClick={()=>command('scene_animation',{animation:stage.scene.explode?'assemble':'explode'})}>{stage.scene.explode?'BİRLEŞTİR':'PATLAT'}</button><button onClick={()=>command('scene_animation',{animation:stage.scene.animation==='scan'?'idle':'scan'})}>SCAN</button>
