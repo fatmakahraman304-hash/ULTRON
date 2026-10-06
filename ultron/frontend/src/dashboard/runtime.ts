@@ -6,8 +6,12 @@ export type HologramConfig={
  kind:string;color:string;glow:number;speed:number;rings:number;particles:number;
  scale:number;opacity:number;wireframe:boolean;pulse:boolean;label:string;
 };
-export type SceneObject={id:string;kind:string;label:string;color:string;position:number[];rotation:number[];scale:number;opacity:number;wireframe:boolean;spin:number;explode:number};
-export type SceneState={objects:SceneObject[];selected_id?:string|null;camera:string;explode:number;auto_orbit:boolean;grid:boolean;animation:string};
+export type SceneMotion={type:string;speed:number;radius:number;amplitude:number;axis:string};
+export type SceneObject={id:string;kind:string;label:string;color:string;position:number[];rotation:number[];scale:number;opacity:number;wireframe:boolean;spin:number;explode:number;visible?:boolean;locked?:boolean;motion?:SceneMotion};
+export type SceneKeyframe={id:string;time:number;object_id:string;position:number[];rotation:number[];scale:number};
+export type SceneTimeline={duration:number;cursor:number;playing:boolean;loop:boolean;started_at?:number|null;keyframes:SceneKeyframe[]};
+export type SceneCinematic={enabled:boolean;preset:string;duration:number;started_at?:number|null;loop:boolean};
+export type SceneState={objects:SceneObject[];selected_id?:string|null;camera:string;explode:number;auto_orbit:boolean;grid:boolean;show_labels?:boolean;theme?:string;snap?:number;animation:string;timeline?:SceneTimeline;cinematic?:SceneCinematic};
 export type StageState={
  mode:StageMode;title:string;subtitle:string;progress:number;revision:number;
  job_id?:string|null;video_paused?:boolean;save_nonce?:number;save_kind?:string;
@@ -18,7 +22,7 @@ export type StageState={
 export const defaultStage:StageState={
  mode:'core_idle',title:'ULTRON',subtitle:'NEURAL CORE',progress:0,revision:0,job_id:null,save_nonce:0,save_kind:'',
  hologram:{kind:'energy',color:'#ff3047',glow:1,speed:1,rings:4,particles:900,scale:1,opacity:.92,wireframe:false,pulse:true,label:'ULTRON'},
- scene:{objects:[],selected_id:null,camera:'isometric',explode:0,auto_orbit:true,grid:true,animation:'idle'},
+ scene:{objects:[],selected_id:null,camera:'isometric',explode:0,auto_orbit:true,grid:true,show_labels:true,theme:'crimson',snap:.25,animation:'idle',timeline:{duration:8,cursor:0,playing:false,loop:true,started_at:null,keyframes:[]},cinematic:{enabled:false,preset:'orbit',duration:8,started_at:null,loop:true}},
  video:{template:'ultron_intro',duration:6,title:'ULTRON',ready:false,mime:'',bytes:0}
 };
 export const coreState=(value:string):CoreState=>({PLANNING:'THINKING',EXECUTING:'WORKING',VERIFYING:'WORKING',DONE:'IDLE',WAITING_APPROVAL:'IDLE'}[value]??(['IDLE','LISTENING','THINKING','SPEAKING','WORKING','ERROR'].includes(value)?value:'IDLE')) as CoreState;
