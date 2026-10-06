@@ -910,6 +910,15 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "wireframe": bool(spec.get("wireframe",True)),
                 "spin": _stage_number(spec.get("spin",.5),.5,-4,4),
                 "explode": _stage_number(spec.get("explode",0),0,0,2),
+                "visible": bool(spec.get("visible", True)),
+                "locked": bool(spec.get("locked", False)),
+                "motion": {
+                    "type": str(spec.get("motion") or "none"),
+                    "speed": _stage_number(spec.get("motion_speed",1),1,.05,5),
+                    "radius": _stage_number(spec.get("radius",1.5),1.5,.1,6),
+                    "amplitude": _stage_number(spec.get("amplitude",.5),.5,.05,4),
+                    "axis": str(spec.get("axis") or "y"),
+                },
             })
         if not objects:
             return web.json_response({"ok": False, "error": "scene_objects_invalid"}, status=400)
@@ -953,6 +962,15 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "wireframe": bool(body.get("wireframe", True)),
                 "spin": _stage_number(body.get("spin", .5), .5, -4, 4),
                 "explode": _stage_number(body.get("explode", 0), 0, 0, 2),
+                "visible": bool(body.get("visible", True)),
+                "locked": bool(body.get("locked", False)),
+                "motion": {
+                    "type": str(body.get("motion") or "none"),
+                    "speed": _stage_number(body.get("motion_speed",1),1,.05,5),
+                    "radius": _stage_number(body.get("radius",1.5),1.5,.1,6),
+                    "amplitude": _stage_number(body.get("amplitude",.5),.5,.05,4),
+                    "axis": str(body.get("axis") or "y"),
+                },
             }
             objects.append(obj)
             scene.update({"objects": objects, "selected_id": oid})
@@ -978,6 +996,16 @@ async def api_stage_command(req: web.Request) -> web.Response:
             if "wireframe" in body: obj["wireframe"] = bool(body["wireframe"])
             if "spin" in body: obj["spin"] = _stage_number(body["spin"], obj.get("spin",.5), -4, 4)
             if "explode" in body: obj["explode"] = _stage_number(body["explode"], obj.get("explode",0), 0, 2)
+            if "visible" in body: obj["visible"] = bool(body["visible"])
+            if "locked" in body: obj["locked"] = bool(body["locked"])
+            if any(k in body for k in ("motion","motion_speed","radius","amplitude","axis")):
+                motion = dict(obj.get("motion") or {})
+                if "motion" in body: motion["type"] = str(body["motion"]).lower()
+                if "motion_speed" in body: motion["speed"] = _stage_number(body["motion_speed"], motion.get("speed",1), .05, 5)
+                if "radius" in body: motion["radius"] = _stage_number(body["radius"], motion.get("radius",1.5), .1, 6)
+                if "amplitude" in body: motion["amplitude"] = _stage_number(body["amplitude"], motion.get("amplitude",.5), .05, 4)
+                if "axis" in body: motion["axis"] = str(body["axis"]).lower()
+                obj["motion"] = motion
             pos = list(obj.get("position") or [0,0,0])
             rot = list(obj.get("rotation") or [0,0,0])
             while len(pos)<3: pos.append(0)
@@ -1016,8 +1044,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state.update({"mode":"scene_lab","title":"SCENE LAB",
                       "subtitle":f"{len(objects)} OBJECTS / LIVE"})
     elif op == "scene_clear":
-        state["scene"] = {"objects": [], "selected_id": None, "camera": "isometric",
-                          "explode": 0.0, "auto_orbit": True, "grid": True, "animation": "idle"}
+        state["scene"] = _scene_defaults()
         state.update({"mode":"scene_lab","title":"SCENE LAB","subtitle":"0 OBJECTS / LIVE"})
     elif op == "scene_camera":
         scene = dict(state.get("scene") or {})
@@ -1078,7 +1105,10 @@ async def api_stage_command(req: web.Request) -> web.Response:
         for kind,label,color,x,y,z,scale in spec:
             objects.append({"id":uuid.uuid4().hex[:8],"kind":kind,"label":label,"color":color,
                             "position":[x,y,z],"rotation":[0,0,0],"scale":scale,"opacity":.9,
-                            "wireframe":True,"spin":.45,"explode":0.0})
+                            "wireframe":True,"spin":.45,"explode":0.0,
+                            "visible":True,"locked":False,
+                            "motion":{"type":"none","speed":1.0,"radius":1.5,"amplitude":.5,"axis":"y"}})
+        scene = _scene_ensure(scene)
         scene.update({"objects":objects,"selected_id":objects[0]["id"] if objects else None,
                       "camera":"isometric","auto_orbit":True,"grid":True,"animation":"idle"})
         state["scene"] = scene
