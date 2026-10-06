@@ -938,7 +938,8 @@ async function openLiveSocket(){
   const socket=new WebSocket(proto+'//'+location.host+'/api/live'+qs);socket.binaryType='arraybuffer';liveSocket=socket;
   socket.onopen=()=>{
     if(socket!==liveSocket)return;
-    liveReconnectAttempts=0;voiceListening=true;resetVoiceGateSegment();
+    liveReconnectAttempts=0;voiceListening=true;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
+    resetRemoteResultSpeech();resetVoiceGateSegment();
     acquireVoiceWakeLock().catch(()=>{});
     liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı • sürekli dinleme aktif';
     micProcessor.onaudioprocess=e=>{
@@ -1507,7 +1508,15 @@ async function watchDesktopPresence(){
     const laptop=(d.devices||[]).find(x=>x.device==='desktop');
     const online=!!laptop?.online;
     const state=laptop?.state||{};
-    const laptopCanSpeak=online&&state.voice_active===true&&state.voice_output!==false&&state.muted!==true;
+    // Single-speaker arbitration must follow REAL playback, not merely the
+    // existence of an active desktop voice session. Otherwise an idle desktop
+    // Gemini session permanently mutes every later phone response.
+    const laptopCanSpeak=
+      online&&
+      state.speaking===true&&
+      state.voice_active===true&&
+      state.voice_output!==false&&
+      state.muted!==true;
     setDesktopVoiceLeader(laptopCanSpeak);
     if(desktopPresencePrimed&&online!==desktopWasOnline){
       const msg=online?'Laptop ULTRON yeniden çevrimiçi.':'Laptop ULTRON bağlantısı kesildi.';
