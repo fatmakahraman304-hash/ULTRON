@@ -904,11 +904,11 @@ async function openLiveSocket(){
     if(socket!==liveSocket)return;
     liveReconnectAttempts=0;voiceListening=true;resetVoiceGateSegment();
     acquireVoiceWakeLock().catch(()=>{});
-    liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı • ULTRON wake-word aktif';
+    liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı • sürekli dinleme aktif';
     micProcessor.onaudioprocess=e=>{
       if(!liveDesired||!voiceListening||!liveSocket||liveSocket.readyState!==WebSocket.OPEN)return;
       const mono=e.inputBuffer.getChannelData(0);
-      if(liveSpeaking&&wakeWordActive){
+      if(liveSpeaking){
         const rms=micRms(mono);
         bargeBlocks=rms>.055?bargeBlocks+1:Math.max(0,bargeBlocks-1);
         if(bargeBlocks>=2){
@@ -931,24 +931,13 @@ async function openLiveSocket(){
     let d={};try{d=JSON.parse(e.data)}catch{return}
     if(d.type==='ready'){
       if(d.session_id){liveSessionId=String(d.session_id);localStorage.setItem('ultronLiveSessionId',liveSessionId)}
-      liveStatus('“ULTRON” diyerek uyandır • telefon veya laptop komutu ver',true);
-      $('#stageVoiceText').textContent=(d.resumed?'Gemini Live hazır • ':'Gemini Live • ')+(d.voice||'ULTRON')+' • wake-word bekliyor';
+      liveStatus('Seni dinliyorum… • telefon veya laptop komutu ver',true);
+      $('#stageVoiceText').textContent=(d.resumed?'Gemini Live hazır • ':'Gemini Live • ')+(d.voice||'ULTRON')+' • sürekli dinliyor';
     }
-    if(d.type==='wake_state'){
-      setWakeUi(!!d.awake);
-      if(wakeWordActive){
-        liveStatus('Uyandım • seni dinliyorum…',true);
-        $('#stageVoiceText').textContent='ULTRON aktif • komutunu dinliyorum';
-        if(navigator.vibrate)navigator.vibrate(35);
-      }else{
-        liveStatus('“ULTRON” diyerek uyandır',true);
-        $('#stageVoiceText').textContent='ULTRON wake-word bekliyor';
-      }
-    }
-    if(d.type==='ambient_ignored'){
+    if(d.type==='wake_state'||d.type==='ambient_ignored'){
       setWakeUi(false);
-      liveStatus('“ULTRON” diyerek uyandır',true);
-      $('#stageVoiceText').textContent='ULTRON wake-word bekliyor';
+      liveStatus('Seni dinliyorum…',true);
+      $('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
     }
     if(d.type==='laptop_task'){
       const task=String(d.task||'Görev');
@@ -1056,7 +1045,7 @@ async function openLiveSocket(){
     if(d.type==='output_transcript'&&d.text&&!suppressOutput){liveSpeaking=true;$('#stageVoiceText').textContent='ULTRON konuşuyor'}
     if(d.type==='interrupted'){
       suppressOutput=false;liveSpeaking=false;bargeBlocks=0;stopPlayback();resetVoiceGateSegment();
-      liveStatus('“ULTRON” diyerek uyandır',true);$('#stageVoiceText').textContent='ULTRON wake-word bekliyor';
+      liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
     }
     if(d.type==='memory_saved'){
       const label=String(d.key||'bilgi').replace(/[_-]+/g,' ');
@@ -1069,7 +1058,7 @@ async function openLiveSocket(){
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
       if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
-      messageSignature='';setWakeUi(false);liveStatus('“ULTRON” diyerek uyandır',true);$('#stageVoiceText').textContent='ULTRON wake-word bekliyor';
+      messageSignature='';setWakeUi(false);liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
       loadMemories().catch(()=>{});
     }
     if(d.type==='error'){
@@ -1365,7 +1354,7 @@ function fmtTime(value){
 }
 async function phoneHeartbeat(){
   if($('#app').classList.contains('hidden'))return;
-  try{await api('/api/device-presence/heartbeat',{method:'POST',body:JSON.stringify({state:{view:currentView,visible:!document.hidden,voice_listening:voiceListening,wake_active:wakeWordActive,speaker_lock:false}})})}catch(e){}
+  try{await api('/api/device-presence/heartbeat',{method:'POST',body:JSON.stringify({state:{view:currentView,visible:!document.hidden,voice_listening:voiceListening,wake_active:false,speaker_lock:false}})})}catch(e){}
 }
 async function watchDesktopPresence(){
   if($('#app').classList.contains('hidden'))return;
