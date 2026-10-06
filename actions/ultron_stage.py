@@ -19,7 +19,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
     body: dict[str, Any] = {"operation": operation}
     for key in ("kind", "color", "label", "template", "title", "subtitle",
                 "object_id", "camera", "layout", "preset", "animation", "objects_json",
-                "motion", "axis", "theme", "keyframe_id", "cinematic"):
+                "motion", "axis", "theme", "keyframe_id", "cinematic", "scene_json"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -80,7 +80,7 @@ TOOL = {
                 "type": "STRING",
                 "enum": [
                     "status", "reset", "hologram_create", "hologram_update",
-                    "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_update",
+                    "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_load", "scene_update",
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
                     "scene_arrange", "scene_preset", "scene_animation", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
@@ -113,6 +113,7 @@ TOOL = {
             "preset": {"type": "STRING"},
             "animation": {"type": "STRING"},
             "objects_json": {"type": "STRING", "description": "JSON array for scene_batch. Each item may contain kind,label,color,x,y,z,scale,opacity,wireframe,spin,explode."},
+            "scene_json": {"type": "STRING", "description": "Complete saved Scene Lab JSON object for scene_load."},
             "x": {"type": "NUMBER"},
             "y": {"type": "NUMBER"},
             "z": {"type": "NUMBER"},
