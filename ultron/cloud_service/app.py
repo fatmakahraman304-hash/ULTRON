@@ -681,6 +681,19 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     )
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
     voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
+    try:
+        desktop_state = await pool.fetchval(
+            "SELECT state FROM device_presence WHERE user_id=$1 AND device='desktop'",
+            user_id,
+        )
+        if isinstance(desktop_state, str):
+            desktop_state = json.loads(desktop_state)
+        if isinstance(desktop_state, dict):
+            saved_voice = str(desktop_state.get("voice", "")).strip()
+            if saved_voice:
+                voice = saved_voice
+    except Exception:
+        pass
 
     await pool.execute(
         """
