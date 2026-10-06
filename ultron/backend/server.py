@@ -885,6 +885,22 @@ def _scene_ensure(scene: dict) -> dict:
     return scene
 
 
+def _scene_resolve_object(scene: dict, value=None, label=None, fallback=None) -> str:
+    raw = str(value or "").strip()
+    label_raw = str(label or "").strip()
+    objects = scene.get("objects") or []
+    if raw:
+        exact = next((str(o.get("id")) for o in objects if str(o.get("id")) == raw), None)
+        if exact: return exact
+    needle = label_raw or raw
+    if needle:
+        exact_label = next((str(o.get("id")) for o in objects if str(o.get("label") or "").lower() == needle.lower()), None)
+        if exact_label: return exact_label
+        partial = next((str(o.get("id")) for o in objects if needle.lower() in str(o.get("label") or "").lower()), None)
+        if partial: return partial
+    return str(fallback or "")
+
+
 async def api_stage_model_upload(req: web.Request) -> web.Response:
     name = unquote(str(req.headers.get("X-Model-Name") or "model.glb")).replace("\\", "_").replace("/", "_").strip() or "model.glb"
     if not name.lower().endswith(".glb"):
@@ -1175,7 +1191,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "scene_color", "scene_explode"}:
         scene = dict(state.get("scene") or {})
         objects = list(scene.get("objects") or [])
-        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
         changed = False
         for i, item in enumerate(objects):
             if str(item.get("id")) != target:
@@ -1225,7 +1241,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                       "subtitle":f"{len(objects)} OBJECTS / LIVE"})
     elif op == "scene_select":
         scene = dict(state.get("scene") or {})
-        target = str(body.get("object_id") or "")
+        target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"))
         if not any(str(o.get("id")) == target for o in scene.get("objects") or []):
             return web.json_response({"ok": False, "error": "scene_object_not_found"}, status=404)
         scene["selected_id"] = target
@@ -1233,7 +1249,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["mode"] = "scene_lab"
     elif op == "scene_remove":
         scene = dict(state.get("scene") or {})
-        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
         objects = [o for o in (scene.get("objects") or []) if str(o.get("id")) != target]
         scene["objects"] = objects
         scene["links"] = [l for l in (scene.get("links") or []) if target not in {str(l.get("source")),str(l.get("target"))}]
@@ -1492,7 +1508,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["project_result"]={"deleted":project_id}
     elif op == "scene_focus":
         scene = dict(state.get("scene") or {})
-        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
         if target and not any(str(o.get("id")) == target for o in scene.get("objects") or []):
             return web.json_response({"ok":False,"error":"scene_object_not_found"}, status=404)
         scene["focus_id"] = target or None
@@ -1501,7 +1517,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     elif op == "scene_duplicate":
         scene = dict(state.get("scene") or {})
         objects = list(scene.get("objects") or [])
-        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
         src = next((dict(o) for o in objects if str(o.get("id")) == target), None)
         if not src:
             return web.json_response({"ok": False, "error": "scene_object_not_found"}, status=404)
@@ -1521,7 +1537,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     elif op == "scene_motion":
         scene = dict(state.get("scene") or {})
         objects = list(scene.get("objects") or [])
-        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
         motion_type = str(body.get("motion") or "none").lower()
         if motion_type not in {"none","orbit","bob","patrol","pulse"}:
             motion_type = "none"
@@ -1582,7 +1598,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         scene = dict(state.get("scene") or {})
         timeline = dict(scene.get("timeline") or {})
         frames = list(timeline.get("keyframes") or [])
-        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
         obj = next((o for o in scene.get("objects") or [] if str(o.get("id")) == target), None)
         if not obj:
             return web.json_response({"ok": False, "error":"scene_object_not_found"}, status=404)
@@ -1652,7 +1668,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     elif op == "timeline_preset":
         scene = dict(state.get("scene") or {})
         timeline = dict(scene.get("timeline") or {})
-        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
         obj = next((o for o in scene.get("objects") or [] if str(o.get("id")) == target), None)
         if not obj:
             return web.json_response({"ok": False, "error":"scene_object_not_found"}, status=404)
