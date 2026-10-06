@@ -1,20 +1,24 @@
 import {useEffect,useRef,useState} from 'react';
 import type {SystemSnapshot,AIStatus,TaskProposal,PatchProposal} from '../lib/types';
 export type CoreState='IDLE'|'LISTENING'|'THINKING'|'SPEAKING'|'WORKING'|'ERROR';
-export type StageMode='core_idle'|'hologram_lab'|'video_rendering'|'video_preview'|'task_progress'|'screen_preview';
+export type StageMode='core_idle'|'hologram_lab'|'scene_lab'|'video_rendering'|'video_preview'|'task_progress'|'screen_preview';
 export type HologramConfig={
  kind:string;color:string;glow:number;speed:number;rings:number;particles:number;
  scale:number;opacity:number;wireframe:boolean;pulse:boolean;label:string;
 };
+export type SceneObject={id:string;kind:string;label:string;color:string;position:number[];rotation:number[];scale:number;opacity:number;wireframe:boolean;spin:number;explode:number};
+export type SceneState={objects:SceneObject[];selected_id?:string|null;camera:string;explode:number;auto_orbit:boolean;grid:boolean;animation:string};
 export type StageState={
  mode:StageMode;title:string;subtitle:string;progress:number;revision:number;
  job_id?:string|null;video_paused?:boolean;save_nonce?:number;save_kind?:string;
  hologram:HologramConfig;
- video:{template:string;duration:number;title:string;ready:boolean;mime:string;bytes:number;source_hologram?:boolean};
+ scene:SceneState;
+ video:{template:string;duration:number;title:string;ready:boolean;mime:string;bytes:number;source_hologram?:boolean;source_scene?:boolean};
 };
 export const defaultStage:StageState={
  mode:'core_idle',title:'ULTRON',subtitle:'NEURAL CORE',progress:0,revision:0,job_id:null,save_nonce:0,save_kind:'',
  hologram:{kind:'energy',color:'#ff3047',glow:1,speed:1,rings:4,particles:900,scale:1,opacity:.92,wireframe:false,pulse:true,label:'ULTRON'},
+ scene:{objects:[],selected_id:null,camera:'isometric',explode:0,auto_orbit:true,grid:true,animation:'idle'},
  video:{template:'ultron_intro',duration:6,title:'ULTRON',ready:false,mime:'',bytes:0}
 };
 export const coreState=(value:string):CoreState=>({PLANNING:'THINKING',EXECUTING:'WORKING',VERIFYING:'WORKING',DONE:'IDLE',WAITING_APPROVAL:'IDLE'}[value]??(['IDLE','LISTENING','THINKING','SPEAKING','WORKING','ERROR'].includes(value)?value:'IDLE')) as CoreState;
