@@ -83,6 +83,8 @@ class Hub:
             "job_id": None,
             "save_nonce": 0,
             "save_kind": "",
+            "record_nonce": 0,
+            "record_duration": 8.0,
             "hologram": {
                 "kind": "energy", "color": "#ff3047", "glow": 1.0,
                 "speed": 1.0, "rings": 4, "particles": 900, "scale": 1.0,
@@ -1378,6 +1380,20 @@ async def api_stage_command(req: web.Request) -> web.Response:
         if "explode" in body: scene["explode"] = _stage_number(body.get("explode"), scene.get("explode",0), 0, 2)
         state["scene"] = scene
         state["mode"] = "scene_lab"
+    elif op == "scene_record":
+        duration = _stage_number(body.get("duration",8),8,2,30)
+        job_id = uuid.uuid4().hex[:10]
+        state["record_nonce"] = int(state.get("record_nonce",0)) + 1
+        state["record_duration"] = duration
+        state["job_id"] = job_id
+        state["video"] = {
+            "template":"live_scene","duration":duration,
+            "title":str(body.get("title") or "ULTRON SCENE")[:100],
+            "ready":False,"mime":"","bytes":0,
+            "source_hologram":False,"source_scene":True,
+        }
+        state.update({"mode":"scene_lab","title":"LIVE SCENE RECORD",
+                      "subtitle":f"{duration:.1f}s / 3D CANVAS","progress":0})
     elif op in {"video_create", "video_from_stage"}:
         source_hologram = op == "video_from_stage"
         source_scene = source_hologram and state.get("mode") == "scene_lab"
