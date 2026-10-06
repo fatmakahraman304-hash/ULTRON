@@ -653,11 +653,13 @@ function pickUltronVoice(){
   return voices.find(v=>/^tr[-_]/i.test(v.lang))||voices[0]||null;
 }
 function speakUltron(text,force=false){
-  // Single-speaker mode: when desktop ULTRON is actively available, the phone
-  // keeps listening but never emits a second copy of the voice.
+  // Gemini Live is the ONLY voice source during a live conversation.
+  // Never let iOS/browser SpeechSynthesis read chat text over ULTRON.
+  if(liveDesired||voiceListening||liveSpeaking){
+    try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
+    return;
+  }
   if(desktopVoiceLeader)return;
-  // Fallback for typed chat and the launch greeting. Real microphone
-  // conversations use Gemini Live native audio over /api/live.
   if(!voiceEnabled&&!force)return;
   if(!('speechSynthesis' in window)||!text)return;
   const cleaned=String(text).replace(/[*_#>]/g,' ').replace(/\s+/g,' ').trim();
@@ -675,9 +677,21 @@ function resetRemoteResultSpeech(){
   }
 }
 function speakRemoteResult(text,status='completed'){
-  if(!text||!('speechSynthesis' in window))return;
+  if(!text)return;
   const cleaned=String(text).replace(/[*_#>]/g,' ').replace(/\s+/g,' ').trim();
   if(!cleaned)return;
+
+  // While Gemini Live is connected, show the remote result in chat/status only.
+  // iPhone system TTS is deliberately disabled so there is never a second voice.
+  if(liveDesired||voiceListening||liveSpeaking){
+    try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
+    resetRemoteResultSpeech();
+    $('#stageVoiceText').textContent=
+      status==='completed'?'Laptop görevi tamamlandı':'Laptop görev sonucu';
+    return;
+  }
+
+  if(!('speechSynthesis' in window))return;
   try{speechSynthesis.cancel()}catch{}
   resetRemoteResultSpeech();
   remoteResultSpeaking=true;
@@ -939,6 +953,7 @@ async function openLiveSocket(){
   socket.onopen=()=>{
     if(socket!==liveSocket)return;
     liveReconnectAttempts=0;voiceListening=true;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
+    try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
     resetRemoteResultSpeech();resetVoiceGateSegment();
     acquireVoiceWakeLock().catch(()=>{});
     liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı • sürekli dinleme aktif';
