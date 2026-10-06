@@ -121,8 +121,8 @@ class NativeBridge(QObject):
                     payload=json.loads(response.read().decode('utf-8'))
                 for item in payload.get('commands',[]):
                     command=str(item.get('command','')).strip().lower()
-                    if command in {'wake','mute','unmute','interrupt','sync_memory'}:
-                        self.remote_command.emit(command)
+                    if command in {'wake','mute','unmute','interrupt','sync_memory','agent_task'}:
+                        self.remote_command.emit(json.dumps(item,ensure_ascii=False))
             except Exception:
                 pass
             finally:
@@ -131,10 +131,17 @@ class NativeBridge(QObject):
         threading.Thread(target=worker,daemon=True).start()
 
     @pyqtSlot(str)
-    def _apply_remote_command(self, command):
-        """Execute only the small allowlisted desktop control surface."""
+    def _apply_remote_command(self, raw):
+        """Execute Cloud commands from the paired phone on the desktop ULTRON."""
         win=self.ui._win
         try:
+            try:
+                item=json.loads(raw)
+                command=str(item.get('command','')).strip().lower()
+                payload=item.get('payload') if isinstance(item.get('payload'),dict) else {}
+            except Exception:
+                command=str(raw).strip().lower()
+                payload={}
             if command=='wake':
                 getter=getattr(self.ui,'wake_get_state',None)
                 manual=getattr(self.ui,'on_wake_manual',None)
@@ -162,6 +169,29 @@ class NativeBridge(QObject):
                     except Exception:
                         self.emit(kind='remote_notice',text='Cloud hafıza eşitlemesi başarısız.')
                 threading.Thread(target=sync_worker,daemon=True).start()
+            elif command=='agent_task':
+                text=str(payload.get('text','')).strip()
+                if not text:
+                    self.emit(kind='remote_notice',text='Telefondan boş görev geldi; çalıştırılmadı.')
+                    return
+                if len(text)>50000:
+                    text=text[:50000]
+                # A remote agent task is treated exactly like a command typed
+                # into the local ULTRON interface. Wake the assistant first when
+                # wake-word mode is enabled, then hand the task to Gemini Live,
+                # which can use the desktop's existing apps/files/browser/tools.
+                getter=getattr(self.ui,'wake_get_state',None)
+                manual=getattr(self.ui,'on_wake_manual',None)
+                state=getter() if callable(getter) else {}
+                if state.get('enabled') and not state.get('awake') and callable(manual):
+                    manual()
+                self.ui.write_log('You: '+text)
+                handler=getattr(self.ui,'on_text_command',None)
+                if callable(handler):
+                    handler(text)
+                    self.emit(kind='remote_notice',text='Telefon görevi ULTRON agente gönderildi.')
+                else:
+                    self.emit(kind='remote_notice',text='ULTRON agent henüz hazır değil.')
         except Exception as exc:
             self.emit(kind='remote_notice',text='Uzaktan komut uygulanamadı: '+str(exc)[:100])
 
