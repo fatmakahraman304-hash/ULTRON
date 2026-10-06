@@ -1149,7 +1149,10 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use control_phone_ui when the user asks to control the current phone surface. Supported actions include ULTRON views plus safe app intents such as browser/search/maps/call composer. "
           "For iPhone system/app control, never claim unrestricted device access: iOS only allows actions exposed by browser URL/deep-link intents or explicit Shortcuts. "
           "Use run_ios_shortcut when the user asks for an iPhone action that should be delegated to Apple Shortcuts. Prefer the shortcut name ULTRON Bridge unless the user explicitly names another shortcut. "
-          "For opening apps such as YouTube, Spotify, WhatsApp, Instagram, Chrome, Maps, Messages, Mail, or FaceTime, ALWAYS use control_phone_ui with open_app/browser/maps/sms/email/facetime and NEVER use Apple Shortcuts. "
+          "For opening apps such as YouTube, Spotify, WhatsApp, Instagram, Chrome, Maps, Messages, Mail, or FaceTime, ALWAYS use control_phone_ui and NEVER use Apple Shortcuts. "
+          "If the user names content to find inside YouTube or Spotify, use youtube_search or spotify_search instead of merely opening the app. "
+          "If the user asks to prepare a WhatsApp message, use whatsapp_message. "
+          "For direct phone/app actions, perform the tool call immediately and do not add a conversational confirmation afterward unless the action fails. "
           "Use run_ios_action only for iPhone system settings that truly require Apple Shortcuts: set_focus, set_volume, set_brightness, bluetooth, wifi, and compose_message. "
           "Use send_laptop_task when the user explicitly asks ULTRON to do something on the paired laptop, such as open Chrome, find a file, inspect system status, or carry out a desktop task. "
           "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
@@ -1260,12 +1263,12 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 ,
             {
                 "name": "control_phone_ui",
-                "description": "Control the current ULTRON phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app.",
+                "description": "Control the current ULTRON phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app."},
-                        "query": {"type": "STRING", "description": "Optional search text, destination, phone number, email address, or app name depending on action."}
+                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message."},
+                        "query": {"type": "STRING", "description": "App name, search text, destination, phone number, email address, or message text depending on action."}
                     },
                     "required": ["action"]
                 }
@@ -1478,7 +1481,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 if name == "control_phone_ui":
                     action = str(args.get("action", "")).strip().lower()
                     query = str(args.get("query", "")).strip()[:500]
-                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call", "sms", "email", "facetime", "open_app"}
+                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call", "sms", "email", "facetime", "open_app", "youtube_search", "spotify_search", "whatsapp_message"}
                     if action not in allowed:
                         return types.FunctionResponse(
                             id=fc.id, name=name,
