@@ -102,6 +102,7 @@ class Hub:
                 "grid": True,
                 "show_labels": True,
                 "show_trails": True,
+                "audio_reactive": True,
                 "theme": "crimson",
                 "snap": 0.25,
                 "animation": "idle",
@@ -828,7 +829,7 @@ def _scene_defaults() -> dict:
     return {
         "objects": [], "links": [], "selected_id": None, "focus_id": None, "camera": "isometric",
         "explode": 0.0, "auto_orbit": True, "grid": True,
-        "show_labels": True, "show_trails": True, "theme": "crimson", "snap": 0.25,
+        "show_labels": True, "show_trails": True, "audio_reactive": True, "theme": "crimson", "snap": 0.25,
         "animation": "idle",
         "timeline": {
             "duration": 8.0, "cursor": 0.0, "playing": False,
@@ -995,7 +996,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         focus=str(raw.get("focus_id") or "");loaded["focus_id"]=focus if any(o["id"]==focus for o in objects) else None
         loaded["camera"]=str(raw.get("camera") or "isometric") if str(raw.get("camera") or "isometric") in {"front","top","side","isometric","orbit","close"} else "isometric"
         loaded["explode"]=_stage_number(raw.get("explode",0),0,0,2)
-        loaded["auto_orbit"]=bool(raw.get("auto_orbit",True));loaded["grid"]=bool(raw.get("grid",True));loaded["show_labels"]=bool(raw.get("show_labels",True));loaded["show_trails"]=bool(raw.get("show_trails",True))
+        loaded["auto_orbit"]=bool(raw.get("auto_orbit",True));loaded["grid"]=bool(raw.get("grid",True));loaded["show_labels"]=bool(raw.get("show_labels",True));loaded["show_trails"]=bool(raw.get("show_trails",True));loaded["audio_reactive"]=bool(raw.get("audio_reactive",True))
         loaded["theme"]=str(raw.get("theme") or "crimson") if str(raw.get("theme") or "crimson") in {"crimson","cyan","purple","amber","mono"} else "crimson"
         loaded["snap"]=_stage_number(raw.get("snap",.25),.25,0,2);loaded["animation"]=str(raw.get("animation") or "idle")
         links=[]
@@ -1413,6 +1414,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         if "grid" in body: scene["grid"] = bool(body["grid"])
         if "show_labels" in body: scene["show_labels"] = bool(body["show_labels"])
         if "show_trails" in body: scene["show_trails"] = bool(body["show_trails"])
+        if "audio_reactive" in body: scene["audio_reactive"] = bool(body["audio_reactive"])
         if "snap" in body: scene["snap"] = _stage_number(body.get("snap"), scene.get("snap",.25), 0, 2)
         state["scene"] = scene
         state["mode"] = "scene_lab"
