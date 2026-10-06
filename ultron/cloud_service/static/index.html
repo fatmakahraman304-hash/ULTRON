@@ -915,6 +915,23 @@ async function openLiveSocket(){
       $('#stageVoiceText').textContent='Laptop görevi iptal edildi';
       setTimeout(()=>watchLaptopTasks().catch(()=>{}),250);
     }
+    if(d.type==='ios_action'){
+      const command=d.command&&typeof d.command==='object'?d.command:{};
+      const payload=JSON.stringify(command);
+      const url='shortcuts://run-shortcut?name='+encodeURIComponent('ULTRON Bridge')+'&input=text&text='+encodeURIComponent(payload);
+      const label={
+        open_app:'Uygulama açılıyor',
+        set_focus:'Odak modu gönderildi',
+        set_volume:'Ses seviyesi gönderildi',
+        set_brightness:'Parlaklık komutu gönderildi',
+        bluetooth:'Bluetooth komutu gönderildi',
+        wifi:'Wi‑Fi komutu gönderildi',
+        compose_message:'Mesaj komutu gönderildi'
+      }[String(command.action||'')]||'iPhone otomasyonu gönderildi';
+      toast(label);
+      $('#stageVoiceText').textContent=label;
+      location.href=url;
+    }
     if(d.type==='ios_shortcut'){
       const name=String(d.shortcut_name||'ULTRON Bridge').trim()||'ULTRON Bridge';
       const input=String(d.input||'').trim();
@@ -1379,7 +1396,7 @@ function renderRemoteRows(rows){
 }
 const shortcutHelp=$('#shortcutHelp');
 if(shortcutHelp)shortcutHelp.onclick=()=>{
-  toast('Shortcuts uygulamasında “ULTRON Bridge” adlı kestirme oluştur ve metin girdisini işle.');
+  toast('“ULTRON Bridge” kestirmesi JSON komut alacak: uygulama, odak, ses, parlaklık, Bluetooth, Wi‑Fi, mesaj.');
   setTimeout(()=>{location.href='shortcuts://'},650);
 };
 $('#refreshRemote').onclick=()=>Promise.all([loadRemoteState(),loadRemoteHistory()]).catch(e=>toast(e.message));
