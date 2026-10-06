@@ -1427,12 +1427,12 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 ,
             {
                 "name": "control_phone_ui",
-                "description": "Control the current ULTRON phone interface or launch a safe phone intent. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call.",
+                "description": "Control the current ULTRON phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call."},
-                        "query": {"type": "STRING", "description": "Optional search text, map destination, or phone number depending on action."}
+                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app."},
+                        "query": {"type": "STRING", "description": "Optional search text, destination, phone number, email address, or app name depending on action."}
                     },
                     "required": ["action"]
                 }
@@ -1655,7 +1655,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 if name == "control_phone_ui":
                     action = str(args.get("action", "")).strip().lower()
                     query = str(args.get("query", "")).strip()[:500]
-                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call"}
+                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call", "sms", "email", "facetime", "open_app"}
                     if action not in allowed:
                         return types.FunctionResponse(
                             id=fc.id, name=name,
