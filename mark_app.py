@@ -54,7 +54,11 @@ from memory.memory_manager import (
     save_session_summary, pop_last_session,
     search_memory, set_trim_notifier,
 )
-from integration.cloud_memory_sync import upsert_cloud_memory, sync as sync_cloud_memory
+from integration.cloud_memory_sync import (
+    upsert_cloud_memory,
+    sync as sync_cloud_memory,
+    heartbeat as cloud_presence_heartbeat,
+)
 
 # The file-backed tools (open_app, web_search, browser_control, …) are no longer
 # imported or declared here — they self-describe via a TOOL dict in their own
@@ -2037,6 +2041,32 @@ class UltronLive:
             except Exception as e:
                 print(f"[Proactive] ⚠️ {e}")
 
+    async def _cloud_presence_loop(self) -> None:
+        """Advertise desktop voice availability for cross-device single-speaker mode."""
+        last_announced = None
+        while True:
+            try:
+                with self._speaking_lock:
+                    speaking = bool(self._is_speaking)
+                voice_active = bool(self.session is not None and not self.ui.muted)
+                state = {
+                    "ui_state": "CONNECTED" if self.session is not None else "CONNECTING",
+                    "muted": bool(self.ui.muted),
+                    "voice_active": voice_active,
+                    "voice_output": True,
+                    "speaking": speaking,
+                    "single_speaker_priority": "desktop",
+                }
+                ok, _payload = await asyncio.to_thread(cloud_presence_heartbeat, state)
+                if ok and last_announced is not True:
+                    self.ui.write_log("SYS: Cloud tek-ses modu hazır • laptop ses öncelikli.")
+                    last_announced = True
+                elif not ok:
+                    last_announced = False
+            except Exception:
+                pass
+            await asyncio.sleep(4.0)
+
     # ── Phone audio relay ────────────────────────────────────────────────────────
 
     async def _relay_phone_audio(self) -> None:
@@ -2120,6 +2150,11 @@ class UltronLive:
         # Enumerate audio devices off-thread. The settings drawer must never pay
         # for host-API enumeration on the Qt thread.
         audio_devices.prefetch()
+
+        # Cloud speaker arbitration runs for the whole desktop process. When
+        # both phone and laptop voice sessions are active, the phone can stay
+        # listening but mute its own playback so only the laptop speaks.
+        asyncio.create_task(self._cloud_presence_loop())
 
         # Start dashboard (optional — needs: pip install fastapi "uvicorn[standard]" cryptography)
         try:
