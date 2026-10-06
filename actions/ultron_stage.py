@@ -64,7 +64,7 @@ TOOL = {
     "description": (
         "Control the main visual Center Stage in the ULTRON desktop UI. Use it "
         "whenever the user asks to create/show/control a hologram, create a short "
-        "animation video, convert the current hologram into a video, play/pause "
+        "animation video, record the live 3D Scene Lab canvas as a video, convert the current hologram into a video, play/pause "
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
         "describe the requested visual action. Scene Lab supports multiple selectable objects, camera views, layouts, exploded views and animations. Hologram/scene kinds: energy, globe, "
@@ -84,7 +84,7 @@ TOOL = {
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
                     "scene_arrange", "scene_preset", "scene_animation", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
-                    "scene_redo", "scene_cinematic", "timeline_set", "timeline_capture",
+                    "scene_redo", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
                     "timeline_remove_keyframe", "timeline_clear", "timeline_seek",
                     "timeline_play", "timeline_pause", "timeline_preset",
                     "video_create", "video_from_stage", "video_play",
