@@ -83,3 +83,56 @@ class CloudClient:
             "/api/memories",
             json_body={"key": key[:120], "value": value[:8000], "category": category[:40]},
         )
+
+    async def heartbeat(self, state: dict[str, Any] | None = None) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            "/api/device-presence/heartbeat",
+            json_body={"state": state or {}},
+        )
+
+    async def claim_desktop_commands(self) -> list[dict[str, Any]]:
+        data = await self._request(
+            "POST",
+            "/api/device-commands/claim",
+            json_body={"target": "desktop"},
+        )
+        rows = data.get("commands", [])
+        return rows if isinstance(rows, list) else []
+
+    async def report_task_progress(
+        self,
+        command_id: int,
+        *,
+        stage: str,
+        message: str = "",
+        percent: int | None = None,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "stage": str(stage)[:80],
+            "message": str(message)[:2000],
+        }
+        if percent is not None:
+            body["percent"] = max(0, min(100, int(percent)))
+        return await self._request(
+            "POST",
+            f"/api/device-commands/{int(command_id)}/progress",
+            json_body=body,
+        )
+
+    async def complete_task(
+        self,
+        command_id: int,
+        *,
+        ok: bool,
+        message: str = "",
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        result = {"message": str(message)[:8000]}
+        if extra:
+            result.update(extra)
+        return await self._request(
+            "POST",
+            f"/api/device-commands/{int(command_id)}/complete",
+            json_body={"status": "completed" if ok else "failed", "result": result},
+        )
