@@ -71,6 +71,24 @@ class Hub:
         self.pending_task: dict | None = None
         self.loop: asyncio.AbstractEventLoop | None = None
         self.last_command_ts: float = 0.0
+        self.stage_state: dict = {
+            "mode": "core_idle",
+            "title": "ULTRON",
+            "subtitle": "NEURAL CORE",
+            "progress": 0,
+            "revision": 1,
+            "job_id": None,
+            "hologram": {
+                "kind": "energy", "color": "#ff3047", "glow": 1.0,
+                "speed": 1.0, "rings": 4, "particles": 900, "scale": 1.0,
+                "opacity": 0.92, "wireframe": False, "pulse": True,
+                "label": "ULTRON",
+            },
+            "video": {
+                "template": "ultron_intro", "duration": 6.0,
+                "title": "ULTRON", "ready": False, "mime": "", "bytes": 0,
+            },
+        }
         self.audit = AuditLog()
         self.notifier = Notifier(lambda text, level: self._sched_notify(text, level))
         from app.security.sandbox import FilesystemSandbox
@@ -191,6 +209,7 @@ class Hub:
             "activity": list(self.activity),
             "notifications": list(self.notifications),
             "agent": {"state": self.agent.state},
+            "stage": self.stage_state,
             "config": self.config(),
         }
 
@@ -713,6 +732,159 @@ async def api_voice_live(req: web.Request) -> web.Response:
         hub.bridge.runtime.stop_live_voice()
         await hub.on_activity("Ses dinleme durduruldu", "info")
         return web.json_response({"ok": True})
+
+
+# ---------------- Dynamic Center Stage ----------------
+_STAGE_MODES = {"core_idle", "hologram_lab", "video_rendering", "video_preview",
+                "task_progress", "screen_preview"}
+
+
+def _stage_number(value, default, low, high):
+    try:
+        return max(low, min(high, float(value)))
+    except Exception:
+        return default
+
+
+def _stage_int(value, default, low, high):
+    try:
+        return max(low, min(high, int(value)))
+    except Exception:
+        return default
+
+
+async def _stage_publish() -> None:
+    hub.stage_state["revision"] = int(hub.stage_state.get("revision", 0)) + 1
+    await hub.broadcast({"type": "stage", "data": hub.stage_state})
+
+
+async def api_stage_get(_req: web.Request) -> web.Response:
+    return web.json_response({"ok": True, **hub.stage_state})
+
+
+async def api_stage_command(req: web.Request) -> web.Response:
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    op = str(body.get("operation", "")).strip().lower()
+    state = hub.stage_state
+
+    if op in {"reset", "core", "core_idle"}:
+        state.update({"mode": "core_idle", "title": "ULTRON",
+                      "subtitle": "NEURAL CORE", "progress": 0, "job_id": None})
+    elif op in {"hologram_create", "hologram", "hologram_show"}:
+        holo = dict(state.get("hologram") or {})
+        kind = str(body.get("kind") or holo.get("kind") or "energy").strip().lower()
+        allowed = {"energy", "globe", "network", "drone", "vehicle", "logo", "sphere"}
+        if kind not in allowed:
+            kind = "energy"
+        holo.update({
+            "kind": kind,
+            "color": str(body.get("color") or holo.get("color") or "#ff3047")[:24],
+            "glow": _stage_number(body.get("glow", holo.get("glow", 1.0)), 1.0, 0.0, 3.0),
+            "speed": _stage_number(body.get("speed", holo.get("speed", 1.0)), 1.0, 0.05, 5.0),
+            "rings": _stage_int(body.get("rings", holo.get("rings", 4)), 4, 0, 12),
+            "particles": _stage_int(body.get("particles", holo.get("particles", 900)), 900, 0, 5000),
+            "scale": _stage_number(body.get("scale", holo.get("scale", 1.0)), 1.0, 0.25, 2.5),
+            "opacity": _stage_number(body.get("opacity", holo.get("opacity", .92)), .92, .08, 1.0),
+            "wireframe": bool(body.get("wireframe", holo.get("wireframe", False))),
+            "pulse": bool(body.get("pulse", holo.get("pulse", True))),
+            "label": str(body.get("label") or holo.get("label") or "ULTRON")[:80],
+        })
+        state["hologram"] = holo
+        state.update({"mode": "hologram_lab", "title": holo["label"],
+                      "subtitle": f"{kind.upper()} / LIVE", "progress": 100})
+    elif op in {"hologram_update", "hologram_control"}:
+        holo = dict(state.get("hologram") or {})
+        if "kind" in body:
+            kind = str(body.get("kind") or "").strip().lower()
+            if kind in {"energy", "globe", "network", "drone", "vehicle", "logo", "sphere"}:
+                holo["kind"] = kind
+        if "color" in body: holo["color"] = str(body.get("color"))[:24]
+        if "glow" in body: holo["glow"] = _stage_number(body.get("glow"), holo.get("glow", 1.0), 0.0, 3.0)
+        if "speed" in body: holo["speed"] = _stage_number(body.get("speed"), holo.get("speed", 1.0), .05, 5.0)
+        if "rings" in body: holo["rings"] = _stage_int(body.get("rings"), holo.get("rings", 4), 0, 12)
+        if "particles" in body: holo["particles"] = _stage_int(body.get("particles"), holo.get("particles", 900), 0, 5000)
+        if "scale" in body: holo["scale"] = _stage_number(body.get("scale"), holo.get("scale", 1.0), .25, 2.5)
+        if "opacity" in body: holo["opacity"] = _stage_number(body.get("opacity"), holo.get("opacity", .92), .08, 1.0)
+        if "wireframe" in body: holo["wireframe"] = bool(body.get("wireframe"))
+        if "pulse" in body: holo["pulse"] = bool(body.get("pulse"))
+        if "label" in body: holo["label"] = str(body.get("label"))[:80]
+        state["hologram"] = holo
+        state.update({"mode": "hologram_lab", "title": holo.get("label") or "HOLOGRAM",
+                      "subtitle": f"{str(holo.get('kind','energy')).upper()} / LIVE"})
+    elif op in {"video_create", "video_from_stage"}:
+        source_hologram = op == "video_from_stage"
+        duration = _stage_number(body.get("duration", 6), 6, 2, 15)
+        template = str(body.get("template") or ("hologram_capture" if source_hologram else "ultron_intro")).strip().lower()
+        if template not in {"ultron_intro", "logo_reveal", "energy_core",
+                            "system_activation", "task_complete", "hologram_capture"}:
+            template = "ultron_intro"
+        job_id = uuid.uuid4().hex[:10]
+        state["video"] = {
+            "template": template, "duration": duration,
+            "title": str(body.get("title") or state.get("hologram", {}).get("label") or "ULTRON")[:100],
+            "ready": False, "mime": "", "bytes": 0,
+            "source_hologram": source_hologram,
+        }
+        state.update({"mode": "video_rendering", "title": "VIDEO RENDER",
+                      "subtitle": template.replace("_", " ").upper(),
+                      "progress": 0, "job_id": job_id})
+    elif op in {"video_play", "play"}:
+        if bool((state.get("video") or {}).get("ready")):
+            state["mode"] = "video_preview"
+            state["video_paused"] = False
+    elif op in {"video_pause", "pause"}:
+        state["video_paused"] = True
+    elif op == "task_progress":
+        state.update({"mode": "task_progress",
+                      "title": str(body.get("title") or "GÖREV ÇALIŞIYOR")[:100],
+                      "subtitle": str(body.get("subtitle") or "ULTRON TASK ENGINE")[:140],
+                      "progress": _stage_number(body.get("progress", 0), 0, 0, 100)})
+    elif op == "screen_preview":
+        state.update({"mode": "screen_preview", "title": "SCREEN PREVIEW",
+                      "subtitle": "LIVE DESKTOP VISION", "progress": 100})
+    else:
+        return web.json_response({"ok": False, "error": "unknown_stage_operation"}, status=400)
+
+    await _stage_publish()
+    await hub.on_activity(f"Center Stage: {op}", "info")
+    return web.json_response({"ok": True, **state})
+
+
+async def api_stage_control(req: web.Request) -> web.Response:
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    body = dict(body or {})
+    body["operation"] = "hologram_update"
+
+    class _StageReq:
+        async def json(self):
+            return body
+
+    return await api_stage_command(_StageReq())
+
+
+async def api_stage_video_ready(req: web.Request) -> web.Response:
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    job_id = str(body.get("job_id", ""))
+    if not job_id or job_id != str(hub.stage_state.get("job_id") or ""):
+        return web.json_response({"ok": False, "error": "stale_video_job"}, status=409)
+    video = dict(hub.stage_state.get("video") or {})
+    video.update({"ready": True,
+                  "mime": str(body.get("mime") or "video/webm")[:80],
+                  "bytes": _stage_int(body.get("bytes", 0), 0, 0, 500_000_000)})
+    hub.stage_state["video"] = video
+    hub.stage_state.update({"mode": "video_preview", "progress": 100,
+                            "title": "VIDEO READY", "subtitle": "LOCAL RENDER COMPLETE"})
+    await _stage_publish()
+    return web.json_response({"ok": True, **hub.stage_state})
 
 
 async def api_activity(_req: web.Request) -> web.Response:
@@ -1645,7 +1817,11 @@ def main() -> None:
     app.router.add_get("/api/memory/stats", api_memory_stats)
     app.router.add_post("/api/memory/decay/run", api_memory_decay_run)
     app.router.add_get("/api/memory/export", api_memory_export)
-    app.router.add_post("/api/memory/import", api_memory_import)
+    app.router.add_post("/api/memory/import", api_memory_import)    app.router.add_get("/api/stage", api_stage_get)
+    app.router.add_post("/api/stage/command", api_stage_command)
+    app.router.add_post("/api/stage/control", api_stage_control)
+    app.router.add_post("/api/stage/video-ready", api_stage_video_ready)
+
     app.router.add_get("/api/activity", api_activity)
     app.router.add_get("/api/notifications", api_notifications)
     app.router.add_get("/api/config", api_config)
