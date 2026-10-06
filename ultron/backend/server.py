@@ -1506,6 +1506,40 @@ async def api_stage_command(req: web.Request) -> web.Response:
         scene["cinematic"] = cinematic
         state["scene"] = scene
         state["mode"] = "scene_lab"
+    elif op == "scene_director":
+        scene = _scene_ensure(dict(state.get("scene") or {}))
+        preset = str(body.get("preset") or "showcase").lower()
+        if preset not in {"showcase","analysis","battle","presentation","launch"}:
+            preset = "showcase"
+        theme = {"showcase":"purple","analysis":"cyan","battle":"crimson","presentation":"amber","launch":"crimson"}[preset]
+        camera = {"showcase":"hero","analysis":"topdown","battle":"flyby","presentation":"orbit","launch":"spiral"}[preset]
+        scene["theme"] = theme
+        scene["show_labels"] = True
+        scene["show_trails"] = preset in {"analysis","battle","launch"}
+        scene["grid"] = preset != "presentation"
+        scene["animation"] = "scan" if preset in {"analysis","battle"} else "idle"
+        duration = _stage_number(body.get("duration",10),10,3,30)
+        scene["cinematic"] = {"enabled":True,"preset":camera,"duration":duration,"started_at":time.time(),"loop":True}
+        objects=[]
+        for item in scene.get("objects") or []:
+            obj=dict(item);kind=str(obj.get("kind") or "")
+            if preset=="analysis":
+                mtype="bob" if kind in {"drone","satellite","aircraft"} else "pulse"
+            elif preset=="battle":
+                mtype="orbit" if kind in {"drone","aircraft","satellite"} else ("patrol" if kind in {"vehicle","ship","robot"} else "pulse")
+            elif preset=="launch":
+                mtype="bob" if kind in {"ship","aircraft","drone","satellite"} else "pulse"
+            elif preset=="presentation":
+                mtype="none"
+            else:
+                mtype="orbit" if kind in {"drone","satellite"} else "pulse"
+            obj["motion"]={"type":mtype,"speed":1.0 if preset!="battle" else 1.5,
+                           "radius":1.4,"amplitude":.55,"axis":"y"}
+            objects.append(obj)
+        scene["objects"]=objects
+        state["scene"]=scene
+        state.update({"mode":"scene_lab","title":"SCENE DIRECTOR",
+                      "subtitle":f"{preset.upper()} / LIVE","progress":100})
     elif op == "scene_animation":
         scene = dict(state.get("scene") or {})
         animation = str(body.get("animation") or "idle").lower()
