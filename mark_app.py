@@ -2211,8 +2211,11 @@ class UltronLive:
             await asyncio.sleep(backoff)
 
     async def _cloud_presence_loop(self) -> None:
-        """Advertise desktop voice availability for cross-device single-speaker mode."""
+        """Advertise desktop availability without relying on asyncio's default executor."""
         last_announced = None
+        client = CloudClient()
+        if not client.enabled:
+            return
         while True:
             try:
                 with self._speaking_lock:
@@ -2227,14 +2230,18 @@ class UltronLive:
                     "speaking": speaking,
                     "single_speaker_priority": "desktop",
                 }
-                ok, _payload = await asyncio.to_thread(cloud_presence_heartbeat, state)
+                payload = await client.heartbeat(state)
+                ok = bool(payload.get("ok"))
                 if ok and last_announced is not True:
                     self.ui.write_log("SYS: Cloud tek-ses modu hazır • laptop ses öncelikli.")
+                    print("[CloudPresence] desktop online heartbeat active", flush=True)
                     last_announced = True
                 elif not ok:
                     last_announced = False
-            except Exception:
-                pass
+            except Exception as exc:
+                if last_announced is not False:
+                    print(f"[CloudPresence] {type(exc).__name__}: {str(exc)[:240]}", flush=True)
+                last_announced = False
             await asyncio.sleep(4.0)
 
     # ── Phone audio relay ────────────────────────────────────────────────────────
