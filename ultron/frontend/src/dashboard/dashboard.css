@@ -76,3 +76,6 @@
 .scene-inspector label{display:block;color:#9aa7b4;font:8px Consolas,monospace;margin-top:8px}
 .scene-inspector input[type=range]{width:100%;accent-color:#ff3047}
 .mode-scene_lab:after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 4px,#ff304704 5px);z-index:9}
+
+.gizmo-modes{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:4px;margin-bottom:7px}
+.gizmo-modes button.active{border-color:#fff;background:#5a1024;color:#fff}
