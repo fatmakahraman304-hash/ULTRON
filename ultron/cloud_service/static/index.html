@@ -180,7 +180,8 @@ const $=s=>document.querySelector(s);
 let conversationId=localStorage.getItem('ultronConversationId')||'';
 let currentView='chat',messageSignature='',toastTimer=null;
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
-let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,lastSpokenReply='';
+let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
+const scheduledSources=new Set();
 
 async function api(path,options={}){
   let res;
@@ -244,19 +245,29 @@ function ensurePlayback(){
   if(playCursor<playContext.currentTime)playCursor=playContext.currentTime+.03;
 }
 function playPCM24k(buffer){
+  if(suppressOutput)return;
   ensurePlayback();
   const pcm=new Int16Array(buffer),floats=new Float32Array(pcm.length);
   for(let i=0;i<pcm.length;i++)floats[i]=pcm[i]/32768;
   const audio=playContext.createBuffer(1,floats.length,24000);audio.copyToChannel(floats,0);
   const src=playContext.createBufferSource();src.buffer=audio;src.connect(playContext.destination);
+  scheduledSources.add(src);src.onended=()=>scheduledSources.delete(src);
   const when=Math.max(playContext.currentTime+.02,playCursor);src.start(when);playCursor=when+audio.duration;
+}
+function stopPlayback(){
+  for(const src of [...scheduledSources]){try{src.stop()}catch{}scheduledSources.delete(src)}
+  if(playContext)playCursor=playContext.currentTime;
+}
+function micRms(samples){
+  let sum=0;for(let i=0;i<samples.length;i++)sum+=samples[i]*samples[i];
+  return Math.sqrt(sum/Math.max(1,samples.length));
 }
 function liveStatus(text,active=false){
   $('#voiceStatusText').textContent=text;$('#voiceStatus').classList.toggle('live',active);
   $('#voiceBtn').classList.toggle('listening',voiceListening);
 }
 async function stopLiveVoice(){
-  voiceListening=false;liveSpeaking=false;
+  voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;stopPlayback();
   try{if(micProcessor)micProcessor.disconnect()}catch{}
   try{if(micSource)micSource.disconnect()}catch{}
   try{if(micStream)micStream.getTracks().forEach(t=>t.stop())}catch{}
@@ -288,22 +299,38 @@ async function startLiveVoice(){
     liveSocket.onopen=()=>{
       voiceListening=true;liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
       micProcessor.onaudioprocess=e=>{
-        if(!voiceListening||liveSpeaking||!liveSocket||liveSocket.readyState!==WebSocket.OPEN)return;
-        const mono=e.inputBuffer.getChannelData(0),pcm=resampleTo16k(mono,micContext.sampleRate);
+        if(!voiceListening||!liveSocket||liveSocket.readyState!==WebSocket.OPEN)return;
+        const mono=e.inputBuffer.getChannelData(0);
+        if(liveSpeaking){
+          const rms=micRms(mono);
+          bargeBlocks=rms>.055?bargeBlocks+1:Math.max(0,bargeBlocks-1);
+          if(bargeBlocks>=2){
+            suppressOutput=true;liveSpeaking=false;bargeBlocks=0;stopPlayback();
+            liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Sözünü kestim • dinliyorum';
+          }
+        }else{bargeBlocks=0}
+        const pcm=resampleTo16k(mono,micContext.sampleRate);
         liveSocket.send(floatToPCM16(pcm));
       };
     };
     liveSocket.onmessage=async e=>{
       if(e.data instanceof ArrayBuffer){
-        liveSpeaking=true;liveStatus('ULTRON konuşuyor…',true);$('#stageVoiceText').textContent='ULTRON konuşuyor';
-        playPCM24k(e.data);return;
+        if(!suppressOutput){
+          liveSpeaking=true;liveStatus('ULTRON konuşuyor…',true);$('#stageVoiceText').textContent='ULTRON konuşuyor';
+          playPCM24k(e.data);
+        }
+        return;
       }
       let d={};try{d=JSON.parse(e.data)}catch{return}
       if(d.type==='ready'){liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • '+(d.voice||'ULTRON')}
       if(d.type==='input_transcript'&&d.text)liveStatus('Sen: '+String(d.text).slice(-90),true);
-      if(d.type==='output_transcript'&&d.text){liveSpeaking=true;$('#stageVoiceText').textContent='ULTRON konuşuyor'}
+      if(d.type==='output_transcript'&&d.text&&!suppressOutput){liveSpeaking=true;$('#stageVoiceText').textContent='ULTRON konuşuyor'}
+      if(d.type==='interrupted'){
+        suppressOutput=false;liveSpeaking=false;bargeBlocks=0;stopPlayback();
+        liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
+      }
       if(d.type==='turn_complete'){
-        liveSpeaking=false;
+        liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
         const input=String(d.input||'').trim(),output=String(d.output||'').trim();
         if(input)addMessage('user',input);if(output)addMessage('assistant',output);
         messageSignature='';liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
