@@ -574,6 +574,61 @@ async def cancel_device_command(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
 
 
+async def append_device_command_progress(request: web.Request) -> web.Response:
+    try:
+        command_id = int(request.match_info["id"])
+    except Exception:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "invalid_command_id"}),
+            content_type="application/json",
+        )
+
+    if request.get("auth_kind", "") != "device":
+        raise web.HTTPForbidden(
+            text=json.dumps({"error": "device_auth_required"}),
+            content_type="application/json",
+        )
+
+    body = await request.json()
+    stage = str(body.get("stage", "")).strip()[:80]
+    message = str(body.get("message", "")).strip()[:2000]
+    percent = body.get("percent")
+    try:
+        percent = None if percent is None else max(0, min(100, int(percent)))
+    except Exception:
+        percent = None
+    if not stage and not message:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "stage_or_message_required"}),
+            content_type="application/json",
+        )
+
+    entry = {
+        "stage": stage or "progress",
+        "message": message,
+        "percent": percent,
+        "at": time.time(),
+    }
+    row = await request.app["db"].fetchrow(
+        """
+        UPDATE device_commands
+        SET progress = COALESCE(progress, '[]'::jsonb) || $1::jsonb
+        WHERE id=$2 AND user_id=$3 AND target='desktop'
+          AND status IN ('delivered','completed','failed')
+        RETURNING id,status,progress
+        """,
+        json.dumps([entry], ensure_ascii=False),
+        command_id,
+        request["user_id"],
+    )
+    if not row:
+        raise web.HTTPNotFound(
+            text=json.dumps({"error": "command_not_found"}),
+            content_type="application/json",
+        )
+    return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+
+
 async def recent_device_commands(request: web.Request) -> web.Response:
     auth_kind = request.get("auth_kind", "")
     target = "desktop" if auth_kind == "web" else "phone"
@@ -591,7 +646,7 @@ async def recent_device_commands(request: web.Request) -> web.Response:
     )
     rows = await request.app["db"].fetch(
         """
-        SELECT id,target,command,payload,source_device,status,result,created_at,delivered_at,completed_at
+        SELECT id,target,command,payload,source_device,status,result,progress,created_at,delivered_at,completed_at
         FROM device_commands
         WHERE user_id=$1 AND target=$2
         ORDER BY id DESC LIMIT $3
@@ -601,14 +656,17 @@ async def recent_device_commands(request: web.Request) -> web.Response:
     items = []
     for row in rows:
         item = dict(row)
-        for key in ("payload", "result"):
+        for key in ("payload", "result", "progress"):
             value = item.get(key, {})
             if isinstance(value, str):
                 try:
                     value = json.loads(value)
                 except Exception:
                     value = {}
-            item[key] = value if isinstance(value, dict) else {}
+            if key == "progress":
+                item[key] = value if isinstance(value, list) else []
+            else:
+                item[key] = value if isinstance(value, dict) else {}
         items.append(item)
     return web.json_response({"commands": items}, dumps=_json_dumps)
 
@@ -1621,6 +1679,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/device-commands", send_device_command)
     app.router.add_post("/api/device-commands/claim", claim_device_commands)
     app.router.add_post("/api/device-commands/{id}/complete", complete_device_command)
+    app.router.add_post("/api/device-commands/{id}/progress", append_device_command_progress)
     app.router.add_post("/api/device-commands/{id}/cancel", cancel_device_command)
     app.router.add_get("/api/device-commands/recent", recent_device_commands)
     app.router.add_post("/api/device-presence/heartbeat", device_presence_heartbeat)
