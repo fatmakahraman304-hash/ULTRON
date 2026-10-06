@@ -288,6 +288,10 @@
     #settingsBgY{width:100%;accent-color:#ff2447}
     @media(max-width:430px){.settings-button{width:36px;height:36px;font-size:16px}.online{padding:8px 10px!important}.brand b{font-size:17px!important;letter-spacing:.25em!important}}
 
+    /* Hands-free voice + clean header */
+    .topbar{grid-template-columns:1fr auto!important}
+    .voice-btn{display:grid!important;place-items:center}
+
   </style>
 </head>
 <body>
@@ -302,7 +306,6 @@
   <header class="topbar">
     <div class="brand"><div class="brand-mark"></div><div><b>ULTRON</b><small>MOBILE NEURAL LINK</small></div></div>
     <div class="online"><span class="dot" id="statusDot"></span><span id="status">Bağlantı…</span></div>
-    <button class="settings-button" id="settingsBtn" aria-label="Kişiselleştirme ve ayarlar">⚙</button>
     <div class="top-actions"><button class="round-action" id="voiceToggle" aria-label="Sesli yanıt">◖))</button></div>
   </header>
 
@@ -322,7 +325,7 @@
       <div id="messages"></div>
       <div class="composer">
         <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON ile konuş">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="ULTRON'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
-        <input id="imageInput" type="file" accept="image/*" capture="environment" class="hidden" />
+        <input id="imageInput" type="file" accept="image/*" class="hidden" />
         <input id="pdfInput" type="file" accept="application/pdf,.pdf" class="hidden" />
         <div id="imagePreview" class="image-preview"><img id="imageThumb" alt="Seçilen görsel"/><span id="imageName"></span><button id="clearImage" type="button">Kaldır</button></div>
         <div id="pdfPreview" class="image-preview"><span style="font-size:22px">📄</span><span id="pdfName"></span><button id="clearPdf" type="button">Kaldır</button></div>
@@ -378,22 +381,6 @@
   </main>
 </div>
 
-<div id="settingsModal" class="settings-modal hidden" aria-hidden="true">
-  <div class="settings-sheet">
-    <div class="settings-head"><div><b>KİŞİSELLEŞTİRME</b><small>ULTRON Mobile görünümü</small></div><button id="closeSettings" class="settings-close" aria-label="Kapat">×</button></div>
-    <div class="settings-section">
-      <label class="settings-label">Arka plan resmi</label>
-      <div id="settingsBgPreview" class="settings-bg-preview"><span>Özel arka plan seçilmedi</span></div>
-      <input id="settingsBgInput" type="file" accept="image/*" class="hidden" />
-      <div class="settings-actions"><button id="chooseSettingsBg">FOTOĞRAF SEÇ</button><button id="resetSettingsBg" class="secondary">VARSAYILAN</button></div>
-    </div>
-    <div class="settings-section">
-      <label class="settings-label" for="settingsBgY">Arka plan konumu</label>
-      <input id="settingsBgY" type="range" min="-220" max="120" step="5" value="-92" />
-      <small class="settings-hint">Fotoğrafı yukarı/aşağı taşımak için sürükle.</small>
-    </div>
-  </div>
-</div>
 
 <nav id="tabs" class="tabs hidden">
   <button class="active" data-view="chat">SOHBET <span id="chatBadge" class="tab-badge">0</span></button>
@@ -404,40 +391,6 @@
 
 <script>
 const $=s=>document.querySelector(s);
-
-const ULTRON_BG_KEY='ultronCustomBackground';
-const ULTRON_BG_Y_KEY='ultronCustomBackgroundY';
-function applyCustomBackground(){
-  const saved=localStorage.getItem(ULTRON_BG_KEY);
-  const y=localStorage.getItem(ULTRON_BG_Y_KEY)||'-92';
-  if(saved){
-    document.body.style.setProperty('background-image',`linear-gradient(180deg,rgba(2,3,5,.08) 0%,rgba(2,3,5,.16) 42%,rgba(2,3,5,.34) 100%),url("${saved}")`,'important');
-    document.body.style.setProperty('background-position',`center ${y}px`,'important');
-  }
-  const slider=$('#settingsBgY');if(slider)slider.value=y;
-  const preview=$('#settingsBgPreview');
-  if(preview&&saved){preview.style.backgroundImage=`url("${saved}")`;preview.innerHTML=''}
-}
-function openSettings(){
-  applyCustomBackground();
-  $('#settingsModal').classList.remove('hidden');$('#settingsModal').setAttribute('aria-hidden','false');
-}
-function closeSettings(){
-  $('#settingsModal').classList.add('hidden');$('#settingsModal').setAttribute('aria-hidden','true');
-}
-async function saveBackgroundFile(file){
-  if(!file)return;
-  if(!file.type.startsWith('image/')){toast('Lütfen bir fotoğraf seç.');return}
-  const source=await new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)});
-  const img=await new Promise((resolve,reject)=>{const x=new Image();x.onload=()=>resolve(x);x.onerror=reject;x.src=source});
-  const maxW=1080,maxH=2200,scale=Math.min(1,maxW/img.width,maxH/img.height);
-  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
-  canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-  let data=canvas.toDataURL('image/jpeg',.82);
-  try{localStorage.setItem(ULTRON_BG_KEY,data)}
-  catch{data=canvas.toDataURL('image/jpeg',.62);try{localStorage.setItem(ULTRON_BG_KEY,data)}catch{toast('Fotoğraf çok büyük. Daha küçük bir görsel seç.');return}}
-  applyCustomBackground();toast('Arka plan değiştirildi.');
-}
 
 let conversationId=localStorage.getItem('ultronConversationId')||'';
 let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initialMessagesLoaded=false;
@@ -793,6 +746,34 @@ async function startLiveVoice(){
     toast(name==='NotAllowedError'?'Mikrofon izni gerekli.':'Sesli ULTRON başlatılamadı: '+(err?.message||name));
   }
 }
+let voiceGestureArmed=false;
+function armVoiceGesture(){
+  if(voiceGestureArmed)return;
+  voiceGestureArmed=true;
+  const resume=async()=>{
+    voiceGestureArmed=false;
+    document.removeEventListener('pointerdown',resume,true);
+    document.removeEventListener('touchstart',resume,true);
+    try{
+      if(!liveDesired&&!voiceListening)await startLiveVoice();
+      if(playContext?.state==='suspended')await playContext.resume().catch(()=>{});
+      if(micContext?.state==='suspended')await micContext.resume().catch(()=>{});
+    }catch{}
+  };
+  document.addEventListener('pointerdown',resume,true);
+  document.addEventListener('touchstart',resume,true);
+}
+async function startHandsFreeVoice(){
+  if(!voiceEnabled)setVoiceEnabled(true,false);
+  if(liveDesired||voiceListening)return;
+  liveStatus('Mikrofon hazırlanıyor…',true);
+  try{await startLiveVoice()}
+  catch{}
+  if(!liveDesired&&!voiceListening){
+    liveStatus('Mikrofon için ekrana bir kez dokun',false);
+    armVoiceGesture();
+  }
+}
 function startVoice(){startLiveVoice()}
 function scrollChatToBottom(smooth=false){
   if(currentView!=='chat')return;
@@ -872,8 +853,8 @@ async function boot(){
     setSplash('Oturum doğrulanıyor');
     await api('/api/session');
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#tabs').classList.remove('hidden');
-    setOnline(true,'Cloud bağlı');setSplash('Ortak sohbet yükleniyor');await loadMessages();restoreDraft();scrollChatToBottom(false);setVoiceEnabled(voiceEnabled,false);hideSplash();
-    if(voiceEnabled&&!sessionStorage.getItem('ultronVoiceGreeted')){sessionStorage.setItem('ultronVoiceGreeted','1');setTimeout(()=>speakUltron('Bağlantı kuruldu. Ben ULTRON. Seni dinliyorum.'),350);}
+    setOnline(true,'Cloud bağlı');setSplash('Ortak sohbet yükleniyor');await loadMessages();restoreDraft();scrollChatToBottom(false);setVoiceEnabled(true,false);hideSplash();
+    setTimeout(()=>startHandsFreeVoice(),250);
   }catch(e){
     hideSplash();
     $('#app').classList.add('hidden');$('#tabs').classList.add('hidden');$('#login').classList.remove('hidden');setOnline(false,'Giriş gerekli');
@@ -912,13 +893,6 @@ $('#cameraFlip').onclick=flipPhoneCamera;
 $('#cameraStop').onclick=stopPhoneCamera;
 document.addEventListener('click',e=>{if(attachMenuOpen&&!e.target.closest('.attach-wrap'))setAttachMenu(false)});
 
-$('#settingsBtn').onclick=openSettings;
-$('#closeSettings').onclick=closeSettings;
-$('#settingsModal').onclick=e=>{if(e.target===$('#settingsModal'))closeSettings()};
-$('#chooseSettingsBg').onclick=()=>$('#settingsBgInput').click();
-$('#settingsBgInput').onchange=e=>saveBackgroundFile(e.target.files?.[0]||null).catch(()=>toast('Arka plan yüklenemedi.'));
-$('#resetSettingsBg').onclick=()=>{localStorage.removeItem(ULTRON_BG_KEY);localStorage.removeItem(ULTRON_BG_Y_KEY);document.body.style.removeProperty('background-image');document.body.style.removeProperty('background-position');$('#settingsBgPreview').style.backgroundImage='';$('#settingsBgPreview').innerHTML='<span>Özel arka plan seçilmedi</span>';$('#settingsBgY').value='-92';toast('Varsayılan arka plana dönüldü.')};
-$('#settingsBgY').oninput=e=>{const y=String(e.target.value);localStorage.setItem(ULTRON_BG_Y_KEY,y);if(localStorage.getItem(ULTRON_BG_KEY))document.body.style.setProperty('background-position',`center ${y}px`,'important')};
 
 $('#voiceToggle').onclick=()=>setVoiceEnabled(!voiceEnabled,true);
 if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=()=>pickUltronVoice()}
@@ -1034,7 +1008,6 @@ window.visualViewport?.addEventListener('resize',()=>{if(currentView==='chat')se
 $('#message').addEventListener('focus',()=>setTimeout(()=>scrollChatToBottom(false),180));
 const messageObserver=new MutationObserver(()=>{if(currentView==='chat')scrollChatToBottom(false)});
 messageObserver.observe($('#messages'),{childList:true,subtree:true});
-applyCustomBackground();
 boot().then(()=>phoneHeartbeat());
 window.addEventListener('online',()=>{setOnline(true,'Cloud bağlı');if(liveDesired&&!voiceListening)scheduleLiveReconnect()});
 window.addEventListener('offline',()=>{setOnline(false,'Çevrimdışı');if(liveDesired){clearLiveReconnect();liveStatus('İnternet bekleniyor…',true);$('#stageVoiceText').textContent='Ses bağlantısı beklemede'}});
