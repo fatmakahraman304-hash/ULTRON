@@ -120,6 +120,24 @@ class CloudClient:
             json_body=body,
         )
 
+    async def save_task_checkpoint(
+        self,
+        command_id: int,
+        *,
+        step_index: int,
+        state: dict[str, Any] | None = None,
+        note: str = "",
+    ) -> dict[str, Any]:
+        return await self._request(
+            "POST",
+            f"/api/device-commands/{int(command_id)}/checkpoint",
+            json_body={
+                "step_index": max(0, int(step_index)),
+                "state": state or {},
+                "note": str(note)[:2000],
+            },
+        )
+
     async def complete_task(
         self,
         command_id: int,
