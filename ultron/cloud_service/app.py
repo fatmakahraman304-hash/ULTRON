@@ -9,13 +9,16 @@ import os
 import random
 import time
 import uuid
+import urllib.request
 from pathlib import Path
 from typing import Any
 
 import asyncpg
+import numpy as np
 from aiohttp import web
 from google import genai
 from google.genai import types
+import sherpa_onnx
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -24,6 +27,15 @@ SCHEMA_FILE = BASE_DIR / "schema.sql"
 COOKIE_NAME = "ultron_session"
 DEFAULT_USER_ID = os.getenv("ULTRON_USER_ID", "murat")
 SESSION_DAYS = int(os.getenv("ULTRON_SESSION_DAYS", "30"))
+
+SPEAKER_MODEL_NAME = "3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx"
+SPEAKER_MODEL_URL = os.getenv(
+    "ULTRON_SPEAKER_MODEL_URL",
+    "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
+).strip()
+SPEAKER_MODEL_PATH = Path(os.getenv("ULTRON_SPEAKER_MODEL_PATH", f"/tmp/{SPEAKER_MODEL_NAME}"))
+SPEAKER_THRESHOLD = float(os.getenv("ULTRON_SPEAKER_THRESHOLD", "0.62"))
+
 
 DEVICE_COMMANDS = {
     # agent_task is deliberately free-form: a paired phone may send the same
@@ -113,6 +125,164 @@ async def close_db(app: web.Application) -> None:
     await app["db"].close()
 
 
+
+async def _ensure_speaker_extractor(app: web.Application):
+    extractor = app.get("speaker_extractor")
+    if extractor is not None:
+        return extractor
+
+    lock = app.get("speaker_extractor_lock")
+    if lock is None:
+        lock = asyncio.Lock()
+        app["speaker_extractor_lock"] = lock
+
+    async with lock:
+        extractor = app.get("speaker_extractor")
+        if extractor is not None:
+            return extractor
+
+        if not SPEAKER_MODEL_PATH.exists():
+            SPEAKER_MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+            def _download() -> None:
+                tmp = SPEAKER_MODEL_PATH.with_suffix(SPEAKER_MODEL_PATH.suffix + ".part")
+                urllib.request.urlretrieve(SPEAKER_MODEL_URL, tmp)
+                tmp.replace(SPEAKER_MODEL_PATH)
+
+            await asyncio.to_thread(_download)
+
+        def _load():
+            cfg = sherpa_onnx.SpeakerEmbeddingExtractorConfig(
+                model=str(SPEAKER_MODEL_PATH),
+                num_threads=1,
+                debug=False,
+                provider="cpu",
+            )
+            if not cfg.validate():
+                raise RuntimeError("speaker_embedding_model_invalid")
+            return sherpa_onnx.SpeakerEmbeddingExtractor(cfg)
+
+        extractor = await asyncio.to_thread(_load)
+        app["speaker_extractor"] = extractor
+        return extractor
+
+
+async def _speaker_embedding(app: web.Application, pcm16: bytes) -> list[float]:
+    samples = np.frombuffer(pcm16, dtype="<i2").astype(np.float32) / 32768.0
+    if samples.size < 16000:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "speaker_sample_too_short"}),
+            content_type="application/json",
+        )
+    if samples.size > 16000 * 8:
+        samples = samples[:16000 * 8]
+
+    extractor = await _ensure_speaker_extractor(app)
+
+    def _compute() -> list[float]:
+        stream = extractor.create_stream()
+        stream.accept_waveform(sample_rate=16000, waveform=np.ascontiguousarray(samples))
+        stream.input_finished()
+        if not extractor.is_ready(stream):
+            raise RuntimeError("speaker_embedding_not_ready")
+        emb = np.asarray(extractor.compute(stream), dtype=np.float32)
+        norm = float(np.linalg.norm(emb))
+        if norm <= 1e-8:
+            raise RuntimeError("speaker_embedding_empty")
+        emb = emb / norm
+        return emb.astype(float).tolist()
+
+    return await asyncio.to_thread(_compute)
+
+
+def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    va = np.asarray(a, dtype=np.float32)
+    vb = np.asarray(b, dtype=np.float32)
+    if va.size == 0 or vb.size == 0 or va.shape != vb.shape:
+        return 0.0
+    denom = float(np.linalg.norm(va) * np.linalg.norm(vb))
+    if denom <= 1e-8:
+        return 0.0
+    return float(np.dot(va, vb) / denom)
+
+
+async def speaker_status(request: web.Request) -> web.Response:
+    row = await request.app["db"].fetchrow(
+        "SELECT model,sample_count,updated_at FROM speaker_profiles WHERE user_id=$1",
+        request["user_id"],
+    )
+    return web.json_response({
+        "ok": True,
+        "enrolled": bool(row),
+        "model": row["model"] if row else SPEAKER_MODEL_NAME,
+        "sample_count": int(row["sample_count"]) if row else 0,
+        "threshold": SPEAKER_THRESHOLD,
+    }, dumps=_json_dumps)
+
+
+async def speaker_enroll(request: web.Request) -> web.Response:
+    # Enrollment is create-once. After a profile exists, random ambient audio
+    # cannot silently replace the owner's voiceprint.
+    existing = await request.app["db"].fetchval(
+        "SELECT 1 FROM speaker_profiles WHERE user_id=$1",
+        request["user_id"],
+    )
+    if existing:
+        return web.json_response({"ok": True, "enrolled": True, "already_enrolled": True})
+
+    pcm16 = await request.read()
+    if len(pcm16) > 16 * 1024 * 1024:
+        raise web.HTTPRequestEntityTooLarge(max_size=16 * 1024 * 1024, actual_size=len(pcm16))
+    embedding = await _speaker_embedding(request.app, pcm16)
+    row = await request.app["db"].fetchrow(
+        """
+        INSERT INTO speaker_profiles(user_id,model,embedding,sample_count)
+        VALUES($1,$2,$3::jsonb,1)
+        ON CONFLICT(user_id) DO NOTHING
+        RETURNING user_id,model,sample_count,updated_at
+        """,
+        request["user_id"], SPEAKER_MODEL_NAME, json.dumps(embedding),
+    )
+    return web.json_response({
+        "ok": True,
+        "enrolled": True,
+        "model": SPEAKER_MODEL_NAME,
+        "sample_count": int(row["sample_count"]) if row else 1,
+    }, dumps=_json_dumps)
+
+
+async def speaker_verify(request: web.Request) -> web.Response:
+    row = await request.app["db"].fetchrow(
+        "SELECT model,embedding FROM speaker_profiles WHERE user_id=$1",
+        request["user_id"],
+    )
+    if not row:
+        raise web.HTTPConflict(
+            text=json.dumps({"error": "speaker_not_enrolled"}),
+            content_type="application/json",
+        )
+    pcm16 = await request.read()
+    embedding = await _speaker_embedding(request.app, pcm16)
+    stored = row["embedding"]
+    if isinstance(stored, str):
+        stored = json.loads(stored)
+    score = _cosine_similarity(list(stored), embedding)
+    matched = score >= SPEAKER_THRESHOLD
+    await request.app["db"].execute(
+        "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'speaker_verify',$2,$3)",
+        request["user_id"],
+        json.dumps({"score": round(score, 4), "matched": matched}, ensure_ascii=False),
+        request["device_id"],
+    )
+    return web.json_response({
+        "ok": True,
+        "matched": matched,
+        "score": round(score, 4),
+        "threshold": SPEAKER_THRESHOLD,
+        "model": row["model"],
+    })
+
+
 async def health(request: web.Request) -> web.Response:
     config = {
         "database": bool(os.getenv("DATABASE_URL")),
@@ -120,6 +290,7 @@ async def health(request: web.Request) -> web.Response:
         "password": bool(os.getenv("ULTRON_PASSWORD")),
         "session_secret": bool(os.getenv("ULTRON_SESSION_SECRET")),
         "device_token": bool(os.getenv("ULTRON_DEVICE_TOKEN")),
+        "speaker_model": bool(SPEAKER_MODEL_URL),
     }
     return web.json_response({"ok": all(config.values()), "service": "ultron-cloud", "config": config})
 
@@ -1335,6 +1506,9 @@ def build_app() -> web.Application:
     app.router.add_post("/api/document", document)
     app.router.add_post("/api/camera-frame", camera_frame)
     app.router.add_get("/api/live", live_voice)
+    app.router.add_get("/api/speaker/status", speaker_status)
+    app.router.add_post("/api/speaker/enroll", speaker_enroll)
+    app.router.add_post("/api/speaker/verify", speaker_verify)
     app.router.add_post("/api/device-commands", send_device_command)
     app.router.add_post("/api/device-commands/claim", claim_device_commands)
     app.router.add_post("/api/device-commands/{id}/complete", complete_device_command)
