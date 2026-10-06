@@ -1456,7 +1456,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         RETURNING id,created_at
                         """,
                         user_id,
-                        json.dumps({"text": task_text}, ensure_ascii=False),
+                        json.dumps({"text": task_text, "origin": "voice"}, ensure_ascii=False),
                         device_id,
                     )
                     await send_json({
@@ -1474,6 +1474,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             "desktop_online": online,
                             "queued": not online,
                             "task": task_text,
+                            "origin": "voice",
                         },
                     )
 
