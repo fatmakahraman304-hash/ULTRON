@@ -1,5 +1,6 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import * as THREE from 'three';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {Download,Maximize2,Play,RotateCcw,Sparkles,Video} from 'lucide-react';
 import UltronCore from './core/UltronCore';
 import {request,type CoreState,type HologramConfig,type StageState} from './runtime';
@@ -10,7 +11,7 @@ function colorOf(value:string){
  try{return new THREE.Color(value||'#ff3047');}catch{return new THREE.Color('#ff3047');}
 }
 
-function HologramStage({config}:{config:HologramConfig}){
+function HologramStage({config,customModel}:{config:HologramConfig;customModel:ArrayBuffer|null}){
  const host=useRef<HTMLDivElement>(null);
  useEffect(()=>{
   const el=host.current;if(!el)return;
@@ -26,8 +27,30 @@ function HologramStage({config}:{config:HologramConfig}){
   const add=(g:THREE.BufferGeometry,m:THREE.Material=mat,x=0,y=0,z=0)=>{const mesh=new THREE.Mesh(g,m);mesh.position.set(x,y,z);root.add(mesh);return mesh;};
   const torus=(r:number,t=.012,rx=0,ry=0,rz=0)=>{const m=add(new THREE.TorusGeometry(r,t,8,128));m.rotation.set(rx,ry,rz);return m;};
 
+  let dead=false;
   const kind=config.kind||'energy';
-  if(kind==='globe'){
+  if(customModel){
+   const loader=new GLTFLoader();
+   loader.parse(customModel.slice(0),'',gltf=>{
+    if(dead)return;
+    const model=gltf.scene;
+    model.traverse(obj=>{
+     const mesh=obj as THREE.Mesh;
+     if(mesh.isMesh){
+      mesh.material=new THREE.MeshBasicMaterial({
+       color,transparent:true,opacity:config.opacity,
+       wireframe:config.wireframe
+      });
+     }
+    });
+    const box=new THREE.Box3().setFromObject(model),size=new THREE.Vector3(),center=new THREE.Vector3();
+    box.getSize(size);box.getCenter(center);
+    model.position.sub(center);
+    const max=Math.max(size.x,size.y,size.z,0.001);
+    model.scale.setScalar(3.2/max);
+    root.add(model);
+   },err=>console.warn('Center Stage GLB:',err));
+  }else if(kind==='globe'){
    add(new THREE.SphereGeometry(1.65,40,26),dim);
    for(let i=-3;i<=3;i++){const r=Math.sqrt(Math.max(.2,1-(i/4)**2))*1.65;const ring=torus(r,.009,Math.PI/2);ring.position.y=i*.38;}
    for(let i=0;i<8;i++)torus(1.65,.009,0,(i*Math.PI)/8,0);
@@ -58,14 +81,14 @@ function HologramStage({config}:{config:HologramConfig}){
   scene.add(new THREE.AmbientLight(0xffffff,.6));
   const light=new THREE.PointLight(color,Math.max(2,config.glow*16),20);light.position.set(2,3,4);scene.add(light);
 
-  let dead=false,frame=0,last=performance.now();
+  let frame=0,last=performance.now();
   const resize=()=>{const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};resize();
   const ro=new ResizeObserver(resize);ro.observe(el);
   const move=(e:PointerEvent)=>{const r=renderer.domElement.getBoundingClientRect();const x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;root.rotation.y=x*1.1;root.rotation.x=-y*.65;};
   renderer.domElement.addEventListener('pointermove',move);
   const loop=(now:number)=>{if(dead)return;const dt=Math.min(.05,(now-last)/1000);last=now;const pulse=config.pulse?1+Math.sin(now*.003)*.055:1;root.scale.setScalar(config.scale*pulse);root.rotation.y+=dt*.42*config.speed;particles.rotation.y-=dt*.11*config.speed;renderer.render(scene,camera);frame=requestAnimationFrame(loop);};frame=requestAnimationFrame(loop);
   return()=>{dead=true;cancelAnimationFrame(frame);ro.disconnect();renderer.domElement.removeEventListener('pointermove',move);renderer.dispose();scene.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();if((m as any).material){const a=Array.isArray((m as any).material)?(m as any).material:[(m as any).material];a.forEach((x:THREE.Material)=>x.dispose());}});renderer.domElement.remove();};
- },[config.kind,config.color,config.glow,config.speed,config.rings,config.particles,config.scale,config.opacity,config.wireframe,config.pulse]);
+ },[config.kind,config.color,config.glow,config.speed,config.rings,config.particles,config.scale,config.opacity,config.wireframe,config.pulse,customModel]);
  return <div className="stage-hologram"><div ref={host} className="stage-webgl"/><div className="stage-holo-label"><b>{config.label||'ULTRON'}</b><span>{String(config.kind||'energy').toUpperCase()} HOLOGRAM</span></div></div>;
 }
 
@@ -106,26 +129,27 @@ function VideoRenderer({stage,onReady,onError,onProgress}:{stage:StageState;onRe
 }
 
 export default function CenterStage({stage,state,amplitude,notify}:Props){
- const [videoUrl,setVideoUrl]=useState(''),[videoBlob,setVideoBlob]=useState<Blob|null>(null),[renderError,setRenderError]=useState(''),[renderProgress,setRenderProgress]=useState(0);
- const video=useRef<HTMLVideoElement>(null),lastSaveNonce=useRef(Number(stage.save_nonce||0));
+ const [videoUrl,setVideoUrl]=useState(''),[videoBlob,setVideoBlob]=useState<Blob|null>(null),[renderError,setRenderError]=useState(''),[renderProgress,setRenderProgress]=useState(0),[customModel,setCustomModel]=useState<ArrayBuffer|null>(null),[customModelName,setCustomModelName]=useState('');
+ const video=useRef<HTMLVideoElement>(null),modelFile=useRef<HTMLInputElement>(null),lastSaveNonce=useRef(Number(stage.save_nonce||0));
  useEffect(()=>()=>{if(videoUrl)URL.revokeObjectURL(videoUrl);},[videoUrl]);
  useEffect(()=>{if(stage.mode==='video_rendering'){setRenderError('');setRenderProgress(0);}},[stage.job_id,stage.mode]);
  useEffect(()=>{if(video.current)stage.video_paused?video.current.pause():video.current.play().catch(()=>{});},[stage.video_paused,stage.revision]);
  const patch=(body:Record<string,unknown>)=>request('/api/stage/control',body).catch(e=>notify(String(e)));
  const command=(operation:string,extra:Record<string,unknown>={})=>request('/api/stage/command',{operation,...extra}).catch(e=>notify(String(e)));
  const downloadVideo=()=>{if(!videoBlob||!videoUrl){notify('Bu oturumda video verisi yok. Videoyu yeniden render et.');return;}const a=document.createElement('a');a.href=videoUrl;a.download='ultron-'+(stage.video.template||'animation')+'.webm';a.click();};
- const downloadHologram=()=>{const payload={version:1,type:'ultron-center-stage',saved_at:new Date().toISOString(),hologram:stage.hologram};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ultron-hologram.ultron.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);};
+ const downloadHologram=()=>{const payload={version:1,type:'ultron-center-stage',saved_at:new Date().toISOString(),hologram:stage.hologram,custom_model:customModelName||null};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ultron-hologram.ultron.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);};
  useEffect(()=>{const nonce=Number(stage.save_nonce||0);if(!nonce||nonce===lastSaveNonce.current)return;lastSaveNonce.current=nonce;if(stage.save_kind==='video')downloadVideo();else if(stage.save_kind==='hologram')downloadHologram();},[stage.save_nonce,stage.save_kind,videoBlob,videoUrl,stage.hologram,stage.video.template]);
  const presets=useMemo(()=>['energy','globe','network','drone','vehicle','logo','sphere'],[]);
  return <div className={'center-stage mode-'+stage.mode}>
   {stage.mode==='core_idle'&&<><UltronCore state={state} amplitude={amplitude}/><div className="core-title">ULTRON<small>NEURAL CORE</small></div></>}
-  {stage.mode==='hologram_lab'&&<><HologramStage config={stage.hologram}/><div className="stage-controls">
+  {stage.mode==='hologram_lab'&&<><HologramStage config={stage.hologram} customModel={customModel}/><div className="stage-controls">
    <div className="stage-presets">{presets.map(k=><button key={k} className={stage.hologram.kind===k?'active':''} onClick={()=>patch({kind:k})}>{k.toUpperCase()}</button>)}</div>
    <label>RENK<input type="color" value={stage.hologram.color.startsWith('#')?stage.hologram.color:'#ff3047'} onChange={e=>patch({color:e.target.value})}/></label>
    <label>BOYUT<input type="range" min=".35" max="2" step=".05" value={stage.hologram.scale} onChange={e=>patch({scale:+e.target.value})}/></label>
    <label>HIZ<input type="range" min=".05" max="4" step=".05" value={stage.hologram.speed} onChange={e=>patch({speed:+e.target.value})}/></label>
    <label>HALKA<input type="range" min="0" max="10" step="1" value={stage.hologram.rings} onChange={e=>patch({rings:+e.target.value})}/></label>
    <button onClick={()=>patch({wireframe:!stage.hologram.wireframe})}>{stage.hologram.wireframe?'SOLID':'WIREFRAME'}</button>
+   <button onClick={()=>modelFile.current?.click()}>MODEL AÇ</button>
    <button onClick={downloadHologram}><Download/> KAYDET</button>
    <button onClick={()=>command('video_from_stage',{duration:6,title:stage.hologram.label})}><Video/> VİDEOYA ÇEVİR</button>
    <button onClick={()=>command('reset')}><RotateCcw/> CORE</button>
@@ -134,7 +158,8 @@ export default function CenterStage({stage,state,amplitude,notify}:Props){
   {stage.mode==='video_preview'&&<div className="stage-video-preview">{videoUrl?<video ref={video} src={videoUrl} autoPlay loop controls playsInline/>:<div className="stage-missing-video"><Video/><h2>VIDEO OTURUMU HAZIR</h2><p>Bu render başka bir UI oturumunda üretildi. Yeniden üretmek için Render düğmesini kullan.</p></div>}<div className="video-actions"><button onClick={()=>{const v=video.current;if(!v)return;v.paused?v.play():v.pause();}}><Play/> OYNAT / DURAKLAT</button><button disabled={!videoBlob} onClick={downloadVideo}><Download/> KAYDET</button><button onClick={()=>command('video_create',{template:stage.video.template,duration:stage.video.duration,title:stage.video.title})}><RotateCcw/> YENİDEN RENDER</button><button onClick={()=>command('reset')}><Maximize2/> CORE</button></div></div>}
   {stage.mode==='task_progress'&&<div className="stage-task"><div className="task-orb"/><h2>{stage.title}</h2><p>{stage.subtitle}</p><div className="stage-progress"><i style={{width:Math.max(0,Math.min(100,stage.progress))+'%'}}/></div><b>%{Math.round(stage.progress)}</b></div>}
   {stage.mode==='screen_preview'&&<div className="stage-task"><ScanFrame/><h2>SCREEN PREVIEW</h2><p>Vizyon önizlemesi için Ekran Yakalama aracını kullan.</p><button onClick={()=>command('reset')}>CORE'A DÖN</button></div>}
-  {stage.mode!=='core_idle'&&<div className="stage-mode-tag"><span>{stage.title}</span><small>{stage.subtitle}</small></div>}
+  {stage.mode!=='core_idle'&&<div className="stage-mode-tag"><span>{stage.title}</span><small>{customModelName?customModelName+' / '+stage.subtitle:stage.subtitle}</small></div>}
+  <input ref={modelFile} hidden type="file" accept=".glb,model/gltf-binary" onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(!/\.glb$/i.test(file.name)){notify('Center Stage için GLB dosyası seç.');return;}if(file.size>50*1024*1024){notify('GLB modeli en fazla 50 MB olabilir.');return;}try{setCustomModel(await file.arrayBuffer());setCustomModelName(file.name);if(stage.mode!=='hologram_lab')await command('hologram_create',{kind:'sphere',label:file.name.replace(/\.glb$/i,'')});}catch(err){notify('3D model açılamadı: '+String(err));}}}/>
  </div>;
 }
 
