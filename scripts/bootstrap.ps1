@@ -89,6 +89,10 @@ try {
             Write-Host 'ULTRON Center Stage arayuzu derleniyor...' -ForegroundColor Cyan
             Push-Location -LiteralPath $frontendDir
             try {
+                if (-not (Test-Path -LiteralPath (Join-Path $frontendDir 'node_modules'))) {
+                    & $npm.Source ci
+                    if ($LASTEXITCODE -ne 0) { throw "Frontend npm ci basarisiz: $LASTEXITCODE" }
+                }
                 & $npm.Source run build
                 if ($LASTEXITCODE -ne 0) { throw "Frontend build basarisiz: $LASTEXITCODE" }
             } finally {
