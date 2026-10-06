@@ -491,7 +491,18 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                   FOR UPDATE SKIP LOCKED
                 )
                 UPDATE device_commands d
-                SET status='delivered', delivered_at=NOW()
+                SET status='delivered',
+                    delivered_at=NOW(),
+                    progress = CASE
+                      WHEN d.command='agent_task' THEN COALESCE(d.progress, '[]'::jsonb) ||
+                        jsonb_build_array(jsonb_build_object(
+                          'stage','claimed',
+                          'message','Laptop ULTRON görevi aldı.',
+                          'percent',5,
+                          'at',EXTRACT(EPOCH FROM NOW())
+                        ))
+                      ELSE COALESCE(d.progress, '[]'::jsonb)
+                    END
                 FROM picked
                 WHERE d.id=picked.id
                 RETURNING d.id,d.target,d.command,d.payload,d.source_device,d.created_at
@@ -533,9 +544,18 @@ async def complete_device_command(request: web.Request) -> web.Response:
     row = await request.app["db"].fetchrow(
         """
         UPDATE device_commands
-        SET status=$1, result=$2::jsonb, completed_at=NOW()
+        SET status=$1,
+            result=$2::jsonb,
+            completed_at=NOW(),
+            progress = COALESCE(progress, '[]'::jsonb) ||
+              jsonb_build_array(jsonb_build_object(
+                'stage', CASE WHEN $1='completed' THEN 'completed' ELSE 'failed' END,
+                'message', COALESCE(NULLIF(($2::jsonb->>'message'),''), CASE WHEN $1='completed' THEN 'Görev tamamlandı.' ELSE 'Görev başarısız oldu.' END),
+                'percent', CASE WHEN $1='completed' THEN 100 ELSE NULL END,
+                'at', EXTRACT(EPOCH FROM NOW())
+              ))
         WHERE id=$3 AND user_id=$4 AND target=$5
-        RETURNING id,target,command,status,result,created_at,delivered_at,completed_at
+        RETURNING id,target,command,status,result,progress,created_at,delivered_at,completed_at
         """,
         status, json.dumps(result), command_id, request["user_id"], expected_target,
     )
