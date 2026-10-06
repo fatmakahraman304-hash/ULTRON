@@ -42,8 +42,12 @@ export default function Dashboard(){
   if(/araç|arac|vehicle/.test(t)&&/tarama|scan/.test(t)&&/(?:sahne|göster|goster|oluştur|olustur|kur)/.test(t)){await action('scene_preset',{preset:'vehicle_scan'});return 'Araç tarama sahnesi kuruldu.';}
   if(/(?:drone).*(?:hangar|bay|sahne)/.test(t)){await action('scene_preset',{preset:'drone_bay'});return 'Drone sahnesi kuruldu.';}
   if(/(?:gezegen|planet|dünya|dunya).*(?:sahne|sistem)/.test(t)){await action('scene_preset',{preset:'planetary'});return 'Gezegen sahnesi kuruldu.';}
+  if(/(?:komuta merkezi|command center|kontrol merkezi).*(?:sahne|kur|oluştur|olustur)?/.test(t)){await action('scene_preset',{preset:'command_center'});return 'Komuta merkezi sahnesi kuruldu.';}
+  if(/(?:şehir|sehir|city).*(?:tarama|scan|sahne)/.test(t)){await action('scene_preset',{preset:'city_scan'});return 'Şehir tarama sahnesi kuruldu.';}
+  if(/(?:uzay|space).*(?:operasyon|sahne|sistem)/.test(t)){await action('scene_preset',{preset:'space_ops'});return 'Uzay operasyon sahnesi kuruldu.';}
+  if(/(?:robotik|robotics|robot laboratuvarı|robot laboratuvari)/.test(t)){await action('scene_preset',{preset:'robotics'});return 'Robotik laboratuvar sahnesi kuruldu.';}
 
-  const multiScene=/\b(?:araba|araç|arac|vehicle|drone|dünya|dunya|globe|küre|kure|enerji|core|network|ağ|ag|logo|kule|tower)\b/.test(t)&&
+  const multiScene=/\b(?:araba|araç|arac|vehicle|drone|dünya|dunya|globe|küre|kure|enerji|core|network|ağ|ag|logo|kule|tower|robot|robot kolu|uydu|satellite|uçak|ucak|aircraft|bina|building|gemi|ship|radar|portal|küp|kup|cube)\b/.test(t)&&
     (/(?:yanına|yanina|sağına|sagina|soluna|birlikte|ve|ile|iki|üç|uc|sahneye|sahne kur)/.test(t));
   if(multiScene&&/(?:koy|ekle|oluştur|olustur|göster|goster|kur|yerleştir|yerlestir)/.test(t)){
    const specs:Array<Record<string,unknown>>=[];
@@ -55,6 +59,15 @@ export default function Dashboard(){
    if(/network|ağ|ag/.test(t))push('network','NETWORK','#ff3047');
    if(/logo/.test(t))push('logo','ULTRON','#ff3047');
    if(/kule|tower/.test(t))push('tower','TOWER','#ff3047');
+   if(/robot kolu|robotic arm/.test(t))push('arm','ARM',color||'#35ffe4');
+   else if(/robot/.test(t))push('robot','ROBOT',color||'#ff3047');
+   if(/uydu|satellite/.test(t))push('satellite','SATELLITE',color||'#ff3047');
+   if(/uçak|ucak|aircraft/.test(t))push('aircraft','AIRCRAFT',color||'#35ffe4');
+   if(/bina|building/.test(t))push('building','BUILDING',color||'#ff3047');
+   if(/gemi|ship/.test(t))push('ship','SHIP',color||'#dbe6ff');
+   if(/radar/.test(t))push('radar','RADAR',color||'#ff3047');
+   if(/portal/.test(t))push('portal','PORTAL',color||'#a855f7');
+   if(/küp|kup|cube/.test(t))push('cube','CUBE',color||'#ff3047');
    const n=specs.length;specs.forEach((s,i)=>{s.x=(i-(n-1)/2)*2.15;s.y=0;s.z=0;});
    if(specs.length){await action('scene_batch',{objects_json:JSON.stringify(specs),camera:/üstten|ustten|top/.test(t)?'top':/önden|onden|front/.test(t)?'front':'isometric'});return specs.length+' nesneli Scene Lab sahnesi kuruldu.';}
   }
