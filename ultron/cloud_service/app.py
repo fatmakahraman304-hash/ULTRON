@@ -943,7 +943,11 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     pool = request.app["db"]
     user_id = request["user_id"]
     device_id = request["device_id"]
-    conv_uuid = uuid.uuid4()
+    raw_voice_session = str(request.query.get("session_id", "")).strip()
+    try:
+        conv_uuid = uuid.UUID(raw_voice_session) if raw_voice_session else uuid.uuid4()
+    except (ValueError, AttributeError):
+        conv_uuid = uuid.uuid4()
     memory = await _memory_context(pool, user_id)
     recent = await _recent_context(pool, user_id, limit=18)
     base_prompt = os.getenv(
@@ -978,11 +982,18 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     except Exception:
         pass
 
+    existing_owner = await pool.fetchval(
+        "SELECT user_id FROM conversations WHERE id=$1",
+        conv_uuid,
+    )
+    if existing_owner is not None and existing_owner != user_id:
+        conv_uuid = uuid.uuid4()
+
     await pool.execute(
         """
         INSERT INTO conversations(id,user_id,title)
         VALUES($1,$2,'Telefon sesli ULTRON')
-        ON CONFLICT(id) DO NOTHING
+        ON CONFLICT(id) DO UPDATE SET updated_at=NOW()
         """,
         conv_uuid, user_id,
     )
@@ -1061,7 +1072,13 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 
     try:
         async with client.aio.live.connect(model=model, config=config) as session:
-            await send_json({"type": "ready", "model": model.split("/")[-1], "voice": voice})
+            await send_json({
+                "type": "ready",
+                "model": model.split("/")[-1],
+                "voice": voice,
+                "session_id": str(conv_uuid),
+                "resumed": existing_owner == user_id,
+            })
 
             async def browser_to_gemini() -> None:
                 async for msg in ws:
