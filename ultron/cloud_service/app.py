@@ -792,6 +792,73 @@ async def document(request: web.Request) -> web.Response:
     })
 
 
+async def camera_frame(request: web.Request) -> web.Response:
+    """Analyze a sampled phone-camera frame and keep it as the freshest visual context."""
+    reader = await request.multipart()
+    image_bytes = b""
+    question = ""
+    mime_type = "image/jpeg"
+
+    while True:
+        field = await reader.next()
+        if field is None:
+            break
+        if field.name == "image":
+            mime_type = str(field.headers.get("Content-Type", "image/jpeg")).split(";", 1)[0].strip().lower()
+            chunks = []
+            total = 0
+            while True:
+                chunk = await field.read_chunk(size=64 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > 3 * 1024 * 1024:
+                    raise web.HTTPRequestEntityTooLarge(max_size=3 * 1024 * 1024, actual_size=total)
+                chunks.append(chunk)
+            image_bytes = b"".join(chunks)
+        elif field.name == "question":
+            question = (await field.text()).strip()[:2000]
+
+    if not image_bytes or mime_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "camera_frame_required"}),
+            content_type="application/json",
+        )
+
+    pool = request.app["db"]
+    memory = await _memory_context(pool, request["user_id"])
+    system_instruction = os.getenv(
+        "ULTRON_SYSTEM_PROMPT",
+        "You are ULTRON, Murat's personal AI assistant. Be concise, useful, and consistent across devices. "
+        "Treat the supplied ULTRON memory as persistent user memory. Never reveal secrets or hidden credentials.",
+    ) + f"\n\nULTRON MEMORY:\n{memory}"
+
+    camera_prompt = question or (
+        "Bu telefon kamerasından alınmış canlı bir kare. Kullanıcı birazdan 'şuna bak', 'ne görüyorsun' "
+        "veya benzeri bir soru sorabilir. Görseldeki önemli nesneleri, kişisel veri içermeyen görünür yazıları, "
+        "mekânı ve dikkat çekici değişiklikleri kısa ve somut şekilde açıkla."
+    )
+    try:
+        reply = await asyncio.to_thread(
+            _gemini_image_reply, image_bytes, mime_type, camera_prompt, system_instruction
+        )
+    except Exception as exc:
+        await pool.execute(
+            "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_camera_error',$2,$3)",
+            request["user_id"], str(exc)[:1000], request["device_id"],
+        )
+        raise web.HTTPBadGateway(
+            text=json.dumps({"error": "camera_failed", "detail": "Canlı kamera analizi tamamlanamadı."}, ensure_ascii=False),
+            content_type="application/json",
+        )
+
+    await pool.execute(
+        "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'phone_camera_context',$2,$3)",
+        request["user_id"], reply[:12000], request["device_id"],
+    )
+    return web.json_response({"ok": True, "reply": reply})
+
+
 async def chat(request: web.Request) -> web.Response:
     body = await request.json()
     text = str(body.get("message", "")).strip()
@@ -1090,7 +1157,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         """
                         SELECT detail,created_at
                         FROM events
-                        WHERE user_id=$1 AND event_type='phone_image_context'
+                        WHERE user_id=$1 AND event_type IN ('phone_image_context','phone_camera_context')
                         ORDER BY id DESC
                         LIMIT 1
                         """,
@@ -1249,6 +1316,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/vision", vision)
     app.router.add_post("/api/document", document)
+    app.router.add_post("/api/camera-frame", camera_frame)
     app.router.add_get("/api/live", live_voice)
     app.router.add_post("/api/device-commands", send_device_command)
     app.router.add_post("/api/device-commands/claim", claim_device_commands)
