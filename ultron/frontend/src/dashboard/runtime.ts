@@ -7,7 +7,7 @@ export type HologramConfig={
  scale:number;opacity:number;wireframe:boolean;pulse:boolean;label:string;
 };
 export type SceneMotion={type:string;speed:number;radius:number;amplitude:number;axis:string};
-export type SceneObject={id:string;kind:string;label:string;color:string;position:number[];rotation:number[];scale:number;opacity:number;wireframe:boolean;spin:number;explode:number;visible?:boolean;locked?:boolean;motion?:SceneMotion};
+export type SceneObject={id:string;kind:string;label:string;model_id?:string|null;color:string;position:number[];rotation:number[];scale:number;opacity:number;wireframe:boolean;spin:number;explode:number;visible?:boolean;locked?:boolean;motion?:SceneMotion};
 export type SceneKeyframe={id:string;time:number;object_id:string;position:number[];rotation:number[];scale:number};
 export type SceneTimeline={duration:number;cursor:number;playing:boolean;loop:boolean;started_at?:number|null;keyframes:SceneKeyframe[]};
 export type SceneCinematic={enabled:boolean;preset:string;duration:number;started_at?:number|null;loop:boolean};
