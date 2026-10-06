@@ -63,7 +63,7 @@ ALTER TABLE device_commands
   DROP CONSTRAINT IF EXISTS device_commands_status_check;
 ALTER TABLE device_commands
   ADD CONSTRAINT device_commands_status_check
-  CHECK (status IN ('queued','delivered','completed','failed'));
+  CHECK (status IN ('queued','delivered','completed','failed','cancelled','expired'));
 
 CREATE TABLE IF NOT EXISTS device_presence (
   user_id TEXT NOT NULL,
