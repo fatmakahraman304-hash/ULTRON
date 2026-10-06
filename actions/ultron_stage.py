@@ -79,7 +79,7 @@ TOOL = {
                     "status", "reset", "hologram_create", "hologram_update",
                     "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_update",
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
-                    "scene_arrange", "scene_preset", "scene_animation",
+                    "scene_arrange", "scene_preset", "scene_animation", "scene_save",
                     "video_create", "video_from_stage", "video_play",
                     "video_pause", "video_save", "task_progress", "screen_preview"
                 ],
