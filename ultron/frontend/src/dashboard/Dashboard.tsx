@@ -59,6 +59,7 @@ export default function Dashboard(){
    if(specs.length){await action('scene_batch',{objects_json:JSON.stringify(specs),camera:/üstten|ustten|top/.test(t)?'top':/önden|onden|front/.test(t)?'front':'isometric'});return specs.length+' nesneli Scene Lab sahnesi kuruldu.';}
   }
 
+  if(sceneMode&&/(?:sahneyi|scene|bunu).*(?:kaydet|save)/.test(t)){await action('scene_save');return 'Scene Lab projesi kaydediliyor.';}
   if(sceneMode){
    if(/(?:sahneyi|hepsini).*(?:videoya çevir|video yap|render)/.test(t)){await action('video_from_stage',{duration,title:'ULTRON SCENE'});return 'Scene Lab video renderına geçti.';}
    if(/(?:üstten|ustten|top).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'top'});return 'Kamera üst görünüme geçti.';}
