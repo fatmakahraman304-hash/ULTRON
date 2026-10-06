@@ -1256,7 +1256,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use recall_memory when current persistent memory is needed instead of guessing from stale session context. "
           "Use get_latest_image_context whenever the user refers to the photo/image they just sent. "
           "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
-          "Use control_phone_ui when the user asks to open chat, memory, remote control, camera, scroll to top, or vibrate the phone. "
+          "Use control_phone_ui when the user asks to control the current phone surface. Supported actions include ULTRON views plus safe app intents such as browser/search/maps/call composer. "
+          "For iPhone system/app control, never claim unrestricted device access: iOS only allows actions exposed by browser URL/deep-link intents or explicit Shortcuts. "
           "Use send_laptop_task when the user explicitly asks ULTRON to do something on the paired laptop, such as open Chrome, find a file, inspect system status, or carry out a desktop task. "
           "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
           "Use get_latest_laptop_task when the user asks what happened to the last laptop task, whether it finished, or for its result. "
@@ -1363,11 +1364,12 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 ,
             {
                 "name": "control_phone_ui",
-                "description": "Control the current ULTRON phone interface when the user explicitly asks. Supported actions: chat, memory, remote, camera, vibrate, scroll_top.",
+                "description": "Control the current ULTRON phone interface or launch a safe phone intent. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top."}
+                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call."},
+                        "query": {"type": "STRING", "description": "Optional search text, map destination, or phone number depending on action."}
                     },
                     "required": ["action"]
                 }
@@ -1563,16 +1565,17 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 
                 if name == "control_phone_ui":
                     action = str(args.get("action", "")).strip().lower()
-                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top"}
+                    query = str(args.get("query", "")).strip()[:500]
+                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call"}
                     if action not in allowed:
                         return types.FunctionResponse(
                             id=fc.id, name=name,
                             response={"ok": False, "error": "unsupported_action"},
                         )
-                    await send_json({"type": "phone_action", "action": action})
+                    await send_json({"type": "phone_action", "action": action, "query": query})
                     return types.FunctionResponse(
                         id=fc.id, name=name,
-                        response={"ok": True, "action": action},
+                        response={"ok": True, "action": action, "query": query},
                     )
 
                 if name == "send_laptop_task":
