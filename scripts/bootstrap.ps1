@@ -3,6 +3,14 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 $env:PYTHONUTF8 = '1'
+# Rehydrate persistent per-user Cloud settings into this process when a shell was
+# opened before those variables were saved. This keeps START.bat reliable.
+foreach ($cloudName in @('ULTRON_CLOUD_URL','ULTRON_DEVICE_TOKEN','ULTRON_CLOUD_DEVICE_ID')) {
+    if (-not (Get-Item -Path ("Env:" + $cloudName) -ErrorAction SilentlyContinue)) {
+        $userValue = [Environment]::GetEnvironmentVariable($cloudName, 'User')
+        if ($userValue) { Set-Item -Path ("Env:" + $cloudName) -Value $userValue }
+    }
+}
 $backendPath = Join-Path $projectRoot 'ultron\backend'
 if ($env:PYTHONPATH) { $env:PYTHONPATH = $backendPath + ';' + $env:PYTHONPATH }
 else { $env:PYTHONPATH = $backendPath }
