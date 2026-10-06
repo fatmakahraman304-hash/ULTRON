@@ -54,6 +54,7 @@ from memory.memory_manager import (
     save_session_summary, pop_last_session,
     search_memory, set_trim_notifier,
 )
+from integration.cloud_memory_sync import upsert_cloud_memory
 
 # The file-backed tools (open_app, web_search, browser_control, …) are no longer
 # imported or declared here — they self-describe via a TOOL dict in their own
@@ -1135,14 +1136,22 @@ class UltronLive:
             category = args.get("category", "notes")
             key      = args.get("key", "")
             value    = args.get("value", "")
+            cloud_synced = False
             if key and value:
+                # Local write remains authoritative for offline voice use.
                 update_memory({category: {key: {"value": value}}})
                 print(f"[Memory] 💾 save_memory: {category}/{key} = {value}")
+                # Best-effort mirror to the shared Cloud/Supabase memory so the
+                # phone and typed desktop can immediately recall voice-learned facts.
+                cloud_synced, cloud_message = await asyncio.to_thread(
+                    upsert_cloud_memory, category, key, value
+                )
+                print(f"[Memory] ☁️ {cloud_message}")
             if not self.ui.muted:
                 self.ui.set_state("LISTENING")
             return types.FunctionResponse(
                 id=fc.id, name=name,
-                response={"result": "ok", "silent": True}
+                response={"result": "ok", "silent": True, "cloud_synced": cloud_synced}
             )
 
         loop   = asyncio.get_event_loop()
