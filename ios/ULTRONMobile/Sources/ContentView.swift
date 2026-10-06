@@ -2,61 +2,220 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject var voice: BackgroundVoiceController
+    @StateObject private var router = PhoneActionRouter.shared
     @State private var password = ""
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            LinearGradient(
+                colors: [Color.black, Color(red: 0.08, green: 0.0, blue: 0.01)],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
-            VStack(spacing: 18) {
+            ScrollView {
+                VStack(spacing: 18) {
+                    header
+                    connectionCard
+                    transcriptCard
+
+                    if voice.needsLogin {
+                        loginCard
+                    }
+
+                    if !router.pendingActionText.isEmpty {
+                        pendingActionCard
+                    }
+
+                    controlCard
+                    limitsCard
+                }
+                .padding(20)
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var header: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("ULTRON")
                     .font(.system(size: 34, weight: .black, design: .rounded))
                     .foregroundStyle(.red)
 
-                Text(voice.status)
-                    .foregroundStyle(.white.opacity(0.8))
-                    .multilineTextAlignment(.center)
+                Text("NATIVE iPHONE")
+                    .font(.caption.weight(.bold))
+                    .tracking(2)
+                    .foregroundStyle(.white.opacity(0.45))
+            }
 
-                if !voice.lastTranscript.isEmpty {
-                    Text(voice.lastTranscript)
-                        .foregroundStyle(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(.white.opacity(0.06))
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
+            Spacer()
+
+            Circle()
+                .fill(voice.connected ? Color.green : (voice.desiredListening ? Color.orange : Color.gray))
+                .frame(width: 12, height: 12)
+                .shadow(color: voice.connected ? .green.opacity(0.8) : .clear, radius: 8)
+        }
+    }
+
+    private var connectionCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label(
+                    voice.connected ? "CLOUD LIVE BAĞLI" : (voice.desiredListening ? "YENİDEN BAĞLANIYOR" : "SES KAPALI"),
+                    systemImage: voice.connected ? "waveform.circle.fill" : "waveform.circle"
+                )
+                .font(.caption.weight(.black))
+                .foregroundStyle(voice.connected ? .green : .white.opacity(0.75))
+
+                Spacer()
+
+                if voice.isBackground {
+                    Text("ARKA PLAN")
+                        .font(.caption2.weight(.black))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(.red.opacity(0.16))
+                        .clipShape(Capsule())
                 }
+            }
 
-                if voice.needsLogin {
-                    SecureField("ULTRON Cloud parolası", text: $password)
-                        .textContentType(.password)
-                        .padding()
-                        .background(.white.opacity(0.08))
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                        .foregroundStyle(.white)
+            Text(voice.status)
+                .foregroundStyle(.white)
+                .font(.body.weight(.medium))
 
-                    Button("Cloud'a bağlan") {
-                        Task { await voice.login(password: password) }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.red)
+            if voice.reconnectAttempt > 0 && !voice.connected {
+                Text("Yeniden bağlanma denemesi: \(voice.reconnectAttempt)")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+        }
+        .ultronCard()
+    }
+
+    @ViewBuilder
+    private var transcriptCard: some View {
+        if !voice.lastTranscript.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("SON DUYULAN")
+                    .font(.caption2.weight(.black))
+                    .tracking(1.2)
+                    .foregroundStyle(.red)
+
+                Text(voice.lastTranscript)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .ultronCard()
+        }
+    }
+
+    private var loginCard: some View {
+        VStack(spacing: 12) {
+            SecureField("ULTRON Cloud parolası", text: $password)
+                .textContentType(.password)
+                .padding()
+                .background(.white.opacity(0.06))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .foregroundStyle(.white)
+
+            Button("CLOUD'A BAĞLAN") {
+                Task {
+                    await voice.login(password: password)
+                    password = ""
                 }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .frame(maxWidth: .infinity)
+        }
+        .ultronCard()
+    }
 
-                Button(voice.listening ? "SÜREKLİ DİNLEMEYİ DURDUR" : "SÜREKLİ DİNLEMEYİ BAŞLAT") {
-                    Task {
-                        if voice.listening { await voice.stop() }
-                        else { await voice.start() }
-                    }
+    private var pendingActionCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("BEKLEYEN TELEFON KOMUTU")
+                .font(.caption2.weight(.black))
+                .tracking(1.2)
+                .foregroundStyle(.orange)
+
+            Text(router.pendingActionText)
+                .foregroundStyle(.white)
+
+            HStack {
+                Button("DEVAM ET") {
+                    router.resumePendingActionIfPossible()
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(voice.listening ? .gray : .red)
+                .tint(.red)
 
-                Text("Arka plan ses oturumu native iOS uygulamasında devam edebilir. iOS güvenliği nedeniyle ULTRON başka bir uygulamanın ekranındaki butonlara basamaz veya YouTube reklamını otomatik atlayamaz.")
-                    .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.5))
-                    .multilineTextAlignment(.center)
+                Button("SİL") {
+                    router.clearPending()
+                }
+                .buttonStyle(.bordered)
             }
-            .padding(24)
         }
-        .preferredColorScheme(.dark)
+        .ultronCard()
+    }
+
+    private var controlCard: some View {
+        VStack(spacing: 12) {
+            Button {
+                Task {
+                    if voice.desiredListening {
+                        await voice.stop()
+                    } else {
+                        await voice.start()
+                    }
+                }
+            } label: {
+                HStack {
+                    Image(systemName: voice.desiredListening ? "stop.circle.fill" : "mic.circle.fill")
+                    Text(voice.desiredListening ? "SÜREKLİ DİNLEMEYİ DURDUR" : "SÜREKLİ DİNLEMEYİ BAŞLAT")
+                        .fontWeight(.black)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(voice.desiredListening ? .gray : .red)
+
+            Text("Dinleme açıkken ULTRON, uygulama arka plandayken ses oturumunu korumaya ve Cloud bağlantısı koparsa otomatik yeniden bağlanmaya çalışır.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.5))
+                .multilineTextAlignment(.center)
+        }
+        .ultronCard()
+    }
+
+    private var limitsCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("iOS SINIRI")
+                .font(.caption2.weight(.black))
+                .tracking(1.2)
+                .foregroundStyle(.white.opacity(0.45))
+
+            Text("ULTRON arka planda seni dinleyip konuşabilir ve komut hazırlayabilir. Ancak iOS, başka bir uygulamanın ekranındaki düğmelere gizlice basmaya izin vermez. Örneğin YouTube reklamındaki “Atla” düğmesine otomatik dokunamaz veya WhatsApp'ta kullanıcı onayı olmadan Gönder'e basamaz.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.5))
+        }
+        .ultronCard()
+    }
+}
+
+private extension View {
+    func ultronCard() -> some View {
+        self
+            .padding(16)
+            .frame(maxWidth: .infinity)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.white.opacity(0.045))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color.red.opacity(0.32), lineWidth: 1)
+                    )
+            )
     }
 }
