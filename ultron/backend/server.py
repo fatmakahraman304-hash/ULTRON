@@ -880,6 +880,69 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["hologram"] = holo
         state.update({"mode": "hologram_lab", "title": holo.get("label") or "HOLOGRAM",
                       "subtitle": f"{str(holo.get('kind','energy')).upper()} / LIVE"})
+    elif op == "scene_load":
+        raw = body.get("scene")
+        if raw is None and body.get("scene_json"):
+            try:
+                raw = json.loads(str(body.get("scene_json")))
+            except Exception:
+                raw = None
+        if not isinstance(raw, dict) or not isinstance(raw.get("objects"), list):
+            return web.json_response({"ok": False, "error":"scene_invalid"}, status=400)
+        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower"}
+        loaded = _scene_defaults()
+        objects = []
+        used = set()
+        for index,spec in enumerate(raw.get("objects")[:16]):
+            if not isinstance(spec, dict):
+                continue
+            kind = str(spec.get("kind") or "energy").lower()
+            if kind not in allowed: kind="energy"
+            oid = re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("id") or ""))[:24] or uuid.uuid4().hex[:8]
+            if oid in used: oid=uuid.uuid4().hex[:8]
+            used.add(oid)
+            pos=list(spec.get("position") or [0,0,0]);rot=list(spec.get("rotation") or [0,0,0])
+            while len(pos)<3:pos.append(0)
+            while len(rot)<3:rot.append(0)
+            motion=dict(spec.get("motion") or {})
+            objects.append({
+                "id":oid,"kind":kind,"label":str(spec.get("label") or f"{kind.upper()} {index+1}")[:60],
+                "color":str(spec.get("color") or "#ff3047")[:24],
+                "position":[_stage_number(pos[0],0,-6,6),_stage_number(pos[1],0,-4,4),_stage_number(pos[2],0,-6,6)],
+                "rotation":[_stage_number(rot[0],0,-6.3,6.3),_stage_number(rot[1],0,-6.3,6.3),_stage_number(rot[2],0,-6.3,6.3)],
+                "scale":_stage_number(spec.get("scale",1),1,.2,3),
+                "opacity":_stage_number(spec.get("opacity",.9),.9,.08,1),
+                "wireframe":bool(spec.get("wireframe",True)),"spin":_stage_number(spec.get("spin",.5),.5,-4,4),
+                "explode":_stage_number(spec.get("explode",0),0,0,2),"visible":bool(spec.get("visible",True)),
+                "locked":bool(spec.get("locked",False)),
+                "motion":{"type":str(motion.get("type") or "none"),"speed":_stage_number(motion.get("speed",1),1,.05,5),
+                          "radius":_stage_number(motion.get("radius",1.5),1.5,.1,6),"amplitude":_stage_number(motion.get("amplitude",.5),.5,.05,4),
+                          "axis":str(motion.get("axis") or "y")},
+            })
+        loaded["objects"]=objects
+        selected=str(raw.get("selected_id") or "")
+        loaded["selected_id"]=selected if any(o["id"]==selected for o in objects) else (objects[0]["id"] if objects else None)
+        loaded["camera"]=str(raw.get("camera") or "isometric") if str(raw.get("camera") or "isometric") in {"front","top","side","isometric","orbit","close"} else "isometric"
+        loaded["explode"]=_stage_number(raw.get("explode",0),0,0,2)
+        loaded["auto_orbit"]=bool(raw.get("auto_orbit",True));loaded["grid"]=bool(raw.get("grid",True));loaded["show_labels"]=bool(raw.get("show_labels",True))
+        loaded["theme"]=str(raw.get("theme") or "crimson") if str(raw.get("theme") or "crimson") in {"crimson","cyan","purple","amber","mono"} else "crimson"
+        loaded["snap"]=_stage_number(raw.get("snap",.25),.25,0,2);loaded["animation"]=str(raw.get("animation") or "idle")
+        rt=dict(raw.get("timeline") or {});duration=_stage_number(rt.get("duration",8),8,1,60);frames=[]
+        for frame in (rt.get("keyframes") or [])[:128]:
+            if not isinstance(frame,dict) or str(frame.get("object_id")) not in used: continue
+            pos=list(frame.get("position") or [0,0,0]);rot=list(frame.get("rotation") or [0,0,0])
+            while len(pos)<3:pos.append(0)
+            while len(rot)<3:rot.append(0)
+            frames.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(frame.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                           "time":_stage_number(frame.get("time",0),0,0,duration),"object_id":str(frame.get("object_id")),
+                           "position":[float(pos[0]),float(pos[1]),float(pos[2])],"rotation":[float(rot[0]),float(rot[1]),float(rot[2])],
+                           "scale":_stage_number(frame.get("scale",1),1,.2,3)})
+        loaded["timeline"]={"duration":duration,"cursor":_stage_number(rt.get("cursor",0),0,0,duration),"playing":False,
+                            "loop":bool(rt.get("loop",True)),"started_at":None,"keyframes":frames}
+        rc=dict(raw.get("cinematic") or {});loaded["cinematic"]={"enabled":False,"preset":str(rc.get("preset") or "orbit"),
+                            "duration":_stage_number(rc.get("duration",8),8,2,30),"started_at":None,"loop":bool(rc.get("loop",True))}
+        state["scene"]=loaded
+        state.update({"mode":"scene_lab","title":"SCENE LAB","subtitle":f"{len(objects)} OBJECTS / LOADED","progress":100})
     elif op == "scene_batch":
         scene = dict(state.get("scene") or {})
         raw = body.get("objects")
