@@ -93,6 +93,7 @@ class Hub:
             },
             "scene": {
                 "objects": [],
+                "links": [],
                 "selected_id": None,
                 "focus_id": None,
                 "camera": "isometric",
@@ -794,7 +795,7 @@ def _scene_checkpoint() -> None:
 
 def _scene_defaults() -> dict:
     return {
-        "objects": [], "selected_id": None, "focus_id": None, "camera": "isometric",
+        "objects": [], "links": [], "selected_id": None, "focus_id": None, "camera": "isometric",
         "explode": 0.0, "auto_orbit": True, "grid": True,
         "show_labels": True, "show_trails": True, "theme": "crimson", "snap": 0.25,
         "animation": "idle",
@@ -932,6 +933,15 @@ async def api_stage_command(req: web.Request) -> web.Response:
         loaded["auto_orbit"]=bool(raw.get("auto_orbit",True));loaded["grid"]=bool(raw.get("grid",True));loaded["show_labels"]=bool(raw.get("show_labels",True));loaded["show_trails"]=bool(raw.get("show_trails",True))
         loaded["theme"]=str(raw.get("theme") or "crimson") if str(raw.get("theme") or "crimson") in {"crimson","cyan","purple","amber","mono"} else "crimson"
         loaded["snap"]=_stage_number(raw.get("snap",.25),.25,0,2);loaded["animation"]=str(raw.get("animation") or "idle")
+        links=[]
+        for link in (raw.get("links") or [])[:64]:
+            if not isinstance(link,dict): continue
+            a,b=str(link.get("source") or ""),str(link.get("target") or "")
+            if a in used and b in used and a!=b:
+                links.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(link.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                              "source":a,"target":b,"label":str(link.get("label") or "")[:40],
+                              "color":str(link.get("color") or "#35ffe4")[:24]})
+        loaded["links"]=links
         rt=dict(raw.get("timeline") or {});duration=_stage_number(rt.get("duration",8),8,1,60);frames=[]
         for frame in (rt.get("keyframes") or [])[:128]:
             if not isinstance(frame,dict) or str(frame.get("object_id")) not in used: continue
@@ -1107,7 +1117,9 @@ async def api_stage_command(req: web.Request) -> web.Response:
         target = str(body.get("object_id") or scene.get("selected_id") or "")
         objects = [o for o in (scene.get("objects") or []) if str(o.get("id")) != target]
         scene["objects"] = objects
+        scene["links"] = [l for l in (scene.get("links") or []) if target not in {str(l.get("source")),str(l.get("target"))}]
         scene["selected_id"] = str(objects[-1].get("id")) if objects else None
+        if str(scene.get("focus_id") or "") == target: scene["focus_id"] = None
         state["scene"] = scene
         state.update({"mode":"scene_lab","title":"SCENE LAB",
                       "subtitle":f"{len(objects)} OBJECTS / LIVE"})
@@ -1182,6 +1194,48 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["scene"] = scene
         state.update({"mode":"scene_lab","title":"SCENE LAB",
                       "subtitle":f"{preset.upper()} / {len(objects)} OBJECTS","progress":100})
+    elif op == "scene_link":
+        scene = dict(state.get("scene") or {})
+        links = list(scene.get("links") or [])
+        source = str(body.get("source_id") or scene.get("selected_id") or "")
+        target = str(body.get("target_id") or "")
+        ids = {str(o.get("id")) for o in scene.get("objects") or []}
+        if source not in ids or target not in ids or source == target:
+            return web.json_response({"ok":False,"error":"invalid_scene_link"}, status=400)
+        if not any({str(l.get("source")),str(l.get("target"))} == {source,target} for l in links):
+            links.append({"id":uuid.uuid4().hex[:8],"source":source,"target":target,
+                          "label":str(body.get("label") or "")[:40],
+                          "color":str(body.get("color") or "#35ffe4")[:24]})
+        scene["links"]=links[:64]
+        state["scene"]=scene
+        state["mode"]="scene_lab"
+    elif op == "scene_unlink":
+        scene = dict(state.get("scene") or {})
+        link_id = str(body.get("link_id") or "")
+        if link_id:
+            scene["links"]=[l for l in (scene.get("links") or []) if str(l.get("id")) != link_id]
+        else:
+            target=str(body.get("object_id") or scene.get("selected_id") or "")
+            scene["links"]=[l for l in (scene.get("links") or []) if target not in {str(l.get("source")),str(l.get("target"))}]
+        state["scene"]=scene
+        state["mode"]="scene_lab"
+    elif op == "scene_auto_link":
+        scene = dict(state.get("scene") or {})
+        objects=list(scene.get("objects") or [])
+        mode=str(body.get("layout") or "star").lower()
+        links=[]
+        if len(objects)>1:
+            if mode=="chain":
+                pairs=[(objects[i],objects[i+1]) for i in range(len(objects)-1)]
+            else:
+                center=next((o for o in objects if str(o.get("id"))==str(scene.get("selected_id") or "")),objects[0])
+                pairs=[(center,o) for o in objects if o is not center]
+            for a,b in pairs:
+                links.append({"id":uuid.uuid4().hex[:8],"source":a["id"],"target":b["id"],
+                              "label":"","color":str(body.get("color") or "#35ffe4")[:24]})
+        scene["links"]=links[:64]
+        state["scene"]=scene
+        state["mode"]="scene_lab"
     elif op == "scene_focus":
         scene = dict(state.get("scene") or {})
         target = str(body.get("object_id") or scene.get("selected_id") or "")
