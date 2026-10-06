@@ -94,7 +94,12 @@
     </section>
 
     <section id="remoteView" class="view">
-      <div class="section-title"><h2>LAPTOP KONTROLÜ</h2><small>Cloud relay</small></div>
+      <div class="section-title"><h2>LAPTOP KONTROLÜ</h2><small>Cloud Agent</small></div>
+      <div class="memory-form panel">
+        <textarea id="remoteTask" placeholder="Laptop ULTRON'a görev yaz…"></textarea>
+        <button id="remoteTaskBtn" style="margin-top:9px;width:100%">ULTRON AGENT'E GÖNDER</button>
+        <div id="remoteBusy" class="busy"></div>
+      </div>
       <div class="remote-grid">
         <button class="remote-card primary" data-command="wake"><b>ULTRON'U UYANDIR</b><span>Uyku modundaysa dinlemeye geçir.</span></button>
         <button class="remote-card" data-command="interrupt"><b>KONUŞMAYI DURDUR</b><span>Devam eden sesli yanıtı kes.</span></button>
@@ -102,7 +107,7 @@
         <button class="remote-card" data-command="unmute"><b>MİKROFONU AÇ</b><span>Laptop ULTRON mikrofonunu yeniden aç.</span></button>
         <button class="remote-card" data-command="sync_memory"><b>HAFIZAYI EŞİTLE</b><span>Cloud hafızasını laptopa hemen çek.</span></button>
       </div>
-      <div class="remote-note">Güvenlik için uzaktan terminal, dosya silme ve kamera açma gibi riskli işlemler bu panelden otomatik çalıştırılmaz.</div>
+      <div class="remote-note">Serbest görev kutusu, telefondan yazdığın görevi laptopta çalışan ULTRON'a iletir. Kullanılabilen işlemler laptopta kurulu ULTRON araçları ve işletim sistemi izinlerine göre belirlenir.</div>
     </section>
 
     <section id="memoryView" class="view">
@@ -210,6 +215,16 @@ document.querySelectorAll('[data-command]').forEach(b=>b.onclick=async()=>{
   catch(e){toast('Komut gönderilemedi: '+e.message)}
   finally{setTimeout(()=>b.disabled=false,500)}
 });
+async function sendRemoteTask(){
+  const text=$('#remoteTask').value.trim();if(!text)return;
+  $('#remoteTaskBtn').disabled=true;$('#remoteBusy').textContent='Görev gönderiliyor…';
+  try{
+    await api('/api/device-commands',{method:'POST',body:JSON.stringify({target:'desktop',command:'agent_task',payload:{text}})});
+    $('#remoteTask').value='';toast('Görev laptop ULTRON agente gönderildi.');
+  }catch(e){toast('Görev gönderilemedi: '+e.message)}
+  finally{$('#remoteTaskBtn').disabled=false;$('#remoteBusy').textContent=''}
+}
+$('#remoteTaskBtn').onclick=sendRemoteTask;
 $('#reloadMemory').onclick=()=>loadMemories().catch(e=>toast(e.message));
 $('#saveMemory').onclick=async()=>{
   const key=$('#memoryKey').value.trim(),value=$('#memoryValue').value.trim(),category=$('#memoryCategory').value.trim()||'FACT';
