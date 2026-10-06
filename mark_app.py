@@ -563,6 +563,18 @@ class UltronLive:
         # loop as words arrive, drained by the playback loop against the audio.
         self._visemes              = VisemeStream()
         self._last_out_logged      = ""      # de-dupes a re-sent transcript tail
+        # Phone-originated desktop tasks run through the same Gemini Live/tool
+        # engine as local voice, but their audio is suppressed on the laptop and
+        # the final transcript is returned to Cloud so the phone can speak it.
+        self._cloud_remote_silent = False
+        self._cloud_remote_capture = False
+        self._cloud_remote_output_parts: list[str] = []
+        self._cloud_remote_seen_response = False
+        self._cloud_remote_tool_busy = False
+        self._cloud_remote_tool_seen = False
+        self._cloud_remote_last_activity = 0.0
+        self._cloud_remote_last_tool_done = 0.0
+        self._cloud_remote_last_turn_complete = 0.0
         # Push-to-talk
         self._ptt_enabled          = False
         self._ptt_held             = False
@@ -1577,6 +1589,10 @@ class UltronLive:
                                 self._last_user_speech = time.monotonic()
 
                         if sc.turn_complete:
+                            if self._cloud_remote_capture:
+                                self._cloud_remote_seen_response = True
+                                self._cloud_remote_last_turn_complete = time.monotonic()
+                                self._cloud_remote_last_activity = self._cloud_remote_last_turn_complete
                             if self._turn_done_event:
                                 self._turn_done_event.set()
 
@@ -1611,6 +1627,10 @@ class UltronLive:
                                     full_out = ""
                             if full_out:
                                 self._last_out_logged = full_out
+                                if self._cloud_remote_capture:
+                                    self._cloud_remote_output_parts.append(full_out)
+                                    self._cloud_remote_seen_response = True
+                                    self._cloud_remote_last_activity = time.monotonic()
                                 self.ui.write_log(f"{self._asst_name}: {full_out}")
                                 self._session_log.append(f"{self._asst_name}: {full_out}")
                                 if self._dashboard:
@@ -1631,15 +1651,26 @@ class UltronLive:
                                 asyncio.create_task(_cam_close())
 
                     if response.tool_call:
+                        if self._cloud_remote_capture:
+                            self._cloud_remote_tool_seen = True
+                            self._cloud_remote_tool_busy = True
+                            self._cloud_remote_seen_response = True
+                            self._cloud_remote_last_activity = time.monotonic()
                         fn_responses = []
-                        for fc in response.tool_call.function_calls:
-                            print(f"[ULTRON] 📞 {fc.name}")
-                            fr = await self._execute_tool(fc)
-                            fn_responses.append(fr)
-                        await self.session.send_tool_response(
-                            function_responses=fn_responses
-                        )
-                        await self._flush_pending_vision()
+                        try:
+                            for fc in response.tool_call.function_calls:
+                                print(f"[ULTRON] 📞 {fc.name}")
+                                fr = await self._execute_tool(fc)
+                                fn_responses.append(fr)
+                            await self.session.send_tool_response(
+                                function_responses=fn_responses
+                            )
+                            await self._flush_pending_vision()
+                        finally:
+                            if self._cloud_remote_capture:
+                                self._cloud_remote_tool_busy = False
+                                self._cloud_remote_last_tool_done = time.monotonic()
+                                self._cloud_remote_last_activity = self._cloud_remote_last_tool_done
         except Exception as e:
             print(f"[ULTRON] ❌ Recv: {e}")
             traceback.print_exc()
@@ -1704,6 +1735,18 @@ class UltronLive:
                     ):
                         self.set_speaking(False)
                         self._turn_done_event.clear()
+                    continue
+
+                # A task spoken from the phone should be answered on the
+                # phone, not echoed out of the laptop speakers. Keep consuming
+                # generated audio so the Live session flows normally, but do not
+                # play it locally while the remote bridge is capturing the turn.
+                if self._cloud_remote_silent:
+                    while True:
+                        try:
+                            self.audio_in_queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            break
                     continue
 
                 self.set_speaking(True)
@@ -2050,7 +2093,13 @@ class UltronLive:
         if not isinstance(payload, dict):
             payload = {}
 
-        async def finish(ok: bool, message: str, *, retryable: bool = False) -> None:
+        async def finish(
+            ok: bool,
+            message: str,
+            *,
+            retryable: bool = False,
+            extra: dict | None = None,
+        ) -> None:
             if not command_id:
                 return
             try:
@@ -2058,6 +2107,7 @@ class UltronLive:
                     command_id,
                     ok=ok,
                     message=message,
+                    extra=extra,
                     retryable=retryable,
                 )
             except Exception as exc:
@@ -2130,12 +2180,24 @@ class UltronLive:
             self.ui.write_log(f"PHONE→LAPTOP: {task_text}")
 
             self._turn_done_event.clear()
+            self._cloud_remote_silent = True
+            self._cloud_remote_capture = True
+            self._cloud_remote_output_parts = []
+            self._cloud_remote_seen_response = False
+            self._cloud_remote_tool_busy = False
+            self._cloud_remote_tool_seen = False
+            self._cloud_remote_last_activity = time.monotonic()
+            self._cloud_remote_last_tool_done = 0.0
+            self._cloud_remote_last_turn_complete = 0.0
+
             remote_prompt = (
                 "[REMOTE LAPTOP TASK FROM THE OWNER'S PHONE]\n"
                 f"{task_text}{plan_text}\n\n"
-                "Execute this task on THIS Windows laptop now using your available "
-                "local tools. Treat it exactly like a direct user command. Do not "
-                "claim completion unless the tool action actually succeeds."
+                "Execute this task on THIS Windows laptop now using every local "
+                "tool/action/plugin available to you exactly as if the owner had "
+                "spoken directly to the desktop ULTRON. Return a concise factual "
+                "final result after the tools finish. Do not claim completion "
+                "unless the tool action actually succeeds."
             )
             await self.session.send_client_content(
                 turns={"role": "user", "parts": [{"text": remote_prompt}]},
@@ -2148,9 +2210,27 @@ class UltronLive:
                 percent=40,
             )
 
-            try:
-                await asyncio.wait_for(self._turn_done_event.wait(), timeout=180.0)
-            except asyncio.TimeoutError:
+            deadline = time.monotonic() + 180.0
+            completed = False
+            while time.monotonic() < deadline:
+                await asyncio.sleep(0.12)
+                if not self._cloud_remote_seen_response or self._cloud_remote_tool_busy:
+                    continue
+                # If tools were used, only accept a turn-complete that arrived
+                # after the latest tool result was sent back to Gemini.
+                if (
+                    self._cloud_remote_tool_seen
+                    and self._cloud_remote_last_turn_complete < self._cloud_remote_last_tool_done
+                ):
+                    continue
+                # A short quiet window absorbs multi-tool chains and transcript
+                # tail packets before we publish the result back to the phone.
+                if time.monotonic() - self._cloud_remote_last_activity < 0.9:
+                    continue
+                completed = True
+                break
+
+            if not completed:
                 await finish(
                     False,
                     "Görev laptop ajanına teslim edildi ancak 180 saniye içinde son tur tamamlanmadı.",
@@ -2158,19 +2238,34 @@ class UltronLive:
                 )
                 return
 
+            result_text = " ".join(
+                part.strip() for part in self._cloud_remote_output_parts if part.strip()
+            ).strip()
+            if not result_text:
+                result_text = "Görev laptop ULTRON tarafından tamamlandı."
+
             await client.report_task_progress(
                 command_id,
                 stage="completed",
                 message="Laptop yerel ajanı görevi işledi.",
                 percent=100,
             )
-            await finish(True, "Görev laptop ULTRON tarafından işlendi.")
+            await finish(
+                True,
+                result_text,
+                extra={"assistant_reply": result_text, "origin": "desktop-agent"},
+            )
         except Exception as exc:
             await finish(
                 False,
                 f"Laptop görevi çalıştırılırken hata: {type(exc).__name__}: {str(exc)[:500]}",
                 retryable=False,
             )
+        finally:
+            if command == "agent_task":
+                self._cloud_remote_silent = False
+                self._cloud_remote_capture = False
+                self._cloud_remote_tool_busy = False
 
     async def _cloud_remote_loop(self) -> None:
         """Poll ULTRON Cloud for phone-originated laptop commands."""
