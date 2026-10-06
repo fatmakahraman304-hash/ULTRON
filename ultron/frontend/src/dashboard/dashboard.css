@@ -111,3 +111,6 @@
 
 .scene-name{width:100%;height:27px;padding:4px 6px;background:#070a0f;border:1px solid #512331;color:#fff;font:10px Consolas,monospace;letter-spacing:.8px}
 .scene-inspector-actions button.active{border-color:#fff;background:#541023}
+
+.scene-custom-anim{margin-top:8px;padding-top:7px;border-top:1px solid #3b242d}
+.scene-custom-anim button{width:100%;margin-top:5px}
