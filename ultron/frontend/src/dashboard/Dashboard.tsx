@@ -61,6 +61,31 @@ export default function Dashboard(){
 
   if(sceneMode&&/(?:sahneyi|scene|bunu).*(?:kaydet|save)/.test(t)){await action('scene_save');return 'Scene Lab projesi kaydediliyor.';}
   if(sceneMode){
+   if(/(?:geri al|undo|son işlemi geri)/.test(t)){await action('scene_undo');return 'Son sahne işlemi geri alındı.';}
+   if(/(?:yeniden yap|redo|geri aldığını yap|geri aldigini yap)/.test(t)){await action('scene_redo');return 'Sahne işlemi yeniden uygulandı.';}
+   if(selected&&/(?:bunu|nesneyi|seçileni|secileni).*(?:kopyala|çoğalt|cogalt|duplicate)/.test(t)){await action('scene_duplicate',{object_id:selected.id});return 'Seçili nesne çoğaltıldı.';}
+   if(selected&&/(?:orbitte dönsün|orbit hareket|çevremde dön|cevremde don)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'orbit',motion_speed:1,radius:1.5});return 'Seçili nesne orbit hareketine geçti.';}
+   if(selected&&/(?:yukarı aşağı|yukari asagi|bob hareket)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'bob',motion_speed:1,amplitude:.6});return 'Seçili nesne dikey harekete geçti.';}
+   if(selected&&/(?:devriye|patrol|sağa sola git|saga sola git)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'patrol',motion_speed:1,amplitude:1.4});return 'Seçili nesne devriye hareketine geçti.';}
+   if(selected&&/(?:nabız|nabiz|pulse).*(?:hareket|yap|ver)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'pulse',motion_speed:1,amplitude:.8});return 'Seçili nesne pulse animasyonuna geçti.';}
+   if(selected&&/(?:hareketi|animasyonu).*(?:durdur|kapat)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'none'});return 'Seçili nesnenin hareketi durduruldu.';}
+   if(/(?:sinematik|cinematic).*(?:kamera|başlat|baslat|aç|ac)/.test(t)){const preset=/spiral/.test(t)?'spiral':/flyby|geçiş|gecis/.test(t)?'flyby':/üstten|ustten/.test(t)?'topdown':/hero|kahraman/.test(t)?'hero':'orbit';await action('scene_cinematic',{cinematic:preset,duration,loop:true});return 'Sinematik kamera başladı.';}
+   if(/(?:sinematik|cinematic).*(?:durdur|kapat)/.test(t)){await action('scene_cinematic',{cinematic:'off'});return 'Sinematik kamera durdu.';}
+   if(/(?:cyan|turkuaz).*(?:tema|sahne)|(?:tema|sahne).*(?:cyan|turkuaz)/.test(t)){await action('scene_theme',{theme:'cyan'});return 'Scene Lab teması cyan oldu.';}
+   if(/(?:mor|purple).*(?:tema|sahne)|(?:tema|sahne).*(?:mor|purple)/.test(t)){await action('scene_theme',{theme:'purple'});return 'Scene Lab teması mor oldu.';}
+   if(/(?:amber|turuncu).*(?:tema|sahne)|(?:tema|sahne).*(?:amber|turuncu)/.test(t)){await action('scene_theme',{theme:'amber'});return 'Scene Lab teması amber oldu.';}
+   if(/(?:kırmızı|kirmizi|crimson).*(?:tema|sahne)|(?:tema|sahne).*(?:kırmızı|kirmizi|crimson)/.test(t)){await action('scene_theme',{theme:'crimson'});return 'Scene Lab teması crimson oldu.';}
+   if(/(?:etiket|label).*(?:kapat|gizle)/.test(t)){await action('scene_theme',{theme:u.stage.scene.theme||'crimson',show_labels:false});return 'Sahne etiketleri gizlendi.';}
+   if(/(?:etiket|label).*(?:aç|ac|göster|goster)/.test(t)){await action('scene_theme',{theme:u.stage.scene.theme||'crimson',show_labels:true});return 'Sahne etiketleri açıldı.';}
+   if(/(?:grid|ızgara|izgara).*(?:kapat|gizle)/.test(t)){await action('scene_theme',{theme:u.stage.scene.theme||'crimson',grid:false});return 'Sahne grid kapatıldı.';}
+   if(/(?:grid|ızgara|izgara).*(?:aç|ac|göster|goster)/.test(t)){await action('scene_theme',{theme:u.stage.scene.theme||'crimson',grid:true});return 'Sahne grid açıldı.';}
+   if(/(?:timeline|zaman çizelgesi|zaman cizelgesi).*(?:oynat|başlat|baslat)/.test(t)){await action('timeline_play');return 'Timeline oynatılıyor.';}
+   if(/(?:timeline|zaman çizelgesi|zaman cizelgesi).*(?:durdur|duraklat|pause)/.test(t)){await action('timeline_pause');return 'Timeline duraklatıldı.';}
+   if(selected&&/(?:keyframe|anahtar kare).*(?:ekle|koy|oluştur|olustur)/.test(t)){await action('timeline_capture');return 'Seçili nesnenin keyframe’i eklendi.';}
+   if(selected&&/(?:showcase|vitrin).*(?:animasyon|hareket|yap|oluştur|olustur)/.test(t)){await action('timeline_preset',{preset:'showcase',duration});return 'Showcase timeline oluşturuldu.';}
+   if(selected&&/(?:launch|fırlat|firlat|kalkış|kalkis).*(?:animasyon|hareket|yap|oluştur|olustur)/.test(t)){await action('timeline_preset',{preset:'launch',duration});return 'Launch timeline oluşturuldu.';}
+   if(selected&&/(?:flyby|geçiş|gecis).*(?:animasyon|hareket|yap|oluştur|olustur)/.test(t)){await action('timeline_preset',{preset:'flyby',duration});return 'Flyby timeline oluşturuldu.';}
+   if(/(?:timeline|keyframe).*(?:temizle|sil|sıfırla|sifirla)/.test(t)){await action('timeline_clear');return 'Timeline temizlendi.';}
    if(/(?:sahneyi|hepsini).*(?:videoya çevir|video yap|render)/.test(t)){await action('video_from_stage',{duration,title:'ULTRON SCENE'});return 'Scene Lab video renderına geçti.';}
    if(/(?:üstten|ustten|top).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'top'});return 'Kamera üst görünüme geçti.';}
    if(/(?:önden|onden|front).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'front'});return 'Kamera ön görünüme geçti.';}
