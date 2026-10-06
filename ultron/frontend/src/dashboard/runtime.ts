@@ -8,12 +8,12 @@ export type HologramConfig={
 };
 export type StageState={
  mode:StageMode;title:string;subtitle:string;progress:number;revision:number;
- job_id?:string|null;video_paused?:boolean;
+ job_id?:string|null;video_paused?:boolean;save_nonce?:number;save_kind?:string;
  hologram:HologramConfig;
  video:{template:string;duration:number;title:string;ready:boolean;mime:string;bytes:number;source_hologram?:boolean};
 };
 export const defaultStage:StageState={
- mode:'core_idle',title:'ULTRON',subtitle:'NEURAL CORE',progress:0,revision:0,job_id:null,
+ mode:'core_idle',title:'ULTRON',subtitle:'NEURAL CORE',progress:0,revision:0,job_id:null,save_nonce:0,save_kind:'',
  hologram:{kind:'energy',color:'#ff3047',glow:1,speed:1,rings:4,particles:900,scale:1,opacity:.92,wireframe:false,pulse:true,label:'ULTRON'},
  video:{template:'ultron_intro',duration:6,title:'ULTRON',ready:false,mime:'',bytes:0}
 };
