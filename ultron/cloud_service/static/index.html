@@ -1262,16 +1262,58 @@ $('#loginBtn').onclick=async()=>{
     $('#password').value='';$('#loginError').textContent='';await boot();
   }catch(e){$('#loginError').textContent='Parola yanlış veya sunucu hazır değil.'}
 };
+function normalizePhoneCommand(text){
+  return String(text||'').toLocaleLowerCase('tr-TR').replace(/[’']/g,'').replace(/\s+/g,' ').trim();
+}
+function runDirectPhoneCommand(text){
+  const t=normalizePhoneCommand(text);
+  let action='',query='',reply='';
+  if(/\b(youtube|yutub)\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='youtube';reply='YouTube açılıyor.'}
+  else if(/\bspotify\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='spotify';reply='Spotify açılıyor.'}
+  else if(/\bwhatsapp\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='whatsapp';reply='WhatsApp açılıyor.'}
+  else if(/\binstagram\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='instagram';reply='Instagram açılıyor.'}
+  else if(/\b(chrome|krom)\b.*\b(aç|ac)\b/.test(t)){action='browser';reply='Chrome açılıyor.'}
+  else if(/\b(harita|haritalar|maps)\b.*\b(aç|ac)\b/.test(t)){action='maps';reply='Haritalar açılıyor.'}
+  else if(/\b(mesaj|mesajlar|sms)\b.*\b(aç|ac)\b/.test(t)){action='sms';reply='Mesajlar açılıyor.'}
+  else if(/\b(e[- ]?posta|mail)\b.*\b(aç|ac)\b/.test(t)){action='email';reply='E-posta açılıyor.'}
+  else return null;
+
+  if(action==='browser'){
+    const started=Date.now();location.href='googlechrome://';
+    setTimeout(()=>{if(Date.now()-started<1800)location.href='https://www.google.com'},900);
+  }
+  if(action==='maps')location.href='https://maps.apple.com/';
+  if(action==='sms')location.href='sms:';
+  if(action==='email')location.href='mailto:';
+  if(action==='open_app'){
+    const schemes={youtube:'youtube://',spotify:'spotify://',whatsapp:'whatsapp://',instagram:'instagram://'};
+    const fallbacks={youtube:'https://www.youtube.com',spotify:'https://open.spotify.com',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com'};
+    const scheme=schemes[query],fallback=fallbacks[query],started=Date.now();
+    if(scheme){location.href=scheme;if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},900)}
+  }
+  return reply;
+}
+
 async function send(fromVoice=false){
   if(pendingImage){await sendImage();return}
   if(pendingPdf){await sendPdf();return}
   const text=$('#message').value.trim();if(!text)return;
-  $('#message').value='';clearDraft();addMessage('user',text);$('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
+  $('#message').value='';clearDraft();
+  rememberPendingVoice('user',text);addMessage('user',text);
+  const directReply=runDirectPhoneCommand(text);
+  if(directReply){
+    rememberPendingVoice('assistant',directReply);addMessage('assistant',directReply);
+    toast(directReply);scrollChatToBottom(false);return;
+  }
+  $('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
   try{
     const d=await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
-    conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);addMessage('assistant',d.reply);messageSignature='';if(fromVoice||voiceEnabled)speakUltron(d.reply);
+    conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);
+    rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply);
+    messageSignature='';if(fromVoice||voiceEnabled)speakUltron(d.reply);
   }catch(e){
-    const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir.':(e.data?.detail||e.message);addMessage('assistant','Hata: '+msg);
+    const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir.':(e.data?.detail||e.message);
+    addMessage('assistant','Hata: '+msg);
   }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;scrollChatToBottom(false)}
 }
 $('#sendBtn').onclick=()=>send(false);
