@@ -20,7 +20,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
     for key in ("kind", "color", "label", "template", "title", "subtitle",
                 "object_id", "camera", "layout", "preset", "animation", "objects_json",
                 "motion", "axis", "theme", "keyframe_id", "cinematic", "scene_json",
-                "source_id", "target_id", "source_label", "target_label", "link_id"):
+                "source_id", "target_id", "source_label", "target_label", "link_id", "model_id"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -69,7 +69,7 @@ TOOL = {
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
         "describe the requested visual action. Scene Lab supports multiple selectable objects, camera views, layouts, exploded views and animations. Hologram/scene kinds: energy, globe, "
-        "network, drone, vehicle, logo, sphere, ring, tower, robot, arm, satellite, aircraft, building, ship, radar, portal and cube. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V3 also supports duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), timeline keyframes, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary, command_center, city_scan, space_ops, robotics. Video templates: ultron_intro, "
+        "network, drone, vehicle, logo, sphere, ring, tower, robot, arm, satellite, aircraft, building, ship, radar, portal, cube and persistent imported custom GLB models. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V3 also supports duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), timeline keyframes, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary, command_center, city_scan, space_ops, robotics. Video templates: ultron_intro, "
         "logo_reveal, energy_core, system_activation, task_complete, "
         "hologram_capture. For 'make this bigger/brighter/faster/red' after a "
         "hologram request, use hologram_update with only the changed fields."
@@ -138,6 +138,7 @@ TOOL = {
             "source_label": {"type": "STRING"},
             "target_label": {"type": "STRING"},
             "link_id": {"type": "STRING"},
+            "model_id": {"type": "STRING"},
             "auto_orbit": {"type": "BOOLEAN"},
             "grid": {"type": "BOOLEAN"},
             "loop": {"type": "BOOLEAN"},
