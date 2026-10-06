@@ -713,6 +713,14 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         input_audio_transcription={},
         output_audio_transcription={},
         system_instruction=system_instruction,
+        realtime_input_config=types.RealtimeInputConfig(
+            automatic_activity_detection=types.AutomaticActivityDetection(
+                silence_duration_ms=450,
+                prefix_padding_ms=120,
+                start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
+                end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
+            )
+        ),
         context_window_compression=types.ContextWindowCompressionConfig(
             sliding_window=types.SlidingWindow(),
         ),
@@ -777,6 +785,12 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         sc = getattr(response, "server_content", None)
                         if sc is None:
                             continue
+                        if getattr(sc, "interrupted", False):
+                            # Gemini detected the user speaking over the answer.
+                            # Drop the unfinished assistant transcript and tell
+                            # the phone to stop any audio already queued locally.
+                            out_parts.clear()
+                            await send_json({"type": "interrupted"})
                         if sc.input_transcription and sc.input_transcription.text:
                             text = str(sc.input_transcription.text).strip()
                             if text:
