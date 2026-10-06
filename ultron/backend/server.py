@@ -856,6 +856,34 @@ def _scene_ensure(scene: dict) -> dict:
     return scene
 
 
+async def api_stage_model_upload(req: web.Request) -> web.Response:
+    name = str(req.headers.get("X-Model-Name") or "model.glb")
+    if not name.lower().endswith(".glb"):
+        return web.json_response({"ok":False,"error":"glb_required"}, status=400)
+    data = await req.read()
+    if not data or len(data) > 50 * 1024 * 1024:
+        return web.json_response({"ok":False,"error":"invalid_model_size"}, status=413)
+    if data[:4] != b"glTF":
+        return web.json_response({"ok":False,"error":"invalid_glb_header"}, status=400)
+    model_id = uuid.uuid4().hex
+    directory = Path(DATA_DIR) / "scene_models"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{model_id}.glb"
+    path.write_bytes(data)
+    meta = {"id":model_id,"name":name[:160],"bytes":len(data),"created_at":time.time()}
+    (directory / f"{model_id}.json").write_text(json.dumps(meta,ensure_ascii=False),encoding="utf-8")
+    await hub.on_activity(f"Scene model imported: {name[:80]}", "success")
+    return web.json_response({"ok":True,"model_id":model_id,"name":name[:160],"bytes":len(data)})
+
+
+async def api_stage_model_get(req: web.Request) -> web.StreamResponse:
+    model_id = re.sub(r"[^A-Za-z0-9_-]","",str(req.match_info.get("model_id") or ""))[:48]
+    path = Path(DATA_DIR) / "scene_models" / f"{model_id}.glb"
+    if not model_id or not path.exists():
+        raise web.HTTPNotFound()
+    return web.FileResponse(path, headers={"Content-Type":"model/gltf-binary","Cache-Control":"private, max-age=3600"})
+
+
 async def api_stage_get(_req: web.Request) -> web.Response:
     return web.json_response({"ok": True, **hub.stage_state})
 
@@ -925,7 +953,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 raw = None
         if not isinstance(raw, dict) or not isinstance(raw.get("objects"), list):
             return web.json_response({"ok": False, "error":"scene_invalid"}, status=400)
-        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube"}
+        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube","custom"}
         loaded = _scene_defaults()
         objects = []
         used = set()
@@ -943,6 +971,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             motion=dict(spec.get("motion") or {})
             objects.append({
                 "id":oid,"kind":kind,"label":str(spec.get("label") or f"{kind.upper()} {index+1}")[:60],
+                "model_id":re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("model_id") or ""))[:48] or None,
                 "color":str(spec.get("color") or "#ff3047")[:24],
                 "position":[_stage_number(pos[0],0,-6,6),_stage_number(pos[1],0,-4,4),_stage_number(pos[2],0,-6,6)],
                 "rotation":[_stage_number(rot[0],0,-6.3,6.3),_stage_number(rot[1],0,-6.3,6.3),_stage_number(rot[2],0,-6.3,6.3)],
@@ -999,7 +1028,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 raw = None
         if not isinstance(raw, list) or not raw:
             return web.json_response({"ok": False, "error": "scene_objects_required"}, status=400)
-        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube"}
+        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube","custom"}
         objects = []
         for index, spec in enumerate(raw[:16]):
             if not isinstance(spec, dict):
@@ -1011,6 +1040,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             objects.append({
                 "id": uuid.uuid4().hex[:8], "kind": kind,
                 "label": str(spec.get("label") or f"{kind.upper()} {index+1}")[:60],
+                "model_id": re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("model_id") or ""))[:48] or None,
                 "color": str(spec.get("color") or "#ff3047")[:24],
                 "position": [_stage_number(pos[0],0,-6,6),_stage_number(pos[1],0,-4,4),_stage_number(pos[2],0,-6,6)],
                 "rotation": [0.0,0.0,0.0],
@@ -1063,6 +1093,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "id": oid,
                 "kind": kind,
                 "label": str(body.get("label") or kind.upper())[:60],
+                "model_id": re.sub(r"[^A-Za-z0-9_-]","",str(body.get("model_id") or ""))[:48] or None,
                 "color": str(body.get("color") or "#ff3047")[:24],
                 "position": [_stage_number(pos[0], 0, -6, 6), _stage_number(pos[1], 0, -4, 4), _stage_number(pos[2], 0, -6, 6)],
                 "rotation": [0.0, 0.0, 0.0],
@@ -1096,9 +1127,10 @@ async def api_stage_command(req: web.Request) -> web.Response:
             if str(item.get("id")) != target:
                 continue
             obj = dict(item)
-            if "kind" in body and str(body["kind"]).lower() in {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube"}:
+            if "kind" in body and str(body["kind"]).lower() in {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube","custom"}:
                 obj["kind"] = str(body["kind"]).lower()
             if "label" in body: obj["label"] = str(body["label"])[:60]
+            if "model_id" in body: obj["model_id"] = re.sub(r"[^A-Za-z0-9_-]","",str(body["model_id"]))[:48] or None
             if "color" in body: obj["color"] = str(body["color"])[:24]
             if "scale" in body: obj["scale"] = _stage_number(body["scale"], obj.get("scale",1), .2, 3)
             if "opacity" in body: obj["opacity"] = _stage_number(body["opacity"], obj.get("opacity",.9), .08, 1)
@@ -2582,6 +2614,8 @@ def main() -> None:
     app.router.add_get("/api/memory/export", api_memory_export)
     app.router.add_post("/api/memory/import", api_memory_import)
     app.router.add_get("/api/stage", api_stage_get)
+    app.router.add_post("/api/stage/model", api_stage_model_upload)
+    app.router.add_get("/api/stage/model/{model_id}", api_stage_model_get)
     app.router.add_post("/api/stage/command", api_stage_command)
     app.router.add_post("/api/stage/control", api_stage_control)
     app.router.add_post("/api/stage/video-ready", api_stage_video_ready)
