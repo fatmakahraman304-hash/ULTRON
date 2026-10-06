@@ -1,0 +1,5 @@
+ULTRON CLOUD DEPLOY CHECK
+branch=feat/ultron-cloud-shared-memory
+base_commit=85463e4143577eb29c30047888c444326639a4ee
+purpose=verify Render is deploying the current cloud feature branch
+date=2026-10-06
