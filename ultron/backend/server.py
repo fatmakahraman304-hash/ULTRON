@@ -1,5 +1,6 @@
 """ULTRON V15 backend — aiohttp REST + WebSocket. Real data only."""
 import asyncio
+import copy
 import json
 import os
 import re
@@ -71,6 +72,8 @@ class Hub:
         self.pending_task: dict | None = None
         self.loop: asyncio.AbstractEventLoop | None = None
         self.last_command_ts: float = 0.0
+        self.scene_history = deque(maxlen=40)
+        self.scene_future = deque(maxlen=40)
         self.stage_state: dict = {
             "mode": "core_idle",
             "title": "ULTRON",
@@ -93,7 +96,18 @@ class Hub:
                 "explode": 0.0,
                 "auto_orbit": True,
                 "grid": True,
+                "show_labels": True,
+                "theme": "crimson",
+                "snap": 0.25,
                 "animation": "idle",
+                "timeline": {
+                    "duration": 8.0, "cursor": 0.0, "playing": False,
+                    "loop": True, "started_at": None, "keyframes": [],
+                },
+                "cinematic": {
+                    "enabled": False, "preset": "orbit", "duration": 8.0,
+                    "started_at": None, "loop": True,
+                },
             },
             "video": {
                 "template": "ultron_intro", "duration": 6.0,
@@ -769,6 +783,43 @@ async def _stage_publish() -> None:
     await hub.broadcast({"type": "stage", "data": hub.stage_state})
 
 
+def _scene_checkpoint() -> None:
+    hub.scene_history.append(copy.deepcopy(hub.stage_state.get("scene") or {}))
+    hub.scene_future.clear()
+
+
+def _scene_defaults() -> dict:
+    return {
+        "objects": [], "selected_id": None, "camera": "isometric",
+        "explode": 0.0, "auto_orbit": True, "grid": True,
+        "show_labels": True, "theme": "crimson", "snap": 0.25,
+        "animation": "idle",
+        "timeline": {
+            "duration": 8.0, "cursor": 0.0, "playing": False,
+            "loop": True, "started_at": None, "keyframes": [],
+        },
+        "cinematic": {
+            "enabled": False, "preset": "orbit", "duration": 8.0,
+            "started_at": None, "loop": True,
+        },
+    }
+
+
+def _scene_ensure(scene: dict) -> dict:
+    defaults = _scene_defaults()
+    for key, value in defaults.items():
+        if key not in scene:
+            scene[key] = copy.deepcopy(value)
+    for obj in scene.get("objects") or []:
+        if "motion" not in obj:
+            obj["motion"] = {"type": "none", "speed": 1.0, "radius": 1.5, "amplitude": .5, "axis": "y"}
+        if "visible" not in obj:
+            obj["visible"] = True
+        if "locked" not in obj:
+            obj["locked"] = False
+    return scene
+
+
 async def api_stage_get(_req: web.Request) -> web.Response:
     return web.json_response({"ok": True, **hub.stage_state})
 
@@ -780,6 +831,10 @@ async def api_stage_command(req: web.Request) -> web.Response:
         body = {}
     op = str(body.get("operation", "")).strip().lower()
     state = hub.stage_state
+    if isinstance(state.get("scene"), dict):
+        state["scene"] = _scene_ensure(state["scene"])
+    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_save", "scene_undo", "scene_redo"}:
+        _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
         state.update({"mode": "core_idle", "title": "ULTRON",
