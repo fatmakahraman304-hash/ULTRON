@@ -26,7 +26,10 @@ DEFAULT_USER_ID = os.getenv("ULTRON_USER_ID", "murat")
 SESSION_DAYS = int(os.getenv("ULTRON_SESSION_DAYS", "30"))
 
 DEVICE_COMMANDS = {
-    "desktop": {"wake", "mute", "unmute", "interrupt", "sync_memory"},
+    # agent_task is deliberately free-form: a paired phone may send the same
+    # natural-language command the owner could type into the desktop ULTRON UI.
+    # Execution still happens inside the desktop's existing tool/permission layer.
+    "desktop": {"wake", "mute", "unmute", "interrupt", "sync_memory", "agent_task"},
     "phone": {"ping", "refresh", "open_memory", "focus_chat"},
 }
 
