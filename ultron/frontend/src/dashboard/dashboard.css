@@ -56,3 +56,23 @@
 @keyframes stageSpin{to{transform:rotate(360deg)}}@keyframes renderSweep{from{transform:translateX(-35%)}to{transform:translateX(175%)}}@keyframes scanLine{from{top:0}to{top:100%}}
 
 .render-percent{display:block;margin:9px 0;color:#ff536a;font:24px Consolas,monospace;letter-spacing:2px}
+
+/* ---------- Scene Lab V2 ---------- */
+.scene-lab-shell,.scene-lab-webgl{position:absolute;inset:0}
+.scene-lab-webgl canvas{display:block;width:100%;height:100%}
+.scene-object-list{position:absolute;z-index:22;top:68px;left:18px;width:150px;max-height:300px;overflow:auto;padding:8px;background:#05070bd9;border:1px solid #552131;box-shadow:0 0 24px #000}
+.scene-object-list>b{display:block;color:#ff536a;font:9px Consolas,monospace;letter-spacing:1.5px;margin-bottom:6px}
+.scene-object-list button{width:100%;display:flex;justify-content:space-between;gap:6px;padding:6px 7px;margin:3px 0;font-size:8px;text-align:left}
+.scene-object-list button.active{border-color:#fff;background:#4b1020}
+.scene-object-list small{color:#9aa7b4;font-size:7px}
+.scene-toolbar{position:absolute;z-index:23;left:180px;right:18px;bottom:18px;display:flex;flex-wrap:wrap;gap:5px;padding:8px;background:#05070bea;border:1px solid #552131}
+.scene-toolbar button{font-size:8px;padding:6px 7px;display:flex;align-items:center;gap:4px}
+.scene-toolbar svg{width:12px;height:12px}
+.scene-inspector{position:absolute;z-index:24;top:68px;right:18px;width:170px;padding:10px;background:#05070bea;border:1px solid #552131;box-shadow:0 0 24px #000}
+.scene-inspector>b{display:block;color:#fff;font:11px Consolas,monospace;letter-spacing:1px}
+.scene-inspector>span{display:block;color:#ff536a;font:8px Consolas,monospace;margin:3px 0 8px}
+.scene-inspector>div{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.scene-inspector button{padding:6px;font-size:8px}
+.scene-inspector label{display:block;color:#9aa7b4;font:8px Consolas,monospace;margin-top:8px}
+.scene-inspector input[type=range]{width:100%;accent-color:#ff3047}
+.mode-scene_lab:after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,transparent 0 4px,#ff304704 5px);z-index:9}
