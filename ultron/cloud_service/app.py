@@ -476,6 +476,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                   SELECT id FROM device_commands d
                   WHERE d.user_id=$1 AND d.target=$2 AND d.status='queued'
                     AND d.created_at > NOW() - INTERVAL '24 hours'
+                    AND COALESCE(d.run_after, d.created_at) <= NOW()
                     AND (
                       d.command <> 'agent_task'
                       OR NOT EXISTS (
@@ -538,27 +539,70 @@ async def complete_device_command(request: web.Request) -> web.Response:
         result = {"message": result}
     if not isinstance(result, dict):
         result = {}
+    retryable = bool(result.get("retryable", False))
+    try:
+        retry_after_seconds = max(10, min(900, int(result.get("retry_after_seconds", 30) or 30)))
+    except Exception:
+        retry_after_seconds = 30
 
     auth_kind = request.get("auth_kind", "")
     expected_target = "desktop" if auth_kind == "device" else "phone"
-    row = await request.app["db"].fetchrow(
-        """
-        UPDATE device_commands
-        SET status=$1,
-            result=$2::jsonb,
-            completed_at=NOW(),
-            progress = COALESCE(progress, '[]'::jsonb) ||
-              jsonb_build_array(jsonb_build_object(
-                'stage', CASE WHEN $1='completed' THEN 'completed' ELSE 'failed' END,
-                'message', COALESCE(NULLIF(($2::jsonb->>'message'),''), CASE WHEN $1='completed' THEN 'Görev tamamlandı.' ELSE 'Görev başarısız oldu.' END),
-                'percent', CASE WHEN $1='completed' THEN 100 ELSE NULL END,
-                'at', EXTRACT(EPOCH FROM NOW())
-              ))
-        WHERE id=$3 AND user_id=$4 AND target=$5
-        RETURNING id,target,command,status,result,progress,created_at,delivered_at,completed_at
-        """,
-        status, json.dumps(result), command_id, request["user_id"], expected_target,
+
+    current = await request.app["db"].fetchrow(
+        "SELECT retry_count,max_retries FROM device_commands WHERE id=$1 AND user_id=$2 AND target=$3",
+        command_id, request["user_id"], expected_target,
     )
+    if not current:
+        raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
+
+    should_retry = (
+        expected_target == "desktop"
+        and status == "failed"
+        and retryable
+        and int(current["retry_count"] or 0) < int(current["max_retries"] or 0)
+    )
+
+    if should_retry:
+        row = await request.app["db"].fetchrow(
+            """
+            UPDATE device_commands
+            SET status='queued',
+                result=$1::jsonb,
+                retry_count=retry_count+1,
+                delivered_at=NULL,
+                completed_at=NULL,
+                run_after=NOW()+($2::text || ' seconds')::interval,
+                progress = COALESCE(progress, '[]'::jsonb) ||
+                  jsonb_build_array(jsonb_build_object(
+                    'stage','retry',
+                    'message',COALESCE(NULLIF(($1::jsonb->>'message'),''),'Geçici hata sonrası yeniden denenecek.'),
+                    'percent',NULL,
+                    'at',EXTRACT(EPOCH FROM NOW())
+                  ))
+            WHERE id=$3 AND user_id=$4 AND target=$5
+            RETURNING id,target,command,status,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
+            """,
+            json.dumps(result), retry_after_seconds, command_id, request["user_id"], expected_target,
+        )
+    else:
+        row = await request.app["db"].fetchrow(
+            """
+            UPDATE device_commands
+            SET status=$1,
+                result=$2::jsonb,
+                completed_at=NOW(),
+                progress = COALESCE(progress, '[]'::jsonb) ||
+                  jsonb_build_array(jsonb_build_object(
+                    'stage', CASE WHEN $1='completed' THEN 'completed' ELSE 'failed' END,
+                    'message', COALESCE(NULLIF(($2::jsonb->>'message'),''), CASE WHEN $1='completed' THEN 'Görev tamamlandı.' ELSE 'Görev başarısız oldu.' END),
+                    'percent', CASE WHEN $1='completed' THEN 100 ELSE NULL END,
+                    'at', EXTRACT(EPOCH FROM NOW())
+                  ))
+            WHERE id=$3 AND user_id=$4 AND target=$5
+            RETURNING id,target,command,status,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
+            """,
+            status, json.dumps(result), command_id, request["user_id"], expected_target,
+        )
     if not row:
         raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
     return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
@@ -666,7 +710,7 @@ async def recent_device_commands(request: web.Request) -> web.Response:
     )
     rows = await request.app["db"].fetch(
         """
-        SELECT id,target,command,payload,source_device,status,result,progress,created_at,delivered_at,completed_at
+        SELECT id,target,command,payload,source_device,status,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
         FROM device_commands
         WHERE user_id=$1 AND target=$2
         ORDER BY id DESC LIMIT $3
@@ -1214,7 +1258,9 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
           "Use control_phone_ui when the user asks to open chat, memory, remote control, camera, scroll to top, or vibrate the phone. "
           "Use send_laptop_task when the user explicitly asks ULTRON to do something on the paired laptop, such as open Chrome, find a file, inspect system status, or carry out a desktop task. "
-          "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it was sent live or queued. "
+          "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
+          "send_laptop_task may schedule a task for later by setting delay_minutes. "
+          "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it was sent live, scheduled, queued, retried, or completed. "
           "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used. "
           "The phone uses an ULTRON wake-word gate. When the gate is asleep, any audio may be ambient and must not be treated as a command. "
           "When the user says ULTRON and the gate wakes, answer normally and naturally."
@@ -1330,10 +1376,16 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "task": {"type": "STRING", "description": "The exact desktop task requested by the user, concise but complete."}
+                        "task": {"type": "STRING", "description": "The exact desktop task requested by the user, concise but complete."},
+                        "delay_minutes": {"type": "INTEGER", "description": "Optional delay before the laptop may claim this task. Use 0 for immediately."}
                     },
                     "required": ["task"]
                 }
+            },
+            {
+                "name": "get_laptop_status",
+                "description": "Read the paired laptop's current ULTRON presence/status.",
+                "parameters": {"type": "OBJECT", "properties": {}}
             }
         ]}],
     )
@@ -1518,6 +1570,10 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             id=fc.id, name=name,
                             response={"ok": False, "error": "task_required"},
                         )
+                    try:
+                        delay_minutes = max(0, min(1440, int(args.get("delay_minutes", 0) or 0)))
+                    except Exception:
+                        delay_minutes = 0
 
                     online = bool(await pool.fetchval(
                         """
@@ -1529,20 +1585,24 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     ))
                     row = await pool.fetchrow(
                         """
-                        INSERT INTO device_commands(user_id,target,command,payload,source_device)
-                        VALUES($1,'desktop','agent_task',$2::jsonb,$3)
-                        RETURNING id,created_at
+                        INSERT INTO device_commands(user_id,target,command,payload,source_device,run_after)
+                        VALUES($1,'desktop','agent_task',$2::jsonb,$3,NOW()+($4::text || ' minutes')::interval)
+                        RETURNING id,created_at,run_after
                         """,
                         user_id,
                         json.dumps({"text": task_text, "origin": "voice"}, ensure_ascii=False),
                         device_id,
+                        delay_minutes,
                     )
+                    scheduled = delay_minutes > 0
                     await send_json({
                         "type": "laptop_task",
                         "id": int(row["id"]),
                         "task": task_text,
                         "online": online,
-                        "queued": not online,
+                        "queued": (not online) or scheduled,
+                        "scheduled": scheduled,
+                        "run_after": str(row["run_after"]),
                     })
                     return types.FunctionResponse(
                         id=fc.id, name=name,
@@ -1550,9 +1610,41 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             "ok": True,
                             "command_id": int(row["id"]),
                             "desktop_online": online,
-                            "queued": not online,
+                            "queued": (not online) or scheduled,
+                            "scheduled": scheduled,
+                            "run_after": str(row["run_after"]),
                             "task": task_text,
                             "origin": "voice",
+                        },
+                    )
+
+                if name == "get_laptop_status":
+                    row = await pool.fetchrow(
+                        """
+                        SELECT state,last_seen,(last_seen > NOW() - INTERVAL '15 seconds') AS online
+                        FROM device_presence
+                        WHERE user_id=$1 AND device='desktop'
+                        """,
+                        user_id,
+                    )
+                    if not row:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": True, "online": False, "seen": False},
+                        )
+                    state = row["state"]
+                    if isinstance(state, str):
+                        try:
+                            state = json.loads(state)
+                        except Exception:
+                            state = {}
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={
+                            "ok": True,
+                            "online": bool(row["online"]),
+                            "last_seen": str(row["last_seen"]),
+                            "state": state if isinstance(state, dict) else {},
                         },
                     )
 
