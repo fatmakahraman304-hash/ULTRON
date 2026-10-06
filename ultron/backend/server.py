@@ -825,6 +825,47 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["hologram"] = holo
         state.update({"mode": "hologram_lab", "title": holo.get("label") or "HOLOGRAM",
                       "subtitle": f"{str(holo.get('kind','energy')).upper()} / LIVE"})
+    elif op == "scene_batch":
+        scene = dict(state.get("scene") or {})
+        raw = body.get("objects")
+        if raw is None and body.get("objects_json"):
+            try:
+                raw = json.loads(str(body.get("objects_json")))
+            except Exception:
+                raw = None
+        if not isinstance(raw, list) or not raw:
+            return web.json_response({"ok": False, "error": "scene_objects_required"}, status=400)
+        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower"}
+        objects = []
+        for index, spec in enumerate(raw[:16]):
+            if not isinstance(spec, dict):
+                continue
+            kind = str(spec.get("kind") or "energy").lower()
+            if kind not in allowed: kind = "energy"
+            pos = spec.get("position") if isinstance(spec.get("position"), list) else [spec.get("x",0),spec.get("y",0),spec.get("z",0)]
+            while len(pos)<3: pos.append(0)
+            objects.append({
+                "id": uuid.uuid4().hex[:8], "kind": kind,
+                "label": str(spec.get("label") or f"{kind.upper()} {index+1}")[:60],
+                "color": str(spec.get("color") or "#ff3047")[:24],
+                "position": [_stage_number(pos[0],0,-6,6),_stage_number(pos[1],0,-4,4),_stage_number(pos[2],0,-6,6)],
+                "rotation": [0.0,0.0,0.0],
+                "scale": _stage_number(spec.get("scale",1),1,.2,3),
+                "opacity": _stage_number(spec.get("opacity",.9),.9,.08,1),
+                "wireframe": bool(spec.get("wireframe",True)),
+                "spin": _stage_number(spec.get("spin",.5),.5,-4,4),
+                "explode": _stage_number(spec.get("explode",0),0,0,2),
+            })
+        if not objects:
+            return web.json_response({"ok": False, "error": "scene_objects_invalid"}, status=400)
+        scene.update({"objects":objects,"selected_id":objects[0]["id"],
+                      "camera":str(body.get("camera") or "isometric"),
+                      "auto_orbit":bool(body.get("auto_orbit",True)),
+                      "grid":bool(body.get("grid",True)),
+                      "animation":str(body.get("animation") or "idle")})
+        state["scene"] = scene
+        state.update({"mode":"scene_lab","title":"SCENE LAB",
+                      "subtitle":f"{len(objects)} OBJECTS / LIVE","progress":100})
     elif op in {"scene_open", "scene_add"}:
         scene = dict(state.get("scene") or {})
         objects = list(scene.get("objects") or [])
