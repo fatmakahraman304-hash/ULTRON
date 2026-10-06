@@ -961,6 +961,11 @@ async function openLiveSocket(){
       $('#stageVoiceText').textContent=scheduled?'Laptop görevi planlandı':(online?'Laptop görevi gönderildi':'Laptop görevi kuyruğa alındı');
       if(currentView==='remote')setTimeout(()=>loadRemoteHistory().catch(()=>{}),500);
     }
+    if(d.type==='laptop_task_cancelled'){
+      toast('Bekleyen laptop görevi iptal edildi.');
+      $('#stageVoiceText').textContent='Laptop görevi iptal edildi';
+      setTimeout(()=>watchLaptopTasks().catch(()=>{}),250);
+    }
     if(d.type==='phone_action'){
       const action=String(d.action||'');
       if(action==='chat')showView('chat');
@@ -1153,7 +1158,7 @@ function showView(name){
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
   $('#'+name+'View').classList.add('active');
   if(name==='memory')loadMemories().catch(()=>{});
-  if(name==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}
+  if(name==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{});$('#stageVoiceText').textContent='“Son görev ne oldu?” diyebilirsin'}
   if(name==='chat'){setUnread(0);setTimeout(()=>{scrollChatToBottom(false);$('#message').focus()},60)}
 }
 async function boot(){
@@ -1303,6 +1308,10 @@ function notifyLaptopTaskChange(item,previous){
   if(status==='expired')message='Laptop görevinin süresi doldu';
   if(!message)return;
   toast(message.slice(0,180));
+  if(status==='completed'&&voiceEnabled&&!document.hidden&&!liveSpeaking&&!voiceListening){
+    const spoken=result?('Laptop görevi tamamlandı. '+result):'Laptop görevi tamamlandı.';
+    speakUltron(spoken.slice(0,320));
+  }
   $('#stageVoiceText').textContent=taskStatusLabel(status,item)+' • '+title.slice(0,52);
   if(navigator.vibrate&&status!=='delivered')navigator.vibrate(status==='completed'?[55,35,80]:[100,50,100]);
   if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
