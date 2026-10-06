@@ -853,6 +853,10 @@ def _scene_ensure(scene: dict) -> dict:
             obj["visible"] = True
         if "locked" not in obj:
             obj["locked"] = False
+        if "clip_speed" not in obj:
+            obj["clip_speed"] = 1.0
+        if "clip_paused" not in obj:
+            obj["clip_paused"] = False
     return scene
 
 
@@ -979,7 +983,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "opacity":_stage_number(spec.get("opacity",.9),.9,.08,1),
                 "wireframe":bool(spec.get("wireframe",True)),"spin":_stage_number(spec.get("spin",.5),.5,-4,4),
                 "explode":_stage_number(spec.get("explode",0),0,0,2),"visible":bool(spec.get("visible",True)),
-                "locked":bool(spec.get("locked",False)),
+                "locked":bool(spec.get("locked",False)),"clip_speed":_stage_number(spec.get("clip_speed",1),1,0,4),
+                "clip_paused":bool(spec.get("clip_paused",False)),
                 "motion":{"type":str(motion.get("type") or "none"),"speed":_stage_number(motion.get("speed",1),1,.05,5),
                           "radius":_stage_number(motion.get("radius",1.5),1.5,.1,6),"amplitude":_stage_number(motion.get("amplitude",.5),.5,.05,4),
                           "axis":str(motion.get("axis") or "y")},
@@ -1051,6 +1056,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "explode": _stage_number(spec.get("explode",0),0,0,2),
                 "visible": bool(spec.get("visible", True)),
                 "locked": bool(spec.get("locked", False)),
+                "clip_speed": _stage_number(spec.get("clip_speed",1),1,0,4),
+                "clip_paused": bool(spec.get("clip_paused",False)),
                 "motion": {
                     "type": str(spec.get("motion") or "none"),
                     "speed": _stage_number(spec.get("motion_speed",1),1,.05,5),
@@ -1104,6 +1111,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "explode": _stage_number(body.get("explode", 0), 0, 0, 2),
                 "visible": bool(body.get("visible", True)),
                 "locked": bool(body.get("locked", False)),
+                "clip_speed": _stage_number(body.get("clip_speed",1),1,0,4),
+                "clip_paused": bool(body.get("clip_paused",False)),
                 "motion": {
                     "type": str(body.get("motion") or "none"),
                     "speed": _stage_number(body.get("motion_speed",1),1,.05,5),
@@ -1139,6 +1148,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
             if "explode" in body: obj["explode"] = _stage_number(body["explode"], obj.get("explode",0), 0, 2)
             if "visible" in body: obj["visible"] = bool(body["visible"])
             if "locked" in body: obj["locked"] = bool(body["locked"])
+            if "clip_speed" in body: obj["clip_speed"] = _stage_number(body["clip_speed"], obj.get("clip_speed",1), 0, 4)
+            if "clip_paused" in body: obj["clip_paused"] = bool(body["clip_paused"])
             if any(k in body for k in ("motion","motion_speed","radius","amplitude","axis")):
                 motion = dict(obj.get("motion") or {})
                 if "motion" in body: motion["type"] = str(body["motion"]).lower()
@@ -1275,7 +1286,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             objects.append({"id":uuid.uuid4().hex[:8],"kind":kind,"label":label,"color":color,
                             "position":[x,y,z],"rotation":[0,0,0],"scale":scale,"opacity":.9,
                             "wireframe":True,"spin":.45,"explode":0.0,
-                            "visible":True,"locked":False,
+                            "visible":True,"locked":False,"clip_speed":1.0,"clip_paused":False,
                             "motion":{"type":"none","speed":1.0,"radius":1.5,"amplitude":.5,"axis":"y"}})
         scene = _scene_ensure(scene)
         scene.update({"objects":objects,"selected_id":objects[0]["id"] if objects else None,
