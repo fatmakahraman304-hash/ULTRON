@@ -1134,7 +1134,9 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use recall_memory when current persistent memory is needed instead of guessing from stale session context. "
           "Use get_latest_image_context whenever the user refers to the photo/image they just sent. "
           "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
-          "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used."
+          "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used. "
+          "The phone uses an ULTRON wake-word gate. When the gate is asleep, any audio may be ambient and must not be treated as a command. "
+          "When the user says ULTRON and the gate wakes, answer normally and naturally."
         + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT SHARED CHAT:\n{recent}"
     )
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
@@ -1235,6 +1237,15 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     in_parts: list[str] = []
     out_parts: list[str] = []
     send_lock = asyncio.Lock()
+    wake_active_until = 0.0
+    wake_seen_this_turn = False
+
+    def _contains_wake_word(text: str) -> bool:
+        normalized = str(text or "").lower().replace("û", "u").replace("ü", "u")
+        return "ultron" in normalized
+
+    def _wake_active() -> bool:
+        return time.monotonic() < wake_active_until
 
     async def send_json(payload: dict[str, Any]) -> None:
         if not ws.closed:
@@ -1392,7 +1403,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     got_any = False
                     async for response in session.receive():
                         got_any = True
-                        if response.data and not ws.closed:
+                        if response.data and not ws.closed and _wake_active():
                             async with send_lock:
                                 await ws.send_bytes(response.data)
 
@@ -1416,10 +1427,15 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             text = str(sc.input_transcription.text).strip()
                             if text:
                                 in_parts.append(text)
-                                await send_json({"type": "input_transcript", "text": text})
+                                if _contains_wake_word(text):
+                                    wake_active_until = time.monotonic() + 22.0
+                                    wake_seen_this_turn = True
+                                    await send_json({"type": "wake_state", "awake": True, "word": "ULTRON"})
+                                if _wake_active():
+                                    await send_json({"type": "input_transcript", "text": text})
                         if sc.output_transcription and sc.output_transcription.text:
                             text = str(sc.output_transcription.text).strip()
-                            if text:
+                            if text and _wake_active():
                                 out_parts.append(text)
                                 await send_json({"type": "output_transcript", "text": text})
                         if sc.turn_complete:
@@ -1427,29 +1443,37 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             full_out = " ".join(out_parts).strip()
                             in_parts.clear()
                             out_parts.clear()
-                            if full_in:
+                            should_commit = wake_seen_this_turn or _wake_active()
+                            if should_commit and full_in:
                                 await pool.execute(
                                     "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
                                     "VALUES($1,$2,'user',$3,$4)",
                                     conv_uuid, user_id, full_in, device_id,
                                 )
-                            if full_out:
+                            if should_commit and full_out:
                                 await pool.execute(
                                     "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
                                     "VALUES($1,$2,'assistant',$3,'cloud-gemini-live')",
                                     conv_uuid, user_id, full_out,
                                 )
-                            if full_in or full_out:
+                            if should_commit and (full_in or full_out):
                                 await pool.execute(
                                     "UPDATE conversations SET updated_at=NOW() WHERE id=$1",
                                     conv_uuid,
                                 )
-                            await send_json({
-                                "type": "turn_complete",
-                                "input": full_in,
-                                "output": full_out,
-                                "conversation_id": str(conv_uuid),
-                            })
+                            if should_commit:
+                                await send_json({
+                                    "type": "turn_complete",
+                                    "input": full_in,
+                                    "output": full_out,
+                                    "conversation_id": str(conv_uuid),
+                                })
+                                wake_active_until = 0.0
+                                wake_seen_this_turn = False
+                                await send_json({"type": "wake_state", "awake": False, "word": "ULTRON"})
+                            else:
+                                wake_seen_this_turn = False
+                                await send_json({"type": "ambient_ignored"})
                     if not got_any:
                         await asyncio.sleep(0.02)
 
