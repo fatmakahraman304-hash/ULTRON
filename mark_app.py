@@ -724,6 +724,7 @@ class UltronLive:
         the Live session with context resumption so the next turn gets the new
         memory block without losing the conversation.
         """
+        pending_refresh = False
         while True:
             await asyncio.sleep(5)
             try:
@@ -731,11 +732,16 @@ class UltronLive:
                 ok, _message = await asyncio.to_thread(sync_cloud_memory)
                 after = load_memory()
                 if ok and after != before:
+                    pending_refresh = True
                     self.ui.write_log("SYS: Cloud memory updated — refreshing voice context.")
-                    # Avoid cutting off speech; retry on the next loop if needed.
+
+                # Do not cut off a spoken reply. Keep the refresh pending until
+                # the voice becomes idle, even though the file is already synced.
+                if pending_refresh:
                     with self._speaking_lock:
                         speaking = self._is_speaking
                     if not speaking and self._reconnect_event is not None:
+                        pending_refresh = False
                         self._reconnect_keep = True
                         self._reconnect_reason = "cloud memory update"
                         self._reconnect_event.set()
