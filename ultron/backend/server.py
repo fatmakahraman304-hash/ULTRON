@@ -894,7 +894,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 raw = None
         if not isinstance(raw, dict) or not isinstance(raw.get("objects"), list):
             return web.json_response({"ok": False, "error":"scene_invalid"}, status=400)
-        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower"}
+        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube"}
         loaded = _scene_defaults()
         objects = []
         used = set()
@@ -968,7 +968,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 raw = None
         if not isinstance(raw, list) or not raw:
             return web.json_response({"ok": False, "error": "scene_objects_required"}, status=400)
-        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower"}
+        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube"}
         objects = []
         for index, spec in enumerate(raw[:16]):
             if not isinstance(spec, dict):
@@ -1065,7 +1065,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             if str(item.get("id")) != target:
                 continue
             obj = dict(item)
-            if "kind" in body and str(body["kind"]).lower() in {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower"}:
+            if "kind" in body and str(body["kind"]).lower() in {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube"}:
                 obj["kind"] = str(body["kind"]).lower()
             if "label" in body: obj["label"] = str(body["label"])[:60]
             if "color" in body: obj["color"] = str(body["color"])[:24]
@@ -1178,6 +1178,32 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 ("globe","EARTH","#35ffe4",0,0,0,1.1),
                 ("sphere","MOON","#dbe6ff",2.7,.4,0,.35),
                 ("ring","ORBIT","#ff3047",0,0,0,1.7),
+            ],
+            "command_center": [
+                ("energy","CORE","#ff3047",0,0,0,1.0),
+                ("network","NETWORK","#35ffe4",-2.5,.3,0,.75),
+                ("radar","RADAR","#ff3047",2.5,.1,0,.75),
+                ("drone","DRONE A","#35ffe4",-1.7,.7,-2,.55),
+                ("drone","DRONE B","#ff3047",1.7,.7,-2,.55),
+            ],
+            "city_scan": [
+                ("building","TOWER A","#ff3047",-2.4,0,0,.8),
+                ("building","TOWER B","#35ffe4",0,0,-.8,1.15),
+                ("building","TOWER C","#ff3047",2.4,0,.2,.7),
+                ("vehicle","VEHICLE","#dbe6ff",0,-.8,2,.55),
+                ("drone","SCAN DRONE","#35ffe4",0,1.5,0,.5),
+            ],
+            "space_ops": [
+                ("globe","PLANET","#35ffe4",0,0,0,1.1),
+                ("satellite","SAT-01","#ff3047",-2.8,.8,0,.55),
+                ("ship","SHIP","#dbe6ff",2.8,.2,0,.7),
+                ("ring","ORBIT","#ff3047",0,0,0,1.9),
+            ],
+            "robotics": [
+                ("robot","ROBOT","#ff3047",0,0,0,.9),
+                ("arm","ARM L","#35ffe4",-2.4,0,0,.75),
+                ("arm","ARM R","#35ffe4",2.4,0,0,.75),
+                ("network","CONTROL","#ff3047",0,1.6,-1,.5),
             ],
         }
         spec = presets.get(preset, presets["operations"])
