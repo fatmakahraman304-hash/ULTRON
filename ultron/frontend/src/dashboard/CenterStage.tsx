@@ -93,27 +93,29 @@ function VideoRenderer({stage,onReady,onError,onProgress}:{stage:StageState;onRe
   const capture=(c as HTMLCanvasElement & {captureStream?:(fps?:number)=>MediaStream}).captureStream;
   if(typeof capture!=='function'||typeof MediaRecorder==='undefined'){onError('Bu Chromium sürümü canvas video kaydını desteklemiyor.');return;}
   const stream=capture.call(c,30),types=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];const mime=types.find(t=>MediaRecorder.isTypeSupported(t))||'video/webm';
-  let recorder:MediaRecorder;try{recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:5_000_000});}catch(e){onError('Video encoder başlatılamadı: '+String(e));return;}
-  const chunks:BlobPart[]=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
-  recorder.onerror=()=>onError('Video render sırasında encoder hatası oluştu.');
-  recorder.onstop=()=>{stream.getTracks().forEach(t=>t.stop());const blob=new Blob(chunks,{type:mime});if(!blob.size){onError('Video çıktısı boş oluştu.');return;}const url=URL.createObjectURL(blob);onReady(url,blob);void request('/api/stage/video-ready',{job_id:job,mime,bytes:blob.size}).catch(e=>onError(String(e)));};
+  let recorder:MediaRecorder;let cancelled=false;try{recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:5_000_000});}catch(e){onError('Video encoder başlatılamadı: '+String(e));return;}
+  const chunks:BlobPart[]=[];recorder.ondataavailable=e=>{if(!cancelled&&e.data.size)chunks.push(e.data);};
+  recorder.onerror=()=>{if(!cancelled)onError('Video render sırasında encoder hatası oluştu.');};
+  recorder.onstop=()=>{stream.getTracks().forEach(t=>t.stop());if(cancelled)return;const blob=new Blob(chunks,{type:mime});if(!blob.size){onError('Video çıktısı boş oluştu.');return;}const url=URL.createObjectURL(blob);onReady(url,blob);void request('/api/stage/video-ready',{job_id:job,mime,bytes:blob.size}).catch(e=>onError(String(e)));};
   const duration=Math.max(2,Math.min(15,Number(stage.video.duration)||6))*1000,start=performance.now();let raf=0,lastProgress=-1;
   recorder.start(250);onProgress(0);
   const frame=(now:number)=>{const elapsed=now-start,p=Math.min(1,elapsed/duration);drawVideoFrame(ctx,c.width,c.height,p,stage);const progress=Math.floor(p*100);if(progress!==lastProgress){lastProgress=progress;onProgress(progress);}if(p<1)raf=requestAnimationFrame(frame);else{cancelAnimationFrame(raf);setTimeout(()=>{if(recorder.state!=='inactive')recorder.stop();},120);}};raf=requestAnimationFrame(frame);
-  return()=>{cancelAnimationFrame(raf);if(recorder.state!=='inactive')try{recorder.stop()}catch{};stream.getTracks().forEach(t=>t.stop());};
+  return()=>{cancelled=true;cancelAnimationFrame(raf);if(recorder.state!=='inactive')try{recorder.stop()}catch{};stream.getTracks().forEach(t=>t.stop());};
  },[stage.job_id,stage.mode]);
  return <canvas ref={canvas} width={1280} height={720} className="stage-render-canvas"/>;
 }
 
 export default function CenterStage({stage,state,amplitude,notify}:Props){
  const [videoUrl,setVideoUrl]=useState(''),[videoBlob,setVideoBlob]=useState<Blob|null>(null),[renderError,setRenderError]=useState(''),[renderProgress,setRenderProgress]=useState(0);
- const video=useRef<HTMLVideoElement>(null);
+ const video=useRef<HTMLVideoElement>(null),lastSaveNonce=useRef(0);
  useEffect(()=>()=>{if(videoUrl)URL.revokeObjectURL(videoUrl);},[videoUrl]);
  useEffect(()=>{if(stage.mode==='video_rendering'){setRenderError('');setRenderProgress(0);}},[stage.job_id,stage.mode]);
  useEffect(()=>{if(video.current)stage.video_paused?video.current.pause():video.current.play().catch(()=>{});},[stage.video_paused,stage.revision]);
  const patch=(body:Record<string,unknown>)=>request('/api/stage/control',body).catch(e=>notify(String(e)));
  const command=(operation:string,extra:Record<string,unknown>={})=>request('/api/stage/command',{operation,...extra}).catch(e=>notify(String(e)));
- const download=()=>{if(!videoBlob)return;const a=document.createElement('a');a.href=videoUrl;a.download='ultron-'+(stage.video.template||'animation')+'.webm';a.click();};
+ const downloadVideo=()=>{if(!videoBlob||!videoUrl){notify('Bu oturumda video verisi yok. Videoyu yeniden render et.');return;}const a=document.createElement('a');a.href=videoUrl;a.download='ultron-'+(stage.video.template||'animation')+'.webm';a.click();};
+ const downloadHologram=()=>{const payload={version:1,type:'ultron-center-stage',saved_at:new Date().toISOString(),hologram:stage.hologram};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='ultron-hologram.ultron.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);};
+ useEffect(()=>{const nonce=Number(stage.save_nonce||0);if(!nonce||nonce===lastSaveNonce.current)return;lastSaveNonce.current=nonce;if(stage.save_kind==='video')downloadVideo();else if(stage.save_kind==='hologram')downloadHologram();},[stage.save_nonce,stage.save_kind,videoBlob,videoUrl,stage.hologram,stage.video.template]);
  const presets=useMemo(()=>['energy','globe','network','drone','vehicle','logo','sphere'],[]);
  return <div className={'center-stage mode-'+stage.mode}>
   {stage.mode==='core_idle'&&<><UltronCore state={state} amplitude={amplitude}/><div className="core-title">ULTRON<small>NEURAL CORE</small></div></>}
@@ -124,11 +126,12 @@ export default function CenterStage({stage,state,amplitude,notify}:Props){
    <label>HIZ<input type="range" min=".05" max="4" step=".05" value={stage.hologram.speed} onChange={e=>patch({speed:+e.target.value})}/></label>
    <label>HALKA<input type="range" min="0" max="10" step="1" value={stage.hologram.rings} onChange={e=>patch({rings:+e.target.value})}/></label>
    <button onClick={()=>patch({wireframe:!stage.hologram.wireframe})}>{stage.hologram.wireframe?'SOLID':'WIREFRAME'}</button>
+   <button onClick={downloadHologram}><Download/> KAYDET</button>
    <button onClick={()=>command('video_from_stage',{duration:6,title:stage.hologram.label})}><Video/> VİDEOYA ÇEVİR</button>
    <button onClick={()=>command('reset')}><RotateCcw/> CORE</button>
   </div></>}
   {stage.mode==='video_rendering'&&<div className="stage-video-render"><VideoRenderer stage={stage} onReady={(url,blob)=>{if(videoUrl)URL.revokeObjectURL(videoUrl);setVideoUrl(url);setVideoBlob(blob);setRenderProgress(100);}} onError={setRenderError} onProgress={setRenderProgress}/><div className="render-overlay"><Sparkles/><h2>ULTRON VIDEO RENDER</h2><p>{stage.video.template.replaceAll('_',' ').toUpperCase()} · {stage.video.duration}s</p><div className="stage-progress"><i style={{width:renderProgress+'%'}}/></div><b className="render-percent">%{renderProgress}</b><small>{renderError||'Frame üretimi ve WebM kodlama devam ediyor…'}</small></div></div>}
-  {stage.mode==='video_preview'&&<div className="stage-video-preview">{videoUrl?<video ref={video} src={videoUrl} autoPlay loop controls playsInline/>:<div className="stage-missing-video"><Video/><h2>VIDEO OTURUMU HAZIR</h2><p>Bu render başka bir UI oturumunda üretildi. Yeniden üretmek için Render düğmesini kullan.</p></div>}<div className="video-actions"><button onClick={()=>{const v=video.current;if(!v)return;v.paused?v.play():v.pause();}}><Play/> OYNAT / DURAKLAT</button><button disabled={!videoBlob} onClick={download}><Download/> KAYDET</button><button onClick={()=>command('video_create',{template:stage.video.template,duration:stage.video.duration,title:stage.video.title})}><RotateCcw/> YENİDEN RENDER</button><button onClick={()=>command('reset')}><Maximize2/> CORE</button></div></div>}
+  {stage.mode==='video_preview'&&<div className="stage-video-preview">{videoUrl?<video ref={video} src={videoUrl} autoPlay loop controls playsInline/>:<div className="stage-missing-video"><Video/><h2>VIDEO OTURUMU HAZIR</h2><p>Bu render başka bir UI oturumunda üretildi. Yeniden üretmek için Render düğmesini kullan.</p></div>}<div className="video-actions"><button onClick={()=>{const v=video.current;if(!v)return;v.paused?v.play():v.pause();}}><Play/> OYNAT / DURAKLAT</button><button disabled={!videoBlob} onClick={downloadVideo}><Download/> KAYDET</button><button onClick={()=>command('video_create',{template:stage.video.template,duration:stage.video.duration,title:stage.video.title})}><RotateCcw/> YENİDEN RENDER</button><button onClick={()=>command('reset')}><Maximize2/> CORE</button></div></div>}
   {stage.mode==='task_progress'&&<div className="stage-task"><div className="task-orb"/><h2>{stage.title}</h2><p>{stage.subtitle}</p><div className="stage-progress"><i style={{width:Math.max(0,Math.min(100,stage.progress))+'%'}}/></div><b>%{Math.round(stage.progress)}</b></div>}
   {stage.mode==='screen_preview'&&<div className="stage-task"><ScanFrame/><h2>SCREEN PREVIEW</h2><p>Vizyon önizlemesi için Ekran Yakalama aracını kullan.</p><button onClick={()=>command('reset')}>CORE'A DÖN</button></div>}
   {stage.mode!=='core_idle'&&<div className="stage-mode-tag"><span>{stage.title}</span><small>{stage.subtitle}</small></div>}
