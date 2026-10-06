@@ -230,6 +230,24 @@ async def send_device_command(request: web.Request) -> web.Response:
             content_type="application/json",
         )
 
+    # One-shot controls (mute, wake, interrupt, memory sync) should never sit in
+    # a queue and surprise the user later. Only free-form agent tasks are allowed
+    # to wait for an offline laptop to reconnect.
+    if auth_kind == "web" and target == "desktop" and command != "agent_task":
+        online = await request.app["db"].fetchval(
+            """
+            SELECT COALESCE(last_seen > NOW() - INTERVAL '15 seconds', FALSE)
+            FROM device_presence
+            WHERE user_id=$1 AND device='desktop'
+            """,
+            request["user_id"],
+        )
+        if not online:
+            raise web.HTTPConflict(
+                text=json.dumps({"error": "desktop_offline"}),
+                content_type="application/json",
+            )
+
     row = await request.app["db"].fetchrow(
         """
         INSERT INTO device_commands(user_id,target,command,payload,source_device)
