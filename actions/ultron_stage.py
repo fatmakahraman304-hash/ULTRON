@@ -18,7 +18,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
 
     body: dict[str, Any] = {"operation": operation}
     for key in ("kind", "color", "label", "template", "title", "subtitle",
-                "object_id", "camera", "layout", "preset", "animation"):
+                "object_id", "camera", "layout", "preset", "animation", "objects_json"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -65,7 +65,7 @@ TOOL = {
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
         "describe the requested visual action. Scene Lab supports multiple selectable objects, camera views, layouts, exploded views and animations. Hologram/scene kinds: energy, globe, "
-        "network, drone, vehicle, logo, sphere, ring, tower. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary. Video templates: ultron_intro, "
+        "network, drone, vehicle, logo, sphere, ring, tower. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary. Video templates: ultron_intro, "
         "logo_reveal, energy_core, system_activation, task_complete, "
         "hologram_capture. For 'make this bigger/brighter/faster/red' after a "
         "hologram request, use hologram_update with only the changed fields."
@@ -77,7 +77,7 @@ TOOL = {
                 "type": "STRING",
                 "enum": [
                     "status", "reset", "hologram_create", "hologram_update",
-                    "hologram_save", "scene_open", "scene_add", "scene_update",
+                    "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_update",
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
                     "scene_arrange", "scene_preset", "scene_animation",
                     "video_create", "video_from_stage", "video_play",
@@ -105,6 +105,7 @@ TOOL = {
             "layout": {"type": "STRING"},
             "preset": {"type": "STRING"},
             "animation": {"type": "STRING"},
+            "objects_json": {"type": "STRING", "description": "JSON array for scene_batch. Each item may contain kind,label,color,x,y,z,scale,opacity,wireframe,spin,explode."},
             "x": {"type": "NUMBER"},
             "y": {"type": "NUMBER"},
             "z": {"type": "NUMBER"},
