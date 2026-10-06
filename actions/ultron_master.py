@@ -11,9 +11,14 @@ Destructive restore/clear/delete operations are intentionally NOT exposed here.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from integration.bridge import Bridge
+
+_ROOT = Path(__file__).resolve().parents[1]
+_BACKEND = _ROOT / "ultron" / "backend"
+_COG = _BACKEND / "data" / "cognitive"
 
 
 def _bridge() -> Bridge:
@@ -33,6 +38,11 @@ def ultron_master(parameters: dict, **_ctx) -> str:
     target = str(parameters.get("target", "") or "").strip()
     action = str(parameters.get("action", "") or "").strip().lower()
     value = parameters.get("value")
+    payload_text = str(parameters.get("payload", "") or "").strip()
+    try:
+        payload = json.loads(payload_text) if payload_text else {}
+    except Exception:
+        payload = {}
     b = _bridge()
 
     # Read-only situational awareness / diagnostics.
@@ -102,6 +112,96 @@ def ultron_master(parameters: dict, **_ctx) -> str:
             timeout=45,
         ))
 
+    # Cognitive JARVIS layer: research, knowledge, context, goals, prediction,
+    # decision support and dry-run simulation. These modules are deterministic
+    # and use the backend's persistent SQLite stores.
+    if op == "research":
+        if not query:
+            return _ok({"ok": False, "error": "research requires query"})
+        from app.cognitive.research_engine import ResearchEngine
+        engine = ResearchEngine(str(_COG / "research.db"))
+        return _ok(engine.research(query, max_sources=5))
+
+    if op == "knowledge_search":
+        if not query:
+            return _ok({"ok": False, "error": "knowledge_search requires query"})
+        from app.cognitive.knowledge_engine import KnowledgeEngine
+        engine = KnowledgeEngine(str(_COG / "knowledge.db"))
+        return _ok(engine.search(query, scope=target or None, top_k=5))
+
+    if op == "knowledge_stats":
+        from app.cognitive.knowledge_engine import KnowledgeEngine
+        engine = KnowledgeEngine(str(_COG / "knowledge.db"))
+        return _ok({
+            "stats": engine.stats(),
+            "contradictions": engine.contradictions(),
+            "stale": engine.stale_documents(),
+        })
+
+    if op == "context_snapshot":
+        from app.cognitive.context_engine import ContextEngine
+        engine = ContextEngine(str(_COG / "context.db"))
+        return _ok(engine.snapshot(namespace=target or "global"))
+
+    if op == "goals":
+        from app.cognitive.goal_engine import GoalEngine
+        engine = GoalEngine(str(_COG / "goals.db"))
+        return _ok({"goals": engine.active_goals()})
+
+    if op == "goal_create":
+        title = target or query
+        if not title:
+            return _ok({"ok": False, "error": "goal_create requires target or query"})
+        from app.cognitive.goal_engine import GoalEngine
+        engine = GoalEngine(str(_COG / "goals.db"))
+        priority = str(payload.get("priority", "P2")).upper()
+        deadline = payload.get("deadline")
+        return _ok(engine.create(
+            title=title,
+            intent=query if target else "",
+            priority=priority if priority in {"P0", "P1", "P2", "P3"} else "P2",
+            deadline=float(deadline) if deadline not in (None, "") else None,
+        ))
+
+    if op in {"predict_duration", "predict_failure"}:
+        task_type = query or target
+        if not task_type:
+            return _ok({"ok": False, "error": f"{op} requires query"})
+        from app.cognitive.predictive import PredictiveEngine
+        engine = PredictiveEngine(str(_COG / "predictions.db"))
+        if op == "predict_duration":
+            return _ok(engine.duration_estimate(task_type))
+        return _ok(engine.failure_probability(task_type))
+
+    if op == "decision_support":
+        subject = query or target
+        options = payload.get("options", [])
+        if not subject or not isinstance(options, list) or not options:
+            return _ok({
+                "ok": False,
+                "error": "decision_support requires query/target and payload.options[]",
+            })
+        from app.cognitive.decision_engine import DecisionEngine
+        engine = DecisionEngine(str(_COG / "decisions.db"))
+        return _ok(engine.decide(
+            kind=str(payload.get("kind", "voice")),
+            subject=subject,
+            options=options,
+            context=payload.get("context") if isinstance(payload.get("context"), dict) else {},
+            goals=payload.get("goals") if isinstance(payload.get("goals"), list) else [],
+            constraints=payload.get("constraints") if isinstance(payload.get("constraints"), list) else [],
+            reversibility=str(payload.get("reversibility", "reversible")),
+            expected_outcome=str(payload.get("expected_outcome", "")),
+        ))
+
+    if op == "simulate":
+        actions = payload.get("actions", [])
+        if not query or not isinstance(actions, list):
+            return _ok({"ok": False, "error": "simulate requires query and payload.actions[]"})
+        from app.cognitive.simulation import Simulator
+        engine = Simulator(str(_COG / "simulations.db"), root=str(_ROOT))
+        return _ok(engine.dry_run(query, actions))
+
     # Long-running supervisor work. Existing backend safety/approval boundaries
     # remain authoritative; this call cannot self-approve dangerous work.
     if op == "long_task":
@@ -144,6 +244,9 @@ def ultron_master(parameters: dict, **_ctx) -> str:
             "iot_list", "iot_discover", "iot_control", "iot_scene",
             "presence_status", "presence_ping", "backup_create", "backup_list",
             "tasks", "long_task", "agent", "deep_task", "multi_reason",
+            "research", "knowledge_search", "knowledge_stats", "context_snapshot",
+            "goals", "goal_create", "predict_duration", "predict_failure",
+            "decision_support", "simulate",
         ],
     })
 
@@ -155,7 +258,8 @@ TOOL = {
         "world/context status, self-diagnostics, capability/skill discovery, "
         "continuous screen-awareness controls, IoT/smart-home discovery and "
         "explicit device/scene control, presence, backups, long-running "
-        "supervisor jobs, deep local agent work, multi-model reasoning, model "
+        "supervisor jobs, deep local agent work, multi-model reasoning, research, "
+        "knowledge retrieval, goals, prediction, decision support, dry-run simulation, model "
         "health, security/privacy audit, memory/workspace/connectors status. "
         "Use this instead of merely describing a JARVIS-like action when the "
         "requested operation is listed here. Continuous vision must only be "
@@ -175,7 +279,10 @@ TOOL = {
                     "vision_status", "vision_scan", "vision_enable", "vision_disable",
                     "iot_list", "iot_discover", "iot_control", "iot_scene",
                     "presence_status", "presence_ping", "backup_create", "backup_list",
-                    "tasks", "long_task", "agent", "deep_task", "multi_reason"
+                    "tasks", "long_task", "agent", "deep_task", "multi_reason",
+                    "research", "knowledge_search", "knowledge_stats", "context_snapshot",
+                    "goals", "goal_create", "predict_duration", "predict_failure",
+                    "decision_support", "simulate"
                 ],
             },
             "query": {
@@ -193,6 +300,10 @@ TOOL = {
             "value": {
                 "type": "NUMBER",
                 "description": "Optional numeric IoT value such as temperature or brightness.",
+            },
+            "payload": {
+                "type": "STRING",
+                "description": "Optional JSON object for advanced operations such as decision options, simulation actions, goal priority/deadline.",
             },
         },
         "required": ["operation"],
