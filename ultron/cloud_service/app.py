@@ -1258,6 +1258,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
           "Use control_phone_ui when the user asks to control the current phone surface. Supported actions include ULTRON views plus safe app intents such as browser/search/maps/call composer. "
           "For iPhone system/app control, never claim unrestricted device access: iOS only allows actions exposed by browser URL/deep-link intents or explicit Shortcuts. "
+          "Use run_ios_shortcut when the user asks for an iPhone action that should be delegated to Apple Shortcuts. Prefer the shortcut name ULTRON Bridge unless the user explicitly names another shortcut. "
           "Use send_laptop_task when the user explicitly asks ULTRON to do something on the paired laptop, such as open Chrome, find a file, inspect system status, or carry out a desktop task. "
           "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
           "Use get_latest_laptop_task when the user asks what happened to the last laptop task, whether it finished, or for its result. "
@@ -1400,6 +1401,18 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 "name": "cancel_laptop_task",
                 "description": "Cancel the latest queued desktop ULTRON agent task. Only queued tasks can be cancelled.",
                 "parameters": {"type": "OBJECT", "properties": {}}
+            },
+            {
+                "name": "run_ios_shortcut",
+                "description": "Run an Apple Shortcut on the current iPhone. Use ULTRON Bridge by default and pass the requested phone action as text input.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "shortcut_name": {"type": "STRING", "description": "Shortcut name. Default ULTRON Bridge."},
+                        "input": {"type": "STRING", "description": "Text command or payload to pass into the shortcut."}
+                    },
+                    "required": ["input"]
+                }
             }
         ]}],
     )
@@ -1728,6 +1741,29 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     return types.FunctionResponse(
                         id=fc.id, name=name,
                         response={"ok": True, "command_id": int(row["id"]), "status": "cancelled"},
+                    )
+
+                if name == "run_ios_shortcut":
+                    shortcut_name = str(args.get("shortcut_name", "ULTRON Bridge")).strip()[:120] or "ULTRON Bridge"
+                    shortcut_input = str(args.get("input", "")).strip()[:1000]
+                    if not shortcut_input:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "shortcut_input_required"},
+                        )
+                    await send_json({
+                        "type": "ios_shortcut",
+                        "shortcut_name": shortcut_name,
+                        "input": shortcut_input,
+                    })
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={
+                            "ok": True,
+                            "shortcut_name": shortcut_name,
+                            "input": shortcut_input,
+                            "note": "iOS may require Shortcuts permissions or confirmation depending on the actions inside the shortcut.",
+                        },
                     )
 
                 return types.FunctionResponse(
