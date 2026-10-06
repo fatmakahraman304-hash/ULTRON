@@ -474,7 +474,7 @@ def attach(ui):
     def save_download(download):
         address=download.url().toString()
         png=address.startswith('data:image/png')
-        blob=address.startswith('blob:'+url.rstrip('/')+'/')
+        blob=address.startswith('blob:')
         project=blob and download.suggestedFileName().endswith('.ultron.json') and download.mimeType()=='application/json'
         video=blob and download.suggestedFileName().lower().endswith(('.webm','.mp4')) and download.mimeType().startswith('video/')
         if not (png or project or video):download.cancel();return
