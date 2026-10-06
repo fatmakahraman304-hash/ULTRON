@@ -75,3 +75,13 @@ CREATE TABLE IF NOT EXISTS device_presence (
 CREATE INDEX IF NOT EXISTS idx_device_presence_seen
   ON device_presence(user_id, last_seen DESC);
 
+
+
+CREATE TABLE IF NOT EXISTS speaker_profiles (
+  user_id TEXT PRIMARY KEY,
+  model TEXT NOT NULL,
+  embedding JSONB NOT NULL,
+  sample_count INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
