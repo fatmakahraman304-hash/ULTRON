@@ -1058,6 +1058,9 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state.update({"mode": "video_rendering", "title": "VIDEO RENDER",
                       "subtitle": template.replace("_", " ").upper(),
                       "progress": 0, "job_id": job_id})
+    elif op == "scene_save":
+        state["save_nonce"] = int(state.get("save_nonce", 0)) + 1
+        state["save_kind"] = "scene"
     elif op == "hologram_save":
         state["save_nonce"] = int(state.get("save_nonce", 0)) + 1
         state["save_kind"] = "hologram"
