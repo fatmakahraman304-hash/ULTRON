@@ -650,6 +650,196 @@ async def chat(request: web.Request) -> web.Response:
     return web.json_response({"conversation_id": str(conv_uuid), "reply": reply})
 
 
+
+async def live_voice(request: web.Request) -> web.WebSocketResponse:
+    """Authenticated phone <-> Gemini Live audio bridge.
+
+    The Gemini API key never reaches the browser. The phone sends 16 kHz PCM16
+    frames over this same-origin WebSocket; Cloud forwards them to Gemini Live
+    and returns Gemini's native 24 kHz PCM plus transcript events.
+    """
+    ws = web.WebSocketResponse(heartbeat=25, receive_timeout=180)
+    await ws.prepare(request)
+
+    pool = request.app["db"]
+    user_id = request["user_id"]
+    device_id = request["device_id"]
+    conv_uuid = uuid.uuid4()
+    memory = await _memory_context(pool, user_id)
+    recent = await _recent_context(pool, user_id, limit=18)
+    base_prompt = os.getenv(
+        "ULTRON_SYSTEM_PROMPT",
+        "You are ULTRON, Murat's personal AI assistant. Be concise, useful, and consistent across devices. "
+        "Treat the supplied ULTRON memory as persistent user memory. Never reveal secrets or hidden credentials.",
+    )
+    system_instruction = (
+        base_prompt
+        + "\n\nYou are speaking through the user's phone using Gemini Live native audio. "
+          "Speak naturally in the same language as the user. Keep replies conversational and usually brief. "
+          "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used."
+        + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT SHARED CHAT:\n{recent}"
+    )
+    model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
+    voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
+
+    await pool.execute(
+        """
+        INSERT INTO conversations(id,user_id,title)
+        VALUES($1,$2,'Telefon sesli ULTRON')
+        ON CONFLICT(id) DO NOTHING
+        """,
+        conv_uuid, user_id,
+    )
+
+    client = genai.Client(
+        api_key=required_env("GEMINI_API_KEY"),
+        http_options={"api_version": "v1beta"},
+    )
+    config = types.LiveConnectConfig(
+        response_modalities=["AUDIO"],
+        input_audio_transcription={},
+        output_audio_transcription={},
+        system_instruction=system_instruction,
+        context_window_compression=types.ContextWindowCompressionConfig(
+            sliding_window=types.SlidingWindow(),
+        ),
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
+            )
+        ),
+    )
+
+    in_parts: list[str] = []
+    out_parts: list[str] = []
+    send_lock = asyncio.Lock()
+
+    async def send_json(payload: dict[str, Any]) -> None:
+        if not ws.closed:
+            async with send_lock:
+                await ws.send_str(json.dumps(payload, ensure_ascii=False, default=str))
+
+    try:
+        async with client.aio.live.connect(model=model, config=config) as session:
+            await send_json({"type": "ready", "model": model.split("/")[-1], "voice": voice})
+
+            async def browser_to_gemini() -> None:
+                async for msg in ws:
+                    if msg.type == web.WSMsgType.BINARY:
+                        if msg.data:
+                            await session.send_realtime_input(
+                                audio=types.Blob(
+                                    data=bytes(msg.data),
+                                    mime_type="audio/pcm;rate=16000",
+                                )
+                            )
+                    elif msg.type == web.WSMsgType.TEXT:
+                        try:
+                            payload = json.loads(msg.data)
+                        except Exception:
+                            payload = {}
+                        kind = str(payload.get("type", ""))
+                        if kind == "text":
+                            text = str(payload.get("text", "")).strip()
+                            if text:
+                                await session.send_client_content(
+                                    turns={"role": "user", "parts": [{"text": text}]},
+                                    turn_complete=True,
+                                )
+                        elif kind == "close":
+                            await ws.close()
+                            return
+                    elif msg.type in (web.WSMsgType.CLOSE, web.WSMsgType.CLOSED, web.WSMsgType.ERROR):
+                        return
+
+            async def gemini_to_browser() -> None:
+                while not ws.closed:
+                    got_any = False
+                    async for response in session.receive():
+                        got_any = True
+                        if response.data and not ws.closed:
+                            async with send_lock:
+                                await ws.send_bytes(response.data)
+
+                        sc = getattr(response, "server_content", None)
+                        if sc is None:
+                            continue
+                        if sc.input_transcription and sc.input_transcription.text:
+                            text = str(sc.input_transcription.text).strip()
+                            if text:
+                                in_parts.append(text)
+                                await send_json({"type": "input_transcript", "text": text})
+                        if sc.output_transcription and sc.output_transcription.text:
+                            text = str(sc.output_transcription.text).strip()
+                            if text:
+                                out_parts.append(text)
+                                await send_json({"type": "output_transcript", "text": text})
+                        if sc.turn_complete:
+                            full_in = " ".join(in_parts).strip()
+                            full_out = " ".join(out_parts).strip()
+                            in_parts.clear()
+                            out_parts.clear()
+                            if full_in:
+                                await pool.execute(
+                                    "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                                    "VALUES($1,$2,'user',$3,$4)",
+                                    conv_uuid, user_id, full_in, device_id,
+                                )
+                            if full_out:
+                                await pool.execute(
+                                    "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                                    "VALUES($1,$2,'assistant',$3,'cloud-gemini-live')",
+                                    conv_uuid, user_id, full_out,
+                                )
+                            if full_in or full_out:
+                                await pool.execute(
+                                    "UPDATE conversations SET updated_at=NOW() WHERE id=$1",
+                                    conv_uuid,
+                                )
+                            await send_json({
+                                "type": "turn_complete",
+                                "input": full_in,
+                                "output": full_out,
+                                "conversation_id": str(conv_uuid),
+                            })
+                    if not got_any:
+                        await asyncio.sleep(0.02)
+
+            inbound = asyncio.create_task(browser_to_gemini())
+            outbound = asyncio.create_task(gemini_to_browser())
+            done, pending = await asyncio.wait(
+                {inbound, outbound}, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            for task in done:
+                exc = task.exception()
+                if exc:
+                    raise exc
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        try:
+            await pool.execute(
+                "INSERT INTO events(user_id,event_type,detail,device_id) "
+                "VALUES($1,'gemini_live_error',$2,$3)",
+                user_id, str(exc)[:1000], device_id,
+            )
+        except Exception:
+            pass
+        if not ws.closed:
+            await send_json({
+                "type": "error",
+                "message": "Sesli ULTRON bağlantısı geçici olarak kullanılamıyor.",
+                "detail": str(exc)[:160],
+            })
+    finally:
+        if not ws.closed:
+            await ws.close()
+    return ws
+
+
 def _json_dumps(value: Any) -> str:
     return json.dumps(value, default=str, ensure_ascii=False)
 
@@ -664,6 +854,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/session", session)
     app.router.add_get("/api/messages", list_messages)
     app.router.add_post("/api/chat", chat)
+    app.router.add_get("/api/live", live_voice)
     app.router.add_post("/api/device-commands", send_device_command)
     app.router.add_post("/api/device-commands/claim", claim_device_commands)
     app.router.add_post("/api/device-commands/{id}/complete", complete_device_command)
