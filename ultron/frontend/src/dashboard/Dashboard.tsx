@@ -76,6 +76,11 @@ export default function Dashboard(){
   if(sceneMode&&projectNameMatch){await action('scene_project_save',{project_name:projectNameMatch[1].trim().slice(0,80)});return 'Sahne cihaz içi proje olarak kaydedildi.';}
   if(sceneMode&&/(?:sahneyi|scene|bunu).*(?:kaydet|save)/.test(t)){await action('scene_save');return 'Scene Lab projesi kaydediliyor.';}
   if(sceneMode){
+   const namedTarget=u.stage.scene.objects.find(o=>{const name=String(o.label||'').toLocaleLowerCase('tr-TR');return name.length>1&&t.includes(name);});
+   if(namedTarget&&/(?:seç|sec|select)/.test(t)){await action('scene_select',{object_label:namedTarget.label});return namedTarget.label+' seçildi.';}
+   if(namedTarget&&/(?:odaklan|focus)/.test(t)){await action('scene_focus',{object_label:namedTarget.label});return 'Kamera '+namedTarget.label+' nesnesine odaklandı.';}
+   if(namedTarget&&/(?:kopyala|çoğalt|cogalt|duplicate)/.test(t)){await action('scene_duplicate',{object_label:namedTarget.label});return namedTarget.label+' çoğaltıldı.';}
+   if(namedTarget&&/(?:sil|kaldır|kaldir|remove)/.test(t)&&!/(?:hud|link|bağlantı|baglanti)/.test(t)){await action('scene_remove',{object_label:namedTarget.label});return namedTarget.label+' sahneden kaldırıldı.';}
    if(selected&&/(?:hud|bilgi kartı|bilgi karti|data kartı|data karti).*(?:ekle|oluştur|olustur|göster|goster)/.test(t)){const valueMatch=t.match(/(?:değer|deger|value)\s*[:=]?\s*([^,;]+)/);await action('scene_hud_add',{object_id:selected.id,hud_title:/sıcaklık|sicaklik/.test(t)?'TEMP':/hız|hiz/.test(t)?'SPEED':'STATUS',hud_value:valueMatch?.[1]?.trim()||'ONLINE',color:color||selected.color||'#35ffe4'});return 'Seçili nesneye HUD kartı eklendi.';}
    if(/(?:hud|bilgi kartları|bilgi kartlari).*(?:temizle|sil|kaldır|kaldir)/.test(t)){await action('scene_hud_clear');return 'Scene Lab HUD kartları temizlendi.';}
    if(/(?:geri al|undo|son işlemi geri)/.test(t)){await action('scene_undo');return 'Son sahne işlemi geri alındı.';}
