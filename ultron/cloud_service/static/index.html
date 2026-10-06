@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#050608" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ULTRON" />
+  <link rel="manifest" href="/static/manifest.webmanifest" />
+  <link rel="icon" href="/static/ultron-icon.svg" type="image/svg+xml" />
   <title>ULTRON Mobile</title>
   <style>
     :root{
@@ -672,6 +675,9 @@ setInterval(phoneHeartbeat,5000);
 setInterval(()=>{if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}},3000);
 document.addEventListener('visibilitychange',()=>{if(document.hidden){stopPhoneCamera();return}phoneHeartbeat();if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}});
 boot().then(()=>phoneHeartbeat());
+window.addEventListener('online',()=>setOnline(true,'Cloud bağlı'));
+window.addEventListener('offline',()=>setOnline(false,'Çevrimdışı'));
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/static/sw.js').catch(()=>{}))}
 </script>
 </body>
 </html>
