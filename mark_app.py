@@ -2315,12 +2315,21 @@ class UltronLive:
             try:
                 with self._speaking_lock:
                     speaking = bool(self._is_speaking)
-                voice_active = bool(self.session is not None and not self.ui.muted)
+                # While a phone-originated desktop task is running, the
+                # laptop is intentionally a silent execution engine. Advertise
+                # that state so the phone remains the single speaker instead of
+                # muting itself because the desktop session merely exists.
+                remote_silent = bool(self._cloud_remote_silent)
+                voice_active = bool(
+                    self.session is not None
+                    and not self.ui.muted
+                    and not remote_silent
+                )
                 state = {
                     "ui_state": "CONNECTED" if self.session is not None else "CONNECTING",
                     "muted": bool(self.ui.muted),
                     "voice_active": voice_active,
-                    "voice_output": True,
+                    "voice_output": not remote_silent,
                     "voice": get_voice(),
                     "speaking": speaking,
                     "single_speaker_priority": "desktop",
