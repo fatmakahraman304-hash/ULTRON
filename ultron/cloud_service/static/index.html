@@ -487,7 +487,7 @@ let attachMenuOpen=false;
 const laptopTaskStates=new Map();
 const laptopTaskProgressCounts=new Map();
 let laptopTaskWatchPrimed=false;
-let desktopPresencePrimed=false,desktopWasOnline=false;
+let desktopPresencePrimed=false,desktopWasOnline=false,desktopVoiceLeader=false;
 function setAttachMenu(open){
   attachMenuOpen=!!open;$('#attachMenu').classList.toggle('show',attachMenuOpen);$('#plusBtn').classList.toggle('open',attachMenuOpen);$('#plusBtn').setAttribute('aria-expanded',attachMenuOpen?'true':'false');
 }
@@ -653,6 +653,9 @@ function pickUltronVoice(){
   return voices.find(v=>/^tr[-_]/i.test(v.lang))||voices[0]||null;
 }
 function speakUltron(text,force=false){
+  // Single-speaker mode: when desktop ULTRON is actively available, the phone
+  // keeps listening but never emits a second copy of the voice.
+  if(desktopVoiceLeader)return;
   // Fallback for typed chat and the launch greeting. Real microphone
   // conversations use Gemini Live native audio over /api/live.
   if(!voiceEnabled&&!force)return;
@@ -691,7 +694,7 @@ function ensurePlayback(){
   if(playCursor<playContext.currentTime)playCursor=playContext.currentTime+.03;
 }
 function playPCM24k(buffer){
-  if(suppressOutput)return;
+  if(suppressOutput||desktopVoiceLeader)return;
   ensurePlayback();
   const pcm=new Int16Array(buffer),floats=new Float32Array(pcm.length);
   for(let i=0;i<pcm.length;i++)floats[i]=pcm[i]/32768;
@@ -1055,7 +1058,10 @@ async function openLiveSocket(){
       const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
       if(cameraStream&&/(şuna bak|buna bak|ne görüyorsun|kamerada|gösterdiğim)/i.test(heard))captureCameraFrame(heard,false);
     }
-    if(d.type==='output_transcript'&&d.text&&!suppressOutput){liveSpeaking=true;$('#stageVoiceText').textContent='ULTRON konuşuyor'}
+    if(d.type==='output_transcript'&&d.text&&!suppressOutput){
+      liveSpeaking=!desktopVoiceLeader;
+      $('#stageVoiceText').textContent=desktopVoiceLeader?'TEK SES MODU • SES LAPTOPTA':'ULTRON konuşuyor';
+    }
     if(d.type==='interrupted'){
       suppressOutput=false;liveSpeaking=false;bargeBlocks=0;stopPlayback();resetVoiceGateSegment();
       liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
@@ -1381,7 +1387,31 @@ function fmtTime(value){
 }
 async function phoneHeartbeat(){
   if($('#app').classList.contains('hidden'))return;
-  try{await api('/api/device-presence/heartbeat',{method:'POST',body:JSON.stringify({state:{view:currentView,visible:!document.hidden,voice_listening:voiceListening,wake_active:false,speaker_lock:false}})})}catch(e){}
+  try{await api('/api/device-presence/heartbeat',{method:'POST',body:JSON.stringify({state:{
+    view:currentView,
+    visible:!document.hidden,
+    voice_listening:voiceListening,
+    wake_active:false,
+    speaker_lock:false,
+    single_speaker_mode:true,
+    audio_output:!desktopVoiceLeader
+  }})})}catch(e){}
+}
+function setDesktopVoiceLeader(active){
+  active=!!active;
+  if(active===desktopVoiceLeader)return;
+  desktopVoiceLeader=active;
+  if(active){
+    stopPlayback();
+    try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
+    liveSpeaking=false;
+    $('#stageVoiceText').textContent='TEK SES MODU • SES LAPTOPTA';
+    toast('Tek ses modu: ULTRON sesi laptoptan çıkacak.');
+  }else if(voiceListening){
+    $('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
+    toast('Tek ses modu: telefon sesi devraldı.');
+  }
+  phoneHeartbeat().catch(()=>{});
 }
 async function watchDesktopPresence(){
   if($('#app').classList.contains('hidden'))return;
@@ -1389,6 +1419,9 @@ async function watchDesktopPresence(){
     const d=await api('/api/device-presence');
     const laptop=(d.devices||[]).find(x=>x.device==='desktop');
     const online=!!laptop?.online;
+    const state=laptop?.state||{};
+    const laptopCanSpeak=online&&state.voice_active===true&&state.voice_output!==false&&state.muted!==true;
+    setDesktopVoiceLeader(laptopCanSpeak);
     if(desktopPresencePrimed&&online!==desktopWasOnline){
       const msg=online?'Laptop ULTRON yeniden çevrimiçi.':'Laptop ULTRON bağlantısı kesildi.';
       toast(msg);
