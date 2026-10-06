@@ -107,7 +107,7 @@ function VideoRenderer({stage,onReady,onError,onProgress}:{stage:StageState;onRe
 
 export default function CenterStage({stage,state,amplitude,notify}:Props){
  const [videoUrl,setVideoUrl]=useState(''),[videoBlob,setVideoBlob]=useState<Blob|null>(null),[renderError,setRenderError]=useState(''),[renderProgress,setRenderProgress]=useState(0);
- const video=useRef<HTMLVideoElement>(null),lastSaveNonce=useRef(0);
+ const video=useRef<HTMLVideoElement>(null),lastSaveNonce=useRef(Number(stage.save_nonce||0));
  useEffect(()=>()=>{if(videoUrl)URL.revokeObjectURL(videoUrl);},[videoUrl]);
  useEffect(()=>{if(stage.mode==='video_rendering'){setRenderError('');setRenderProgress(0);}},[stage.job_id,stage.mode]);
  useEffect(()=>{if(video.current)stage.video_paused?video.current.pause():video.current.play().catch(()=>{});},[stage.video_paused,stage.revision]);
