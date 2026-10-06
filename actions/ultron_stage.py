@@ -60,7 +60,7 @@ TOOL = {
         "Control the main visual Center Stage in the ULTRON desktop UI. Use it "
         "whenever the user asks to create/show/control a hologram, create a short "
         "animation video, convert the current hologram into a video, play/pause "
-        "that rendered video, reset the center area, show a screen preview, or "
+        "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
         "describe the requested visual action. Hologram kinds: energy, globe, "
         "network, drone, vehicle, logo, sphere. Video templates: ultron_intro, "
@@ -75,8 +75,8 @@ TOOL = {
                 "type": "STRING",
                 "enum": [
                     "status", "reset", "hologram_create", "hologram_update",
-                    "video_create", "video_from_stage", "video_play",
-                    "video_pause", "task_progress", "screen_preview"
+                    "hologram_save", "video_create", "video_from_stage", "video_play",
+                    "video_pause", "video_save", "task_progress", "screen_preview"
                 ],
             },
             "kind": {"type": "STRING"},
