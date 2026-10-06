@@ -51,6 +51,51 @@ try {
     $env:PATH = (Split-Path -Parent $pythonExe) + ';' + $env:PATH
     & $pythonExe --version
     if ($LASTEXITCODE -ne 0) { throw 'Python calismiyor.' }
+
+    # The native cockpit loads ultron/frontend/dist, not the TypeScript source.
+    # Rebuild automatically only when source/config is newer than the existing
+    # bundle so git pull + START.bat is enough to activate UI upgrades.
+    if ($Mode -eq 'start' -or $Mode -eq 'install') {
+        $frontendDir = Join-Path $projectRoot 'ultron\frontend'
+        $distIndex = Join-Path $frontendDir 'dist\index.html'
+        $needsFrontendBuild = -not (Test-Path -LiteralPath $distIndex)
+        if (-not $needsFrontendBuild) {
+            $distTime = (Get-Item -LiteralPath $distIndex).LastWriteTimeUtc
+            $frontendInputs = @(
+                (Join-Path $frontendDir 'src'),
+                (Join-Path $frontendDir 'index.html'),
+                (Join-Path $frontendDir 'package.json'),
+                (Join-Path $frontendDir 'package-lock.json'),
+                (Join-Path $frontendDir 'vite.config.ts'),
+                (Join-Path $frontendDir 'tsconfig.json')
+            )
+            foreach ($inputPath in $frontendInputs) {
+                if (-not (Test-Path -LiteralPath $inputPath)) { continue }
+                $item = Get-Item -LiteralPath $inputPath
+                if ($item.PSIsContainer) {
+                    $newer = Get-ChildItem -LiteralPath $inputPath -Recurse -File -ErrorAction SilentlyContinue |
+                        Where-Object { $_.LastWriteTimeUtc -gt $distTime } |
+                        Select-Object -First 1
+                    if ($newer) { $needsFrontendBuild = $true; break }
+                } elseif ($item.LastWriteTimeUtc -gt $distTime) {
+                    $needsFrontendBuild = $true; break
+                }
+            }
+        }
+        if ($needsFrontendBuild) {
+            $npm = Get-Command npm.cmd -ErrorAction SilentlyContinue
+            if (-not $npm) { $npm = Get-Command npm -ErrorAction SilentlyContinue }
+            if (-not $npm) { throw 'Frontend guncellendi ancak npm bulunamadi. Node.js/npm kurulumu gerekli.' }
+            Write-Host 'ULTRON Center Stage arayuzu derleniyor...' -ForegroundColor Cyan
+            Push-Location -LiteralPath $frontendDir
+            try {
+                & $npm.Source run build
+                if ($LASTEXITCODE -ne 0) { throw "Frontend build basarisiz: $LASTEXITCODE" }
+            } finally {
+                Pop-Location
+            }
+        }
+    }
     if ($Mode -eq 'install') { & $pythonExe -m integration.installer }
     elseif ($Mode -eq 'doctor') {
         if ($Quick) { & $pythonExe -m integration.doctor --quick }
