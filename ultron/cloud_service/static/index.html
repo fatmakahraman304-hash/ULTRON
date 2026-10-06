@@ -155,7 +155,7 @@
 
     /* ULTRON approved mobile visual pass v2 */
     :root{--neon:#ff2447;--neon2:#ff102f;--glass:rgba(8,9,13,.74);--glass2:rgba(28,4,9,.80)}
-    html,body{background:#030406!important}
+    html,body{background:#030406!important;scroll-padding-bottom:285px}
     body{position:relative;isolation:isolate}
     body:before{z-index:0!important;filter:saturate(1.2) brightness(.72) contrast(1.08)!important;background-position:center top!important;background-size:cover!important}
     body:after{z-index:0!important;background:linear-gradient(180deg,rgba(2,3,5,.06),rgba(2,3,5,.12) 18%,rgba(2,3,5,.24) 58%,rgba(2,3,5,.48) 100%)!important}
@@ -173,10 +173,10 @@
     .background-status .stage-status{position:static!important;display:flex;justify-content:center;opacity:.60;font-size:9px;letter-spacing:.08em}
 
     #chatView{padding-top:0!important}
-    #messages{gap:18px!important;padding:8px 2px 170px!important;min-height:58vh}
-    .msg{max-width:78%!important;padding:31px 20px 17px!important;border-radius:24px!important;font-size:15px!important;line-height:1.5!important;background:linear-gradient(160deg,rgba(15,17,21,.82),rgba(7,8,11,.72))!important;border:1px solid rgba(255,36,71,.80)!important;box-shadow:inset 0 0 28px rgba(255,36,71,.025),0 0 14px rgba(0,0,0,.26);backdrop-filter:blur(8px)}
+    #messages{gap:18px!important;padding:8px 2px 285px!important;min-height:58vh}
+    .msg{max-width:78%!important;padding:31px 20px 17px!important;border-radius:24px!important;font-size:15px!important;line-height:1.5!important;background:linear-gradient(160deg,rgba(15,17,21,.72),rgba(7,8,11,.64))!important;border:1px solid rgba(255,36,71,.80)!important;box-shadow:inset 0 0 28px rgba(255,36,71,.025),0 0 14px rgba(0,0,0,.26);backdrop-filter:blur(8px)}
     .msg.assistant{align-self:flex-start!important;border-top-left-radius:12px!important}
-    .msg.user{align-self:flex-end!important;background:linear-gradient(145deg,rgba(102,7,24,.82),rgba(42,5,11,.76))!important;border-top-right-radius:12px!important}
+    .msg.user{align-self:flex-end!important;background:linear-gradient(145deg,rgba(102,7,24,.72),rgba(42,5,11,.66))!important;border-top-right-radius:12px!important}
     .msg.assistant:before,.msg.user:before{position:absolute;top:10px;font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--neon);text-transform:uppercase}
     .msg.assistant:before{content:"ULTRON";left:20px}.msg.user:before{content:"SİZ";right:20px}
     .msg.assistant:after,.msg.user:after{content:"";position:absolute;top:18px;width:11px;height:11px;border-radius:50%;background:#ff2447;border:3px solid #27050c;box-shadow:0 0 0 2px #ff2447,0 0 12px #ff2447}
@@ -671,19 +671,30 @@ function startVoice(){startLiveVoice()}
 function scrollChatToBottom(smooth=false){
   if(currentView!=='chat')return;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    const bottom=Math.max(document.body.scrollHeight,document.documentElement.scrollHeight);
-    window.scrollTo({top:bottom+200,left:0,behavior:smooth?'smooth':'auto'});
     const last=$('#messages')?.lastElementChild;
-    if(last)last.scrollIntoView({block:'end',inline:'nearest',behavior:smooth?'smooth':'auto'});
+    if(!last)return;
+    const viewportH=window.visualViewport?.height||window.innerHeight;
+    const reserved=235;
+    const rect=last.getBoundingClientRect();
+    const target=Math.max(0,window.scrollY+rect.bottom-(viewportH-reserved));
+    window.scrollTo({top:target,left:0,behavior:smooth?'smooth':'auto'});
   }));
 }
 function formatMessageTime(value){
   if(!value)return '';
   try{return new Intl.DateTimeFormat('tr-TR',{hour:'2-digit',minute:'2-digit'}).format(new Date(value))}catch{return ''}
 }
+function cleanChatText(value){
+  return String(value??'')
+    .replace(/\*\*(.*?)\*\*/g,'$1')
+    .replace(/^\s*\*\s+/gm,'• ')
+    .replace(/^\s*-\s+/gm,'• ')
+    .replace(/\n{3,}/g,'\n\n')
+    .trim();
+}
 function addMessage(role,content,meta={}){
   const d=document.createElement('div');d.className='msg '+role;
-  const body=document.createElement('span');body.textContent=content;d.appendChild(body);
+  const body=document.createElement('span');body.textContent=cleanChatText(content);d.appendChild(body);
   if(meta.id!=null)d.dataset.cloudId=String(meta.id);
   const time=formatMessageTime(meta.created_at);
   if(time){const t=document.createElement('small');t.className='msg-time';t.textContent=time;d.appendChild(t)}
