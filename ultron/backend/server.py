@@ -95,9 +95,12 @@ class Hub:
             "scene": {
                 "objects": [],
                 "links": [],
+                "hud": [],
                 "selected_id": None,
                 "focus_id": None,
                 "camera": "isometric",
+                "camera_pose": None,
+                "project_name": "Untitled",
                 "explode": 0.0,
                 "auto_orbit": True,
                 "grid": True,
@@ -841,8 +844,8 @@ def _scene_checkpoint() -> None:
 
 def _scene_defaults() -> dict:
     return {
-        "objects": [], "links": [], "selected_id": None, "focus_id": None, "camera": "isometric",
-        "explode": 0.0, "auto_orbit": True, "grid": True,
+        "objects": [], "links": [], "hud": [], "selected_id": None, "focus_id": None, "camera": "isometric",
+        "camera_pose": None, "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
         "show_labels": True, "show_trails": True, "audio_reactive": True, "theme": "crimson", "snap": 0.25,
         "animation": "idle",
         "timeline": {
@@ -863,6 +866,7 @@ def _scene_ensure(scene: dict) -> dict:
             scene[key] = copy.deepcopy(value)
     if not isinstance(scene.get("objects"), list): scene["objects"] = []
     if not isinstance(scene.get("links"), list): scene["links"] = []
+    if not isinstance(scene.get("hud"), list): scene["hud"] = []
     if not isinstance(scene.get("timeline"), dict): scene["timeline"] = copy.deepcopy(defaults["timeline"])
     if not isinstance(scene.get("cinematic"), dict): scene["cinematic"] = copy.deepcopy(defaults["cinematic"])
     for obj in scene.get("objects") or []:
@@ -922,7 +926,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     state = hub.stage_state
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
-    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_save", "scene_undo", "scene_redo"}:
+    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load"}:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
@@ -1014,7 +1018,15 @@ async def api_stage_command(req: web.Request) -> web.Response:
         selected=str(raw.get("selected_id") or "")
         loaded["selected_id"]=selected if any(o["id"]==selected for o in objects) else (objects[0]["id"] if objects else None)
         focus=str(raw.get("focus_id") or "");loaded["focus_id"]=focus if any(o["id"]==focus for o in objects) else None
-        loaded["camera"]=str(raw.get("camera") or "isometric") if str(raw.get("camera") or "isometric") in {"front","top","side","isometric","orbit","close"} else "isometric"
+        loaded["camera"]=str(raw.get("camera") or "isometric") if str(raw.get("camera") or "isometric") in {"front","top","side","isometric","orbit","close","custom"} else "isometric"
+        pose=raw.get("camera_pose")
+        if isinstance(pose,dict):
+            p=list(pose.get("position") or [6,4.2,7.2]);target=list(pose.get("target") or [0,0,0])
+            while len(p)<3:p.append(0)
+            while len(target)<3:target.append(0)
+            loaded["camera_pose"]={"position":[_stage_number(p[0],6,-30,30),_stage_number(p[1],4.2,-30,30),_stage_number(p[2],7.2,-30,30)],
+                                   "target":[_stage_number(target[0],0,-10,10),_stage_number(target[1],0,-10,10),_stage_number(target[2],0,-10,10)]}
+        loaded["project_name"]=str(raw.get("project_name") or "Untitled")[:80]
         loaded["explode"]=_stage_number(raw.get("explode",0),0,0,2)
         loaded["auto_orbit"]=bool(raw.get("auto_orbit",True));loaded["grid"]=bool(raw.get("grid",True));loaded["show_labels"]=bool(raw.get("show_labels",True));loaded["show_trails"]=bool(raw.get("show_trails",True));loaded["audio_reactive"]=bool(raw.get("audio_reactive",True))
         loaded["theme"]=str(raw.get("theme") or "crimson") if str(raw.get("theme") or "crimson") in {"crimson","cyan","purple","amber","mono"} else "crimson"
@@ -1028,6 +1040,16 @@ async def api_stage_command(req: web.Request) -> web.Response:
                               "source":a,"target":b,"label":str(link.get("label") or "")[:40],
                               "color":str(link.get("color") or "#35ffe4")[:24]})
         loaded["links"]=links
+        hud=[]
+        for card in (raw.get("hud") or [])[:32]:
+            if not isinstance(card,dict): continue
+            object_id=str(card.get("object_id") or "")
+            if object_id and object_id not in used: continue
+            hud.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(card.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                        "object_id":object_id or None,"title":str(card.get("title") or "DATA")[:40],
+                        "value":str(card.get("value") or "")[:80],"unit":str(card.get("unit") or "")[:16],
+                        "color":str(card.get("color") or "#35ffe4")[:24]})
+        loaded["hud"]=hud
         rt=dict(raw.get("timeline") or {});duration=_stage_number(rt.get("duration",8),8,1,60);frames=[]
         for frame in (rt.get("keyframes") or [])[:128]:
             if not isinstance(frame,dict) or str(frame.get("object_id")) not in used: continue
@@ -1038,7 +1060,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
                            "time":_stage_number(frame.get("time",0),0,0,duration),"object_id":str(frame.get("object_id")),
                            "position":[_stage_number(pos[0],0,-6,6),_stage_number(pos[1],0,-4,4),_stage_number(pos[2],0,-6,6)],
                            "rotation":[_stage_number(rot[0],0,-6.3,6.3),_stage_number(rot[1],0,-6.3,6.3),_stage_number(rot[2],0,-6.3,6.3)],
-                           "scale":_stage_number(frame.get("scale",1),1,.2,3)})
+                           "scale":_stage_number(frame.get("scale",1),1,.2,3),
+                           "easing":str(frame.get("easing") or "ease_in_out") if str(frame.get("easing") or "ease_in_out") in {"linear","ease_in","ease_out","ease_in_out"} else "ease_in_out"})
         loaded["timeline"]={"duration":duration,"cursor":_stage_number(rt.get("cursor",0),0,0,duration),"playing":False,
                             "loop":bool(rt.get("loop",True)),"started_at":None,"keyframes":frames}
         rc=dict(raw.get("cinematic") or {});loaded["cinematic"]={"enabled":False,"preset":str(rc.get("preset") or "orbit"),
@@ -1225,9 +1248,11 @@ async def api_stage_command(req: web.Request) -> web.Response:
     elif op == "scene_camera":
         scene = dict(state.get("scene") or {})
         camera = str(body.get("camera") or "isometric").lower()
-        if camera not in {"front","top","side","isometric","orbit","close"}:
+        if camera not in {"front","top","side","isometric","orbit","close","custom"}:
             camera = "isometric"
         scene["camera"] = camera
+        if camera != "custom":
+            scene["camera_pose"] = None
         if "auto_orbit" in body: scene["auto_orbit"] = bool(body["auto_orbit"])
         state["scene"] = scene
         state["mode"] = "scene_lab"
@@ -1371,6 +1396,100 @@ async def api_stage_command(req: web.Request) -> web.Response:
         scene["links"]=links[:64]
         state["scene"]=scene
         state["mode"]="scene_lab"
+    elif op == "scene_camera_pose":
+        scene = dict(state.get("scene") or {})
+        position = body.get("position")
+        target = body.get("target")
+        if position is None and body.get("position_json"):
+            try: position = json.loads(str(body.get("position_json")))
+            except Exception: position = None
+        if target is None and body.get("target_json"):
+            try: target = json.loads(str(body.get("target_json")))
+            except Exception: target = None
+        if not isinstance(position,list) or not isinstance(target,list):
+            return web.json_response({"ok":False,"error":"camera_pose_required"}, status=400)
+        while len(position)<3: position.append(0)
+        while len(target)<3: target.append(0)
+        scene["camera"]="custom"
+        scene["auto_orbit"]=False
+        scene["camera_pose"]={
+            "position":[_stage_number(position[0],6,-30,30),_stage_number(position[1],4.2,-30,30),_stage_number(position[2],7.2,-30,30)],
+            "target":[_stage_number(target[0],0,-10,10),_stage_number(target[1],0,-10,10),_stage_number(target[2],0,-10,10)],
+        }
+        state["scene"]=scene
+        state["mode"]="scene_lab"
+    elif op == "scene_hud_add":
+        scene = dict(state.get("scene") or {})
+        hud=list(scene.get("hud") or [])
+        object_id=str(body.get("object_id") or scene.get("selected_id") or "")
+        ids={str(o.get("id")) for o in scene.get("objects") or []}
+        if object_id and object_id not in ids:
+            return web.json_response({"ok":False,"error":"scene_object_not_found"}, status=404)
+        card={"id":uuid.uuid4().hex[:8],"object_id":object_id or None,
+              "title":str(body.get("hud_title") or body.get("title") or "DATA")[:40],
+              "value":str(body.get("hud_value") or body.get("value") or "")[:80],
+              "unit":str(body.get("unit") or "")[:16],
+              "color":str(body.get("color") or "#35ffe4")[:24]}
+        hud.append(card);scene["hud"]=hud[:32];state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_hud_update":
+        scene=dict(state.get("scene") or {});hud=list(scene.get("hud") or []);hid=str(body.get("hud_id") or "")
+        found=False
+        for i,card in enumerate(hud):
+            if str(card.get("id")) != hid: continue
+            item=dict(card)
+            if "hud_title" in body or "title" in body: item["title"]=str(body.get("hud_title") or body.get("title") or "")[:40]
+            if "hud_value" in body or "value" in body: item["value"]=str(body.get("hud_value") or body.get("value") or "")[:80]
+            if "unit" in body: item["unit"]=str(body.get("unit") or "")[:16]
+            if "color" in body: item["color"]=str(body.get("color") or "#35ffe4")[:24]
+            hud[i]=item;found=True;break
+        if not found: return web.json_response({"ok":False,"error":"hud_not_found"}, status=404)
+        scene["hud"]=hud;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_hud_remove":
+        scene=dict(state.get("scene") or {});hid=str(body.get("hud_id") or "")
+        scene["hud"]=[x for x in (scene.get("hud") or []) if str(x.get("id")) != hid]
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_hud_clear":
+        scene=dict(state.get("scene") or {});scene["hud"]=[];state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_project_save":
+        scene=copy.deepcopy(state.get("scene") or {})
+        name=str(body.get("project_name") or scene.get("project_name") or "Scene")[:80].strip() or "Scene"
+        slug=re.sub(r"[^A-Za-z0-9_-]+","_",name).strip("_")[:60] or "scene"
+        project_id=str(body.get("project_id") or f"{slug}_{uuid.uuid4().hex[:8]}")
+        project_id=re.sub(r"[^A-Za-z0-9_-]","",project_id)[:80]
+        scene["project_name"]=name
+        directory=Path(DATA_DIR)/"scene_projects";directory.mkdir(parents=True,exist_ok=True)
+        payload={"id":project_id,"name":name,"updated_at":time.time(),"scene":scene}
+        (directory/f"{project_id}.json").write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
+        state["scene"]=scene;state["mode"]="scene_lab";state["project_result"]=payload
+    elif op == "scene_project_list":
+        directory=Path(DATA_DIR)/"scene_projects";projects=[]
+        if directory.exists():
+            for path in sorted(directory.glob("*.json"),key=lambda p:p.stat().st_mtime,reverse=True)[:50]:
+                try:
+                    data=json.loads(path.read_text(encoding="utf-8"))
+                    projects.append({"id":str(data.get("id") or path.stem),"name":str(data.get("name") or path.stem),
+                                     "updated_at":float(data.get("updated_at") or path.stat().st_mtime)})
+                except Exception: continue
+        state["project_result"]={"projects":projects}
+    elif op == "scene_project_load":
+        project_id=re.sub(r"[^A-Za-z0-9_-]","",str(body.get("project_id") or ""))[:80]
+        path=Path(DATA_DIR)/"scene_projects"/f"{project_id}.json"
+        if not project_id or not path.exists():
+            return web.json_response({"ok":False,"error":"project_not_found"},status=404)
+        try: payload=json.loads(path.read_text(encoding="utf-8"))
+        except Exception: return web.json_response({"ok":False,"error":"project_invalid"},status=400)
+        scene=payload.get("scene")
+        if not isinstance(scene,dict): return web.json_response({"ok":False,"error":"project_invalid"},status=400)
+        # Reuse the regular scene_load path by validating the project scene inline.
+        body={"operation":"scene_load","scene":scene}
+        class _ProjectReq:
+            async def json(self): return body
+        return await api_stage_command(_ProjectReq())
+    elif op == "scene_project_delete":
+        project_id=re.sub(r"[^A-Za-z0-9_-]","",str(body.get("project_id") or ""))[:80]
+        path=Path(DATA_DIR)/"scene_projects"/f"{project_id}.json"
+        if path.exists(): path.unlink()
+        state["project_result"]={"deleted":project_id}
     elif op == "scene_focus":
         scene = dict(state.get("scene") or {})
         target = str(body.get("object_id") or scene.get("selected_id") or "")
@@ -1474,6 +1593,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             "position": copy.deepcopy(obj.get("position") or [0,0,0]),
             "rotation": copy.deepcopy(obj.get("rotation") or [0,0,0]),
             "scale": float(obj.get("scale",1)),
+            "easing": str(body.get("easing") or "ease_in_out") if str(body.get("easing") or "ease_in_out") in {"linear","ease_in","ease_out","ease_in_out"} else "ease_in_out",
         })
         frames = sorted(frames, key=lambda x: (str(x.get("object_id")), float(x.get("time",0))))[:128]
         timeline["keyframes"] = frames
@@ -1542,7 +1662,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         while len(p)<3: p.append(0)
         while len(r)<3: r.append(0)
         def _kf(at,pos,rot,scale):
-            return {"id":uuid.uuid4().hex[:8],"time":at,"object_id":target,"position":pos,"rotation":rot,"scale":scale}
+            return {"id":uuid.uuid4().hex[:8],"time":at,"object_id":target,"position":pos,"rotation":rot,"scale":scale,"easing":"ease_in_out"}
         if preset == "launch":
             frames=[_kf(0,p,r,s),_kf(duration,[p[0],min(4,p[1]+3),p[2]],[r[0],r[1]+6.283,r[2]],max(.2,s*.8))]
         elif preset == "flyby":
