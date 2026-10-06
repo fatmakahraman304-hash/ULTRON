@@ -1114,6 +1114,197 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["scene"] = scene
         state.update({"mode":"scene_lab","title":"SCENE LAB",
                       "subtitle":f"{preset.upper()} / {len(objects)} OBJECTS","progress":100})
+    elif op == "scene_duplicate":
+        scene = dict(state.get("scene") or {})
+        objects = list(scene.get("objects") or [])
+        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        src = next((dict(o) for o in objects if str(o.get("id")) == target), None)
+        if not src:
+            return web.json_response({"ok": False, "error": "scene_object_not_found"}, status=404)
+        clone = copy.deepcopy(src)
+        clone["id"] = uuid.uuid4().hex[:8]
+        clone["label"] = (str(src.get("label") or src.get("kind") or "OBJECT") + " COPY")[:60]
+        pos = list(clone.get("position") or [0,0,0])
+        while len(pos) < 3: pos.append(0)
+        pos[0] = _stage_number(pos[0] + .6, 0, -6, 6)
+        pos[2] = _stage_number(pos[2] + .4, 0, -6, 6)
+        clone["position"] = pos
+        objects.append(clone)
+        scene["objects"] = objects
+        scene["selected_id"] = clone["id"]
+        state["scene"] = scene
+        state.update({"mode":"scene_lab","title":"SCENE LAB","subtitle":f"{len(objects)} OBJECTS / LIVE"})
+    elif op == "scene_motion":
+        scene = dict(state.get("scene") or {})
+        objects = list(scene.get("objects") or [])
+        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        motion_type = str(body.get("motion") or "none").lower()
+        if motion_type not in {"none","orbit","bob","patrol","pulse"}:
+            motion_type = "none"
+        found = False
+        for i,item in enumerate(objects):
+            if str(item.get("id")) != target:
+                continue
+            obj = dict(item)
+            obj["motion"] = {
+                "type": motion_type,
+                "speed": _stage_number(body.get("motion_speed",1),1,.05,5),
+                "radius": _stage_number(body.get("radius",1.5),1.5,.1,6),
+                "amplitude": _stage_number(body.get("amplitude",.5),.5,.05,4),
+                "axis": str(body.get("axis") or "y").lower(),
+            }
+            objects[i] = obj
+            found = True
+            break
+        if not found:
+            return web.json_response({"ok": False, "error":"scene_object_not_found"}, status=404)
+        scene["objects"] = objects
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "scene_theme":
+        scene = dict(state.get("scene") or {})
+        theme = str(body.get("theme") or "crimson").lower()
+        if theme not in {"crimson","cyan","purple","amber","mono"}:
+            theme = "crimson"
+        scene["theme"] = theme
+        if "grid" in body: scene["grid"] = bool(body["grid"])
+        if "show_labels" in body: scene["show_labels"] = bool(body["show_labels"])
+        if "snap" in body: scene["snap"] = _stage_number(body.get("snap"), scene.get("snap",.25), 0, 2)
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "scene_undo":
+        if hub.scene_history:
+            current = copy.deepcopy(state.get("scene") or {})
+            hub.scene_future.append(current)
+            state["scene"] = _scene_ensure(hub.scene_history.pop())
+        state.update({"mode":"scene_lab","title":"SCENE LAB","subtitle":"UNDO"})
+    elif op == "scene_redo":
+        if hub.scene_future:
+            current = copy.deepcopy(state.get("scene") or {})
+            hub.scene_history.append(current)
+            state["scene"] = _scene_ensure(hub.scene_future.pop())
+        state.update({"mode":"scene_lab","title":"SCENE LAB","subtitle":"REDO"})
+    elif op == "timeline_set":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        timeline["duration"] = _stage_number(body.get("duration", timeline.get("duration",8)), 8, 1, 60)
+        if "loop" in body: timeline["loop"] = bool(body["loop"])
+        scene["timeline"] = timeline
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "timeline_capture":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        frames = list(timeline.get("keyframes") or [])
+        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        obj = next((o for o in scene.get("objects") or [] if str(o.get("id")) == target), None)
+        if not obj:
+            return web.json_response({"ok": False, "error":"scene_object_not_found"}, status=404)
+        duration = float(timeline.get("duration",8))
+        at = _stage_number(body.get("time", timeline.get("cursor",0)), timeline.get("cursor",0), 0, duration)
+        frames.append({
+            "id": uuid.uuid4().hex[:8], "time": at, "object_id": target,
+            "position": copy.deepcopy(obj.get("position") or [0,0,0]),
+            "rotation": copy.deepcopy(obj.get("rotation") or [0,0,0]),
+            "scale": float(obj.get("scale",1)),
+        })
+        frames = sorted(frames, key=lambda x: (str(x.get("object_id")), float(x.get("time",0))))[:128]
+        timeline["keyframes"] = frames
+        timeline["cursor"] = at
+        scene["timeline"] = timeline
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "timeline_remove_keyframe":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        kid = str(body.get("keyframe_id") or "")
+        timeline["keyframes"] = [k for k in (timeline.get("keyframes") or []) if str(k.get("id")) != kid]
+        scene["timeline"] = timeline
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "timeline_clear":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        timeline.update({"keyframes":[],"cursor":0.0,"playing":False,"started_at":None})
+        scene["timeline"] = timeline
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "timeline_seek":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        duration = max(1.0,float(timeline.get("duration",8)))
+        cursor = _stage_number(body.get("time",0),0,0,duration)
+        timeline["cursor"] = cursor
+        if timeline.get("playing"):
+            timeline["started_at"] = time.time() - cursor
+        scene["timeline"] = timeline
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "timeline_play":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        cursor = float(timeline.get("cursor",0))
+        timeline["playing"] = True
+        timeline["started_at"] = time.time() - cursor
+        scene["timeline"] = timeline
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "timeline_pause":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        duration = max(1.0,float(timeline.get("duration",8)))
+        started = timeline.get("started_at")
+        if timeline.get("playing") and started:
+            elapsed = max(0.0,time.time()-float(started))
+            timeline["cursor"] = elapsed % duration if timeline.get("loop",True) else min(duration,elapsed)
+        timeline["playing"] = False
+        timeline["started_at"] = None
+        scene["timeline"] = timeline
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "timeline_preset":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        obj = next((o for o in scene.get("objects") or [] if str(o.get("id")) == target), None)
+        if not obj:
+            return web.json_response({"ok": False, "error":"scene_object_not_found"}, status=404)
+        duration = _stage_number(body.get("duration", timeline.get("duration",8)),8,2,30)
+        preset = str(body.get("preset") or "showcase").lower()
+        p = list(obj.get("position") or [0,0,0]); r = list(obj.get("rotation") or [0,0,0]); s=float(obj.get("scale",1))
+        while len(p)<3: p.append(0)
+        while len(r)<3: r.append(0)
+        def _kf(at,pos,rot,scale):
+            return {"id":uuid.uuid4().hex[:8],"time":at,"object_id":target,"position":pos,"rotation":rot,"scale":scale}
+        if preset == "launch":
+            frames=[_kf(0,p,r,s),_kf(duration,[p[0],min(4,p[1]+3),p[2]],[r[0],r[1]+6.283,r[2]],max(.2,s*.8))]
+        elif preset == "flyby":
+            frames=[_kf(0,[max(-6,p[0]-3),p[1],p[2]],r,s),_kf(duration,[min(6,p[0]+3),p[1],p[2]],[r[0],r[1]+3.14,r[2]],s)]
+        else:
+            frames=[_kf(0,p,r,s),_kf(duration/2,[p[0],min(4,p[1]+.8),p[2]],[r[0],r[1]+3.14,r[2]],min(3,s*1.25)),_kf(duration,p,[r[0],r[1]+6.283,r[2]],s)]
+        timeline.update({"duration":duration,"cursor":0.0,"keyframes":frames,"playing":False,"started_at":None})
+        scene["timeline"] = timeline
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "scene_cinematic":
+        scene = dict(state.get("scene") or {})
+        cinematic = dict(scene.get("cinematic") or {})
+        preset = str(body.get("cinematic") or body.get("preset") or "orbit").lower()
+        if preset in {"off","stop","none"}:
+            cinematic["enabled"] = False
+            cinematic["started_at"] = None
+        else:
+            if preset not in {"orbit","flyby","topdown","hero","spiral"}:
+                preset = "orbit"
+            cinematic.update({
+                "enabled": True, "preset": preset,
+                "duration": _stage_number(body.get("duration",8),8,2,30),
+                "started_at": time.time(),
+                "loop": bool(body.get("loop",True)),
+            })
+        scene["cinematic"] = cinematic
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
     elif op == "scene_animation":
         scene = dict(state.get("scene") or {})
         animation = str(body.get("animation") or "idle").lower()
