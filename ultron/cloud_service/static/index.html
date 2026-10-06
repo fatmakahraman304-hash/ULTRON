@@ -288,7 +288,8 @@ async function loadRemoteHistory(){
   rows.forEach(item=>{
     const el=document.createElement('div');el.className='history-item';
     const h=document.createElement('header'),b=document.createElement('b'),s=document.createElement('span');
-    b.textContent=commandTitle(item);s.className='state '+item.status;s.textContent=String(item.status||'').toUpperCase();
+    b.textContent=commandTitle(item);s.className='state '+item.status;
+    s.textContent=(item.command==='agent_task'&&item.status==='delivered')?'ÇALIŞIYOR':String(item.status||'').toUpperCase();
     h.append(b,s);el.appendChild(h);
     const msg=item.result?.message;
     if(msg){const p=document.createElement('p');p.textContent=msg;el.appendChild(p)}
