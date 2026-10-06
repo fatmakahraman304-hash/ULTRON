@@ -54,7 +54,7 @@ from memory.memory_manager import (
     save_session_summary, pop_last_session,
     search_memory, set_trim_notifier,
 )
-from integration.cloud_memory_sync import upsert_cloud_memory
+from integration.cloud_memory_sync import upsert_cloud_memory, sync as sync_cloud_memory
 
 # The file-backed tools (open_app, web_search, browser_control, …) are no longer
 # imported or declared here — they self-describe via a TOOL dict in their own
@@ -715,6 +715,32 @@ class UltronLive:
                 continue
             if (time.monotonic() - self._last_user_speech) > self._wake_sleep_timeout:
                 self.sleep(reason="no speech for 2 minutes")
+
+    async def _run_cloud_memory_sync(self) -> None:
+        """Keep Gemini Live memory aligned with phone/Cloud changes while running.
+
+        The startup sync covers launch. This loop catches changes made from the
+        phone or typed Cloud UI. When the local memory actually changes, rebuild
+        the Live session with context resumption so the next turn gets the new
+        memory block without losing the conversation.
+        """
+        while True:
+            await asyncio.sleep(5)
+            try:
+                before = load_memory()
+                ok, _message = await asyncio.to_thread(sync_cloud_memory)
+                after = load_memory()
+                if ok and after != before:
+                    self.ui.write_log("SYS: Cloud memory updated — refreshing voice context.")
+                    # Avoid cutting off speech; retry on the next loop if needed.
+                    with self._speaking_lock:
+                        speaking = self._is_speaking
+                    if not speaking and self._reconnect_event is not None:
+                        self._reconnect_keep = True
+                        self._reconnect_reason = "cloud memory update"
+                        self._reconnect_event.set()
+            except Exception as exc:
+                print(f"[Memory] Cloud live sync skipped: {type(exc).__name__}: {str(exc)[:120]}")
 
     # ── Wake word: UI callbacks (called from the Qt thread) ──────────────────
 
@@ -2173,6 +2199,7 @@ class UltronLive:
                     tg.create_task(self._run_background_monitor())
                     tg.create_task(self._run_proactive_mode())
                     tg.create_task(self._run_sleep_watch())
+                    tg.create_task(self._run_cloud_memory_sync())
                     if self._dashboard:
                         tg.create_task(self._relay_phone_audio())
 
