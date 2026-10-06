@@ -311,6 +311,14 @@
     .task-step{display:grid;grid-template-columns:10px 1fr;gap:8px;align-items:start;font-size:11px;color:rgba(240,244,255,.82)}
     .task-step-dot{width:7px;height:7px;margin-top:4px;border-radius:50%;background:#ff2447;box-shadow:0 0 9px rgba(255,36,71,.75)}
 
+    .task-plan{margin:10px 0 8px;display:grid;gap:6px}
+    .task-plan-step{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;font-size:11px;color:rgba(240,244,255,.56)}
+    .task-plan-step>span{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;border:1px solid rgba(255,36,71,.35);font-size:9px;font-weight:900}
+    .task-plan-step.active{color:rgba(255,255,255,.94)}
+    .task-plan-step.active>span{border-color:#ff2447;box-shadow:0 0 9px rgba(255,36,71,.6)}
+    .task-plan-step.done{color:rgba(240,244,255,.74)}
+    .task-plan-step.done>span{background:rgba(255,36,71,.15);border-color:rgba(255,36,71,.65)}
+
   </style>
 </head>
 <body>
@@ -1310,8 +1318,9 @@ async function watchLaptopTasks(){
       if(laptopTaskWatchPrimed&&progress.length>prevCount){
         const latest=progress[progress.length-1]||{};
         const msg=String(latest.message||latest.stage||'Görev ilerliyor');
-        $('#stageVoiceText').textContent='Laptop • '+msg.slice(0,70);
-        toast(('Laptop: '+msg).slice(0,180));
+        const prefix=latest.stage==='checkpoint'?'Kontrol noktası':'Laptop';
+        $('#stageVoiceText').textContent=prefix+' • '+msg.slice(0,70);
+        toast((prefix+': '+msg).slice(0,180));
       }
       laptopTaskProgressCounts.set(id,progress.length);
     }
@@ -1329,6 +1338,19 @@ function renderRemoteRows(rows){
     h.append(b,s);
     if(item.payload?.origin==='voice'){const vb=document.createElement('span');vb.className='voice-task-badge';vb.textContent='SES';h.appendChild(vb)}
     el.appendChild(h);
+    const plan=Array.isArray(item.payload?.plan)?item.payload.plan:[];
+    const checkpointIndex=Number(item.checkpoint?.step_index||0);
+    if(plan.length){
+      const planEl=document.createElement('div');planEl.className='task-plan';
+      plan.forEach((step,idx)=>{
+        const row=document.createElement('div');row.className='task-plan-step'+(idx<checkpointIndex?' done':idx===checkpointIndex?' active':'');
+        const num=document.createElement('span');num.textContent=idx<checkpointIndex?'✓':String(idx+1);
+        const txt=document.createElement('div');txt.textContent=String(step);
+        row.append(num,txt);planEl.appendChild(row);
+      });
+      el.appendChild(planEl);
+    }
+
     const progress=Array.isArray(item.progress)?item.progress:[];
     if(progress.length){
       const tl=document.createElement('div');tl.className='task-timeline';
