@@ -289,19 +289,26 @@ async function loadRemoteHistory(){
   });
 }
 $('#refreshRemote').onclick=()=>Promise.all([loadRemoteState(),loadRemoteHistory()]).catch(e=>toast(e.message));
+async function completePhoneCommand(id,ok=true,message=''){
+  if(!id)return;
+  try{await api('/api/device-commands/'+id+'/complete',{method:'POST',body:JSON.stringify({status:ok?'completed':'failed',result:{message}})})}catch(e){}
+}
 async function claimPhoneCommands(){
   if($('#app').classList.contains('hidden'))return;
   try{
     const d=await api('/api/device-commands/claim',{method:'POST',body:JSON.stringify({target:'phone'})});
     for(const item of (d.commands||[])){
       const cmd=item.command;
-      if(cmd==='ping'){toast('Laptop ULTRON telefona bağlı.');if(navigator.vibrate)navigator.vibrate(80)}
-      if(cmd==='refresh'){messageSignature='';await loadMessages();if(currentView==='memory')await loadMemories();toast('Telefon ULTRON yenilendi.')}
-      if(cmd==='open_memory'){showView('memory');toast('Laptop hafıza panelini açtı.')}
-      if(cmd==='focus_chat'){showView('chat');toast('Laptop sohbet ekranını açtı.')}
-      if(cmd==='open_remote'){showView('remote');toast('Laptop uzaktan kontrol ekranını açtı.')}
-      if(cmd==='vibrate'){if(navigator.vibrate)navigator.vibrate([90,60,90]);toast('Laptop ULTRON bağlantı sinyali gönderdi.')}
-      if(cmd==='scroll_top'){window.scrollTo({top:0,behavior:'smooth'});}
+      try{
+        if(cmd==='ping'){toast('Laptop ULTRON telefona bağlı.');if(navigator.vibrate)navigator.vibrate(80)}
+        if(cmd==='refresh'){messageSignature='';await loadMessages();if(currentView==='memory')await loadMemories();toast('Telefon ULTRON yenilendi.')}
+        if(cmd==='open_memory'){showView('memory');toast('Laptop hafıza panelini açtı.')}
+        if(cmd==='focus_chat'){showView('chat');toast('Laptop sohbet ekranını açtı.')}
+        if(cmd==='open_remote'){showView('remote');toast('Laptop uzaktan kontrol ekranını açtı.')}
+        if(cmd==='vibrate'){if(navigator.vibrate)navigator.vibrate([90,60,90]);toast('Laptop ULTRON bağlantı sinyali gönderdi.')}
+        if(cmd==='scroll_top'){window.scrollTo({top:0,behavior:'smooth'});}
+        await completePhoneCommand(item.id,true,'Telefon komutu uygulandı.');
+      }catch(err){await completePhoneCommand(item.id,false,String(err))}
     }
   }catch(e){}
 }
