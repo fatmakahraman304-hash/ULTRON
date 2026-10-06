@@ -2183,15 +2183,30 @@ class UltronLive:
             return
 
         self.ui.write_log("SYS: Cloud uzaktan kontrol hazır • telefon komutları bekleniyor.")
+        print(f"[CloudRemote] listener ready • {client.base_url}", flush=True)
+        try:
+            health = await client.health()
+            print(f"[CloudRemote] health • {health}", flush=True)
+        except Exception as exc:
+            print(f"[CloudRemote] initial health failed • {type(exc).__name__}: {str(exc)[:300]}", flush=True)
+
         backoff = 1.2
         while True:
             try:
                 commands = await client.claim_desktop_commands()
                 backoff = 1.2
+                if commands:
+                    ids = [str(item.get("id", "?")) for item in commands]
+                    print(f"[CloudRemote] claimed {len(commands)} command(s) • ids={','.join(ids)}", flush=True)
                 for item in commands:
+                    print(
+                        f"[CloudRemote] handling id={item.get('id')} command={item.get('command')} "
+                        f"payload={str(item.get('payload', {}))[:240]}",
+                        flush=True,
+                    )
                     await self._handle_cloud_remote_command(client, item)
             except Exception as exc:
-                print(f"[CloudRemote] {type(exc).__name__}: {str(exc)[:300]}")
+                print(f"[CloudRemote] {type(exc).__name__}: {str(exc)[:300]}", flush=True)
                 backoff = min(10.0, backoff * 1.7)
             await asyncio.sleep(backoff)
 
