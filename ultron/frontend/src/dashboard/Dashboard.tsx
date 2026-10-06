@@ -64,6 +64,10 @@ export default function Dashboard(){
    if(/(?:geri al|undo|son işlemi geri)/.test(t)){await action('scene_undo');return 'Son sahne işlemi geri alındı.';}
    if(/(?:yeniden yap|redo|geri aldığını yap|geri aldigini yap)/.test(t)){await action('scene_redo');return 'Sahne işlemi yeniden uygulandı.';}
    if(selected&&/(?:bunu|nesneyi|seçileni|secileni).*(?:kopyala|çoğalt|cogalt|duplicate)/.test(t)){await action('scene_duplicate',{object_id:selected.id});return 'Seçili nesne çoğaltıldı.';}
+   if(selected&&/(?:buna|bunu|nesneye|seçilene|secilene).*(?:odaklan|focus)|(?:kamera).*(?:buna|nesneye).*(?:odaklan|focus)/.test(t)){await action('scene_focus',{object_id:selected.id});return 'Kamera seçili nesneye odaklandı.';}
+   if(/(?:odağı|odagi|focus).*(?:kaldır|kaldir|kapat|sıfırla|sifirla)/.test(t)){await action('scene_focus',{object_id:''});return 'Kamera odağı serbest bırakıldı.';}
+   if(/(?:hareket yolu|trajectory|trail).*(?:göster|goster|aç|ac)/.test(t)){await action('scene_theme',{theme:u.stage.scene.theme||'crimson',show_trails:true});return 'Hareket yolları gösteriliyor.';}
+   if(/(?:hareket yolu|trajectory|trail).*(?:gizle|kapat)/.test(t)){await action('scene_theme',{theme:u.stage.scene.theme||'crimson',show_trails:false});return 'Hareket yolları gizlendi.';}
    if(selected&&/(?:orbitte dönsün|orbit hareket|çevremde dön|cevremde don)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'orbit',motion_speed:1,radius:1.5});return 'Seçili nesne orbit hareketine geçti.';}
    if(selected&&/(?:yukarı aşağı|yukari asagi|bob hareket)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'bob',motion_speed:1,amplitude:.6});return 'Seçili nesne dikey harekete geçti.';}
    if(selected&&/(?:devriye|patrol|sağa sola git|saga sola git)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'patrol',motion_speed:1,amplitude:1.4});return 'Seçili nesne devriye hareketine geçti.';}
