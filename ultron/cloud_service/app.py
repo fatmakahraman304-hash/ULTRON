@@ -1182,8 +1182,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use cancel_laptop_task when the user explicitly asks to cancel the latest queued laptop task. "
           "send_laptop_task may schedule a task for later by setting delay_minutes. "
           "For complex laptop tasks, include a short ordered plan of 2-7 concrete steps so the desktop agent can report progress and resume from checkpoints. "
-          "For an online immediate desktop task, send_laptop_task returns quickly so the phone's Gemini Live audio session never blocks. The actual desktop result will arrive automatically as a later [DESKTOP TASK RESULT] turn. "
-          "After send_laptop_task returns accepted/running, only acknowledge briefly that the task was sent or is being processed; NEVER claim completion yet. When [DESKTOP TASK RESULT] arrives, speak that real result naturally without calling send_laptop_task again. "
+          "For an online immediate desktop task, send_laptop_task returns quickly so the phone's Gemini Live audio session never blocks. The browser receives the eventual desktop result independently and announces it; you must not wait for or inject another result turn. "
+          "After send_laptop_task returns accepted/running, only acknowledge briefly that the task was sent or is being processed; NEVER claim completion yet. "
           "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it completed, failed, was scheduled, or remains queued. "
           "The phone is in always-listening mode while the microphone session is active; no wake word is required. "
           "When the user gives a direct phone/app command, execute the appropriate tool immediately before speaking. "
@@ -1422,28 +1422,13 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                                 "result": result,
                                 "assistant_reply": assistant_reply,
                             })
-                            if not ws.closed:
-                                outcome = assistant_reply or (
-                                    "Görev tamamlandı." if status == "completed"
-                                    else f"Görev {status} durumuyla sonuçlandı."
-                                )
-                                await session.send_client_content(
-                                    turns={
-                                        "role": "user",
-                                        "parts": [{
-                                            "text": (
-                                                "[DESKTOP TASK RESULT]\n"
-                                                f"Original task: {task_text}\n"
-                                                f"Status: {status}\n"
-                                                f"Result: {outcome}\n\n"
-                                                "This is the trusted result from the paired desktop ULTRON. "
-                                                "Tell the phone user this result briefly and naturally. "
-                                                "Do not call send_laptop_task or any other tool for this result."
-                                            )
-                                        }],
-                                    },
-                                    turn_complete=True,
-                                )
+                            # Do NOT inject a second client turn into the same
+                            # Gemini Live session from this background watcher.
+                            # Overlapping a new client turn with an active Live
+                            # receive/audio turn can make the provider close the
+                            # websocket. The browser receives the trusted desktop
+                            # result above and speaks it locally while Live stays
+                            # connected and listening.
                             return
                         await asyncio.sleep(0.45)
 
