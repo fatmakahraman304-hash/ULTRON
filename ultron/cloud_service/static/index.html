@@ -65,6 +65,20 @@
     .tabs button{background:transparent;border-color:transparent;color:#8f99a7;padding:10px 8px;font-size:11px}.tabs button.active{background:#181016;border-color:#4c1721;color:#fff}
     .toast{position:fixed;left:50%;transform:translateX(-50%);top:max(72px,calc(env(safe-area-inset-top) + 60px));z-index:20;width:min(650px,calc(100% - 32px));padding:12px 14px;border-radius:14px;background:#14191f;border:1px solid #343c46;box-shadow:0 14px 45px #000;color:#fff;font-size:13px;display:none}
     .toast.show{display:block}
+    /* Cinematic ULTRON mobile skin */
+    .topbar{background:linear-gradient(180deg,rgba(3,4,6,.98) 68%,rgba(3,4,6,.58) 90%,transparent);padding:12px 4px 16px}
+    .brand{margin:auto;transform:translateX(32px);text-align:center}.brand-mark{display:none}.brand b{font-size:23px;letter-spacing:.28em;background:linear-gradient(#fff,#8d929b);-webkit-background-clip:text;color:transparent;text-shadow:0 0 20px rgba(255,255,255,.08)}.brand small{display:none}
+    .online{position:absolute;left:50%;top:44px;transform:translateX(-50%);white-space:nowrap}
+    .top-actions{display:flex;gap:8px;position:absolute;right:2px;top:8px}.round-action{width:40px;height:40px;border-radius:50%;padding:0;display:grid;place-items:center;background:rgba(10,12,16,.86);border:1px solid rgba(255,48,71,.52);font-size:18px}
+    .ultron-stage{position:relative;min-height:390px;margin:0 -4px 10px;overflow:hidden;border:1px solid rgba(255,48,71,.18);border-radius:26px;background:radial-gradient(circle at 50% 42%,rgba(255,26,52,.18),transparent 31%),linear-gradient(180deg,#050608,#08090c 70%,#030405);box-shadow:inset 0 0 50px rgba(255,20,46,.05),0 20px 70px rgba(0,0,0,.42)}
+    .ultron-stage:before,.ultron-stage:after{content:"";position:absolute;inset:26px 11%;border:1px solid rgba(255,45,68,.22);border-radius:50%;transform:rotate(-12deg);box-shadow:0 0 28px rgba(255,20,50,.12)}.ultron-stage:after{inset:58px 4%;transform:rotate(21deg);opacity:.5}
+    .ultron-mask{position:absolute;left:50%;top:22px;transform:translateX(-50%);width:min(92%,430px);height:310px;filter:drop-shadow(0 24px 28px #000)}
+    .stage-status{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;width:max-content;max-width:90%;padding:9px 16px;border:1px solid rgba(255,48,71,.5);background:rgba(18,5,8,.86);border-radius:999px;color:#ff8a98;font-size:11px;letter-spacing:.04em;box-shadow:0 0 24px rgba(255,35,60,.1)}.stage-wave{letter-spacing:2px;color:#ff3047;text-shadow:0 0 10px #ff3047}
+    #messages{padding:7px 1px 188px;gap:12px}.msg{position:relative;max-width:82%;font-size:14px;line-height:1.48;padding:13px 15px;box-shadow:0 12px 30px rgba(0,0,0,.28)}.msg.assistant{margin-left:42px;border-color:#353b44;background:linear-gradient(180deg,#15191e,#0c0f13)}.msg.assistant:before{content:"U";position:absolute;left:-43px;top:2px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:900;color:#ff5267;background:radial-gradient(circle,#371019,#08090b 68%);border:1px solid #8d1d30;box-shadow:0 0 16px rgba(255,48,71,.24)}.msg.user{background:linear-gradient(180deg,#5d101d,#350810);border-color:#a62538}
+    .composer{bottom:calc(72px + env(safe-area-inset-bottom));padding:9px 9px 8px;border-radius:22px;border-color:#3a3034;background:rgba(5,7,10,.96);box-shadow:0 -10px 45px rgba(0,0,0,.55),0 0 0 1px rgba(255,48,71,.08)}
+    .composer .row{gap:7px}.composer textarea{min-height:52px;border-radius:18px;background:#0b0e12;padding:15px 12px}.composer #sendBtn{width:50px;height:50px;border-radius:50%;padding:0;font-size:0}.composer #sendBtn:after{content:"➤";font-size:22px}.voice-btn{width:54px;height:54px;border-radius:50%;padding:0;flex:0 0 54px;font-size:22px;background:radial-gradient(circle,#d51b34,#7d0c1d 58%,#22050a);border:1px solid #ff5267;box-shadow:0 0 0 5px rgba(255,48,71,.06),0 0 25px rgba(255,48,71,.36)}.voice-btn.listening{animation:voicePulse .9s ease-in-out infinite alternate;background:radial-gradient(circle,#ff4059,#a40f26 62%,#34060e)}@keyframes voicePulse{to{box-shadow:0 0 0 10px rgba(255,48,71,.08),0 0 42px rgba(255,48,71,.65);transform:scale(1.04)}}.voice-btn.unsupported{opacity:.45;box-shadow:none}
+    .voice-status{display:flex;align-items:center;justify-content:center;gap:7px;padding:5px 2px 0;color:#8993a1;font-size:10px}.voice-status.live{color:#ff7183}.voice-dot{width:6px;height:6px;border-radius:50%;background:#59616d}.voice-status.live .voice-dot{background:#ff3047;box-shadow:0 0 10px #ff3047}
+    .tabs{border-color:#34272b;background:rgba(6,8,11,.96)}
     @media(max-width:430px){.shell{padding-left:11px;padding-right:11px}.remote-grid{grid-template-columns:1fr 1fr}.hero{min-height:118px}.core{width:74px;height:74px}.composer,.tabs{width:calc(100% - 22px)}}
   </style>
 </head>
@@ -73,6 +87,7 @@
   <header class="topbar">
     <div class="brand"><div class="brand-mark"></div><div><b>ULTRON</b><small>MOBILE NEURAL LINK</small></div></div>
     <div class="online"><span class="dot" id="statusDot"></span><span id="status">Bağlantı…</span></div>
+    <div class="top-actions"><button class="round-action" id="voiceToggle" aria-label="Sesli yanıt">◖))</button></div>
   </header>
 
   <section id="login" class="panel hidden">
@@ -83,15 +98,31 @@
   </section>
 
   <main id="app" class="hidden">
-    <section class="hero panel">
-      <div><h1>NEURAL LINK</h1><p>Telefon, laptop ve ortak hafıza aynı ULTRON çekirdeğine bağlı.</p></div>
-      <div class="core" aria-hidden="true"><i></i></div>
+    <section class="ultron-stage" aria-label="ULTRON neural interface">
+      <svg class="ultron-mask" viewBox="0 0 420 330" role="img" aria-label="ULTRON yüzü">
+        <defs>
+          <linearGradient id="metal" x1="0" x2="1"><stop stop-color="#090b0f"/><stop offset=".48" stop-color="#3a3d43"/><stop offset=".56" stop-color="#0a0c10"/><stop offset="1" stop-color="#1a1d22"/></linearGradient>
+          <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#4b4e54"/><stop offset=".45" stop-color="#171a1e"/><stop offset="1" stop-color="#050608"/></linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <circle cx="210" cy="160" r="139" fill="none" stroke="#6d0f20" stroke-width="2"/><circle cx="210" cy="160" r="124" fill="none" stroke="#ff203f" stroke-opacity=".38" stroke-dasharray="3 9"/>
+        <path d="M116 74 L168 30 L210 22 L252 30 L304 74 L326 142 L300 252 L250 303 L210 320 L170 303 L120 252 L94 142Z" fill="url(#metal)" stroke="#5b202a" stroke-width="2"/>
+        <path d="M210 28 L247 42 L266 116 L244 156 L210 142Z" fill="url(#plate)"/><path d="M210 28 L173 42 L154 116 L176 156 L210 142Z" fill="url(#plate)"/>
+        <path d="M112 124 L166 105 L197 132 L177 168 L124 155Z" fill="#08090c" stroke="#4b1a24"/><path d="M308 124 L254 105 L223 132 L243 168 L296 155Z" fill="#08090c" stroke="#4b1a24"/>
+        <path d="M130 133 L176 126 L188 140 L174 149 L136 146Z" fill="#ff1738" filter="url(#glow)"/><path d="M290 133 L244 126 L232 140 L246 149 L284 146Z" fill="#ff1738" filter="url(#glow)"/>
+        <path d="M190 155 L210 143 L230 155 L242 220 L224 253 L196 253 L178 220Z" fill="#0a0b0e" stroke="#353940"/>
+        <path d="M169 182 L190 164 L188 238 L163 221Z" fill="#202329"/><path d="M251 182 L230 164 L232 238 L257 221Z" fill="#202329"/>
+        <path d="M167 251 L194 261 L226 261 L253 251 L242 289 L210 307 L178 289Z" fill="#060709" stroke="#353940"/><path d="M185 269 H235" stroke="#7a2530" stroke-width="2"/>
+        <path d="M210 36 V137" stroke="#ff1d3c" stroke-opacity=".75" filter="url(#glow)"/>
+      </svg>
+      <div class="stage-status"><span class="stage-wave">▂▅▇▃▆</span><span id="stageVoiceText">Sesli ULTRON hazır</span></div>
     </section>
 
     <section id="chatView" class="view active">
       <div id="messages"></div>
       <div class="composer">
-        <div class="row"><textarea id="message" class="grow" placeholder="ULTRON'a yaz…"></textarea><button id="sendBtn">Gönder</button></div>
+        <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON ile konuş">🎙</button><textarea id="message" class="grow" placeholder="Mesajını yaz..."></textarea><button id="sendBtn">Gönder</button></div>
+        <div class="voice-status" id="voiceStatus"><span class="voice-dot"></span><span id="voiceStatusText">Mikrofona dokun ve konuş</span></div>
         <div id="busy" class="busy"></div>
       </div>
     </section>
@@ -148,6 +179,8 @@
 const $=s=>document.querySelector(s);
 let conversationId=localStorage.getItem('ultronConversationId')||'';
 let currentView='chat',messageSignature='',toastTimer=null;
+let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
+let recognition=null,voiceListening=false,lastSpokenReply='';
 
 async function api(path,options={}){
   let res;
@@ -167,6 +200,51 @@ function toast(text){
 }
 function setOnline(ok,text){
   $('#status').textContent=text;$('#statusDot').classList.toggle('ok',!!ok);
+}
+function pickUltronVoice(){
+  const voices=window.speechSynthesis?.getVoices?.()||[];
+  return voices.find(v=>/^tr[-_]/i.test(v.lang)&&/male|erkek|tolga|cem|mert/i.test(v.name))
+      ||voices.find(v=>/^tr[-_]/i.test(v.lang))
+      ||voices.find(v=>/^en[-_]/i.test(v.lang))
+      ||voices[0]||null;
+}
+function speakUltron(text,force=false){
+  if(!voiceEnabled&&!force)return;
+  if(!('speechSynthesis' in window)||!text)return;
+  const cleaned=String(text).replace(/[*_#>]/g,' ').replace(/\s+/g,' ').trim();
+  if(!cleaned||cleaned===lastSpokenReply)return;
+  lastSpokenReply=cleaned;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(cleaned);
+  u.lang='tr-TR';u.rate=.92;u.pitch=.72;u.volume=1;
+  const voice=pickUltronVoice();if(voice)u.voice=voice;
+  u.onstart=()=>{$('#stageVoiceText').textContent='ULTRON konuşuyor';$('#voiceStatus').classList.add('live');$('#voiceStatusText').textContent='ULTRON konuşuyor…'};
+  u.onend=()=>{$('#stageVoiceText').textContent='Sesli ULTRON hazır';$('#voiceStatus').classList.remove('live');$('#voiceStatusText').textContent='Mikrofona dokun ve konuş'};
+  u.onerror=u.onend;
+  speechSynthesis.speak(u);
+}
+function setVoiceEnabled(value,announce=false){
+  voiceEnabled=!!value;localStorage.setItem('ultronVoiceEnabled',voiceEnabled?'1':'0');
+  $('#voiceToggle').textContent=voiceEnabled?'◖))':'◖×';
+  $('#stageVoiceText').textContent=voiceEnabled?'Sesli ULTRON hazır':'Sesli yanıt kapalı';
+  if(!voiceEnabled&&'speechSynthesis' in window)speechSynthesis.cancel();
+  if(announce&&voiceEnabled)speakUltron('Sesli ULTRON aktif. Seni dinliyorum.',true);
+}
+function initRecognition(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){$('#voiceBtn').classList.add('unsupported');$('#voiceStatusText').textContent='Bu tarayıcı sesli girişi desteklemiyor';return null}
+  const r=new SR();r.lang='tr-TR';r.interimResults=true;r.continuous=false;
+  r.onstart=()=>{voiceListening=true;$('#voiceBtn').classList.add('listening');$('#voiceStatus').classList.add('live');$('#voiceStatusText').textContent='Seni dinliyorum…';$('#stageVoiceText').textContent='Dinliyorum'};
+  r.onresult=e=>{let final='',interim='';for(let i=e.resultIndex;i<e.results.length;i++){const t=e.results[i][0].transcript;if(e.results[i].isFinal)final+=t;else interim+=t}$('#message').value=(final||interim).trim();if(final.trim())setTimeout(()=>send(true),120)};
+  r.onerror=e=>{if(e.error!=='aborted')toast('Mikrofon: '+(e.error||'ses algılanamadı'));};
+  r.onend=()=>{voiceListening=false;$('#voiceBtn').classList.remove('listening');$('#voiceStatus').classList.remove('live');$('#voiceStatusText').textContent='Mikrofona dokun ve konuş';$('#stageVoiceText').textContent=voiceEnabled?'Sesli ULTRON hazır':'Sesli yanıt kapalı'};
+  recognition=r;return r;
+}
+function startVoice(){
+  if(!voiceEnabled)setVoiceEnabled(true,false);
+  if('speechSynthesis' in window)speechSynthesis.cancel();
+  const r=recognition||initRecognition();if(!r)return;
+  try{voiceListening?r.stop():r.start()}catch(e){}
 }
 function addMessage(role,content){
   const d=document.createElement('div');d.className='msg '+role;d.textContent=content;$('#messages').appendChild(d);
@@ -201,7 +279,8 @@ async function boot(){
   try{
     await api('/api/session');
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#tabs').classList.remove('hidden');
-    setOnline(true,'Cloud bağlı');await loadMessages();
+    setOnline(true,'Cloud bağlı');await loadMessages();setVoiceEnabled(voiceEnabled,false);
+    if(voiceEnabled&&!sessionStorage.getItem('ultronVoiceGreeted')){sessionStorage.setItem('ultronVoiceGreeted','1');setTimeout(()=>speakUltron('Bağlantı kuruldu. Ben ULTRON. Seni dinliyorum.'),350);}
   }catch(e){
     $('#app').classList.add('hidden');$('#tabs').classList.add('hidden');$('#login').classList.remove('hidden');setOnline(false,'Giriş gerekli');
   }
@@ -212,17 +291,20 @@ $('#loginBtn').onclick=async()=>{
     $('#password').value='';$('#loginError').textContent='';await boot();
   }catch(e){$('#loginError').textContent='Parola yanlış veya sunucu hazır değil.'}
 };
-async function send(){
+async function send(fromVoice=false){
   const text=$('#message').value.trim();if(!text)return;
   $('#message').value='';addMessage('user',text);$('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
   try{
     const d=await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
-    conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);addMessage('assistant',d.reply);messageSignature='';
+    conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);addMessage('assistant',d.reply);messageSignature='';if(fromVoice||voiceEnabled)speakUltron(d.reply);
   }catch(e){
     const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir.':(e.data?.detail||e.message);addMessage('assistant','Hata: '+msg);
   }finally{$('#busy').textContent='';$('#sendBtn').disabled=false}
 }
-$('#sendBtn').onclick=send;
+$('#sendBtn').onclick=()=>send(false);
+$('#voiceBtn').onclick=startVoice;
+$('#voiceToggle').onclick=()=>setVoiceEnabled(!voiceEnabled,true);
+if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=()=>pickUltronVoice()}
 $('#message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
 document.querySelectorAll('[data-command]').forEach(b=>b.onclick=async()=>{
