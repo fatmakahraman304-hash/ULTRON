@@ -72,8 +72,12 @@ export default function Dashboard(){
    if(specs.length){await action('scene_batch',{objects_json:JSON.stringify(specs),camera:/üstten|ustten|top/.test(t)?'top':/önden|onden|front/.test(t)?'front':'isometric'});return specs.length+' nesneli Scene Lab sahnesi kuruldu.';}
   }
 
+  const projectNameMatch=t.match(/(?:proje|sahne)(?:yi)?\s+["“]?([^"”]+?)["”]?\s+(?:diye|adıyla|adiyla)\s+(?:kaydet|save)/);
+  if(sceneMode&&projectNameMatch){await action('scene_project_save',{project_name:projectNameMatch[1].trim().slice(0,80)});return 'Sahne cihaz içi proje olarak kaydedildi.';}
   if(sceneMode&&/(?:sahneyi|scene|bunu).*(?:kaydet|save)/.test(t)){await action('scene_save');return 'Scene Lab projesi kaydediliyor.';}
   if(sceneMode){
+   if(selected&&/(?:hud|bilgi kartı|bilgi karti|data kartı|data karti).*(?:ekle|oluştur|olustur|göster|goster)/.test(t)){const valueMatch=t.match(/(?:değer|deger|value)\s*[:=]?\s*([^,;]+)/);await action('scene_hud_add',{object_id:selected.id,hud_title:/sıcaklık|sicaklik/.test(t)?'TEMP':/hız|hiz/.test(t)?'SPEED':'STATUS',hud_value:valueMatch?.[1]?.trim()||'ONLINE',color:color||selected.color||'#35ffe4'});return 'Seçili nesneye HUD kartı eklendi.';}
+   if(/(?:hud|bilgi kartları|bilgi kartlari).*(?:temizle|sil|kaldır|kaldir)/.test(t)){await action('scene_hud_clear');return 'Scene Lab HUD kartları temizlendi.';}
    if(/(?:geri al|undo|son işlemi geri)/.test(t)){await action('scene_undo');return 'Son sahne işlemi geri alındı.';}
    if(/(?:yeniden yap|redo|geri aldığını yap|geri aldigini yap)/.test(t)){await action('scene_redo');return 'Sahne işlemi yeniden uygulandı.';}
    if(selected&&/(?:bunu|nesneyi|seçileni|secileni).*(?:kopyala|çoğalt|cogalt|duplicate)/.test(t)){await action('scene_duplicate',{object_id:selected.id});return 'Seçili nesne çoğaltıldı.';}
