@@ -254,6 +254,19 @@ async def claim_device_commands(request: web.Request) -> web.Response:
 
     async with request.app["db"].acquire() as conn:
         async with conn.transaction():
+            # Never execute a forgotten remote command days later. Old queued
+            # work is made visible as expired instead of silently lingering.
+            await conn.execute(
+                """
+                UPDATE device_commands
+                SET status='expired',
+                    result='{"message":"Görev 24 saat içinde teslim alınmadığı için süresi doldu."}'::jsonb,
+                    completed_at=NOW()
+                WHERE user_id=$1 AND target=$2 AND status='queued'
+                  AND created_at <= NOW() - INTERVAL '24 hours'
+                """,
+                request["user_id"], target,
+            )
             rows = await conn.fetch(
                 """
                 WITH picked AS (
@@ -318,10 +331,51 @@ async def complete_device_command(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
 
 
+async def cancel_device_command(request: web.Request) -> web.Response:
+    try:
+        command_id = int(request.match_info["id"])
+    except Exception:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "invalid_command_id"}),
+            content_type="application/json",
+        )
+
+    auth_kind = request.get("auth_kind", "")
+    expected_target = "desktop" if auth_kind == "web" else "phone"
+    row = await request.app["db"].fetchrow(
+        """
+        UPDATE device_commands
+        SET status='cancelled',
+            result='{"message":"Görev kullanıcı tarafından iptal edildi."}'::jsonb,
+            completed_at=NOW()
+        WHERE id=$1 AND user_id=$2 AND target=$3 AND status='queued'
+        RETURNING id,target,command,status,result,created_at,completed_at
+        """,
+        command_id, request["user_id"], expected_target,
+    )
+    if not row:
+        raise web.HTTPConflict(
+            text=json.dumps({"error": "command_not_cancellable"}),
+            content_type="application/json",
+        )
+    return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+
+
 async def recent_device_commands(request: web.Request) -> web.Response:
     auth_kind = request.get("auth_kind", "")
     target = "desktop" if auth_kind == "web" else "phone"
     limit = min(max(int(request.query.get("limit", "30")), 1), 100)
+    await request.app["db"].execute(
+        """
+        UPDATE device_commands
+        SET status='expired',
+            result='{"message":"Görev 24 saat içinde teslim alınmadığı için süresi doldu."}'::jsonb,
+            completed_at=NOW()
+        WHERE user_id=$1 AND target=$2 AND status='queued'
+          AND created_at <= NOW() - INTERVAL '24 hours'
+        """,
+        request["user_id"], target,
+    )
     rows = await request.app["db"].fetch(
         """
         SELECT id,target,command,payload,source_device,status,result,created_at,delivered_at,completed_at
@@ -571,6 +625,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/device-commands", send_device_command)
     app.router.add_post("/api/device-commands/claim", claim_device_commands)
     app.router.add_post("/api/device-commands/{id}/complete", complete_device_command)
+    app.router.add_post("/api/device-commands/{id}/cancel", cancel_device_command)
     app.router.add_get("/api/device-commands/recent", recent_device_commands)
     app.router.add_post("/api/device-presence/heartbeat", device_presence_heartbeat)
     app.router.add_get("/api/device-presence", device_presence)
