@@ -419,7 +419,7 @@
           <button data-phone-action="sms" data-phone-query="">MESAJ</button>
           <button data-phone-action="email" data-phone-query="">E-POSTA</button>
         </div>
-        <small class="phone-direct-note">iOS’un izin verdiği uygulama bağlantıları doğrudan açılır. Sistem ayarları (Wi‑Fi, Bluetooth, parlaklık vb.) Apple nedeniyle Shortcuts ister.</small>
+        <small class="phone-direct-note">Uygulama öncelikli mod aktif: önce yüklü uygulama açılmayı dener, olmazsa web sürümüne düşer. iOS bazı uygulamalarda yine “Aç” onayı gösterebilir.</small>
       </div>
       <div class="remote-note">Serbest görev kutusu, telefondan yazdığın görevi laptopta çalışan ULTRON'a iletir. Kullanılabilen işlemler laptopta kurulu ULTRON araçları ve işletim sistemi izinlerine göre belirlenir.</div>
       <div class="shortcut-setup panel" id="shortcutSetup">
@@ -1019,7 +1019,15 @@ async function openLiveSocket(){
       }
       if(action==='open_app'){
         const app=(query||'').trim().toLowerCase();
-        const links={
+        const schemes={
+          youtube:'youtube://',
+          spotify:'spotify://',
+          whatsapp:'whatsapp://',
+          instagram:'instagram://',
+          chrome:'googlechrome://',
+          maps:'maps://'
+        };
+        const fallbacks={
           youtube:'https://www.youtube.com/',
           spotify:'https://open.spotify.com/',
           whatsapp:'https://wa.me/',
@@ -1027,8 +1035,14 @@ async function openLiveSocket(){
           chrome:'https://www.google.com/',
           maps:'https://maps.apple.com/'
         };
-        const target=links[app];
-        if(target)location.href=target;
+        const scheme=schemes[app],fallback=fallbacks[app];
+        if(scheme){
+          const started=Date.now();
+          location.href=scheme;
+          if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},1100);
+        }else if(fallback){
+          location.href=fallback;
+        }
       }
 
       const labels={
@@ -1264,8 +1278,11 @@ function runDirectPhoneCommand(text){
   if(action==='sms')location.href='sms:';
   if(action==='email')location.href='mailto:';
   if(action==='open_app'){
-    const links={youtube:'https://www.youtube.com/',spotify:'https://open.spotify.com/',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com/'};
-    const target=links[query];if(target)location.href=target;
+    const schemes={youtube:'youtube://',spotify:'spotify://',whatsapp:'whatsapp://',instagram:'instagram://'};
+    const fallbacks={youtube:'https://www.youtube.com/',spotify:'https://open.spotify.com/',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com/'};
+    const scheme=schemes[query],fallback=fallbacks[query],started=Date.now();
+    if(scheme){location.href=scheme;if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},1100)}
+    else if(fallback)location.href=fallback;
   }
   return reply;
 }
@@ -1518,8 +1535,11 @@ document.querySelectorAll('[data-phone-action]').forEach(btn=>btn.onclick=()=>{
   if(action==='browser'){location.href='googlechrome://';setTimeout(()=>{location.href='https://www.google.com'},900)}
   if(action==='maps')location.href='https://maps.apple.com/';
   if(action==='open_app'){
-    const links={youtube:'https://www.youtube.com/',spotify:'https://open.spotify.com/',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com/'};
-    const target=links[query];if(target)location.href=target;
+    const schemes={youtube:'youtube://',spotify:'spotify://',whatsapp:'whatsapp://',instagram:'instagram://'};
+    const fallbacks={youtube:'https://www.youtube.com/',spotify:'https://open.spotify.com/',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com/'};
+    const scheme=schemes[query],fallback=fallbacks[query],started=Date.now();
+    if(scheme){location.href=scheme;if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},1100)}
+    else if(fallback)location.href=fallback;
   }
   if(action==='sms')location.href='sms:';
   if(action==='email')location.href='mailto:';
