@@ -422,7 +422,8 @@ TOOL_DECLARATIONS = [
             "name, age, city, job, preferences, hobbies, relationships, projects, or future plans. "
             "Do NOT call for: weather, reminders, searches, or one-time commands. "
             "Do NOT announce that you are saving — just call it silently. "
-            "Values must be in English regardless of the conversation language."
+            "Preserve the user's original wording and language in the saved value. "
+            "Do not translate names, colors, phrases, or other facts unless the user explicitly asks for translation."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -439,7 +440,7 @@ TOOL_DECLARATIONS = [
                     )
                 },
                 "key":   {"type": "STRING", "description": "Short snake_case key (e.g. name, favorite_food, sister_name)"},
-                "value": {"type": "STRING", "description": "Concise value in English (e.g. Fatih, pizza, older sister)"},
+                "value": {"type": "STRING", "description": "Concise value in the user's original language and wording (e.g. Fatih, pizza, ablam)"},
             },
             "required": ["category", "key", "value"]
         }
