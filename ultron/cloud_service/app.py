@@ -297,50 +297,63 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 """,
                 request["user_id"], target,
             )
-            # A delivered agent task owns the single-task lane only while it is
-            # plausibly still running. The desktop handler has a 180s turn timeout
-            # plus a short readiness window, so anything older than 5 minutes is
-            # stale and must never block every later phone task for hours.
+            # A delivered agent task owns the single-task lane only while its
+            # desktop lease is alive. The desktop renews delivered_at every few
+            # seconds; if that heartbeat disappears for 20 seconds the worker is
+            # gone/stuck and the lane must be released automatically.
             await conn.execute(
                 """
                 UPDATE device_commands
                 SET status='failed',
-                    result='{"message":"Görev laptopa teslim edildi ancak 5 dakika içinde tamamlanmadı; kuyruk serbest bırakıldı."}'::jsonb,
+                    result='{"message":"Laptop görev lease''i 20 saniye boyunca yenilenmedi; kuyruk otomatik serbest bırakıldı."}'::jsonb,
                     completed_at=NOW(),
                     progress = COALESCE(progress, '[]'::jsonb) ||
                       jsonb_build_array(jsonb_build_object(
                         'stage','failed',
-                        'message','Takılı kalan görev zaman aşımına uğradı; sonraki görevler serbest bırakıldı.',
+                        'message','Laptop görev worker bağlantısı kesildi; sonraki görevler serbest bırakıldı.',
                         'percent',NULL,
                         'at',EXTRACT(EPOCH FROM NOW())
                       ))
                 WHERE user_id=$1 AND target=$2 AND command='agent_task'
                   AND status='delivered'
-                  AND delivered_at <= NOW() - INTERVAL '5 minutes'
+                  AND delivered_at <= NOW() - INTERVAL '20 seconds'
                 """,
                 request["user_id"], target,
             )
             rows = await conn.fetch(
                 """
-                WITH picked AS (
+                WITH picked_controls AS (
                   SELECT id FROM device_commands d
                   WHERE d.user_id=$1 AND d.target=$2 AND d.status='queued'
+                    AND d.command <> 'agent_task'
                     AND d.created_at > NOW() - INTERVAL '24 hours'
                     AND COALESCE(d.run_after, d.created_at) <= NOW()
-                    AND (
-                      d.command <> 'agent_task'
-                      OR NOT EXISTS (
-                        SELECT 1 FROM device_commands active
-                        WHERE active.user_id=d.user_id
-                          AND active.target=d.target
-                          AND active.command='agent_task'
-                          AND active.status='delivered'
-                          AND active.delivered_at > NOW() - INTERVAL '5 minutes'
-                      )
-                    )
-                  ORDER BY (d.command='agent_task') ASC, d.id ASC
-                  LIMIT 20
+                  ORDER BY d.id ASC
+                  LIMIT 19
                   FOR UPDATE SKIP LOCKED
+                ),
+                picked_agent AS (
+                  SELECT id FROM device_commands d
+                  WHERE d.user_id=$1 AND d.target=$2 AND d.status='queued'
+                    AND d.command='agent_task'
+                    AND d.created_at > NOW() - INTERVAL '24 hours'
+                    AND COALESCE(d.run_after, d.created_at) <= NOW()
+                    AND NOT EXISTS (
+                      SELECT 1 FROM device_commands active
+                      WHERE active.user_id=d.user_id
+                        AND active.target=d.target
+                        AND active.command='agent_task'
+                        AND active.status='delivered'
+                        AND active.delivered_at > NOW() - INTERVAL '20 seconds'
+                    )
+                  ORDER BY d.id ASC
+                  LIMIT 1
+                  FOR UPDATE SKIP LOCKED
+                ),
+                picked AS (
+                  SELECT id FROM picked_controls
+                  UNION ALL
+                  SELECT id FROM picked_agent
                 )
                 UPDATE device_commands d
                 SET status='delivered',
@@ -518,6 +531,25 @@ async def append_device_command_progress(request: web.Request) -> web.Response:
             content_type="application/json",
         )
 
+    if stage == "lease":
+        row = await request.app["db"].fetchrow(
+            """
+            UPDATE device_commands
+            SET delivered_at=NOW()
+            WHERE id=$1 AND user_id=$2 AND target='desktop'
+              AND status='delivered'
+            RETURNING id,status,delivered_at
+            """,
+            command_id,
+            request["user_id"],
+        )
+        if not row:
+            raise web.HTTPNotFound(
+                text=json.dumps({"error": "command_not_active"}),
+                content_type="application/json",
+            )
+        return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+
     entry = {
         "stage": stage or "progress",
         "message": message,
@@ -527,7 +559,8 @@ async def append_device_command_progress(request: web.Request) -> web.Response:
     row = await request.app["db"].fetchrow(
         """
         UPDATE device_commands
-        SET progress = COALESCE(progress, '[]'::jsonb) || $1::jsonb
+        SET progress = COALESCE(progress, '[]'::jsonb) || $1::jsonb,
+            delivered_at = CASE WHEN status='delivered' THEN NOW() ELSE delivered_at END
         WHERE id=$2 AND user_id=$3 AND target='desktop'
           AND status IN ('delivered','completed','failed')
         RETURNING id,status,progress
