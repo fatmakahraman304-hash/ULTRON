@@ -688,6 +688,25 @@ async def device_presence(request: web.Request) -> web.Response:
     return web.json_response({"devices": items}, dumps=_json_dumps)
 
 
+async def recent_live_errors(request: web.Request) -> web.Response:
+    """Authenticated diagnostics for the phone Gemini Live bridge."""
+    limit = min(max(int(request.query.get("limit", "8")), 1), 20)
+    rows = await request.app["db"].fetch(
+        """
+        SELECT detail,device_id,created_at
+        FROM events
+        WHERE user_id=$1 AND event_type='gemini_live_error'
+        ORDER BY id DESC
+        LIMIT $2
+        """,
+        request["user_id"], limit,
+    )
+    return web.json_response(
+        {"errors": [dict(r) for r in rows]},
+        dumps=_json_dumps,
+    )
+
+
 async def list_messages(request: web.Request) -> web.Response:
     limit = min(max(int(request.query.get("limit", "80")), 1), 200)
     rows = await request.app["db"].fetch(
@@ -1971,6 +1990,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/logout", logout)
     app.router.add_get("/api/session", session)
     app.router.add_get("/api/messages", list_messages)
+    app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/vision", vision)
     app.router.add_post("/api/document", document)
