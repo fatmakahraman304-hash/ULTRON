@@ -1395,8 +1395,15 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 return value if value is not None else fallback
 
             async def watch_desktop_task_result(command_id: int, task_text: str) -> None:
-                """Watch a desktop task without blocking Gemini Live tool handling."""
+                """Watch a desktop task without blocking Gemini Live tool handling.
+
+                The phone gets a quick outcome within five seconds. If the
+                desktop is still working, the watcher keeps running and later
+                sends the real final result as a second update.
+                """
                 deadline = time.monotonic() + 180.0
+                quick_deadline = time.monotonic() + 5.0
+                quick_sent = False
                 last_status = ""
                 last_progress_len = -1
                 try:
@@ -1443,16 +1450,21 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                                 "task": task_text,
                                 "result": result,
                                 "assistant_reply": assistant_reply,
+                                "quick": not quick_sent,
                             })
-                            # Do NOT inject a second client turn into the same
-                            # Gemini Live session from this background watcher.
-                            # Overlapping a new client turn with an active Live
-                            # receive/audio turn can make the provider close the
-                            # websocket. The browser receives the trusted desktop
-                            # result above and speaks it locally while Live stays
-                            # connected and listening.
                             return
-                        await asyncio.sleep(0.45)
+
+                        if not quick_sent and time.monotonic() >= quick_deadline:
+                            quick_sent = True
+                            await send_json({
+                                "type": "laptop_task_quick_status",
+                                "id": command_id,
+                                "status": status or "running",
+                                "task": task_text,
+                                "message": "Görev 5 saniye içinde tamamlanmadı; laptop ULTRON çalışmaya devam ediyor.",
+                            })
+
+                        await asyncio.sleep(0.20)
 
                     if not ws.closed:
                         await send_json({
