@@ -116,6 +116,14 @@ class CloudClient:
         rows = data.get("memories", [])
         return rows if isinstance(rows, list) else []
 
+    async def live_errors(self, limit: int = 8) -> list[dict[str, Any]]:
+        data = await self._request(
+            "GET",
+            f"/api/debug/live-errors?limit={max(1, min(int(limit), 20))}",
+        )
+        rows = data.get("errors", [])
+        return rows if isinstance(rows, list) else []
+
     async def upsert_memory(self, key: str, value: str, category: str = "FACT") -> dict[str, Any]:
         return await self._request(
             "PUT",
