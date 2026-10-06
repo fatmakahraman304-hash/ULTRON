@@ -20,7 +20,9 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
     for key in ("kind", "color", "label", "template", "title", "subtitle",
                 "object_id", "camera", "layout", "preset", "animation", "objects_json",
                 "motion", "axis", "theme", "keyframe_id", "cinematic", "scene_json",
-                "source_id", "target_id", "source_label", "target_label", "link_id", "model_id"):
+                "source_id", "target_id", "source_label", "target_label", "link_id", "model_id",
+                "position_json", "target_json", "hud_id", "hud_title", "hud_value", "unit",
+                "project_name", "project_id", "easing"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -85,7 +87,10 @@ TOOL = {
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
                     "scene_arrange", "scene_preset", "scene_animation", "scene_director", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
-                    "scene_redo", "scene_focus", "scene_link", "scene_unlink", "scene_clear_links", "scene_auto_link", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
+                    "scene_redo", "scene_focus", "scene_camera_pose", "scene_link", "scene_unlink", "scene_clear_links", "scene_auto_link",
+                    "scene_hud_add", "scene_hud_update", "scene_hud_remove", "scene_hud_clear",
+                    "scene_project_save", "scene_project_list", "scene_project_load", "scene_project_delete",
+                    "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
                     "timeline_remove_keyframe", "timeline_clear", "timeline_seek",
                     "timeline_play", "timeline_pause", "timeline_preset",
                     "video_create", "video_from_stage", "video_play",
@@ -140,6 +145,15 @@ TOOL = {
             "target_label": {"type": "STRING"},
             "link_id": {"type": "STRING"},
             "model_id": {"type": "STRING"},
+            "position_json": {"type": "STRING"},
+            "target_json": {"type": "STRING"},
+            "hud_id": {"type": "STRING"},
+            "hud_title": {"type": "STRING"},
+            "hud_value": {"type": "STRING"},
+            "unit": {"type": "STRING"},
+            "project_name": {"type": "STRING"},
+            "project_id": {"type": "STRING"},
+            "easing": {"type": "STRING"},
             "auto_orbit": {"type": "BOOLEAN"},
             "grid": {"type": "BOOLEAN"},
             "loop": {"type": "BOOLEAN"},
