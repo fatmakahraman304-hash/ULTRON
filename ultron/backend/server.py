@@ -8,6 +8,7 @@ import sys
 import time
 from collections import deque
 from pathlib import Path
+from urllib.parse import unquote
 
 # Windows consoles frequently default to a legacy codepage (e.g. cp1252) that
 # cannot encode Turkish/unicode text emitted by doctor/health diagnostics.
@@ -802,11 +803,24 @@ async def _stage_publish() -> None:
     hub.stage_state["revision"] = int(hub.stage_state.get("revision", 0)) + 1
     try:
         mode = hub.stage_state.get("mode")
+        persistent_mode = mode if mode in {"core_idle","hologram_lab","scene_lab"} else (
+            "scene_lab" if (hub.stage_state.get("scene") or {}).get("objects") else "core_idle"
+        )
+        if persistent_mode == "core_idle":
+            persistent_title, persistent_subtitle = "ULTRON", "NEURAL CORE"
+        elif persistent_mode == "hologram_lab":
+            _holo = hub.stage_state.get("hologram") or {}
+            persistent_title = str(_holo.get("label") or "HOLOGRAM")[:100]
+            persistent_subtitle = f"{str(_holo.get('kind') or 'energy').upper()} / LIVE"
+        else:
+            _scene = hub.stage_state.get("scene") or {}
+            persistent_title = "SCENE LAB"
+            persistent_subtitle = f"{len(_scene.get('objects') or [])} OBJECTS / SAVED"
         persistent = {
             "version": 3,
-            "mode": mode if mode in {"core_idle","hologram_lab","scene_lab"} else "scene_lab",
-            "title": hub.stage_state.get("title"),
-            "subtitle": hub.stage_state.get("subtitle"),
+            "mode": persistent_mode,
+            "title": persistent_title,
+            "subtitle": persistent_subtitle,
             "hologram": hub.stage_state.get("hologram"),
             "scene": hub.stage_state.get("scene"),
             "saved_at": time.time(),
@@ -847,7 +861,13 @@ def _scene_ensure(scene: dict) -> dict:
     for key, value in defaults.items():
         if key not in scene:
             scene[key] = copy.deepcopy(value)
+    if not isinstance(scene.get("objects"), list): scene["objects"] = []
+    if not isinstance(scene.get("links"), list): scene["links"] = []
+    if not isinstance(scene.get("timeline"), dict): scene["timeline"] = copy.deepcopy(defaults["timeline"])
+    if not isinstance(scene.get("cinematic"), dict): scene["cinematic"] = copy.deepcopy(defaults["cinematic"])
     for obj in scene.get("objects") or []:
+        if not isinstance(obj, dict):
+            continue
         if "motion" not in obj:
             obj["motion"] = {"type": "none", "speed": 1.0, "radius": 1.5, "amplitude": .5, "axis": "y"}
         if "visible" not in obj:
@@ -862,7 +882,7 @@ def _scene_ensure(scene: dict) -> dict:
 
 
 async def api_stage_model_upload(req: web.Request) -> web.Response:
-    name = str(req.headers.get("X-Model-Name") or "model.glb")
+    name = unquote(str(req.headers.get("X-Model-Name") or "model.glb")).replace("\\", "_").replace("/", "_").strip() or "model.glb"
     if not name.lower().endswith(".glb"):
         return web.json_response({"ok":False,"error":"glb_required"}, status=400)
     data = await req.read()
@@ -1016,7 +1036,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
             while len(rot)<3:rot.append(0)
             frames.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(frame.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
                            "time":_stage_number(frame.get("time",0),0,0,duration),"object_id":str(frame.get("object_id")),
-                           "position":[float(pos[0]),float(pos[1]),float(pos[2])],"rotation":[float(rot[0]),float(rot[1]),float(rot[2])],
+                           "position":[_stage_number(pos[0],0,-6,6),_stage_number(pos[1],0,-4,4),_stage_number(pos[2],0,-6,6)],
+                           "rotation":[_stage_number(rot[0],0,-6.3,6.3),_stage_number(rot[1],0,-6.3,6.3),_stage_number(rot[2],0,-6.3,6.3)],
                            "scale":_stage_number(frame.get("scale",1),1,.2,3)})
         loaded["timeline"]={"duration":duration,"cursor":_stage_number(rt.get("cursor",0),0,0,duration),"playing":False,
                             "loop":bool(rt.get("loop",True)),"started_at":None,"keyframes":frames}
