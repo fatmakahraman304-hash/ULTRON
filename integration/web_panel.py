@@ -126,10 +126,16 @@ class NativeBridge(QObject):
             return
         self._presence_busy=True
         try:
+            try:
+                from memory.config_manager import get_voice
+                voice_name=str(get_voice() or '').strip()
+            except Exception:
+                voice_name=''
             state={
                 'ui_state':str(self.ui._win.hud.state),
                 'muted':bool(self.ui.muted),
                 'assistant':str(getattr(self.ui,'assistant_name','ULTRON')),
+                'voice':voice_name,
             }
         except Exception:
             state={'ui_state':'UNKNOWN'}
