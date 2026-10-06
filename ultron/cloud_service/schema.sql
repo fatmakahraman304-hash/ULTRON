@@ -54,3 +54,24 @@ CREATE TABLE IF NOT EXISTS device_commands (
 CREATE INDEX IF NOT EXISTS idx_device_commands_pending
   ON device_commands(user_id, target, status, id);
 
+-- Upgrade older command queues in place so the UI can report real progress.
+ALTER TABLE device_commands
+  ADD COLUMN IF NOT EXISTS result JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE device_commands
+  ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE device_commands
+  DROP CONSTRAINT IF EXISTS device_commands_status_check;
+ALTER TABLE device_commands
+  ADD CONSTRAINT device_commands_status_check
+  CHECK (status IN ('queued','delivered','completed','failed'));
+
+CREATE TABLE IF NOT EXISTS device_presence (
+  user_id TEXT NOT NULL,
+  device TEXT NOT NULL CHECK (device IN ('desktop','phone')),
+  state JSONB NOT NULL DEFAULT '{}'::jsonb,
+  last_seen TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY(user_id, device)
+);
+CREATE INDEX IF NOT EXISTS idx_device_presence_seen
+  ON device_presence(user_id, last_seen DESC);
+
