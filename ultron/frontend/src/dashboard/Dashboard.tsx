@@ -35,6 +35,69 @@ export default function Dashboard(){
   if(/(?:videoyu|video).*(?:kaydet|indir)/.test(t)){await action('video_save');return 'Video kaydetme penceresi açıldı.';}
   if(/(?:hologramı|hologrami|tasarımı|tasarimi).*(?:kaydet|indir)/.test(t)){await action('hologram_save');return 'Hologram projesi kaydediliyor.';}
 
+  const sceneMode=u.stage.mode==='scene_lab';
+  const selected=sceneMode?u.stage.scene.objects.find(o=>o.id===u.stage.scene.selected_id):undefined;
+  if(/(?:sahne|operasyon masası|operasyon masasi|scene lab).*(?:aç|ac|başlat|baslat|kur|oluştur|olustur)/.test(t)){await action('scene_open');return 'Scene Lab açıldı.';}
+  if(/(?:operasyon|taktik).*(?:sahne|masa)/.test(t)){await action('scene_preset',{preset:'operations'});return 'Operasyon sahnesi kuruldu.';}
+  if(/araç|arac|vehicle/.test(t)&&/tarama|scan/.test(t)&&/(?:sahne|göster|goster|oluştur|olustur|kur)/.test(t)){await action('scene_preset',{preset:'vehicle_scan'});return 'Araç tarama sahnesi kuruldu.';}
+  if(/(?:drone).*(?:hangar|bay|sahne)/.test(t)){await action('scene_preset',{preset:'drone_bay'});return 'Drone sahnesi kuruldu.';}
+  if(/(?:gezegen|planet|dünya|dunya).*(?:sahne|sistem)/.test(t)){await action('scene_preset',{preset:'planetary'});return 'Gezegen sahnesi kuruldu.';}
+
+  const multiScene=/\b(?:araba|araç|arac|vehicle|drone|dünya|dunya|globe|küre|kure|enerji|core|network|ağ|ag|logo|kule|tower)\b/.test(t)&&
+    (/(?:yanına|yanina|sağına|sagina|soluna|birlikte|ve|ile|iki|üç|uc|sahneye|sahne kur)/.test(t));
+  if(multiScene&&/(?:koy|ekle|oluştur|olustur|göster|goster|kur|yerleştir|yerlestir)/.test(t)){
+   const specs:Array<Record<string,unknown>>=[];
+   const push=(kind:string,label:string,colorValue:string,count=1)=>{for(let i=0;i<count;i++)specs.push({kind,label:count>1?label+' '+(i+1):label,color:colorValue,scale:kind==='globe'?1.05:kind==='vehicle'?1.0:.78});};
+   if(/dünya|dunya|globe/.test(t))push('globe','EARTH','#35ffe4');
+   if(/araba|araç|arac|vehicle/.test(t))push('vehicle','VEHICLE',color||'#ff3047');
+   if(/drone/.test(t)){const count=/(?:iki|2)\s*drone/.test(t)?2:/(?:üç|uc|3)\s*drone/.test(t)?3:1;push('drone','DRONE',color||'#ff3047',count);}
+   if(/enerji|core|çekirdek|cekirdek/.test(t))push('energy','CORE',color||'#ff3047');
+   if(/network|ağ|ag/.test(t))push('network','NETWORK','#ff3047');
+   if(/logo/.test(t))push('logo','ULTRON','#ff3047');
+   if(/kule|tower/.test(t))push('tower','TOWER','#ff3047');
+   const n=specs.length;specs.forEach((s,i)=>{s.x=(i-(n-1)/2)*2.15;s.y=0;s.z=0;});
+   if(specs.length){await action('scene_batch',{objects_json:JSON.stringify(specs),camera:/üstten|ustten|top/.test(t)?'top':/önden|onden|front/.test(t)?'front':'isometric'});return specs.length+' nesneli Scene Lab sahnesi kuruldu.';}
+  }
+
+  if(sceneMode){
+   if(/(?:sahneyi|hepsini).*(?:videoya çevir|video yap|render)/.test(t)){await action('video_from_stage',{duration,title:'ULTRON SCENE'});return 'Scene Lab video renderına geçti.';}
+   if(/(?:üstten|ustten|top).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'top'});return 'Kamera üst görünüme geçti.';}
+   if(/(?:önden|onden|front).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'front'});return 'Kamera ön görünüme geçti.';}
+   if(/(?:yandan|side).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'side'});return 'Kamera yan görünüme geçti.';}
+   if(/(?:yakın|yakin|close).*(?:bak|kamera)/.test(t)){await action('scene_camera',{camera:'close'});return 'Kamera yakın görünüme geçti.';}
+   if(/orbit.*(?:kamera|bak)|kamera.*orbit/.test(t)){await action('scene_camera',{camera:'orbit',auto_orbit:true});return 'Orbit kamera aktif.';}
+   if(/(?:grid|ızgara|izgara).*(?:diz|yerleştir|yerlestir)/.test(t)){await action('scene_arrange',{layout:'grid'});return 'Nesneler grid düzene geçti.';}
+   if(/(?:çevre|cevre|orbit).*(?:diz|yerleştir|yerlestir)/.test(t)){await action('scene_arrange',{layout:'orbit'});return 'Nesneler orbit düzene geçti.';}
+   if(/(?:sırala|sirala|çizgi|cizgi).*(?:diz|yerleştir|yerlestir)?/.test(t)){await action('scene_arrange',{layout:'line'});return 'Nesneler çizgi halinde dizildi.';}
+   if(/(?:tarama|scan).*(?:başlat|baslat|aç|ac)/.test(t)){await action('scene_animation',{animation:'scan'});return 'Sahne taraması başladı.';}
+   if(/(?:tarama|scan).*(?:durdur|kapat)/.test(t)){await action('scene_animation',{animation:'idle'});return 'Sahne taraması durdu.';}
+   if(/(?:hepsini|sahneyi).*(?:patlat|ayır|ayir|parçala|parcala)/.test(t)){await action('scene_animation',{animation:'explode'});return 'Sahne exploded view moduna geçti.';}
+   if(/(?:hepsini|sahneyi).*(?:birleştir|birlestir|topla)/.test(t)){await action('scene_animation',{animation:'assemble'});return 'Sahne tekrar birleştirildi.';}
+   if(/(?:sahneyi temizle|hepsini sil)/.test(t)){await action('scene_clear');return 'Scene Lab temizlendi.';}
+
+   if(selected){
+    const patch:Record<string,unknown>={object_id:selected.id};
+    if(color)patch.color=color;
+    if(/(?:sola|sola al|sola taşı|sola tasi)/.test(t))patch.x=(selected.position?.[0]||0)-.6;
+    if(/(?:sağa|saga|sağa al|saga al|sağa taşı|saga tasi)/.test(t))patch.x=(selected.position?.[0]||0)+.6;
+    if(/(?:yukarı|yukari|kaldır|kaldir)/.test(t))patch.y=(selected.position?.[1]||0)+.5;
+    if(/(?:aşağı|asagi|indir)/.test(t)&&!/kaydet|download/.test(t))patch.y=(selected.position?.[1]||0)-.5;
+    if(/(?:öne|one|yaklaştır|yaklastir)/.test(t))patch.z=(selected.position?.[2]||0)+.6;
+    if(/(?:arkaya|geriye|uzaklaştır|uzaklastir)/.test(t))patch.z=(selected.position?.[2]||0)-.6;
+    if(/büyüt|buyut|daha büyük|daha buyuk/.test(t))patch.scale=Math.min(3,selected.scale*1.2);
+    if(/küçült|kucult|daha küçük|daha kucuk/.test(t))patch.scale=Math.max(.2,selected.scale/1.2);
+    if(/(?:patlat|ayır|ayir|parçala|parcala|parçalarına ayır|parcalarina ayir)/.test(t))patch.explode=1;
+    if(/(?:birleştir|birlestir|toparla)/.test(t))patch.explode=0;
+    if(/(?:hızlandır|hizlandir|daha hızlı|daha hizli)/.test(t))patch.spin=Math.min(4,(selected.spin||.5)*1.35);
+    if(/(?:yavaşlat|yavaslat|daha yavaş|daha yavas)/.test(t))patch.spin=Math.max(-4,(selected.spin||.5)/1.35);
+    if(/(?:bunu|nesneyi|seçileni|secileni).*(?:sil|kaldır|kaldir)/.test(t)){await action('scene_remove',{object_id:selected.id});return 'Seçili nesne sahneden kaldırıldı.';}
+    if(Object.keys(patch).length>1){await action('scene_update',patch);return 'Seçili sahne nesnesi güncellendi.';}
+   }
+
+   const addKind=/(?:ekle|koy|yerleştir|yerlestir)/.test(t)?(/drone/.test(t)?'drone':/araba|araç|arac|vehicle/.test(t)?'vehicle':/dünya|dunya|globe/.test(t)?'globe':/network|ağ|ag/.test(t)?'network':/logo/.test(t)?'logo':/kule|tower/.test(t)?'tower':/enerji|core/.test(t)?'energy':''):'';
+   if(addKind){await action('scene_add',{kind:addKind,label:addKind.toUpperCase(),color:color||'#ff3047'});return 'Yeni '+addKind+' nesnesi sahneye eklendi.';}
+  }
+
   const createHolo=/(?:hologram|enerji küresi|enerji kuresi|dünya küresi|dunya kuresi|drone|araç|arac|logo).*(?:yap|oluştur|olustur|göster|goster|tasarla)|(?:ortaya|ortada).*(?:küre|kure|hologram|drone|dünya|dunya|araç|arac|logo)/.test(t);
   if(createHolo){
    let kind='energy';if(/dünya|dunya/.test(t))kind='globe';else if(/ağ|ag|network|node/.test(t))kind='network';else if(/drone/.test(t))kind='drone';else if(/araba|araç|arac|vehicle/.test(t))kind='vehicle';else if(/logo/.test(t))kind='logo';else if(/küre|kure|sphere/.test(t)&&!/enerji/.test(t))kind='sphere';
