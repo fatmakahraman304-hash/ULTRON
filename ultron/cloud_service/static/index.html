@@ -471,7 +471,7 @@ let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initial
 const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
-let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false;
+let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false,silentActionTurn=false;
 let liveSessionId=localStorage.getItem('ultronLiveSessionId')||'';
 let voiceWakeLock=null;
 const pendingVoiceMessages=[];
@@ -978,6 +978,8 @@ async function openLiveSocket(){
     }
     if(d.type==='phone_action'){
       const action=String(d.action||''),query=String(d.query||'').trim();
+      const directAction=['browser','search_web','maps','call','sms','email','facetime','open_app','youtube_search','spotify_search','whatsapp_message'].includes(action);
+      if(directAction){silentActionTurn=true;suppressOutput=true;liveSpeaking=false;stopPlayback()}
       if(action==='chat')showView('chat');
       if(action==='memory')showView('memory');
       if(action==='remote')showView('remote');
@@ -997,6 +999,26 @@ async function openLiveSocket(){
       if(action==='search_web'){
         const q=encodeURIComponent(query||'');
         if(q)location.href='https://www.google.com/search?q='+q;
+      }
+      if(action==='youtube_search'){
+        const q=encodeURIComponent(query||'');
+        if(q)location.href='https://www.youtube.com/results?search_query='+q;
+        else location.href='youtube://';
+      }
+      if(action==='spotify_search'){
+        const q=encodeURIComponent(query||'');
+        if(q)location.href='https://open.spotify.com/search/'+q;
+        else location.href='spotify://';
+      }
+      if(action==='whatsapp_message'){
+        const q=encodeURIComponent(query||'');
+        if(q){
+          const started=Date.now();
+          location.href='whatsapp://send?text='+q;
+          setTimeout(()=>{if(Date.now()-started<1800)location.href='https://wa.me/?text='+q},1100);
+        }else{
+          location.href='whatsapp://';
+        }
       }
       if(action==='maps'){
         const q=encodeURIComponent(query||'');
@@ -1048,7 +1070,7 @@ async function openLiveSocket(){
       const labels={
         chat:'Sohbet açıldı',memory:'Hafıza açıldı',remote:'Uzaktan kontrol açıldı',
         camera:'Kamera açılıyor',vibrate:'Titreşim gönderildi',scroll_top:'Üste çıkıldı',
-        browser:'Tarayıcı açılıyor',search_web:'Web araması açılıyor',maps:'Haritalar açılıyor',call:'Arama ekranı açılıyor',sms:'Mesajlar açılıyor',email:'E-posta açılıyor',facetime:'FaceTime açılıyor',open_app:'Uygulama açılıyor'
+        browser:'Tarayıcı açılıyor',search_web:'Web araması açılıyor',maps:'Haritalar açılıyor',call:'Arama ekranı açılıyor',sms:'Mesajlar açılıyor',email:'E-posta açılıyor',facetime:'FaceTime açılıyor',open_app:'Uygulama açılıyor',youtube_search:'YouTube içinde aranıyor',spotify_search:'Spotify içinde aranıyor',whatsapp_message:'WhatsApp mesajı hazırlanıyor'
       };
       if(labels[action])toast(labels[action]);
     }
@@ -1068,10 +1090,11 @@ async function openLiveSocket(){
       setTimeout(()=>{if(voiceListening)$('#stageVoiceText').textContent='Gemini Live bağlı'},1100);
     }
     if(d.type==='turn_complete'){
-      liveSpeaking=false;suppressOutput=false;bargeBlocks=0;resetVoiceGateSegment();
+      liveSpeaking=false;bargeBlocks=0;resetVoiceGateSegment();
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
-      if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
+      if(output&&!silentActionTurn){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
+      silentActionTurn=false;suppressOutput=false;
       messageSignature='';setWakeUi(false);liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
       loadMemories().catch(()=>{});
     }
@@ -1259,16 +1282,24 @@ function normalizePhoneCommand(text){
 }
 function runDirectPhoneCommand(text){
   const t=normalizePhoneCommand(text);
-  let action='',query='',reply='';
-  if(/\b(youtube|yutub)\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='youtube';reply='YouTube açılıyor.'}
-  else if(/\bspotify\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='spotify';reply='Spotify açılıyor.'}
-  else if(/\bwhatsapp\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='whatsapp';reply='WhatsApp açılıyor.'}
-  else if(/\binstagram\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='instagram';reply='Instagram açılıyor.'}
-  else if(/\b(chrome|krom)\b.*\b(aç|ac)\b/.test(t)){action='browser';reply='Chrome açılıyor.'}
-  else if(/\b(harita|haritalar|maps)\b.*\b(aç|ac)\b/.test(t)){action='maps';reply='Haritalar açılıyor.'}
-  else if(/\b(mesaj|mesajlar|sms)\b.*\b(aç|ac)\b/.test(t)){action='sms';reply='Mesajlar açılıyor.'}
-  else if(/\b(e[- ]?posta|mail)\b.*\b(aç|ac)\b/.test(t)){action='email';reply='E-posta açılıyor.'}
-  else return null;
+  let action='',query='';
+  let m=null;
+
+  m=t.match(/(?:youtube|yutub)(?:da|de|'da|'de)?\s+(.+?)\s+(?:aç|ac)$/);
+  if(m&&m[1]){action='youtube_search';query=m[1].trim()}
+  else if(/\b(youtube|yutub)\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='youtube'}
+  else {
+    m=t.match(/spotify(?:da|de|'da|'de)?\s+(.+?)\s+(?:aç|ac)$/);
+    if(m&&m[1]){action='spotify_search';query=m[1].trim()}
+    else if(/\bspotify\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='spotify'}
+    else if(/\bwhatsapp\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='whatsapp'}
+    else if(/\binstagram\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='instagram'}
+    else if(/\b(chrome|krom)\b.*\b(aç|ac)\b/.test(t)){action='browser'}
+    else if(/\b(harita|haritalar|maps)\b.*\b(aç|ac)\b/.test(t)){action='maps'}
+    else if(/\b(mesaj|mesajlar|sms)\b.*\b(aç|ac)\b/.test(t)){action='sms'}
+    else if(/\b(e[- ]?posta|mail)\b.*\b(aç|ac)\b/.test(t)){action='email'}
+    else return null;
+  }
 
   if(action==='browser'){
     const started=Date.now();location.href='googlechrome://';
@@ -1277,6 +1308,12 @@ function runDirectPhoneCommand(text){
   if(action==='maps')location.href='https://maps.apple.com/';
   if(action==='sms')location.href='sms:';
   if(action==='email')location.href='mailto:';
+  if(action==='youtube_search'){
+    location.href='https://www.youtube.com/results?search_query='+encodeURIComponent(query);
+  }
+  if(action==='spotify_search'){
+    location.href='https://open.spotify.com/search/'+encodeURIComponent(query);
+  }
   if(action==='open_app'){
     const schemes={youtube:'youtube://',spotify:'spotify://',whatsapp:'whatsapp://',instagram:'instagram://'};
     const fallbacks={youtube:'https://www.youtube.com/',spotify:'https://open.spotify.com/',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com/'};
@@ -1284,7 +1321,7 @@ function runDirectPhoneCommand(text){
     if(scheme){location.href=scheme;if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},1100)}
     else if(fallback)location.href=fallback;
   }
-  return reply;
+  return true;
 }
 
 async function send(fromVoice=false){
@@ -1293,10 +1330,9 @@ async function send(fromVoice=false){
   const text=$('#message').value.trim();if(!text)return;
   $('#message').value='';clearDraft();
   rememberPendingVoice('user',text);addMessage('user',text);
-  const directReply=runDirectPhoneCommand(text);
-  if(directReply){
-    rememberPendingVoice('assistant',directReply);addMessage('assistant',directReply);
-    toast(directReply);scrollChatToBottom(false);return;
+  const directHandled=runDirectPhoneCommand(text);
+  if(directHandled){
+    toast('Komut uygulanıyor…');scrollChatToBottom(false);return;
   }
   $('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
   try{
