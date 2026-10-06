@@ -988,13 +988,10 @@ async function openLiveSocket(){
       if(action==='scroll_top')window.scrollTo({top:0,behavior:'smooth'});
 
       if(action==='browser'){
-        // iOS/PWA cannot grant unrestricted app control. Try Chrome deep-link first,
-        // then fall back to a normal web URL if iOS blocks the custom scheme.
+        // Native-only: never open the same command again on the web.
         const target=query&&/^https?:\/\//i.test(query)?query:'https://www.google.com';
         const chromeTarget=target.replace(/^https:\/\//i,'googlechromes://').replace(/^http:\/\//i,'googlechrome://');
-        const started=Date.now();
         location.href=chromeTarget;
-        setTimeout(()=>{if(Date.now()-started<1800)location.href=target},900);
       }
       if(action==='search_web'){
         const q=encodeURIComponent(query||'');
@@ -1012,13 +1009,7 @@ async function openLiveSocket(){
       }
       if(action==='whatsapp_message'){
         const q=encodeURIComponent(query||'');
-        if(q){
-          const started=Date.now();
-          location.href='whatsapp://send?text='+q;
-          setTimeout(()=>{if(Date.now()-started<1800)location.href='https://wa.me/?text='+q},1100);
-        }else{
-          location.href='whatsapp://';
-        }
+        location.href=q?('whatsapp://send?text='+q):'whatsapp://';
       }
       if(action==='maps'){
         const q=encodeURIComponent(query||'');
@@ -1049,22 +1040,8 @@ async function openLiveSocket(){
           chrome:'googlechrome://',
           maps:'maps://'
         };
-        const fallbacks={
-          youtube:'https://www.youtube.com/',
-          spotify:'https://open.spotify.com/',
-          whatsapp:'https://wa.me/',
-          instagram:'https://www.instagram.com/',
-          chrome:'https://www.google.com/',
-          maps:'https://maps.apple.com/'
-        };
-        const scheme=schemes[app],fallback=fallbacks[app];
-        if(scheme){
-          const started=Date.now();
-          location.href=scheme;
-          if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},1100);
-        }else if(fallback){
-          location.href=fallback;
-        }
+        const scheme=schemes[app];
+        if(scheme)location.href=scheme;
       }
 
       const labels={
@@ -1287,14 +1264,14 @@ function runDirectPhoneCommand(text){
 
   m=t.match(/(?:youtube|yutub|yputube)(?:da|de|'da|'de)?\s+(.+?)\s+(?:aç|ac)$/);
   if(m&&m[1]){action='youtube_search';query=m[1].trim()}
-  else if(/\b(youtube|yutub|yputube)\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='youtube'}
+  else if(/(?:^|\s)(youtube|yutub|yputube)(?:\s|$)/.test(t)&&/(?:^|\s)(aç|ac)(?:\s|$)/.test(t)){action='open_app';query='youtube'}
   else {
     m=t.match(/spotify(?:da|de|'da|'de)?\s+(.+?)\s+(?:aç|ac)$/);
     if(m&&m[1]){action='spotify_search';query=m[1].trim()}
-    else if(/\bspotify\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='spotify'}
-    else if(/\bwhats?app\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='whatsapp'}
-    else if(/\binstagram\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='instagram'}
-    else if(/\b(chrome|krom)\b.*\b(aç|ac)\b/.test(t)){action='browser'}
+    else if(/(?:^|\s)spotify(?:\s|$)/.test(t)&&/(?:^|\s)(aç|ac)(?:\s|$)/.test(t)){action='open_app';query='spotify'}
+    else if(/(?:^|\s)whats?app(?:\s|$)/.test(t)&&/(?:^|\s)(aç|ac)(?:\s|$)/.test(t)){action='open_app';query='whatsapp'}
+    else if(/(?:^|\s)instagram(?:\s|$)/.test(t)&&/(?:^|\s)(aç|ac)(?:\s|$)/.test(t)){action='open_app';query='instagram'}
+    else if(/(?:^|\s)(chrome|krom)(?:\s|$)/.test(t)&&/(?:^|\s)(aç|ac)(?:\s|$)/.test(t)){action='browser'}
     else if(/\b(harita|haritalar|maps)\b.*\b(aç|ac)\b/.test(t)){action='maps'}
     else if(/\b(mesaj|mesajlar|sms)\b.*\b(aç|ac)\b/.test(t)){action='sms'}
     else if(/\b(e[- ]?posta|mail)\b.*\b(aç|ac)\b/.test(t)){action='email'}
@@ -1302,8 +1279,7 @@ function runDirectPhoneCommand(text){
   }
 
   if(action==='browser'){
-    const started=Date.now();location.href='googlechrome://';
-    setTimeout(()=>{if(Date.now()-started<1800)location.href='https://www.google.com'},900);
+    location.href='googlechrome://';
   }
   if(action==='maps')location.href='https://maps.apple.com/';
   if(action==='sms')location.href='sms:';
@@ -1316,10 +1292,8 @@ function runDirectPhoneCommand(text){
   }
   if(action==='open_app'){
     const schemes={youtube:'youtube://',spotify:'spotify://',whatsapp:'whatsapp://',instagram:'instagram://'};
-    const fallbacks={youtube:'https://www.youtube.com/',spotify:'https://open.spotify.com/',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com/'};
-    const scheme=schemes[query],fallback=fallbacks[query],started=Date.now();
-    if(scheme){location.href=scheme;if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},1100)}
-    else if(fallback)location.href=fallback;
+    const scheme=schemes[query];
+    if(scheme)location.href=scheme;
   }
   return true;
 }
@@ -1568,14 +1542,12 @@ document.querySelectorAll('[data-phone-action]').forEach(btn=>btn.onclick=()=>{
   const action=btn.dataset.phoneAction||'',query=btn.dataset.phoneQuery||'';
   const fake={type:'phone_action',action,query};
   // Reuse the same safe intent logic used by voice commands.
-  if(action==='browser'){location.href='googlechrome://';setTimeout(()=>{location.href='https://www.google.com'},900)}
+  if(action==='browser'){location.href='googlechrome://'}
   if(action==='maps')location.href='https://maps.apple.com/';
   if(action==='open_app'){
     const schemes={youtube:'youtube://',spotify:'spotify://',whatsapp:'whatsapp://',instagram:'instagram://'};
-    const fallbacks={youtube:'https://www.youtube.com/',spotify:'https://open.spotify.com/',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com/'};
-    const scheme=schemes[query],fallback=fallbacks[query],started=Date.now();
-    if(scheme){location.href=scheme;if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},1100)}
-    else if(fallback)location.href=fallback;
+    const scheme=schemes[query];
+    if(scheme)location.href=scheme;
   }
   if(action==='sms')location.href='sms:';
   if(action==='email')location.href='mailto:';
