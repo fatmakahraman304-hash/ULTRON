@@ -1,0 +1,42 @@
+name: ULTRON Scene Build Check
+
+on:
+  push:
+    branches:
+      - feat/ultron-cloud-shared-memory
+    paths:
+      - "ultron/backend/**"
+      - "ultron/frontend/**"
+      - "actions/**"
+      - "core/**"
+      - "integration/**"
+      - ".github/workflows/scene-check.yml"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile changed Python
+        run: |
+          python -m py_compile ultron/backend/server.py
+          python -m py_compile actions/ultron_stage.py
+          python -m py_compile integration/web_panel.py
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ultron/frontend/package-lock.json
+      - name: Install frontend
+        working-directory: ultron/frontend
+        run: npm ci
+      - name: TypeScript and Vite build
+        working-directory: ultron/frontend
+        run: npm run build
