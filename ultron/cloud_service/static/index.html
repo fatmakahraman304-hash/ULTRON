@@ -967,14 +967,41 @@ async function openLiveSocket(){
       setTimeout(()=>watchLaptopTasks().catch(()=>{}),250);
     }
     if(d.type==='phone_action'){
-      const action=String(d.action||'');
+      const action=String(d.action||''),query=String(d.query||'').trim();
       if(action==='chat')showView('chat');
       if(action==='memory')showView('memory');
       if(action==='remote')showView('remote');
       if(action==='camera'&&!cameraStream)startPhoneCamera();
       if(action==='vibrate'&&navigator.vibrate)navigator.vibrate([80,45,80]);
       if(action==='scroll_top')window.scrollTo({top:0,behavior:'smooth'});
-      const labels={chat:'Sohbet açıldı',memory:'Hafıza açıldı',remote:'Uzaktan kontrol açıldı',camera:'Kamera açılıyor',vibrate:'Titreşim gönderildi',scroll_top:'Üste çıkıldı'};
+
+      if(action==='browser'){
+        // iOS/PWA cannot grant unrestricted app control. Try Chrome deep-link first,
+        // then fall back to a normal web URL if iOS blocks the custom scheme.
+        const target=query&&/^https?:\/\//i.test(query)?query:'https://www.google.com';
+        const chromeTarget=target.replace(/^https:\/\//i,'googlechromes://').replace(/^http:\/\//i,'googlechrome://');
+        const started=Date.now();
+        location.href=chromeTarget;
+        setTimeout(()=>{if(Date.now()-started<1800)location.href=target},900);
+      }
+      if(action==='search_web'){
+        const q=encodeURIComponent(query||'');
+        if(q)location.href='https://www.google.com/search?q='+q;
+      }
+      if(action==='maps'){
+        const q=encodeURIComponent(query||'');
+        location.href=q?('https://maps.apple.com/?q='+q):'https://maps.apple.com/';
+      }
+      if(action==='call'&&query){
+        const number=query.replace(/[^+0-9]/g,'');
+        if(number)location.href='tel:'+number;
+      }
+
+      const labels={
+        chat:'Sohbet açıldı',memory:'Hafıza açıldı',remote:'Uzaktan kontrol açıldı',
+        camera:'Kamera açılıyor',vibrate:'Titreşim gönderildi',scroll_top:'Üste çıkıldı',
+        browser:'Tarayıcı açılıyor',search_web:'Web araması açılıyor',maps:'Haritalar açılıyor',call:'Arama ekranı açılıyor'
+      };
       if(labels[action])toast(labels[action]);
     }
     if(d.type==='input_transcript'&&d.text){
