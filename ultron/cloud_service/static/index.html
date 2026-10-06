@@ -305,6 +305,8 @@
     @keyframes wakePulse{from{transform:scale(.92)}to{transform:scale(1.55)}}
     .background-status.awake .stage-status{border-color:rgba(255,36,71,.85)!important;box-shadow:0 0 22px rgba(255,36,71,.16)!important}
 
+    .voice-task-badge{margin-left:auto;font-size:8px;font-weight:900;letter-spacing:.08em;color:#ff6680;border:1px solid rgba(255,36,71,.5);border-radius:999px;padding:3px 6px;background:rgba(255,36,71,.08)}
+
   </style>
 </head>
 <body>
@@ -422,6 +424,8 @@ const scheduledSources=new Set();
 let pendingImage=null,pendingImageUrl='',pendingPdf=null;
 let cameraStream=null,cameraFacing='environment',cameraBusy=false,lastCameraAnalysis='';
 let attachMenuOpen=false;
+const laptopTaskStates=new Map();
+let laptopTaskWatchPrimed=false;
 function setAttachMenu(open){
   attachMenuOpen=!!open;$('#attachMenu').classList.toggle('show',attachMenuOpen);$('#plusBtn').classList.toggle('open',attachMenuOpen);$('#plusBtn').setAttribute('aria-expanded',attachMenuOpen?'true':'false');
 }
@@ -1255,22 +1259,63 @@ function commandTitle(item){
 }
 async function loadRemoteHistory(){
   const d=await api('/api/device-commands/recent?limit=20');
-  const root=$('#remoteHistory');root.innerHTML='';
-  const rows=d.commands||[];$('#historyCount').textContent=rows.length+' kayıt';
+  renderRemoteRows(d.commands||[]);
+}
+function taskStatusLabel(status){
+  return ({queued:'KUYRUKTA',delivered:'ÇALIŞIYOR',completed:'TAMAMLANDI',failed:'HATA',cancelled:'İPTAL',expired:'SÜRESİ DOLDU'})[status]||String(status||'').toUpperCase();
+}
+function notifyLaptopTaskChange(item,previous){
+  const status=String(item.status||'');
+  const title=commandTitle(item);
+  const result=String(item.result?.message||'').trim();
+  let message='';
+  if(status==='delivered')message='Laptop göreve başladı: '+title;
+  if(status==='completed')message='Laptop görevi tamamlandı'+(result?': '+result:'');
+  if(status==='failed')message='Laptop görevi başarısız'+(result?': '+result:'');
+  if(status==='cancelled')message='Laptop görevi iptal edildi';
+  if(status==='expired')message='Laptop görevinin süresi doldu';
+  if(!message)return;
+  toast(message.slice(0,180));
+  $('#stageVoiceText').textContent=taskStatusLabel(status)+' • '+title.slice(0,52);
+  if(navigator.vibrate&&status!=='delivered')navigator.vibrate(status==='completed'?[55,35,80]:[100,50,100]);
+  if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
+    try{new Notification('ULTRON • '+taskStatusLabel(status),{body:message.slice(0,180),icon:'/static/ultron-icon.svg'})}catch{}
+  }
+}
+async function watchLaptopTasks(){
+  if($('#app').classList.contains('hidden'))return;
+  try{
+    const d=await api('/api/device-commands/recent?limit=16');
+    const rows=(d.commands||[]).filter(x=>x.command==='agent_task');
+    for(const item of rows){
+      const id=String(item.id),next=String(item.status||'');
+      const prev=laptopTaskStates.get(id);
+      if(laptopTaskWatchPrimed&&prev&&prev!==next)notifyLaptopTaskChange(item,prev);
+      laptopTaskStates.set(id,next);
+    }
+    laptopTaskWatchPrimed=true;
+    if(currentView==='remote')renderRemoteRows(rows);
+  }catch{}
+}
+function renderRemoteRows(rows){
+  const root=$('#remoteHistory');if(!root)return;root.innerHTML='';
+  $('#historyCount').textContent=rows.length+' kayıt';
   rows.forEach(item=>{
     const el=document.createElement('div');el.className='history-item';
     const h=document.createElement('header'),b=document.createElement('b'),s=document.createElement('span');
-    b.textContent=commandTitle(item);s.className='state '+item.status;
-    s.textContent=(item.command==='agent_task'&&item.status==='delivered')?'ÇALIŞIYOR':String(item.status||'').toUpperCase();
-    h.append(b,s);el.appendChild(h);
-    const msg=item.result?.message;
-    if(msg){const p=document.createElement('p');p.textContent=msg;el.appendChild(p)}
+    b.textContent=commandTitle(item);s.className='state '+item.status;s.textContent=taskStatusLabel(item.status);
+    h.append(b,s);
+    if(item.payload?.origin==='voice'){const vb=document.createElement('span');vb.className='voice-task-badge';vb.textContent='SES';h.appendChild(vb)}
+    el.appendChild(h);
+    const msg=item.result?.message;if(msg){const p=document.createElement('p');p.textContent=msg;el.appendChild(p)}
     if(item.status==='queued'){
       const cancel=document.createElement('button');cancel.className='history-cancel';cancel.textContent='İPTAL ET';
-      cancel.onclick=async()=>{cancel.disabled=true;try{await api('/api/device-commands/'+item.id+'/cancel',{method:'POST',body:'{}'});await loadRemoteHistory();toast('Bekleyen görev iptal edildi.')}catch(e){toast('Görev iptal edilemedi: '+e.message);cancel.disabled=false}};
+      cancel.onclick=async()=>{cancel.disabled=true;try{await api('/api/device-commands/'+item.id+'/cancel',{method:'POST',body:'{}'});await watchLaptopTasks();toast('Bekleyen görev iptal edildi.')}catch(e){toast('Görev iptal edilemedi: '+e.message);cancel.disabled=false}};
       el.appendChild(cancel);
     }
-    const small=document.createElement('small');small.textContent=fmtTime(item.created_at);el.appendChild(small);root.appendChild(el);
+    const small=document.createElement('small');
+    const end=item.completed_at?(' • Bitti '+fmtTime(item.completed_at)):'';
+    small.textContent='Başlangıç '+fmtTime(item.created_at)+end;el.appendChild(small);root.appendChild(el);
   });
 }
 $('#refreshRemote').onclick=()=>Promise.all([loadRemoteState(),loadRemoteHistory()]).catch(e=>toast(e.message));
@@ -1300,13 +1345,14 @@ async function claimPhoneCommands(){
 setInterval(()=>{if(!$('#app').classList.contains('hidden'))loadMessages().catch(()=>{})},3000);
 setInterval(claimPhoneCommands,2200);
 setInterval(phoneHeartbeat,5000);
-setInterval(()=>{if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}},3000);
+setInterval(()=>{if(currentView==='remote')loadRemoteState().catch(()=>{})},3000);
+setInterval(watchLaptopTasks,2500);
 window.addEventListener('pagehide',()=>{releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
 window.addEventListener('pageshow',()=>{if(voiceEnabled){setTimeout(()=>startHandsFreeVoice(),220)}});
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){stopPhoneCamera();releaseVoiceWakeLock().catch(()=>{});return}
   if(currentView==='chat')setUnread(0);
-  phoneHeartbeat();messageSignature='';loadMessages().catch(()=>{});
+  phoneHeartbeat();messageSignature='';loadMessages().catch(()=>{});watchLaptopTasks().catch(()=>{});
   if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}
   if(liveDesired){
     acquireVoiceWakeLock().catch(()=>{});
@@ -1321,7 +1367,7 @@ window.visualViewport?.addEventListener('resize',()=>{if(currentView==='chat')se
 $('#message').addEventListener('focus',()=>setTimeout(()=>scrollChatToBottom(false),180));
 const messageObserver=new MutationObserver(()=>{if(currentView==='chat')scrollChatToBottom(false)});
 messageObserver.observe($('#messages'),{childList:true,subtree:true});
-boot().then(()=>phoneHeartbeat());
+boot().then(()=>{phoneHeartbeat();setTimeout(()=>watchLaptopTasks(),700)});
 window.addEventListener('online',()=>{setOnline(true,'Cloud bağlı');if(liveDesired&&!voiceListening)scheduleLiveReconnect()});
 window.addEventListener('offline',()=>{setOnline(false,'Çevrimdışı');if(liveDesired){clearLiveReconnect();liveStatus('İnternet bekleniyor…',true);$('#stageVoiceText').textContent='Ses bağlantısı beklemede'}});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/static/sw.js').catch(()=>{}))}
