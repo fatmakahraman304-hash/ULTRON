@@ -86,6 +86,15 @@ class Hub:
                 "opacity": 0.92, "wireframe": False, "pulse": True,
                 "label": "ULTRON",
             },
+            "scene": {
+                "objects": [],
+                "selected_id": None,
+                "camera": "isometric",
+                "explode": 0.0,
+                "auto_orbit": True,
+                "grid": True,
+                "animation": "idle",
+            },
             "video": {
                 "template": "ultron_intro", "duration": 6.0,
                 "title": "ULTRON", "ready": False, "mime": "", "bytes": 0,
@@ -737,7 +746,7 @@ async def api_voice_live(req: web.Request) -> web.Response:
 
 
 # ---------------- Dynamic Center Stage ----------------
-_STAGE_MODES = {"core_idle", "hologram_lab", "video_rendering", "video_preview",
+_STAGE_MODES = {"core_idle", "hologram_lab", "scene_lab", "video_rendering", "video_preview",
                 "task_progress", "screen_preview"}
 
 
@@ -816,8 +825,182 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["hologram"] = holo
         state.update({"mode": "hologram_lab", "title": holo.get("label") or "HOLOGRAM",
                       "subtitle": f"{str(holo.get('kind','energy')).upper()} / LIVE"})
+    elif op in {"scene_open", "scene_add"}:
+        scene = dict(state.get("scene") or {})
+        objects = list(scene.get("objects") or [])
+        if op == "scene_open":
+            state.update({"mode": "scene_lab", "title": "SCENE LAB",
+                          "subtitle": f"{len(objects)} OBJECTS / LIVE", "progress": 100})
+        else:
+            if len(objects) >= 16:
+                return web.json_response({"ok": False, "error": "scene_object_limit"}, status=409)
+            allowed = {"energy", "globe", "network", "drone", "vehicle", "logo", "sphere", "ring", "tower"}
+            kind = str(body.get("kind") or "energy").strip().lower()
+            if kind not in allowed:
+                kind = "energy"
+            oid = uuid.uuid4().hex[:8]
+            pos = body.get("position") if isinstance(body.get("position"), list) else [
+                _stage_number(body.get("x", 0), 0, -6, 6),
+                _stage_number(body.get("y", 0), 0, -4, 4),
+                _stage_number(body.get("z", 0), 0, -6, 6),
+            ]
+            while len(pos) < 3: pos.append(0)
+            obj = {
+                "id": oid,
+                "kind": kind,
+                "label": str(body.get("label") or kind.upper())[:60],
+                "color": str(body.get("color") or "#ff3047")[:24],
+                "position": [_stage_number(pos[0], 0, -6, 6), _stage_number(pos[1], 0, -4, 4), _stage_number(pos[2], 0, -6, 6)],
+                "rotation": [0.0, 0.0, 0.0],
+                "scale": _stage_number(body.get("scale", 1), 1, .2, 3),
+                "opacity": _stage_number(body.get("opacity", .9), .9, .08, 1),
+                "wireframe": bool(body.get("wireframe", True)),
+                "spin": _stage_number(body.get("spin", .5), .5, -4, 4),
+                "explode": _stage_number(body.get("explode", 0), 0, 0, 2),
+            }
+            objects.append(obj)
+            scene.update({"objects": objects, "selected_id": oid})
+            state["scene"] = scene
+            state.update({"mode": "scene_lab", "title": "SCENE LAB",
+                          "subtitle": f"{len(objects)} OBJECTS / LIVE", "progress": 100})
+    elif op in {"scene_update", "scene_move", "scene_rotate", "scene_scale",
+                "scene_color", "scene_explode"}:
+        scene = dict(state.get("scene") or {})
+        objects = list(scene.get("objects") or [])
+        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        changed = False
+        for i, item in enumerate(objects):
+            if str(item.get("id")) != target:
+                continue
+            obj = dict(item)
+            if "kind" in body and str(body["kind"]).lower() in {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower"}:
+                obj["kind"] = str(body["kind"]).lower()
+            if "label" in body: obj["label"] = str(body["label"])[:60]
+            if "color" in body: obj["color"] = str(body["color"])[:24]
+            if "scale" in body: obj["scale"] = _stage_number(body["scale"], obj.get("scale",1), .2, 3)
+            if "opacity" in body: obj["opacity"] = _stage_number(body["opacity"], obj.get("opacity",.9), .08, 1)
+            if "wireframe" in body: obj["wireframe"] = bool(body["wireframe"])
+            if "spin" in body: obj["spin"] = _stage_number(body["spin"], obj.get("spin",.5), -4, 4)
+            if "explode" in body: obj["explode"] = _stage_number(body["explode"], obj.get("explode",0), 0, 2)
+            pos = list(obj.get("position") or [0,0,0])
+            rot = list(obj.get("rotation") or [0,0,0])
+            while len(pos)<3: pos.append(0)
+            while len(rot)<3: rot.append(0)
+            if "x" in body: pos[0] = _stage_number(body["x"], pos[0], -6, 6)
+            if "y" in body: pos[1] = _stage_number(body["y"], pos[1], -4, 4)
+            if "z" in body: pos[2] = _stage_number(body["z"], pos[2], -6, 6)
+            if "rx" in body: rot[0] = _stage_number(body["rx"], rot[0], -6.3, 6.3)
+            if "ry" in body: rot[1] = _stage_number(body["ry"], rot[1], -6.3, 6.3)
+            if "rz" in body: rot[2] = _stage_number(body["rz"], rot[2], -6.3, 6.3)
+            obj["position"], obj["rotation"] = pos, rot
+            objects[i] = obj
+            changed = True
+            break
+        if not changed:
+            return web.json_response({"ok": False, "error": "scene_object_not_found"}, status=404)
+        scene["objects"] = objects
+        state["scene"] = scene
+        state.update({"mode":"scene_lab","title":"SCENE LAB",
+                      "subtitle":f"{len(objects)} OBJECTS / LIVE"})
+    elif op == "scene_select":
+        scene = dict(state.get("scene") or {})
+        target = str(body.get("object_id") or "")
+        if not any(str(o.get("id")) == target for o in scene.get("objects") or []):
+            return web.json_response({"ok": False, "error": "scene_object_not_found"}, status=404)
+        scene["selected_id"] = target
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "scene_remove":
+        scene = dict(state.get("scene") or {})
+        target = str(body.get("object_id") or scene.get("selected_id") or "")
+        objects = [o for o in (scene.get("objects") or []) if str(o.get("id")) != target]
+        scene["objects"] = objects
+        scene["selected_id"] = str(objects[-1].get("id")) if objects else None
+        state["scene"] = scene
+        state.update({"mode":"scene_lab","title":"SCENE LAB",
+                      "subtitle":f"{len(objects)} OBJECTS / LIVE"})
+    elif op == "scene_clear":
+        state["scene"] = {"objects": [], "selected_id": None, "camera": "isometric",
+                          "explode": 0.0, "auto_orbit": True, "grid": True, "animation": "idle"}
+        state.update({"mode":"scene_lab","title":"SCENE LAB","subtitle":"0 OBJECTS / LIVE"})
+    elif op == "scene_camera":
+        scene = dict(state.get("scene") or {})
+        camera = str(body.get("camera") or "isometric").lower()
+        if camera not in {"front","top","side","isometric","orbit","close"}:
+            camera = "isometric"
+        scene["camera"] = camera
+        if "auto_orbit" in body: scene["auto_orbit"] = bool(body["auto_orbit"])
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "scene_arrange":
+        scene = dict(state.get("scene") or {})
+        objects = [dict(o) for o in (scene.get("objects") or [])]
+        layout = str(body.get("layout") or "orbit").lower()
+        n = max(1, len(objects))
+        for i, obj in enumerate(objects):
+            if layout == "line":
+                obj["position"] = [(i-(n-1)/2)*2.0, 0, 0]
+            elif layout == "grid":
+                cols = max(1, int(n ** .5 + .999))
+                obj["position"] = [((i%cols)-(cols-1)/2)*2.0, 0, ((i//cols)-((n-1)//cols)/2)*1.8]
+            else:
+                angle = (i / n) * 6.28318530718
+                radius = 2.6 if n > 1 else 0
+                obj["position"] = [math.cos(angle)*radius, 0, math.sin(angle)*radius]
+            objects[i] = obj
+        scene["objects"] = objects
+        state["scene"] = scene
+        state.update({"mode":"scene_lab","title":"SCENE LAB",
+                      "subtitle":f"{len(objects)} OBJECTS / {layout.upper()}"})
+    elif op == "scene_preset":
+        scene = dict(state.get("scene") or {})
+        preset = str(body.get("preset") or "operations").lower()
+        presets = {
+            "operations": [
+                ("globe","EARTH","#35ffe4",0,0,0,1.15),
+                ("network","NETWORK","#ff3047",-2.7,.2,0,.75),
+                ("energy","CORE","#ff3047",2.7,.2,0,.75),
+            ],
+            "vehicle_scan": [
+                ("vehicle","VEHICLE","#ff3047",0,0,0,1.25),
+                ("ring","SCAN A","#35ffe4",0,0,0,1.55),
+                ("ring","SCAN B","#ff3047",0,0,0,1.95),
+            ],
+            "drone_bay": [
+                ("drone","DRONE 01","#ff3047",-2,0,0,.8),
+                ("drone","DRONE 02","#35ffe4",0,0,0,.8),
+                ("drone","DRONE 03","#ff3047",2,0,0,.8),
+            ],
+            "planetary": [
+                ("globe","EARTH","#35ffe4",0,0,0,1.1),
+                ("sphere","MOON","#dbe6ff",2.7,.4,0,.35),
+                ("ring","ORBIT","#ff3047",0,0,0,1.7),
+            ],
+        }
+        spec = presets.get(preset, presets["operations"])
+        objects = []
+        for kind,label,color,x,y,z,scale in spec:
+            objects.append({"id":uuid.uuid4().hex[:8],"kind":kind,"label":label,"color":color,
+                            "position":[x,y,z],"rotation":[0,0,0],"scale":scale,"opacity":.9,
+                            "wireframe":True,"spin":.45,"explode":0.0})
+        scene.update({"objects":objects,"selected_id":objects[0]["id"] if objects else None,
+                      "camera":"isometric","auto_orbit":True,"grid":True,"animation":"idle"})
+        state["scene"] = scene
+        state.update({"mode":"scene_lab","title":"SCENE LAB",
+                      "subtitle":f"{preset.upper()} / {len(objects)} OBJECTS","progress":100})
+    elif op == "scene_animation":
+        scene = dict(state.get("scene") or {})
+        animation = str(body.get("animation") or "idle").lower()
+        if animation not in {"idle","spin","scan","explode","assemble"}: animation="idle"
+        scene["animation"] = animation
+        if animation == "explode": scene["explode"] = 1.0
+        elif animation == "assemble": scene["explode"] = 0.0
+        if "explode" in body: scene["explode"] = _stage_number(body.get("explode"), scene.get("explode",0), 0, 2)
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
     elif op in {"video_create", "video_from_stage"}:
         source_hologram = op == "video_from_stage"
+        source_scene = source_hologram and state.get("mode") == "scene_lab"
         duration = _stage_number(body.get("duration", 6), 6, 2, 15)
         template = str(body.get("template") or ("hologram_capture" if source_hologram else "ultron_intro")).strip().lower()
         if template not in {"ultron_intro", "logo_reveal", "energy_core",
@@ -829,6 +1012,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             "title": str(body.get("title") or state.get("hologram", {}).get("label") or "ULTRON")[:100],
             "ready": False, "mime": "", "bytes": 0,
             "source_hologram": source_hologram,
+            "source_scene": source_scene,
         }
         state.update({"mode": "video_rendering", "title": "VIDEO RENDER",
                       "subtitle": template.replace("_", " ").upper(),
