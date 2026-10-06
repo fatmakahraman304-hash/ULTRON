@@ -410,6 +410,7 @@ const pendingVoiceMessages=[];
 const VOICE_PROFILE_KEY='ultronVoiceProfileV1';
 let voiceProfile=null,voiceEnrollFrames=[],voiceGateState='idle',voiceGateBuffer=[],voiceGateSpeechFrames=0,voiceGateSilenceFrames=0,voiceNoiseFloor=.004,voiceGateMatched=false,voiceGateRejected=false;
 let serverSpeakerEnrolled=false,serverSpeakerReady=false,speakerEnrollPcm=[],speakerEnrollBytes=0,speakerVerifyBusy=false,speakerVerifySeq=0;
+let wakeWordActive=false;
 const scheduledSources=new Set();
 let pendingImage=null,pendingImageUrl='',pendingPdf=null;
 let cameraStream=null,cameraFacing='environment',cameraBusy=false,lastCameraAnalysis='';
@@ -889,7 +890,7 @@ async function openLiveSocket(){
     micProcessor.onaudioprocess=e=>{
       if(!liveDesired||!voiceListening||!liveSocket||liveSocket.readyState!==WebSocket.OPEN)return;
       const mono=e.inputBuffer.getChannelData(0);
-      if(liveSpeaking&&(!serverSpeakerEnrolled||voiceGateState==='matched')){
+      if(liveSpeaking&&wakeWordActive&&(!serverSpeakerEnrolled||voiceGateState==='matched')){
         const rms=micRms(mono);
         bargeBlocks=rms>.055?bargeBlocks+1:Math.max(0,bargeBlocks-1);
         if(bargeBlocks>=2){
@@ -912,8 +913,24 @@ async function openLiveSocket(){
     let d={};try{d=JSON.parse(e.data)}catch{return}
     if(d.type==='ready'){
       if(d.session_id){liveSessionId=String(d.session_id);localStorage.setItem('ultronLiveSessionId',liveSessionId)}
-      liveStatus('Seni dinliyorum…',true);
-      $('#stageVoiceText').textContent=(d.resumed?'Gemini Live devam ediyor • ':'Gemini Live • ')+(d.voice||'ULTRON');
+      liveStatus('“ULTRON” diyerek uyandır',true);
+      $('#stageVoiceText').textContent=(d.resumed?'Gemini Live hazır • ':'Gemini Live • ')+(d.voice||'ULTRON')+' • wake-word bekliyor';
+    }
+    if(d.type==='wake_state'){
+      wakeWordActive=!!d.awake;
+      if(wakeWordActive){
+        liveStatus('Uyandım • seni dinliyorum…',true);
+        $('#stageVoiceText').textContent='ULTRON aktif • komutunu dinliyorum';
+        if(navigator.vibrate)navigator.vibrate(35);
+      }else{
+        liveStatus('“ULTRON” diyerek uyandır',true);
+        $('#stageVoiceText').textContent='Ses kilidi aktif • wake-word bekliyor';
+      }
+    }
+    if(d.type==='ambient_ignored'){
+      wakeWordActive=false;
+      liveStatus('“ULTRON” diyerek uyandır',true);
+      $('#stageVoiceText').textContent='Ortam sesi yok sayıldı • ULTRON bekliyor';
     }
     if(d.type==='input_transcript'&&d.text){
       const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
@@ -922,7 +939,7 @@ async function openLiveSocket(){
     if(d.type==='output_transcript'&&d.text&&!suppressOutput){liveSpeaking=true;$('#stageVoiceText').textContent='ULTRON konuşuyor'}
     if(d.type==='interrupted'){
       suppressOutput=false;liveSpeaking=false;bargeBlocks=0;stopPlayback();resetVoiceGateSegment();
-      liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
+      liveStatus('“ULTRON” diyerek uyandır',true);$('#stageVoiceText').textContent='Ses kilidi aktif • wake-word bekliyor';
     }
     if(d.type==='memory_saved'){
       const label=String(d.key||'bilgi').replace(/[_-]+/g,' ');
@@ -935,7 +952,7 @@ async function openLiveSocket(){
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
       if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
-      messageSignature='';liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
+      messageSignature='';wakeWordActive=false;liveStatus('“ULTRON” diyerek uyandır',true);$('#stageVoiceText').textContent='Ses kilidi aktif • wake-word bekliyor';
       loadMemories().catch(()=>{});
     }
     if(d.type==='error'){
@@ -952,7 +969,7 @@ async function openLiveSocket(){
 }
 async function stopLiveVoice(){
   intentionalVoiceStop=true;liveDesired=false;clearLiveReconnect();releaseVoiceWakeLock().catch(()=>{});
-  voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;stopPlayback();resetVoiceGateSegment();
+  voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;wakeWordActive=false;stopPlayback();resetVoiceGateSegment();
   try{if(micProcessor)micProcessor.disconnect()}catch{}
   try{if(micSource)micSource.disconnect()}catch{}
   try{if(micStream)micStream.getTracks().forEach(t=>t.stop())}catch{}
