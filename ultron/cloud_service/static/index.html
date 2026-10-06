@@ -1285,14 +1285,14 @@ function runDirectPhoneCommand(text){
   let action='',query='';
   let m=null;
 
-  m=t.match(/(?:youtube|yutub)(?:da|de|'da|'de)?\s+(.+?)\s+(?:aç|ac)$/);
+  m=t.match(/(?:youtube|yutub|yputube)(?:da|de|'da|'de)?\s+(.+?)\s+(?:aç|ac)$/);
   if(m&&m[1]){action='youtube_search';query=m[1].trim()}
-  else if(/\b(youtube|yutub)\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='youtube'}
+  else if(/\b(youtube|yutub|yputube)\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='youtube'}
   else {
     m=t.match(/spotify(?:da|de|'da|'de)?\s+(.+?)\s+(?:aç|ac)$/);
     if(m&&m[1]){action='spotify_search';query=m[1].trim()}
     else if(/\bspotify\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='spotify'}
-    else if(/\bwhatsapp\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='whatsapp'}
+    else if(/\bwhats?app\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='whatsapp'}
     else if(/\binstagram\b.*\b(aç|ac)\b/.test(t)){action='open_app';query='instagram'}
     else if(/\b(chrome|krom)\b.*\b(aç|ac)\b/.test(t)){action='browser'}
     else if(/\b(harita|haritalar|maps)\b.*\b(aç|ac)\b/.test(t)){action='maps'}
