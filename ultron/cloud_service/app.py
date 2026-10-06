@@ -1329,8 +1329,10 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "For complex laptop tasks, include a short ordered plan of 2-7 concrete steps so the desktop agent can report progress and resume from checkpoints. "
           "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it was sent live, scheduled, queued, retried, or completed. "
           "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used. "
-          "The phone uses an ULTRON wake-word gate. When the gate is asleep, any audio may be ambient and must not be treated as a command. "
-          "When the user says ULTRON and the gate wakes, answer normally and naturally."
+          "The phone is in always-listening mode while the microphone session is active; no wake word is required. "
+          "When the user gives a direct phone/app command, execute the appropriate tool immediately before speaking. "
+          "Do not ask follow-up closing questions such as 'Başka bir emriniz var mı?' after completing a command. "
+          "For successful direct actions, keep any spoken confirmation extremely short, for example 'Açıyorum.' or say nothing beyond the result."
         + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT SHARED CHAT:\n{recent}"
     )
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
@@ -1497,16 +1499,6 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     in_parts: list[str] = []
     out_parts: list[str] = []
     send_lock = asyncio.Lock()
-    wake_active_until = 0.0
-    wake_seen_this_turn = False
-
-    def _contains_wake_word(text: str) -> bool:
-        normalized = str(text or "").lower().replace("û", "u").replace("ü", "u")
-        return "ultron" in normalized
-
-    def _wake_active() -> bool:
-        return time.monotonic() < wake_active_until
-
     async def send_json(payload: dict[str, Any]) -> None:
         if not ws.closed:
             async with send_lock:
@@ -1889,7 +1881,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     got_any = False
                     async for response in session.receive():
                         got_any = True
-                        if response.data and not ws.closed and _wake_active():
+                        if response.data and not ws.closed:
                             async with send_lock:
                                 await ws.send_bytes(response.data)
 
@@ -1913,15 +1905,10 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             text = str(sc.input_transcription.text).strip()
                             if text:
                                 in_parts.append(text)
-                                if _contains_wake_word(text):
-                                    wake_active_until = time.monotonic() + 22.0
-                                    wake_seen_this_turn = True
-                                    await send_json({"type": "wake_state", "awake": True, "word": "ULTRON"})
-                                if _wake_active():
-                                    await send_json({"type": "input_transcript", "text": text})
+                                await send_json({"type": "input_transcript", "text": text})
                         if sc.output_transcription and sc.output_transcription.text:
                             text = str(sc.output_transcription.text).strip()
-                            if text and _wake_active():
+                            if text:
                                 out_parts.append(text)
                                 await send_json({"type": "output_transcript", "text": text})
                         if sc.turn_complete:
@@ -1929,37 +1916,29 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             full_out = " ".join(out_parts).strip()
                             in_parts.clear()
                             out_parts.clear()
-                            should_commit = wake_seen_this_turn or _wake_active()
-                            if should_commit and full_in:
+                            if full_in:
                                 await pool.execute(
                                     "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
                                     "VALUES($1,$2,'user',$3,$4)",
                                     conv_uuid, user_id, full_in, device_id,
                                 )
-                            if should_commit and full_out:
+                            if full_out:
                                 await pool.execute(
                                     "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
                                     "VALUES($1,$2,'assistant',$3,'cloud-gemini-live')",
                                     conv_uuid, user_id, full_out,
                                 )
-                            if should_commit and (full_in or full_out):
+                            if full_in or full_out:
                                 await pool.execute(
                                     "UPDATE conversations SET updated_at=NOW() WHERE id=$1",
                                     conv_uuid,
                                 )
-                            if should_commit:
                                 await send_json({
                                     "type": "turn_complete",
                                     "input": full_in,
                                     "output": full_out,
                                     "conversation_id": str(conv_uuid),
                                 })
-                                wake_active_until = 0.0
-                                wake_seen_this_turn = False
-                                await send_json({"type": "wake_state", "awake": False, "word": "ULTRON"})
-                            else:
-                                wake_seen_this_turn = False
-                                await send_json({"type": "ambient_ignored"})
                     if not got_any:
                         await asyncio.sleep(0.02)
 
