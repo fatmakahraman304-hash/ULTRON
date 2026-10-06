@@ -6,11 +6,14 @@ Render/Supabase service so phone and PC see the same conversation + memory.
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import os
 import time
+import urllib.error
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
-
-import aiohttp
 
 
 class CloudClient:
@@ -22,6 +25,11 @@ class CloudClient:
         self.conversation_id = ""
         self.last_error = ""
         self.last_ok_ts = 0.0
+        # Cloud I/O deliberately owns its own executor instead of asyncio's
+        # default executor. The desktop voice runtime may tear down/rebuild
+        # session-scoped executors during reconnects; remote task delivery must
+        # keep polling through those transitions.
+        self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ultron-cloud")
 
     @property
     def enabled(self) -> bool:
@@ -34,23 +42,54 @@ class CloudClient:
             "Content-Type": "application/json",
         }
 
+    def _sync_request(self, method: str, path: str, json_body: dict | None = None) -> dict[str, Any]:
+        url = self.base_url + path
+        payload = None
+        if json_body is not None:
+            payload = json.dumps(json_body, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers=self._headers(),
+            method=method,
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+                try:
+                    data = json.loads(raw) if raw else {}
+                except Exception:
+                    data = {"detail": raw[:500]}
+                if not isinstance(data, dict):
+                    data = {"data": data}
+                return data
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", errors="replace")
+            try:
+                data = json.loads(raw) if raw else {}
+            except Exception:
+                data = {"detail": raw[:500]}
+            if isinstance(data, dict):
+                message = data.get("detail") or data.get("error") or f"HTTP {exc.code}"
+            else:
+                message = f"HTTP {exc.code}"
+            raise RuntimeError(str(message)) from exc
+
     async def _request(self, method: str, path: str, *, json_body: dict | None = None) -> dict[str, Any]:
         if not self.enabled:
             raise RuntimeError("ULTRON Cloud desktop bridge is not configured")
-        timeout = aiohttp.ClientTimeout(total=self.timeout_s)
-        url = self.base_url + path
         try:
-            async with aiohttp.ClientSession(timeout=timeout, headers=self._headers()) as session:
-                async with session.request(method, url, json=json_body) as resp:
-                    try:
-                        data = await resp.json()
-                    except Exception:
-                        data = {"detail": (await resp.text())[:500]}
-                    if resp.status >= 400:
-                        raise RuntimeError(str(data.get("detail") or data.get("error") or f"HTTP {resp.status}"))
-                    self.last_error = ""
-                    self.last_ok_ts = time.time()
-                    return data
+            loop = asyncio.get_running_loop()
+            data = await loop.run_in_executor(
+                self._executor,
+                self._sync_request,
+                method,
+                path,
+                json_body,
+            )
+            self.last_error = ""
+            self.last_ok_ts = time.time()
+            return data
         except Exception as exc:
             self.last_error = str(exc)[:500]
             raise
