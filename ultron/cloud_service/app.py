@@ -676,6 +676,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         base_prompt
         + "\n\nYou are speaking through the user's phone using Gemini Live native audio. "
           "Speak naturally in the same language as the user. Keep replies conversational and usually brief. "
+          "Use save_memory whenever the user explicitly asks you to remember something or reveals a stable personal fact worth remembering. "
+          "Use recall_memory when current persistent memory is needed instead of guessing from stale session context. "
           "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used."
         + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT SHARED CHAT:\n{recent}"
     )
@@ -729,6 +731,32 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name=voice)
             )
         ),
+        tools=[{"function_declarations": [
+            {
+                "name": "save_memory",
+                "description": "Save or update a stable user fact in the shared ULTRON Cloud memory. Use when the user asks to remember something or shares an important persistent fact.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "key": {"type": "STRING", "description": "Short stable key, for example favorite_color or school."},
+                        "value": {"type": "STRING", "description": "The exact fact to remember, preserving the user's wording when practical."},
+                        "category": {"type": "STRING", "description": "PROFILE, PREFERENCE, PROJECT, RELATIONSHIP, WISH, NOTE, FACT, IMPORTANT, DEVICE, or TASK."}
+                    },
+                    "required": ["key", "value"]
+                }
+            },
+            {
+                "name": "recall_memory",
+                "description": "Search the latest shared ULTRON Cloud memory for facts relevant to the user's question.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "query": {"type": "STRING", "description": "Words or topic to search for in persistent memory."}
+                    },
+                    "required": ["query"]
+                }
+            }
+        ]}],
     )
 
     in_parts: list[str] = []
@@ -773,6 +801,71 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     elif msg.type in (web.WSMsgType.CLOSE, web.WSMsgType.CLOSED, web.WSMsgType.ERROR):
                         return
 
+            async def execute_live_tool(fc):
+                name = str(getattr(fc, "name", "") or "")
+                args = dict(getattr(fc, "args", {}) or {})
+                if name == "save_memory":
+                    key = str(args.get("key", "")).strip()[:120]
+                    value = str(args.get("value", "")).strip()[:8000]
+                    category = str(args.get("category", "FACT")).strip().upper()[:40] or "FACT"
+                    if not key or not value:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "key_and_value_required"},
+                        )
+                    row = await pool.fetchrow(
+                        """
+                        INSERT INTO memories(user_id, category, key, value, version, updated_by_device)
+                        VALUES($1,$2,$3,$4,1,$5)
+                        ON CONFLICT(user_id,key) DO UPDATE SET
+                          category=EXCLUDED.category,
+                          value=EXCLUDED.value,
+                          version=memories.version+1,
+                          updated_by_device=EXCLUDED.updated_by_device,
+                          updated_at=NOW()
+                        RETURNING category,key,value,version,updated_at
+                        """,
+                        user_id, category, key, value, device_id,
+                    )
+                    await send_json({
+                        "type": "memory_saved",
+                        "key": key,
+                        "value": value,
+                        "category": category,
+                        "version": int(row["version"]),
+                    })
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={"ok": True, "saved": {"key": key, "value": value, "category": category, "version": int(row["version"])}},
+                    )
+
+                if name == "recall_memory":
+                    query = str(args.get("query", "")).strip().lower()
+                    rows = await pool.fetch(
+                        """
+                        SELECT category,key,value,version,updated_at
+                        FROM memories
+                        WHERE user_id=$1
+                          AND ($2='' OR LOWER(key) LIKE '%' || $2 || '%' OR LOWER(value) LIKE '%' || $2 || '%' OR LOWER(category) LIKE '%' || $2 || '%')
+                        ORDER BY updated_at DESC
+                        LIMIT 12
+                        """,
+                        user_id, query,
+                    )
+                    items = [
+                        {"category": r["category"], "key": r["key"], "value": r["value"], "version": r["version"]}
+                        for r in rows
+                    ]
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={"ok": True, "memories": items},
+                    )
+
+                return types.FunctionResponse(
+                    id=fc.id, name=name or "unknown",
+                    response={"ok": False, "error": "unknown_tool"},
+                )
+
             async def gemini_to_browser() -> None:
                 while not ws.closed:
                     got_any = False
@@ -781,6 +874,13 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         if response.data and not ws.closed:
                             async with send_lock:
                                 await ws.send_bytes(response.data)
+
+                        if getattr(response, "tool_call", None):
+                            fn_responses = []
+                            for fc in response.tool_call.function_calls:
+                                fn_responses.append(await execute_live_tool(fc))
+                            if fn_responses:
+                                await session.send_tool_response(function_responses=fn_responses)
 
                         sc = getattr(response, "server_content", None)
                         if sc is None:
