@@ -1319,6 +1319,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use control_phone_ui when the user asks to control the current phone surface. Supported actions include ULTRON views plus safe app intents such as browser/search/maps/call composer. "
           "For iPhone system/app control, never claim unrestricted device access: iOS only allows actions exposed by browser URL/deep-link intents or explicit Shortcuts. "
           "Use run_ios_shortcut when the user asks for an iPhone action that should be delegated to Apple Shortcuts. Prefer the shortcut name ULTRON Bridge unless the user explicitly names another shortcut. "
+          "Use run_ios_action for common structured iPhone automation requests such as open_app, set_focus, set_volume, set_brightness, bluetooth, wifi, and compose_message; it sends a JSON command to ULTRON Bridge. "
           "Use send_laptop_task when the user explicitly asks ULTRON to do something on the paired laptop, such as open Chrome, find a file, inspect system status, or carry out a desktop task. "
           "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
           "Use get_latest_laptop_task when the user asks what happened to the last laptop task, whether it finished, or for its result. "
@@ -1474,6 +1475,19 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         "input": {"type": "STRING", "description": "Text command or payload to pass into the shortcut."}
                     },
                     "required": ["input"]
+                }
+            },
+            {
+                "name": "run_ios_action",
+                "description": "Send a structured iPhone automation command to the ULTRON Bridge Apple Shortcut.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "action": {"type": "STRING", "description": "One of open_app, set_focus, set_volume, set_brightness, bluetooth, wifi, compose_message."},
+                        "target": {"type": "STRING", "description": "App name, focus name, contact, or on/off depending on action."},
+                        "value": {"type": "STRING", "description": "Optional value such as 0-100 volume/brightness, message body, or on/off."}
+                    },
+                    "required": ["action"]
                 }
             }
         ]}],
@@ -1832,6 +1846,35 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             "shortcut_name": shortcut_name,
                             "input": shortcut_input,
                             "note": "iOS may require Shortcuts permissions or confirmation depending on the actions inside the shortcut.",
+                        },
+                    )
+
+                if name == "run_ios_action":
+                    action = str(args.get("action", "")).strip().lower()
+                    allowed = {"open_app", "set_focus", "set_volume", "set_brightness", "bluetooth", "wifi", "compose_message"}
+                    if action not in allowed:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "unsupported_ios_action"},
+                        )
+                    command = {
+                        "version": 1,
+                        "source": "ultron",
+                        "action": action,
+                        "target": str(args.get("target", "")).strip()[:300],
+                        "value": str(args.get("value", "")).strip()[:1200],
+                    }
+                    await send_json({
+                        "type": "ios_action",
+                        "command": command,
+                    })
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={
+                            "ok": True,
+                            "shortcut_name": "ULTRON Bridge",
+                            "command": command,
+                            "note": "Execution depends on actions and permissions configured inside the Apple Shortcut.",
                         },
                     )
 
