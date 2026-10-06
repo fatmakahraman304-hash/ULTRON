@@ -83,7 +83,7 @@ TOOL = {
                     "status", "reset", "hologram_create", "hologram_update",
                     "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_load", "scene_update",
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
-                    "scene_arrange", "scene_preset", "scene_animation", "scene_save",
+                    "scene_arrange", "scene_preset", "scene_animation", "scene_director", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
                     "scene_redo", "scene_focus", "scene_link", "scene_unlink", "scene_clear_links", "scene_auto_link", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
                     "timeline_remove_keyframe", "timeline_clear", "timeline_seek",
