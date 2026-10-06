@@ -137,6 +137,20 @@ class NativeBridge(QObject):
         def worker():
             try:
                 self._cloud_control_request('/api/device-presence/heartbeat',{'state':state},timeout=8)
+                base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
+                token=os.environ.get('ULTRON_DEVICE_TOKEN','').strip()
+                request=urllib.request.Request(
+                    base+'/api/device-presence',
+                    headers={
+                        'Authorization':f'Bearer {token}',
+                        'X-ULTRON-DEVICE':'desktop-ultron-control',
+                        'Accept':'application/json',
+                    },
+                    method='GET',
+                )
+                with urllib.request.urlopen(request,timeout=8) as response:
+                    payload=json.loads(response.read().decode('utf-8'))
+                self.emit(kind='device_presence',data=payload.get('devices',[]))
             except Exception:
                 pass
             finally:
