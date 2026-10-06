@@ -474,9 +474,17 @@ def attach(ui):
     def save_download(download):
         address=download.url().toString()
         png=address.startswith('data:image/png')
-        project=address.startswith('blob:'+url.rstrip('/')+'/') and download.suggestedFileName().endswith('.ultron.json') and download.mimeType()=='application/json'
-        if not (png or project):download.cancel();return
-        filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.png' if png else 'ultron.ultron.json','PNG (*.png)' if png else 'ULTRON (*.ultron.json)')
+        blob=address.startswith('blob:'+url.rstrip('/')+'/')
+        project=blob and download.suggestedFileName().endswith('.ultron.json') and download.mimeType()=='application/json'
+        video=blob and download.suggestedFileName().lower().endswith(('.webm','.mp4')) and download.mimeType().startswith('video/')
+        if not (png or project or video):download.cancel();return
+        if video:
+            suggested=download.suggestedFileName() or 'ultron-animation.webm'
+            filename,_=QFileDialog.getSaveFileName(win,'ULTRON videosunu kaydet',suggested,'Video (*.webm *.mp4)')
+        elif png:
+            filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.png','PNG (*.png)')
+        else:
+            filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.ultron.json','ULTRON (*.ultron.json)')
         if not filename:download.cancel();return
         path=Path(filename);download.setDownloadDirectory(str(path.parent));download.setDownloadFileName(path.name);download.accept()
     profile.downloadRequested.connect(save_download)
