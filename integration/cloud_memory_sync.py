@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-"""Best-effort startup sync from ULTRON Cloud memory into desktop voice memory.
+"""Best-effort two-way bridge between ULTRON Cloud and desktop voice memory.
 
-The desktop text route already talks to Cloud directly. Gemini Live voice,
-however, builds its system prompt from memory/long_term.json. This startup sync
-copies Cloud memories into that local store before mark_app.py starts so typed,
-phone and spoken conversations share the same persistent facts.
+At startup, Cloud memories are copied into memory/long_term.json so Gemini Live
+can recall facts learned on the phone or desktop chat. During a voice session,
+save_memory mirrors newly learned facts back to Cloud.
 
-Cloud failure must never prevent ULTRON from starting.
+Cloud failure must never prevent ULTRON from starting or saving locally.
 """
 
 import json
@@ -37,9 +36,64 @@ def _category(name: str) -> str:
     }.get(value, "notes")
 
 
-def sync() -> tuple[bool, str]:
+def _cloud_category(name: str) -> str:
+    value = (name or "notes").strip().lower()
+    return {
+        "identity": "PROFILE",
+        "preferences": "PREFERENCE",
+        "projects": "PROJECT",
+        "relationships": "RELATIONSHIP",
+        "wishes": "WISH",
+        "notes": "NOTE",
+    }.get(value, "NOTE")
+
+
+def _cloud_settings() -> tuple[str, str, str]:
     base = os.getenv("ULTRON_CLOUD_URL", "").strip().rstrip("/")
     token = os.getenv("ULTRON_DEVICE_TOKEN", "").strip()
+    device = os.getenv("ULTRON_CLOUD_DEVICE_ID", "desktop-ultron-voice").strip()
+    return base, token, device or "desktop-ultron-voice"
+
+
+def upsert_cloud_memory(category: str, key: str, value: str) -> tuple[bool, str]:
+    """Mirror one locally saved voice-memory fact to ULTRON Cloud."""
+    base, token, device = _cloud_settings()
+    key = str(key or "").strip()
+    value = str(value or "").strip()
+    if not base or not token:
+        return False, "Cloud mirror skipped: Cloud URL/device token not configured."
+    if not key or not value:
+        return False, "Cloud mirror skipped: empty key/value."
+
+    try:
+        body = json.dumps(
+            {
+                "category": _cloud_category(category),
+                "key": key,
+                "value": value,
+            },
+            ensure_ascii=False,
+        ).encode("utf-8")
+        req = urllib.request.Request(
+            base + "/api/memories",
+            data=body,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-ULTRON-DEVICE": device,
+                "Accept": "application/json",
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            method="PUT",
+        )
+        with urllib.request.urlopen(req, timeout=8) as response:
+            response.read()
+        return True, f"Cloud memory mirror OK: {key}"
+    except Exception as exc:
+        return False, f"Cloud memory mirror skipped: {type(exc).__name__}: {str(exc)[:160]}"
+
+
+def sync() -> tuple[bool, str]:
+    base, token, device = _cloud_settings()
     if not base or not token:
         return False, "Cloud memory sync skipped: Cloud URL/device token not configured."
 
@@ -48,9 +102,7 @@ def sync() -> tuple[bool, str]:
             base + "/api/memories",
             headers={
                 "Authorization": f"Bearer {token}",
-                "X-ULTRON-DEVICE": os.getenv(
-                    "ULTRON_CLOUD_DEVICE_ID", "desktop-ultron-voice"
-                ),
+                "X-ULTRON-DEVICE": device,
                 "Accept": "application/json",
             },
             method="GET",
