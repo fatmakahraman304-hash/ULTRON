@@ -402,6 +402,7 @@ const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
 let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false;
+let liveSessionId=localStorage.getItem('ultronLiveSessionId')||'';
 let voiceWakeLock=null;
 const pendingVoiceMessages=[];
 const scheduledSources=new Set();
@@ -672,7 +673,9 @@ async function openLiveSocket(){
   clearLiveReconnect();
   try{if(liveSocket)liveSocket.close()}catch{}
   const proto=location.protocol==='https:'?'wss:':'ws:';
-  const socket=new WebSocket(proto+'//'+location.host+'/api/live');socket.binaryType='arraybuffer';liveSocket=socket;
+  if(!liveSessionId&&window.crypto?.randomUUID){liveSessionId=crypto.randomUUID();localStorage.setItem('ultronLiveSessionId',liveSessionId)}
+  const qs=liveSessionId?'?session_id='+encodeURIComponent(liveSessionId):'';
+  const socket=new WebSocket(proto+'//'+location.host+'/api/live'+qs);socket.binaryType='arraybuffer';liveSocket=socket;
   socket.onopen=()=>{
     if(socket!==liveSocket)return;
     liveReconnectAttempts=0;voiceListening=true;
@@ -703,7 +706,11 @@ async function openLiveSocket(){
       return;
     }
     let d={};try{d=JSON.parse(e.data)}catch{return}
-    if(d.type==='ready'){liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • '+(d.voice||'ULTRON')}
+    if(d.type==='ready'){
+      if(d.session_id){liveSessionId=String(d.session_id);localStorage.setItem('ultronLiveSessionId',liveSessionId)}
+      liveStatus('Seni dinliyorum…',true);
+      $('#stageVoiceText').textContent=(d.resumed?'Gemini Live devam ediyor • ':'Gemini Live • ')+(d.voice||'ULTRON');
+    }
     if(d.type==='input_transcript'&&d.text){
       const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
       if(cameraStream&&/(şuna bak|buna bak|ne görüyorsun|kamerada|gösterdiğim)/i.test(heard))captureCameraFrame(heard,false);
@@ -1042,6 +1049,8 @@ setInterval(()=>{if(!$('#app').classList.contains('hidden'))loadMessages().catch
 setInterval(claimPhoneCommands,2200);
 setInterval(phoneHeartbeat,5000);
 setInterval(()=>{if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}},3000);
+window.addEventListener('pagehide',()=>{releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
+window.addEventListener('pageshow',()=>{if(voiceEnabled){setTimeout(()=>startHandsFreeVoice(),220)}});
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){stopPhoneCamera();releaseVoiceWakeLock().catch(()=>{});return}
   if(currentView==='chat')setUnread(0);
