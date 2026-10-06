@@ -307,6 +307,10 @@
 
     .voice-task-badge{margin-left:auto;font-size:8px;font-weight:900;letter-spacing:.08em;color:#ff6680;border:1px solid rgba(255,36,71,.5);border-radius:999px;padding:3px 6px;background:rgba(255,36,71,.08)}
 
+    .task-timeline{margin:10px 0 6px;padding-left:4px;display:grid;gap:7px}
+    .task-step{display:grid;grid-template-columns:10px 1fr;gap:8px;align-items:start;font-size:11px;color:rgba(240,244,255,.82)}
+    .task-step-dot{width:7px;height:7px;margin-top:4px;border-radius:50%;background:#ff2447;box-shadow:0 0 9px rgba(255,36,71,.75)}
+
   </style>
 </head>
 <body>
@@ -425,6 +429,7 @@ let pendingImage=null,pendingImageUrl='',pendingPdf=null;
 let cameraStream=null,cameraFacing='environment',cameraBusy=false,lastCameraAnalysis='';
 let attachMenuOpen=false;
 const laptopTaskStates=new Map();
+const laptopTaskProgressCounts=new Map();
 let laptopTaskWatchPrimed=false;
 function setAttachMenu(open){
   attachMenuOpen=!!open;$('#attachMenu').classList.toggle('show',attachMenuOpen);$('#plusBtn').classList.toggle('open',attachMenuOpen);$('#plusBtn').setAttribute('aria-expanded',attachMenuOpen?'true':'false');
@@ -1292,6 +1297,16 @@ async function watchLaptopTasks(){
       const prev=laptopTaskStates.get(id);
       if(laptopTaskWatchPrimed&&prev&&prev!==next)notifyLaptopTaskChange(item,prev);
       laptopTaskStates.set(id,next);
+
+      const progress=Array.isArray(item.progress)?item.progress:[];
+      const prevCount=laptopTaskProgressCounts.get(id)||0;
+      if(laptopTaskWatchPrimed&&progress.length>prevCount){
+        const latest=progress[progress.length-1]||{};
+        const msg=String(latest.message||latest.stage||'Görev ilerliyor');
+        $('#stageVoiceText').textContent='Laptop • '+msg.slice(0,70);
+        toast(('Laptop: '+msg).slice(0,180));
+      }
+      laptopTaskProgressCounts.set(id,progress.length);
     }
     laptopTaskWatchPrimed=true;
     if(currentView==='remote')renderRemoteRows(rows);
@@ -1307,6 +1322,19 @@ function renderRemoteRows(rows){
     h.append(b,s);
     if(item.payload?.origin==='voice'){const vb=document.createElement('span');vb.className='voice-task-badge';vb.textContent='SES';h.appendChild(vb)}
     el.appendChild(h);
+    const progress=Array.isArray(item.progress)?item.progress:[];
+    if(progress.length){
+      const tl=document.createElement('div');tl.className='task-timeline';
+      progress.slice(-8).forEach((step,idx)=>{
+        const row=document.createElement('div');row.className='task-step';
+        const dot=document.createElement('span');dot.className='task-step-dot';
+        const txt=document.createElement('div');
+        const pct=step?.percent==null?'':(' • %'+step.percent);
+        txt.textContent=(step?.message||step?.stage||('Adım '+(idx+1)))+pct;
+        row.append(dot,txt);tl.appendChild(row);
+      });
+      el.appendChild(tl);
+    }
     const msg=item.result?.message;if(msg){const p=document.createElement('p');p.textContent=msg;el.appendChild(p)}
     if(item.status==='queued'){
       const cancel=document.createElement('button');cancel.className='history-cancel';cancel.textContent='İPTAL ET';
