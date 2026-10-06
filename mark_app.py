@@ -2054,6 +2054,7 @@ class UltronLive:
                     "muted": bool(self.ui.muted),
                     "voice_active": voice_active,
                     "voice_output": True,
+                    "voice": get_voice(),
                     "speaking": speaking,
                     "single_speaker_priority": "desktop",
                 }
