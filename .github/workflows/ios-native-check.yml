@@ -1,4 +1,4 @@
-name: Native iOS Check
+name: Native iOS Build
 
 on:
   workflow_dispatch:
@@ -13,7 +13,7 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -36,5 +36,53 @@ jobs:
             -configuration Debug \
             -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/ultron-sim" \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Build unsigned iPhone app
+        working-directory: ios/ULTRONMobile
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project ULTRONMobile.xcodeproj \
+            -scheme ULTRONMobile \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/ultron-device" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package unsigned IPA
+        run: |
+          APP="$RUNNER_TEMP/ultron-device/Build/Products/Release-iphoneos/ULTRONMobile.app"
+          test -d "$APP"
+          mkdir -p "$RUNNER_TEMP/ultron-ipa/Payload"
+          cp -R "$APP" "$RUNNER_TEMP/ultron-ipa/Payload/"
+          cd "$RUNNER_TEMP/ultron-ipa"
+          /usr/bin/zip -qry "$RUNNER_TEMP/ULTRONMobile-unsigned.ipa" Payload
+          ls -lh "$RUNNER_TEMP/ULTRONMobile-unsigned.ipa"
+
+      - name: Package Xcode project
+        working-directory: ios/ULTRONMobile
+        run: |
+          /usr/bin/zip -qry "$RUNNER_TEMP/ULTRONMobile-XcodeProject.zip" ULTRONMobile.xcodeproj Sources project.yml README_TR.md
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ULTRONMobile-unsigned-IPA
+          path: ${{ runner.temp }}/ULTRONMobile-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: ULTRONMobile-XcodeProject
+          path: ${{ runner.temp }}/ULTRONMobile-XcodeProject.zip
+          if-no-files-found: error
+          retention-days: 14
