@@ -19,6 +19,7 @@ def prepare():
 
 class NativeBridge(QObject):
     message = pyqtSignal(str)
+    remote_command = pyqtSignal(str)
 
     def __init__(self, ui, stack, toolbar):
         super().__init__(stack)
@@ -27,9 +28,14 @@ class NativeBridge(QObject):
         self.timer.timeout.connect(self.state)
         self.timer.start(80)
         self._cloud_busy=False
+        self._command_busy=False
         self.cloud_timer=QTimer(self)
         self.cloud_timer.timeout.connect(self.cloud_messages)
         self.cloud_timer.start(3000)
+        self.command_timer=QTimer(self)
+        self.command_timer.timeout.connect(self.cloud_commands)
+        self.command_timer.start(2200)
+        self.remote_command.connect(self._apply_remote_command)
         ui._win._log_sig.connect(self.log)
 
     def emit(self, **data):
@@ -87,6 +93,110 @@ class NativeBridge(QObject):
 
         threading.Thread(target=worker,daemon=True).start()
 
+    def cloud_commands(self):
+        """Claim safe phone->desktop control commands from ULTRON Cloud."""
+        if self._command_busy:
+            return
+        base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
+        token=os.environ.get('ULTRON_DEVICE_TOKEN','').strip()
+        if not base or not token:
+            return
+        self._command_busy=True
+
+        def worker():
+            try:
+                body=json.dumps({'target':'desktop'}).encode('utf-8')
+                request=urllib.request.Request(
+                    base+'/api/device-commands/claim',
+                    data=body,
+                    headers={
+                        'Authorization':f'Bearer {token}',
+                        'X-ULTRON-DEVICE':'desktop-ultron-control',
+                        'Accept':'application/json',
+                        'Content-Type':'application/json; charset=utf-8',
+                    },
+                    method='POST',
+                )
+                with urllib.request.urlopen(request,timeout=10) as response:
+                    payload=json.loads(response.read().decode('utf-8'))
+                for item in payload.get('commands',[]):
+                    command=str(item.get('command','')).strip().lower()
+                    if command in {'wake','mute','unmute','interrupt','sync_memory'}:
+                        self.remote_command.emit(command)
+            except Exception:
+                pass
+            finally:
+                self._command_busy=False
+
+        threading.Thread(target=worker,daemon=True).start()
+
+    @pyqtSlot(str)
+    def _apply_remote_command(self, command):
+        """Execute only the small allowlisted desktop control surface."""
+        win=self.ui._win
+        try:
+            if command=='wake':
+                getter=getattr(self.ui,'wake_get_state',None)
+                manual=getattr(self.ui,'on_wake_manual',None)
+                state=getter() if callable(getter) else {}
+                if state.get('enabled') and not state.get('awake') and callable(manual):
+                    manual()
+                self.emit(kind='remote_notice',text='Telefon: ULTRON uyandırma komutu alındı.')
+            elif command=='mute':
+                if not self.ui.muted:
+                    win._toggle_mute()
+                self.emit(kind='remote_notice',text='Telefon: laptop mikrofonu kapatıldı.')
+            elif command=='unmute':
+                if self.ui.muted:
+                    win._toggle_mute()
+                self.emit(kind='remote_notice',text='Telefon: laptop mikrofonu açıldı.')
+            elif command=='interrupt':
+                win._do_interrupt()
+                self.emit(kind='remote_notice',text='Telefon: konuşma durduruldu.')
+            elif command=='sync_memory':
+                def sync_worker():
+                    try:
+                        from integration.cloud_memory_sync import sync
+                        ok,message=sync()
+                        self.emit(kind='remote_notice',text=message if ok else 'Cloud hafıza eşitlemesi atlandı.')
+                    except Exception:
+                        self.emit(kind='remote_notice',text='Cloud hafıza eşitlemesi başarısız.')
+                threading.Thread(target=sync_worker,daemon=True).start()
+        except Exception as exc:
+            self.emit(kind='remote_notice',text='Uzaktan komut uygulanamadı: '+str(exc)[:100])
+
+    def phone_command(self, command):
+        """Send a safe desktop->phone UI command through Cloud."""
+        if command not in {'ping','refresh','open_memory','focus_chat'}:
+            return
+        base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
+        token=os.environ.get('ULTRON_DEVICE_TOKEN','').strip()
+        if not base or not token:
+            self.emit(kind='remote_notice',text='Cloud bağlantısı yapılandırılmamış.')
+            return
+
+        def worker():
+            try:
+                body=json.dumps({'target':'phone','command':command}).encode('utf-8')
+                request=urllib.request.Request(
+                    base+'/api/device-commands',
+                    data=body,
+                    headers={
+                        'Authorization':f'Bearer {token}',
+                        'X-ULTRON-DEVICE':'desktop-ultron-control',
+                        'Accept':'application/json',
+                        'Content-Type':'application/json; charset=utf-8',
+                    },
+                    method='POST',
+                )
+                with urllib.request.urlopen(request,timeout=10) as response:
+                    response.read()
+                self.emit(kind='remote_notice',text='Telefon komutu Cloud üzerinden gönderildi.')
+            except Exception:
+                self.emit(kind='remote_notice',text='Telefon komutu gönderilemedi.')
+
+        threading.Thread(target=worker,daemon=True).start()
+
     @pyqtSlot(str)
     def log(self, text):
         # Only conversation output is mirrored. Technical logs stay in MARK's tools.
@@ -109,7 +219,9 @@ class NativeBridge(QObject):
     @pyqtSlot(str)
     def action(self, name):
         win=self.ui._win
-        if name=='hologrambrowser':
+        if name.startswith('phone:'):
+            self.phone_command(name.partition(':')[2])
+        elif name=='hologrambrowser':
             import webbrowser
             self.ui.stop_camera_stream()
             base=os.environ.get('MARK_ULTRON_URL','')
