@@ -1135,6 +1135,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use get_latest_image_context whenever the user refers to the photo/image they just sent. "
           "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
           "Use control_phone_ui when the user asks to open chat, memory, remote control, camera, scroll to top, or vibrate the phone. "
+          "Use send_laptop_task when the user explicitly asks ULTRON to do something on the paired laptop, such as open Chrome, find a file, inspect system status, or carry out a desktop task. "
+          "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it was sent live or queued. "
           "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used. "
           "The phone uses an ULTRON wake-word gate. When the gate is asleep, any audio may be ambient and must not be treated as a command. "
           "When the user says ULTRON and the gate wakes, answer normally and naturally."
@@ -1242,6 +1244,17 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top."}
                     },
                     "required": ["action"]
+                }
+            },
+            {
+                "name": "send_laptop_task",
+                "description": "Send an explicit natural-language task to the paired desktop ULTRON agent. Use only when the user asks to do something on the laptop.",
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "task": {"type": "STRING", "description": "The exact desktop task requested by the user, concise but complete."}
+                    },
+                    "required": ["task"]
                 }
             }
         ]}],
@@ -1418,6 +1431,50 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     return types.FunctionResponse(
                         id=fc.id, name=name,
                         response={"ok": True, "action": action},
+                    )
+
+                if name == "send_laptop_task":
+                    task_text = str(args.get("task", "")).strip()[:4000]
+                    if not task_text:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "task_required"},
+                        )
+
+                    online = bool(await pool.fetchval(
+                        """
+                        SELECT COALESCE(last_seen > NOW() - INTERVAL '15 seconds', FALSE)
+                        FROM device_presence
+                        WHERE user_id=$1 AND device='desktop'
+                        """,
+                        user_id,
+                    ))
+                    row = await pool.fetchrow(
+                        """
+                        INSERT INTO device_commands(user_id,target,command,payload,source_device)
+                        VALUES($1,'desktop','agent_task',$2::jsonb,$3)
+                        RETURNING id,created_at
+                        """,
+                        user_id,
+                        json.dumps({"text": task_text}, ensure_ascii=False),
+                        device_id,
+                    )
+                    await send_json({
+                        "type": "laptop_task",
+                        "id": int(row["id"]),
+                        "task": task_text,
+                        "online": online,
+                        "queued": not online,
+                    })
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={
+                            "ok": True,
+                            "command_id": int(row["id"]),
+                            "desktop_online": online,
+                            "queued": not online,
+                            "task": task_text,
+                        },
                     )
 
                 return types.FunctionResponse(
