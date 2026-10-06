@@ -215,6 +215,7 @@ let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initial
 const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
+let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false;
 const scheduledSources=new Set();
 let pendingImage=null,pendingImageUrl='',pendingPdf=null;
 let cameraStream=null,cameraFacing='environment',cameraBusy=false,lastCameraAnalysis='';
@@ -443,7 +444,89 @@ function liveStatus(text,active=false){
   $('#voiceStatusText').textContent=text;$('#voiceStatus').classList.toggle('live',active);
   $('#voiceBtn').classList.toggle('listening',voiceListening);
 }
+function clearLiveReconnect(){
+  if(liveReconnectTimer){clearTimeout(liveReconnectTimer);liveReconnectTimer=null}
+}
+function scheduleLiveReconnect(){
+  if(!liveDesired||intentionalVoiceStop||!navigator.onLine)return;
+  clearLiveReconnect();
+  liveReconnectAttempts=Math.min(liveReconnectAttempts+1,6);
+  const delay=Math.min(12000,900*Math.pow(1.8,liveReconnectAttempts-1));
+  liveStatus('Ses bağlantısı yenileniyor…',true);$('#stageVoiceText').textContent='Gemini Live yeniden bağlanıyor';
+  liveReconnectTimer=setTimeout(()=>openLiveSocket().catch(()=>scheduleLiveReconnect()),delay);
+}
+async function openLiveSocket(){
+  if(!liveDesired||intentionalVoiceStop||!micStream)return;
+  clearLiveReconnect();
+  try{if(liveSocket)liveSocket.close()}catch{}
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  const socket=new WebSocket(proto+'//'+location.host+'/api/live');socket.binaryType='arraybuffer';liveSocket=socket;
+  socket.onopen=()=>{
+    if(socket!==liveSocket)return;
+    liveReconnectAttempts=0;voiceListening=true;
+    liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
+    micProcessor.onaudioprocess=e=>{
+      if(!liveDesired||!voiceListening||!liveSocket||liveSocket.readyState!==WebSocket.OPEN)return;
+      const mono=e.inputBuffer.getChannelData(0);
+      if(liveSpeaking){
+        const rms=micRms(mono);
+        bargeBlocks=rms>.055?bargeBlocks+1:Math.max(0,bargeBlocks-1);
+        if(bargeBlocks>=2){
+          suppressOutput=true;liveSpeaking=false;bargeBlocks=0;stopPlayback();
+          liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Sözünü kestim • dinliyorum';
+        }
+      }else{bargeBlocks=0}
+      const pcm=resampleTo16k(mono,micContext.sampleRate);
+      liveSocket.send(floatToPCM16(pcm));
+    };
+  };
+  socket.onmessage=async e=>{
+    if(socket!==liveSocket)return;
+    if(e.data instanceof ArrayBuffer){
+      if(!suppressOutput){
+        liveSpeaking=true;liveStatus('ULTRON konuşuyor…',true);$('#stageVoiceText').textContent='ULTRON konuşuyor';
+        playPCM24k(e.data);
+      }
+      return;
+    }
+    let d={};try{d=JSON.parse(e.data)}catch{return}
+    if(d.type==='ready'){liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • '+(d.voice||'ULTRON')}
+    if(d.type==='input_transcript'&&d.text){
+      const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
+      if(cameraStream&&/(şuna bak|buna bak|ne görüyorsun|kamerada|gösterdiğim)/i.test(heard))captureCameraFrame(heard,false);
+    }
+    if(d.type==='output_transcript'&&d.text&&!suppressOutput){liveSpeaking=true;$('#stageVoiceText').textContent='ULTRON konuşuyor'}
+    if(d.type==='interrupted'){
+      suppressOutput=false;liveSpeaking=false;bargeBlocks=0;stopPlayback();
+      liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
+    }
+    if(d.type==='memory_saved'){
+      const label=String(d.key||'bilgi').replace(/[_-]+/g,' ');
+      toast('Ortak hafızaya kaydedildi: '+label);
+      $('#stageVoiceText').textContent='Hafıza güncellendi';
+      setTimeout(()=>{if(voiceListening)$('#stageVoiceText').textContent='Gemini Live bağlı'},1100);
+    }
+    if(d.type==='turn_complete'){
+      liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
+      const input=String(d.input||'').trim(),output=String(d.output||'').trim();
+      if(input)addMessage('user',input);if(output)addMessage('assistant',output);
+      messageSignature='';liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
+      loadMemories().catch(()=>{});
+    }
+    if(d.type==='error'){
+      toast(d.message||'Sesli ULTRON bağlantısı kesildi.');
+      try{socket.close()}catch{}
+    }
+  };
+  socket.onerror=()=>{if(socket===liveSocket)liveStatus('Ses bağlantısı zayıf…',true)};
+  socket.onclose=()=>{
+    if(socket!==liveSocket)return;
+    voiceListening=false;liveSpeaking=false;suppressOutput=false;stopPlayback();
+    if(liveDesired&&!intentionalVoiceStop)scheduleLiveReconnect();
+  };
+}
 async function stopLiveVoice(){
+  intentionalVoiceStop=true;liveDesired=false;clearLiveReconnect();
   voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;stopPlayback();
   try{if(micProcessor)micProcessor.disconnect()}catch{}
   try{if(micSource)micSource.disconnect()}catch{}
@@ -454,80 +537,29 @@ async function stopLiveVoice(){
   micProcessor=micSource=micStream=micContext=liveSocket=null;
   $('#voiceBtn').classList.remove('listening');liveStatus('Mikrofona dokun ve konuş',false);
   $('#stageVoiceText').textContent=voiceEnabled?'Gemini Live ses hazır':'Sesli yanıt kapalı';
+  setTimeout(()=>{intentionalVoiceStop=false},80);
 }
 async function startLiveVoice(){
-  if(voiceListening){await stopLiveVoice();return}
+  if(liveDesired||voiceListening){await stopLiveVoice();return}
   if(!voiceEnabled)setVoiceEnabled(true,false);
   if(!navigator.mediaDevices?.getUserMedia||!window.WebSocket){
     toast('Bu tarayıcı canlı ses bağlantısını desteklemiyor.');return;
   }
   try{
+    intentionalVoiceStop=false;liveDesired=true;liveReconnectAttempts=0;
     if('speechSynthesis' in window)speechSynthesis.cancel();
     ensurePlayback();
+    liveStatus('Mikrofon hazırlanıyor…',true);$('#stageVoiceText').textContent='Ses bağlantısı hazırlanıyor';
     micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+    if(!liveDesired){micStream.getTracks().forEach(t=>t.stop());return}
     micContext=new (window.AudioContext||window.webkitAudioContext)();
     if(micContext.state==='suspended')await micContext.resume();
     micSource=micContext.createMediaStreamSource(micStream);
     micProcessor=micContext.createScriptProcessor(4096,1,1);
     micProcessor.connect(micContext.destination);micSource.connect(micProcessor);
-
-    const proto=location.protocol==='https:'?'wss:':'ws:';
-    liveSocket=new WebSocket(proto+'//'+location.host+'/api/live');liveSocket.binaryType='arraybuffer';
-    liveSocket.onopen=()=>{
-      voiceListening=true;liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
-      micProcessor.onaudioprocess=e=>{
-        if(!voiceListening||!liveSocket||liveSocket.readyState!==WebSocket.OPEN)return;
-        const mono=e.inputBuffer.getChannelData(0);
-        if(liveSpeaking){
-          const rms=micRms(mono);
-          bargeBlocks=rms>.055?bargeBlocks+1:Math.max(0,bargeBlocks-1);
-          if(bargeBlocks>=2){
-            suppressOutput=true;liveSpeaking=false;bargeBlocks=0;stopPlayback();
-            liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Sözünü kestim • dinliyorum';
-          }
-        }else{bargeBlocks=0}
-        const pcm=resampleTo16k(mono,micContext.sampleRate);
-        liveSocket.send(floatToPCM16(pcm));
-      };
-    };
-    liveSocket.onmessage=async e=>{
-      if(e.data instanceof ArrayBuffer){
-        if(!suppressOutput){
-          liveSpeaking=true;liveStatus('ULTRON konuşuyor…',true);$('#stageVoiceText').textContent='ULTRON konuşuyor';
-          playPCM24k(e.data);
-        }
-        return;
-      }
-      let d={};try{d=JSON.parse(e.data)}catch{return}
-      if(d.type==='ready'){liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • '+(d.voice||'ULTRON')}
-      if(d.type==='input_transcript'&&d.text){
-        const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
-        if(cameraStream&&/(şuna bak|buna bak|ne görüyorsun|kamerada|gösterdiğim)/i.test(heard))captureCameraFrame(heard,false);
-      }
-      if(d.type==='output_transcript'&&d.text&&!suppressOutput){liveSpeaking=true;$('#stageVoiceText').textContent='ULTRON konuşuyor'}
-      if(d.type==='interrupted'){
-        suppressOutput=false;liveSpeaking=false;bargeBlocks=0;stopPlayback();
-        liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
-      }
-      if(d.type==='memory_saved'){
-        const label=String(d.key||'bilgi').replace(/[_-]+/g,' ');
-        toast('Ortak hafızaya kaydedildi: '+label);
-        $('#stageVoiceText').textContent='Hafıza güncellendi';
-        setTimeout(()=>{if(voiceListening)$('#stageVoiceText').textContent='Gemini Live bağlı'},1100);
-      }
-      if(d.type==='turn_complete'){
-        liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
-        const input=String(d.input||'').trim(),output=String(d.output||'').trim();
-        if(input)addMessage('user',input);if(output)addMessage('assistant',output);
-        messageSignature='';liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
-        loadMemories().catch(()=>{});
-      }
-      if(d.type==='error'){toast(d.message||'Sesli ULTRON bağlantısı kesildi.');await stopLiveVoice()}
-    };
-    liveSocket.onerror=()=>toast('Sesli ULTRON Cloud bağlantısı kurulamadı.');
-    liveSocket.onclose=()=>{if(voiceListening)stopLiveVoice()};
+    await openLiveSocket();
   }catch(err){
-    await stopLiveVoice();
+    liveDesired=false;await stopLiveVoice();
     const name=String(err?.name||'');
     toast(name==='NotAllowedError'?'Mikrofon izni gerekli.':'Sesli ULTRON başlatılamadı: '+(err?.message||name));
   }
@@ -755,8 +787,8 @@ $('#message').addEventListener('focus',()=>setTimeout(()=>scrollChatToBottom(fal
 const messageObserver=new MutationObserver(()=>{if(currentView==='chat')scrollChatToBottom(false)});
 messageObserver.observe($('#messages'),{childList:true,subtree:true});
 boot().then(()=>phoneHeartbeat());
-window.addEventListener('online',()=>setOnline(true,'Cloud bağlı'));
-window.addEventListener('offline',()=>setOnline(false,'Çevrimdışı'));
+window.addEventListener('online',()=>{setOnline(true,'Cloud bağlı');if(liveDesired&&!voiceListening)scheduleLiveReconnect()});
+window.addEventListener('offline',()=>{setOnline(false,'Çevrimdışı');if(liveDesired){clearLiveReconnect();liveStatus('İnternet bekleniyor…',true);$('#stageVoiceText').textContent='Ses bağlantısı beklemede'}});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/static/sw.js').catch(()=>{}))}
 </script>
 </body>
