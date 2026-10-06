@@ -1,0 +1,30 @@
+name: Frontend Build Check
+
+on:
+  push:
+    branches:
+      - feat/ultron-cloud-shared-memory
+    paths:
+      - "ultron/frontend/**"
+      - ".github/workflows/frontend-check.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ultron/frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ultron/frontend/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: TypeScript and Vite build
+        run: npm run build
