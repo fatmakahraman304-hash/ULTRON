@@ -471,7 +471,7 @@ let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initial
 const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
-let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false,silentActionTurn=false,remoteResultSpeaking=false;
+let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false,silentActionTurn=false,remoteResultSpeaking=false,remoteResultWatchdog=null;
 let liveSessionId=localStorage.getItem('ultronLiveSessionId')||'';
 let voiceWakeLock=null;
 const pendingVoiceMessages=[];
@@ -666,26 +666,36 @@ function speakUltron(text,force=false){
   const u=new SpeechSynthesisUtterance(cleaned);u.lang='tr-TR';u.rate=.92;u.pitch=.72;u.volume=1;
   const v=pickUltronVoice();if(v)u.voice=v;speechSynthesis.speak(u);
 }
+function resetRemoteResultSpeech(){
+  remoteResultSpeaking=false;
+  if(remoteResultWatchdog){clearTimeout(remoteResultWatchdog);remoteResultWatchdog=null}
+  if(liveDesired&&voiceListening){
+    liveStatus('Seni dinliyorum…',true);
+    $('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
+  }
+}
 function speakRemoteResult(text,status='completed'){
   if(!text||!('speechSynthesis' in window))return;
   const cleaned=String(text).replace(/[*_#>]/g,' ').replace(/\s+/g,' ').trim();
   if(!cleaned)return;
   try{speechSynthesis.cancel()}catch{}
+  resetRemoteResultSpeech();
   remoteResultSpeaking=true;
   liveSpeaking=false;
+  suppressOutput=false;
   stopPlayback();
   const u=new SpeechSynthesisUtterance(cleaned);
   u.lang='tr-TR';u.rate=.92;u.pitch=.72;u.volume=1;
   const v=pickUltronVoice();if(v)u.voice=v;
-  const finish=()=>{
-    remoteResultSpeaking=false;
-    if(liveDesired&&voiceListening){
-      liveStatus('Seni dinliyorum…',true);
-      $('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
-    }
-  };
-  u.onend=finish;u.onerror=finish;
+  const finish=()=>resetRemoteResultSpeech();
+  u.onend=finish;u.onerror=finish;u.onpause=()=>{};
   $('#stageVoiceText').textContent=status==='completed'?'Laptop sonucu okunuyor':'Laptop görev sonucu';
+
+  // iOS Safari occasionally never fires SpeechSynthesisUtterance.onend/onerror.
+  // Never allow that browser quirk to leave the microphone gated forever.
+  const estimatedMs=Math.max(1800,Math.min(9000,cleaned.length*55+1400));
+  remoteResultWatchdog=setTimeout(finish,estimatedMs);
+
   try{speechSynthesis.speak(u)}catch{finish()}
 }
 
@@ -1148,11 +1158,12 @@ async function openLiveSocket(){
       setTimeout(()=>{if(voiceListening)$('#stageVoiceText').textContent='Gemini Live bağlı'},1100);
     }
     if(d.type==='turn_complete'){
-      liveSpeaking=false;bargeBlocks=0;resetVoiceGateSegment();
+      liveSpeaking=false;bargeBlocks=0;suppressOutput=false;silentActionTurn=false;
+      resetRemoteResultSpeech();
+      stopPlayback();resetVoiceGateSegment();
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
-      if(output&&!silentActionTurn){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
-      silentActionTurn=false;suppressOutput=false;
+      if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
       messageSignature='';setWakeUi(false);liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
       loadMemories().catch(()=>{});
     }
@@ -1164,13 +1175,14 @@ async function openLiveSocket(){
   socket.onerror=()=>{if(socket===liveSocket)liveStatus('Ses bağlantısı zayıf…',true)};
   socket.onclose=()=>{
     if(socket!==liveSocket)return;
-    voiceListening=false;liveSpeaking=false;suppressOutput=false;stopPlayback();
+    voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
+    resetRemoteResultSpeech();stopPlayback();resetVoiceGateSegment();
     if(liveDesired&&!intentionalVoiceStop)scheduleLiveReconnect();
   };
 }
 async function stopLiveVoice(){
   intentionalVoiceStop=true;liveDesired=false;clearLiveReconnect();releaseVoiceWakeLock().catch(()=>{});
-  voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;setWakeUi(false);stopPlayback();resetVoiceGateSegment();
+  voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;setWakeUi(false);resetRemoteResultSpeech();stopPlayback();resetVoiceGateSegment();
   try{if(micProcessor)micProcessor.disconnect()}catch{}
   try{if(micSource)micSource.disconnect()}catch{}
   try{if(micStream)micStream.getTracks().forEach(t=>t.stop())}catch{}
