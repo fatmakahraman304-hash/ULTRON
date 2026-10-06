@@ -272,7 +272,18 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 """,
                 request["user_id"], target,
             )
-    return web.json_response({"commands": [dict(r) for r in rows]}, dumps=_json_dumps)
+    commands = []
+    for row in rows:
+        item = dict(row)
+        payload = item.get("payload", {})
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        item["payload"] = payload if isinstance(payload, dict) else {}
+        commands.append(item)
+    return web.json_response({"commands": commands}, dumps=_json_dumps)
 
 
 async def list_messages(request: web.Request) -> web.Response:
