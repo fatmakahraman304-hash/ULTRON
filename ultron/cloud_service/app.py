@@ -1009,8 +1009,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         system_instruction=system_instruction,
         realtime_input_config=types.RealtimeInputConfig(
             automatic_activity_detection=types.AutomaticActivityDetection(
-                silence_duration_ms=450,
-                prefix_padding_ms=120,
+                silence_duration_ms=720,
+                prefix_padding_ms=180,
                 start_of_speech_sensitivity=types.StartSensitivity.START_SENSITIVITY_HIGH,
                 end_of_speech_sensitivity=types.EndSensitivity.END_SENSITIVITY_HIGH,
             )
