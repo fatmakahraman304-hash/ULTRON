@@ -953,6 +953,7 @@ async function openLiveSocket(){
   socket.onopen=()=>{
     if(socket!==liveSocket)return;
     liveReconnectAttempts=0;voiceListening=true;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
+    setDesktopVoiceLeader(false);
     try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
     resetRemoteResultSpeech();resetVoiceGateSegment();
     acquireVoiceWakeLock().catch(()=>{});
@@ -1509,10 +1510,8 @@ function setDesktopVoiceLeader(active){
     try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
     liveSpeaking=false;
     $('#stageVoiceText').textContent='TEK SES MODU • SES LAPTOPTA';
-    toast('Tek ses modu: ULTRON sesi laptoptan çıkacak.');
   }else if(voiceListening){
     $('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
-    toast('Tek ses modu: telefon sesi devraldı.');
   }
   phoneHeartbeat().catch(()=>{});
 }
@@ -1523,10 +1522,12 @@ async function watchDesktopPresence(){
     const laptop=(d.devices||[]).find(x=>x.device==='desktop');
     const online=!!laptop?.online;
     const state=laptop?.state||{};
-    // Single-speaker arbitration must follow REAL playback, not merely the
-    // existence of an active desktop voice session. Otherwise an idle desktop
-    // Gemini session permanently mutes every later phone response.
+    // If the phone Live session is active, the phone owns audio continuously.
+    // Do not flap output between devices as the desktop speaking heartbeat
+    // changes; that was causing audible cut-outs on iPhone.
+    const phoneOwnsVoice=liveDesired||voiceListening;
     const laptopCanSpeak=
+      !phoneOwnsVoice&&
       online&&
       state.speaking===true&&
       state.voice_active===true&&
