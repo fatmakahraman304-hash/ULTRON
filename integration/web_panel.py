@@ -138,7 +138,14 @@ class NativeBridge(QObject):
             try:
                 item=json.loads(raw)
                 command=str(item.get('command','')).strip().lower()
-                payload=item.get('payload') if isinstance(item.get('payload'),dict) else {}
+                payload=item.get('payload', {})
+                if isinstance(payload, str):
+                    try:
+                        payload=json.loads(payload)
+                    except Exception:
+                        payload={}
+                if not isinstance(payload, dict):
+                    payload={}
             except Exception:
                 command=str(raw).strip().lower()
                 payload={}
