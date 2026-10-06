@@ -1217,6 +1217,11 @@ async def api_stage_command(req: web.Request) -> web.Response:
         scene["links"]=links[:64]
         state["scene"]=scene
         state["mode"]="scene_lab"
+    elif op == "scene_clear_links":
+        scene = dict(state.get("scene") or {})
+        scene["links"] = []
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
     elif op == "scene_unlink":
         scene = dict(state.get("scene") or {})
         link_id = str(body.get("link_id") or "")
