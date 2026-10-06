@@ -329,11 +329,18 @@ async function startLiveVoice(){
         suppressOutput=false;liveSpeaking=false;bargeBlocks=0;stopPlayback();
         liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
       }
+      if(d.type==='memory_saved'){
+        const label=String(d.key||'bilgi').replace(/[_-]+/g,' ');
+        toast('Ortak hafızaya kaydedildi: '+label);
+        $('#stageVoiceText').textContent='Hafıza güncellendi';
+        setTimeout(()=>{if(voiceListening)$('#stageVoiceText').textContent='Gemini Live bağlı'},1100);
+      }
       if(d.type==='turn_complete'){
         liveSpeaking=false;suppressOutput=false;bargeBlocks=0;
         const input=String(d.input||'').trim(),output=String(d.output||'').trim();
         if(input)addMessage('user',input);if(output)addMessage('assistant',output);
         messageSignature='';liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı';
+        loadMemories().catch(()=>{});
       }
       if(d.type==='error'){toast(d.message||'Sesli ULTRON bağlantısı kesildi.');await stopLiveVoice()}
     };
