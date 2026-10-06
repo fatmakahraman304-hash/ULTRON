@@ -119,6 +119,20 @@ class Hub:
                 "title": "ULTRON", "ready": False, "mime": "", "bytes": 0,
             },
         }
+        try:
+            _stage_saved = json.loads((Path(DATA_DIR) / "center_stage.json").read_text(encoding="utf-8"))
+            if isinstance(_stage_saved, dict):
+                if isinstance(_stage_saved.get("hologram"), dict):
+                    self.stage_state["hologram"].update(_stage_saved["hologram"])
+                if isinstance(_stage_saved.get("scene"), dict):
+                    self.stage_state["scene"].update(_stage_saved["scene"])
+                _saved_mode = str(_stage_saved.get("mode") or "")
+                if _saved_mode in {"core_idle", "hologram_lab", "scene_lab"}:
+                    self.stage_state["mode"] = _saved_mode
+                    self.stage_state["title"] = str(_stage_saved.get("title") or self.stage_state["title"])[:100]
+                    self.stage_state["subtitle"] = str(_stage_saved.get("subtitle") or self.stage_state["subtitle"])[:140]
+        except Exception:
+            pass
         self.audit = AuditLog()
         self.notifier = Notifier(lambda text, level: self._sched_notify(text, level))
         from app.security.sandbox import FilesystemSandbox
@@ -785,6 +799,23 @@ def _stage_int(value, default, low, high):
 
 async def _stage_publish() -> None:
     hub.stage_state["revision"] = int(hub.stage_state.get("revision", 0)) + 1
+    try:
+        mode = hub.stage_state.get("mode")
+        persistent = {
+            "version": 3,
+            "mode": mode if mode in {"core_idle","hologram_lab","scene_lab"} else "scene_lab",
+            "title": hub.stage_state.get("title"),
+            "subtitle": hub.stage_state.get("subtitle"),
+            "hologram": hub.stage_state.get("hologram"),
+            "scene": hub.stage_state.get("scene"),
+            "saved_at": time.time(),
+        }
+        (Path(DATA_DIR) / "center_stage.json").write_text(
+            json.dumps(persistent, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
     await hub.broadcast({"type": "stage", "data": hub.stage_state})
 
 
