@@ -1197,9 +1197,17 @@ async def api_stage_command(req: web.Request) -> web.Response:
     elif op == "scene_link":
         scene = dict(state.get("scene") or {})
         links = list(scene.get("links") or [])
-        source = str(body.get("source_id") or scene.get("selected_id") or "")
-        target = str(body.get("target_id") or "")
-        ids = {str(o.get("id")) for o in scene.get("objects") or []}
+        objects = list(scene.get("objects") or [])
+        def _resolve(value, fallback=""):
+            raw = str(value or "").strip()
+            if not raw: return str(fallback or "")
+            exact = next((str(o.get("id")) for o in objects if str(o.get("id")) == raw or str(o.get("label") or "").lower() == raw.lower()), None)
+            if exact: return exact
+            partial = next((str(o.get("id")) for o in objects if raw.lower() in str(o.get("label") or "").lower()), None)
+            return partial or raw
+        source = _resolve(body.get("source_id") or body.get("source_label"), scene.get("selected_id"))
+        target = _resolve(body.get("target_id") or body.get("target_label"))
+        ids = {str(o.get("id")) for o in objects}
         if source not in ids or target not in ids or source == target:
             return web.json_response({"ok":False,"error":"invalid_scene_link"}, status=400)
         if not any({str(l.get("source")),str(l.get("target"))} == {source,target} for l in links):
