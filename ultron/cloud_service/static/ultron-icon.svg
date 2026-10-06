@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="g"><stop offset="0" stop-color="#ff3047"/><stop offset=".55" stop-color="#8f1324"/><stop offset="1" stop-color="#050608"/></radialGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#050608"/>
+  <circle cx="256" cy="256" r="174" fill="none" stroke="#65101f" stroke-width="10"/>
+  <circle cx="256" cy="256" r="142" fill="url(#g)" opacity=".9"/>
+  <path d="M152 204 220 164 256 184 292 164 360 204 329 249 278 238 256 264 234 238 183 249Z" fill="#0a0c10" stroke="#ff3047" stroke-width="8"/>
+  <path d="M180 220 229 208 244 226 226 236 189 233Z" fill="#ff3047" filter="url(#glow)"/>
+  <path d="M332 220 283 208 268 226 286 236 323 233Z" fill="#ff3047" filter="url(#glow)"/>
+  <path d="M210 274 256 300 302 274 286 350 256 374 226 350Z" fill="#171a1f" stroke="#722033" stroke-width="6"/>
+  <text x="256" y="444" fill="#d9dde4" font-size="44" font-family="Arial,sans-serif" font-weight="700" text-anchor="middle" letter-spacing="8">ULTRON</text>
+</svg>
