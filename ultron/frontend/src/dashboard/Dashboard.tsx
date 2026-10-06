@@ -12,7 +12,55 @@ export default function Dashboard(){
  useEffect(()=>{const resize=()=>setScale(Math.min(innerWidth/1920,innerHeight/1080));resize();window.addEventListener('resize',resize);const timer=setInterval(()=>setClock(new Date()),1000);return()=>{window.removeEventListener('resize',resize);clearInterval(timer);clearTimeout(errorTimer.current);abort.current?.abort();};},[]);
  useEffect(()=>{messages.current?.scrollTo({top:messages.current.scrollHeight});},[u.messages]);
  const notify=(message:string)=>{u.setNotice(message);setLocalState('ERROR');clearTimeout(errorTimer.current);errorTimer.current=setTimeout(()=>setLocalState('IDLE'),1800);};
- const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');if(model==='native'){if(u.native)u.native.send(text);return;}u.add('user',text);setBusy(true);setLocalState('THINKING');const ctl=new AbortController();abort.current=ctl;
+ const stageIntent=async(raw:string)=>{
+  const t=raw.toLocaleLowerCase('tr-TR').replace(/[’']/g,'').replace(/\s+/g,' ').trim();
+  const action=async(operation:string,extra:Record<string,unknown>={})=>{await request('/api/stage/command',{operation,...extra});};
+  const color=(()=>{
+   if(/kırmızı|kirmizi|red/.test(t))return '#ff3047';if(/cyan|turkuaz/.test(t))return '#35ffe4';
+   if(/mavi|blue/.test(t))return '#268bff';if(/yeşil|yesil|green/.test(t))return '#25ff8a';
+   if(/mor|purple/.test(t))return '#a855f7';if(/beyaz|white/.test(t))return '#f5f7ff';
+   if(/sarı|sari|yellow/.test(t))return '#ffd43b';if(/turuncu|orange/.test(t))return '#ff8a2b';return '';
+  })();
+  const durationMatch=t.match(/(\d+(?:[.,]\d+)?)\s*saniye/),duration=durationMatch?Math.max(2,Math.min(15,Number(durationMatch[1].replace(',','.')))):6;
+  const current=u.stage.hologram;
+
+  if(/(?:core.?a dön|çekirdeğe dön|orta alanı sıfırla|sahneyi sıfırla)/.test(t)){await action('reset');return 'Center Stage çekirdeğe döndü.';}
+  if(/(?:bunu|hologramı|hologrami).*(?:videoya çevir|video yap)/.test(t)){await action('video_from_stage',{duration,title:current.label});return 'Hologram video renderına geçti.';}
+  if(/(?:video|animasyon|intro).*(?:yap|oluştur|olustur|render|hazırla|hazirla)/.test(t)){
+   let template='ultron_intro';if(/logo/.test(t))template='logo_reveal';else if(/enerji|çekirdek|cekirdek/.test(t))template='energy_core';else if(/sistem.*(?:aktiv|açıl|acil)/.test(t))template='system_activation';else if(/görev|gorev.*tamam/.test(t))template='task_complete';
+   await action('video_create',{template,duration,title:/ultron/.test(t)?'ULTRON':current.label||'ULTRON'});return duration+' saniyelik video renderı başladı.';
+  }
+  if(/(?:videoyu|video).*(?:durdur|duraklat|pause)/.test(t)){await action('video_pause');return 'Video duraklatıldı.';}
+  if(/(?:videoyu|video).*(?:oynat|devam|play)/.test(t)){await action('video_play');return 'Video oynatılıyor.';}
+  if(/(?:videoyu|video).*(?:kaydet|indir)/.test(t)){await action('video_save');return 'Video kaydetme penceresi açıldı.';}
+  if(/(?:hologramı|hologrami|tasarımı|tasarimi).*(?:kaydet|indir)/.test(t)){await action('hologram_save');return 'Hologram projesi kaydediliyor.';}
+
+  const createHolo=/(?:hologram|enerji küresi|enerji kuresi|dünya küresi|dunya kuresi|drone|araç|arac|logo).*(?:yap|oluştur|olustur|göster|goster|tasarla)|(?:ortaya|ortada).*(?:küre|kure|hologram|drone|dünya|dunya|araç|arac|logo)/.test(t);
+  if(createHolo){
+   let kind='energy';if(/dünya|dunya/.test(t))kind='globe';else if(/ağ|ag|network|node/.test(t))kind='network';else if(/drone/.test(t))kind='drone';else if(/araba|araç|arac|vehicle/.test(t))kind='vehicle';else if(/logo/.test(t))kind='logo';else if(/küre|kure|sphere/.test(t)&&!/enerji/.test(t))kind='sphere';
+   const extra:Record<string,unknown>={kind,label:kind==='globe'?'EARTH':kind==='logo'?'ULTRON':kind.toUpperCase()};if(color)extra.color=color;
+   await action('hologram_create',extra);return 'Hologram Center Stage üzerinde oluşturuldu.';
+  }
+
+  const controlHolo=u.stage.mode==='hologram_lab'&&/(?:bunu|hologram|küre|kure|sahne)/.test(t);
+  if(controlHolo){
+   const patch:Record<string,unknown>={};
+   if(color)patch.color=color;
+   if(/büyüt|buyut|daha büyük|daha buyuk/.test(t))patch.scale=Math.min(2.5,current.scale*1.2);
+   if(/küçült|kucult|daha küçük|daha kucuk/.test(t))patch.scale=Math.max(.25,current.scale/1.2);
+   if(/hızlandır|hizlandir|daha hızlı|daha hizli/.test(t))patch.speed=Math.min(5,current.speed*1.3);
+   if(/yavaşlat|yavaslat|daha yavaş|daha yavas/.test(t))patch.speed=Math.max(.05,current.speed/1.3);
+   if(/wireframe|tel kafes/.test(t))patch.wireframe=!/kapat|çıkar|cikar|solid/.test(t);
+   if(/pulse|nabız|nabiz/.test(t))patch.pulse=!/kapat|durdur/.test(t);
+   const ring=t.match(/(\d+)\s*(?:halka|ring)/);if(ring)patch.rings=Math.max(0,Math.min(12,Number(ring[1])));
+   else if(/halka.*(?:ekle|artır|artir)/.test(t))patch.rings=Math.min(12,current.rings+2);
+   if(Object.keys(patch).length){await action('hologram_update',patch);return 'Hologram güncellendi.';}
+  }
+  return '';
+ };
+ const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');if(model==='native'){if(u.native)u.native.send(text);return;}u.add('user',text);
+  try{const stageReply=await stageIntent(text);if(stageReply){u.add('assistant',stageReply);return;}}catch(e){notify((e as Error).message);return;}
+  setBusy(true);setLocalState('THINKING');const ctl=new AbortController();abort.current=ctl;
   try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{})},ctl.signal);u.add('assistant',r.text||JSON.stringify(r));setLocalState('IDLE');}catch(e){notify((e as Error).message);}finally{setBusy(false);abort.current=null;}};
  const state:CoreState=localState!=='IDLE'?localState:u.state!=='IDLE'?u.state:u.taskState!=='IDLE'?u.taskState:u.nativeState;
  const stop=()=>{abort.current?.abort();u.native?.action('interrupt');};
