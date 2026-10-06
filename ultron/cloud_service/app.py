@@ -30,7 +30,7 @@ DEVICE_COMMANDS = {
     # natural-language command the owner could type into the desktop ULTRON UI.
     # Execution still happens inside the desktop's existing tool/permission layer.
     "desktop": {"wake", "mute", "unmute", "interrupt", "sync_memory", "agent_task"},
-    "phone": {"ping", "refresh", "open_memory", "focus_chat"},
+    "phone": {"ping", "refresh", "open_memory", "focus_chat", "open_remote", "vibrate", "scroll_top"},
 }
 
 
@@ -286,6 +286,111 @@ async def claim_device_commands(request: web.Request) -> web.Response:
     return web.json_response({"commands": commands}, dumps=_json_dumps)
 
 
+async def complete_device_command(request: web.Request) -> web.Response:
+    try:
+        command_id = int(request.match_info["id"])
+    except Exception:
+        raise web.HTTPBadRequest(text=json.dumps({"error": "invalid_command_id"}), content_type="application/json")
+
+    body = await request.json()
+    status = str(body.get("status", "completed")).strip().lower()
+    if status not in {"completed", "failed"}:
+        raise web.HTTPBadRequest(text=json.dumps({"error": "invalid_status"}), content_type="application/json")
+    result = body.get("result", {})
+    if isinstance(result, str):
+        result = {"message": result}
+    if not isinstance(result, dict):
+        result = {}
+
+    auth_kind = request.get("auth_kind", "")
+    expected_target = "desktop" if auth_kind == "device" else "phone"
+    row = await request.app["db"].fetchrow(
+        """
+        UPDATE device_commands
+        SET status=$1, result=$2::jsonb, completed_at=NOW()
+        WHERE id=$3 AND user_id=$4 AND target=$5
+        RETURNING id,target,command,status,result,created_at,delivered_at,completed_at
+        """,
+        status, json.dumps(result), command_id, request["user_id"], expected_target,
+    )
+    if not row:
+        raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
+    return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+
+
+async def recent_device_commands(request: web.Request) -> web.Response:
+    auth_kind = request.get("auth_kind", "")
+    target = "desktop" if auth_kind == "web" else "phone"
+    limit = min(max(int(request.query.get("limit", "30")), 1), 100)
+    rows = await request.app["db"].fetch(
+        """
+        SELECT id,target,command,payload,source_device,status,result,created_at,delivered_at,completed_at
+        FROM device_commands
+        WHERE user_id=$1 AND target=$2
+        ORDER BY id DESC LIMIT $3
+        """,
+        request["user_id"], target, limit,
+    )
+    items = []
+    for row in rows:
+        item = dict(row)
+        for key in ("payload", "result"):
+            value = item.get(key, {})
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except Exception:
+                    value = {}
+            item[key] = value if isinstance(value, dict) else {}
+        items.append(item)
+    return web.json_response({"commands": items}, dumps=_json_dumps)
+
+
+async def device_presence_heartbeat(request: web.Request) -> web.Response:
+    body = await request.json()
+    state = body.get("state", {})
+    if not isinstance(state, dict):
+        state = {}
+    auth_kind = request.get("auth_kind", "")
+    device = "desktop" if auth_kind == "device" else "phone"
+    row = await request.app["db"].fetchrow(
+        """
+        INSERT INTO device_presence(user_id,device,state,last_seen)
+        VALUES($1,$2,$3::jsonb,NOW())
+        ON CONFLICT(user_id,device) DO UPDATE
+        SET state=EXCLUDED.state,last_seen=NOW()
+        RETURNING device,state,last_seen
+        """,
+        request["user_id"], device, json.dumps(state),
+    )
+    return web.json_response({"ok": True, "presence": dict(row)}, dumps=_json_dumps)
+
+
+async def device_presence(request: web.Request) -> web.Response:
+    rows = await request.app["db"].fetch(
+        """
+        SELECT device,state,last_seen,
+               (last_seen > NOW() - INTERVAL '15 seconds') AS online
+        FROM device_presence
+        WHERE user_id=$1
+        ORDER BY device
+        """,
+        request["user_id"],
+    )
+    items = []
+    for row in rows:
+        item = dict(row)
+        state = item.get("state", {})
+        if isinstance(state, str):
+            try:
+                state = json.loads(state)
+            except Exception:
+                state = {}
+        item["state"] = state if isinstance(state, dict) else {}
+        items.append(item)
+    return web.json_response({"devices": items}, dumps=_json_dumps)
+
+
 async def list_messages(request: web.Request) -> web.Response:
     limit = min(max(int(request.query.get("limit", "80")), 1), 200)
     rows = await request.app["db"].fetch(
@@ -465,6 +570,10 @@ def build_app() -> web.Application:
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/device-commands", send_device_command)
     app.router.add_post("/api/device-commands/claim", claim_device_commands)
+    app.router.add_post("/api/device-commands/{id}/complete", complete_device_command)
+    app.router.add_get("/api/device-commands/recent", recent_device_commands)
+    app.router.add_post("/api/device-presence/heartbeat", device_presence_heartbeat)
+    app.router.add_get("/api/device-presence", device_presence)
     app.router.add_get("/api/memories", list_memories)
     app.router.add_put("/api/memories", upsert_memory)
     app.router.add_delete("/api/memories/{key}", delete_memory)
