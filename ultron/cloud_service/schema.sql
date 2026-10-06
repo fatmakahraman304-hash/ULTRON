@@ -39,3 +39,18 @@ CREATE TABLE IF NOT EXISTS events (
   device_id TEXT NOT NULL DEFAULT '',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS device_commands (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  target TEXT NOT NULL CHECK (target IN ('desktop','phone')),
+  command TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  source_device TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued','delivered')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  delivered_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_device_commands_pending
+  ON device_commands(user_id, target, status, id);
+
