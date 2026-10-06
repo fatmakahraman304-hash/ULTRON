@@ -122,7 +122,15 @@ async def health(request: web.Request) -> web.Response:
         "session_secret": bool(os.getenv("ULTRON_SESSION_SECRET")),
         "device_token": bool(os.getenv("ULTRON_DEVICE_TOKEN")),
     }
-    return web.json_response({"ok": all(config.values()), "service": "ultron-cloud", "config": config})
+    return web.json_response({
+        "ok": all(config.values()),
+        "service": "ultron-cloud",
+        "config": config,
+        "deploy": {
+            "commit": os.getenv("RENDER_GIT_COMMIT", ""),
+            "branch": os.getenv("RENDER_GIT_BRANCH", ""),
+        },
+    })
 
 
 async def index(request: web.Request) -> web.FileResponse:
@@ -286,17 +294,26 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 """,
                 request["user_id"], target,
             )
-            # A desktop crash must not leave the agent queue blocked forever.
-            # Six hours is intentionally generous for long-running local tasks.
+            # A delivered agent task owns the single-task lane only while it is
+            # plausibly still running. The desktop handler has a 180s turn timeout
+            # plus a short readiness window, so anything older than 5 minutes is
+            # stale and must never block every later phone task for hours.
             await conn.execute(
                 """
                 UPDATE device_commands
                 SET status='failed',
-                    result='{"message":"Görev teslim edildi ancak 6 saat içinde tamamlanmadı."}'::jsonb,
-                    completed_at=NOW()
+                    result='{"message":"Görev laptopa teslim edildi ancak 5 dakika içinde tamamlanmadı; kuyruk serbest bırakıldı."}'::jsonb,
+                    completed_at=NOW(),
+                    progress = COALESCE(progress, '[]'::jsonb) ||
+                      jsonb_build_array(jsonb_build_object(
+                        'stage','failed',
+                        'message','Takılı kalan görev zaman aşımına uğradı; sonraki görevler serbest bırakıldı.',
+                        'percent',NULL,
+                        'at',EXTRACT(EPOCH FROM NOW())
+                      ))
                 WHERE user_id=$1 AND target=$2 AND command='agent_task'
                   AND status='delivered'
-                  AND delivered_at <= NOW() - INTERVAL '6 hours'
+                  AND delivered_at <= NOW() - INTERVAL '5 minutes'
                 """,
                 request["user_id"], target,
             )
@@ -315,6 +332,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                           AND active.target=d.target
                           AND active.command='agent_task'
                           AND active.status='delivered'
+                          AND active.delivered_at > NOW() - INTERVAL '5 minutes'
                       )
                     )
                   ORDER BY (d.command='agent_task') ASC, d.id ASC
