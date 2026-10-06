@@ -431,6 +431,7 @@ let attachMenuOpen=false;
 const laptopTaskStates=new Map();
 const laptopTaskProgressCounts=new Map();
 let laptopTaskWatchPrimed=false;
+let desktopPresencePrimed=false,desktopWasOnline=false;
 function setAttachMenu(open){
   attachMenuOpen=!!open;$('#attachMenu').classList.toggle('show',attachMenuOpen);$('#plusBtn').classList.toggle('open',attachMenuOpen);$('#plusBtn').setAttribute('aria-expanded',attachMenuOpen?'true':'false');
 }
@@ -955,9 +956,9 @@ async function openLiveSocket(){
     }
     if(d.type==='laptop_task'){
       const task=String(d.task||'Görev');
-      const online=!!d.online;
-      toast(online?'Laptop ULTRON görevi aldı: '+task.slice(0,80):'Laptop çevrimdışı • görev kuyruğa alındı');
-      $('#stageVoiceText').textContent=online?'Laptop görevi gönderildi':'Laptop görevi kuyruğa alındı';
+      const online=!!d.online,scheduled=!!d.scheduled;
+      toast(scheduled?'Laptop görevi planlandı.':(online?'Laptop ULTRON görevi aldı: '+task.slice(0,80):'Laptop çevrimdışı • görev kuyruğa alındı'));
+      $('#stageVoiceText').textContent=scheduled?'Laptop görevi planlandı':(online?'Laptop görevi gönderildi':'Laptop görevi kuyruğa alındı');
       if(currentView==='remote')setTimeout(()=>loadRemoteHistory().catch(()=>{}),500);
     }
     if(d.type==='phone_action'){
@@ -1249,6 +1250,24 @@ async function phoneHeartbeat(){
   if($('#app').classList.contains('hidden'))return;
   try{await api('/api/device-presence/heartbeat',{method:'POST',body:JSON.stringify({state:{view:currentView,visible:!document.hidden,voice_listening:voiceListening,wake_active:wakeWordActive,speaker_lock:serverSpeakerEnrolled||!!voiceProfile}})})}catch(e){}
 }
+async function watchDesktopPresence(){
+  if($('#app').classList.contains('hidden'))return;
+  try{
+    const d=await api('/api/device-presence');
+    const laptop=(d.devices||[]).find(x=>x.device==='desktop');
+    const online=!!laptop?.online;
+    if(desktopPresencePrimed&&online!==desktopWasOnline){
+      const msg=online?'Laptop ULTRON yeniden çevrimiçi.':'Laptop ULTRON bağlantısı kesildi.';
+      toast(msg);
+      if(navigator.vibrate)navigator.vibrate(online?[40,35,40]:[90,55,90]);
+      if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
+        try{new Notification('ULTRON',{body:msg,icon:'/static/ultron-icon.svg'})}catch{}
+      }
+      if(online)watchLaptopTasks().catch(()=>{});
+    }
+    desktopWasOnline=online;desktopPresencePrimed=true;
+  }catch{}
+}
 async function loadRemoteState(){
   const d=await api('/api/device-presence');
   const laptop=(d.devices||[]).find(x=>x.device==='desktop');
@@ -1266,7 +1285,9 @@ async function loadRemoteHistory(){
   const d=await api('/api/device-commands/recent?limit=20');
   renderRemoteRows(d.commands||[]);
 }
-function taskStatusLabel(status){
+function taskStatusLabel(status,item=null){
+  if(status==='queued'&&item?.retry_count>0)return 'YENİDEN DENEYECEK';
+  if(status==='queued'&&item?.run_after&&new Date(item.run_after).getTime()>Date.now()+3000)return 'PLANLANDI';
   return ({queued:'KUYRUKTA',delivered:'ÇALIŞIYOR',completed:'TAMAMLANDI',failed:'HATA',cancelled:'İPTAL',expired:'SÜRESİ DOLDU'})[status]||String(status||'').toUpperCase();
 }
 function notifyLaptopTaskChange(item,previous){
@@ -1277,11 +1298,12 @@ function notifyLaptopTaskChange(item,previous){
   if(status==='delivered')message='Laptop göreve başladı: '+title;
   if(status==='completed')message='Laptop görevi tamamlandı'+(result?': '+result:'');
   if(status==='failed')message='Laptop görevi başarısız'+(result?': '+result:'');
+  if(status==='queued'&&item?.retry_count>0)message='Geçici hata • laptop görevi otomatik yeniden denenecek';
   if(status==='cancelled')message='Laptop görevi iptal edildi';
   if(status==='expired')message='Laptop görevinin süresi doldu';
   if(!message)return;
   toast(message.slice(0,180));
-  $('#stageVoiceText').textContent=taskStatusLabel(status)+' • '+title.slice(0,52);
+  $('#stageVoiceText').textContent=taskStatusLabel(status,item)+' • '+title.slice(0,52);
   if(navigator.vibrate&&status!=='delivered')navigator.vibrate(status==='completed'?[55,35,80]:[100,50,100]);
   if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
     try{new Notification('ULTRON • '+taskStatusLabel(status),{body:message.slice(0,180),icon:'/static/ultron-icon.svg'})}catch{}
@@ -1318,7 +1340,7 @@ function renderRemoteRows(rows){
   rows.forEach(item=>{
     const el=document.createElement('div');el.className='history-item';
     const h=document.createElement('header'),b=document.createElement('b'),s=document.createElement('span');
-    b.textContent=commandTitle(item);s.className='state '+item.status;s.textContent=taskStatusLabel(item.status);
+    b.textContent=commandTitle(item);s.className='state '+item.status;s.textContent=taskStatusLabel(item.status,item);
     h.append(b,s);
     if(item.payload?.origin==='voice'){const vb=document.createElement('span');vb.className='voice-task-badge';vb.textContent='SES';h.appendChild(vb)}
     el.appendChild(h);
@@ -1343,7 +1365,9 @@ function renderRemoteRows(rows){
     }
     const small=document.createElement('small');
     const end=item.completed_at?(' • Bitti '+fmtTime(item.completed_at)):'';
-    small.textContent='Başlangıç '+fmtTime(item.created_at)+end;el.appendChild(small);root.appendChild(el);
+    const retry=item.retry_count?(' • Deneme '+(Number(item.retry_count)+1)+'/'+(Number(item.max_retries)+1)):'';
+    const planned=(item.status==='queued'&&item.run_after&&new Date(item.run_after).getTime()>Date.now()+3000)?(' • Çalıştır '+fmtTime(item.run_after)):'';
+    small.textContent='Başlangıç '+fmtTime(item.created_at)+retry+planned+end;el.appendChild(small);root.appendChild(el);
   });
 }
 $('#refreshRemote').onclick=()=>Promise.all([loadRemoteState(),loadRemoteHistory()]).catch(e=>toast(e.message));
@@ -1373,6 +1397,7 @@ async function claimPhoneCommands(){
 setInterval(()=>{if(!$('#app').classList.contains('hidden'))loadMessages().catch(()=>{})},3000);
 setInterval(claimPhoneCommands,2200);
 setInterval(phoneHeartbeat,5000);
+setInterval(watchDesktopPresence,5000);
 setInterval(()=>{if(currentView==='remote')loadRemoteState().catch(()=>{})},3000);
 setInterval(watchLaptopTasks,2500);
 window.addEventListener('pagehide',()=>{releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
@@ -1395,7 +1420,7 @@ window.visualViewport?.addEventListener('resize',()=>{if(currentView==='chat')se
 $('#message').addEventListener('focus',()=>setTimeout(()=>scrollChatToBottom(false),180));
 const messageObserver=new MutationObserver(()=>{if(currentView==='chat')scrollChatToBottom(false)});
 messageObserver.observe($('#messages'),{childList:true,subtree:true});
-boot().then(()=>{phoneHeartbeat();setTimeout(()=>watchLaptopTasks(),700)});
+boot().then(()=>{phoneHeartbeat();setTimeout(()=>watchLaptopTasks(),700);setTimeout(()=>watchDesktopPresence(),900)});
 window.addEventListener('online',()=>{setOnline(true,'Cloud bağlı');if(liveDesired&&!voiceListening)scheduleLiveReconnect()});
 window.addEventListener('offline',()=>{setOnline(false,'Çevrimdışı');if(liveDesired){clearLiveReconnect();liveStatus('İnternet bekleniyor…',true);$('#stageVoiceText').textContent='Ses bağlantısı beklemede'}});
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/static/sw.js').catch(()=>{}))}
