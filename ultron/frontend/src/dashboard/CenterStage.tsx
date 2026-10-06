@@ -130,9 +130,10 @@ function VideoRenderer({stage,onReady,onError,onProgress}:{stage:StageState;onRe
 
 export default function CenterStage({stage,state,amplitude,notify}:Props){
  const [videoUrl,setVideoUrl]=useState(''),[videoBlob,setVideoBlob]=useState<Blob|null>(null),[renderError,setRenderError]=useState(''),[renderProgress,setRenderProgress]=useState(0),[customModel,setCustomModel]=useState<ArrayBuffer|null>(null),[customModelName,setCustomModelName]=useState('');
- const video=useRef<HTMLVideoElement>(null),modelFile=useRef<HTMLInputElement>(null),lastSaveNonce=useRef(Number(stage.save_nonce||0));
+ const video=useRef<HTMLVideoElement>(null),modelFile=useRef<HTMLInputElement>(null),lastSaveNonce=useRef(Number(stage.save_nonce||0)),lastHologramKind=useRef(stage.hologram.kind);
  useEffect(()=>()=>{if(videoUrl)URL.revokeObjectURL(videoUrl);},[videoUrl]);
  useEffect(()=>{if(stage.mode==='video_rendering'){setRenderError('');setRenderProgress(0);}},[stage.job_id,stage.mode]);
+ useEffect(()=>{if(lastHologramKind.current!==stage.hologram.kind){lastHologramKind.current=stage.hologram.kind;if(customModel){setCustomModel(null);setCustomModelName('');}}},[stage.hologram.kind]);
  useEffect(()=>{if(video.current)stage.video_paused?video.current.pause():video.current.play().catch(()=>{});},[stage.video_paused,stage.revision]);
  const patch=(body:Record<string,unknown>)=>request('/api/stage/control',body).catch(e=>notify(String(e)));
  const command=(operation:string,extra:Record<string,unknown>={})=>request('/api/stage/command',{operation,...extra}).catch(e=>notify(String(e)));
@@ -143,7 +144,7 @@ export default function CenterStage({stage,state,amplitude,notify}:Props){
  return <div className={'center-stage mode-'+stage.mode}>
   {stage.mode==='core_idle'&&<><UltronCore state={state} amplitude={amplitude}/><div className="core-title">ULTRON<small>NEURAL CORE</small></div></>}
   {stage.mode==='hologram_lab'&&<><HologramStage config={stage.hologram} customModel={customModel}/><div className="stage-controls">
-   <div className="stage-presets">{presets.map(k=><button key={k} className={stage.hologram.kind===k?'active':''} onClick={()=>patch({kind:k})}>{k.toUpperCase()}</button>)}</div>
+   <div className="stage-presets">{presets.map(k=><button key={k} className={stage.hologram.kind===k&&!customModel?'active':''} onClick={()=>{setCustomModel(null);setCustomModelName('');void patch({kind:k});}}>{k.toUpperCase()}</button>)}</div>
    <label>RENK<input type="color" value={stage.hologram.color.startsWith('#')?stage.hologram.color:'#ff3047'} onChange={e=>patch({color:e.target.value})}/></label>
    <label>BOYUT<input type="range" min=".35" max="2" step=".05" value={stage.hologram.scale} onChange={e=>patch({scale:+e.target.value})}/></label>
    <label>HIZ<input type="range" min=".05" max="4" step=".05" value={stage.hologram.speed} onChange={e=>patch({speed:+e.target.value})}/></label>
@@ -159,7 +160,7 @@ export default function CenterStage({stage,state,amplitude,notify}:Props){
   {stage.mode==='task_progress'&&<div className="stage-task"><div className="task-orb"/><h2>{stage.title}</h2><p>{stage.subtitle}</p><div className="stage-progress"><i style={{width:Math.max(0,Math.min(100,stage.progress))+'%'}}/></div><b>%{Math.round(stage.progress)}</b></div>}
   {stage.mode==='screen_preview'&&<div className="stage-task"><ScanFrame/><h2>SCREEN PREVIEW</h2><p>Vizyon önizlemesi için Ekran Yakalama aracını kullan.</p><button onClick={()=>command('reset')}>CORE'A DÖN</button></div>}
   {stage.mode!=='core_idle'&&<div className="stage-mode-tag"><span>{stage.title}</span><small>{customModelName?customModelName+' / '+stage.subtitle:stage.subtitle}</small></div>}
-  <input ref={modelFile} hidden type="file" accept=".glb,model/gltf-binary" onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(!/\.glb$/i.test(file.name)){notify('Center Stage için GLB dosyası seç.');return;}if(file.size>50*1024*1024){notify('GLB modeli en fazla 50 MB olabilir.');return;}try{setCustomModel(await file.arrayBuffer());setCustomModelName(file.name);if(stage.mode!=='hologram_lab')await command('hologram_create',{kind:'sphere',label:file.name.replace(/\.glb$/i,'')});}catch(err){notify('3D model açılamadı: '+String(err));}}}/>
+  <input ref={modelFile} hidden type="file" accept=".glb,model/gltf-binary" onChange={async e=>{const file=e.target.files?.[0];e.target.value='';if(!file)return;if(!/\.glb$/i.test(file.name)){notify('Center Stage için GLB dosyası seç.');return;}if(file.size>50*1024*1024){notify('GLB modeli en fazla 50 MB olabilir.');return;}try{setCustomModel(await file.arrayBuffer());setCustomModelName(file.name);if(stage.mode!=='hologram_lab')await command('hologram_create',{kind:stage.hologram.kind||'energy',label:file.name.replace(/\.glb$/i,'')});}catch(err){notify('3D model açılamadı: '+String(err));}}}/>
  </div>;
 }
 
