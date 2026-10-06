@@ -103,3 +103,8 @@
 .theme-purple .scene-object-list>b,.theme-purple .timeline-head>b{color:#b76cff}
 .theme-amber .scene-object-list>b,.theme-amber .timeline-head>b{color:#ffb020}
 .theme-mono .scene-object-list>b,.theme-mono .timeline-head>b{color:#d7e0e8}
+
+.scene-recording{position:absolute;z-index:30;top:18px;right:18px;display:flex;align-items:center;gap:8px;padding:8px 11px;background:#090308e8;border:1px solid #ff3047;font:9px Consolas,monospace;letter-spacing:1px;box-shadow:0 0 22px #ff304744}
+.scene-recording i{width:9px;height:9px;border-radius:50%;background:#ff3047;box-shadow:0 0 10px #ff3047;animation:recordPulse .7s ease-in-out infinite alternate}
+.scene-recording span{color:#ff6075}
+@keyframes recordPulse{from{opacity:.3;transform:scale(.75)}to{opacity:1;transform:scale(1.15)}}
