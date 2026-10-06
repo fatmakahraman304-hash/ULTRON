@@ -137,6 +137,36 @@ def sync() -> tuple[bool, str]:
         return False, f"Cloud memory sync skipped: {type(exc).__name__}: {str(exc)[:160]}"
 
 
+
+def heartbeat(state: dict | None = None) -> tuple[bool, dict]:
+    """Publish desktop presence to ULTRON Cloud.
+
+    Best-effort only: presence loss must never interrupt local voice.
+    """
+    base, token, device = _cloud_settings()
+    if not base or not token:
+        return False, {}
+
+    try:
+        body = json.dumps({"state": state or {}}, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            base + "/api/device-presence/heartbeat",
+            data=body,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-ULTRON-DEVICE": device,
+                "Accept": "application/json",
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        return True, payload if isinstance(payload, dict) else {}
+    except Exception:
+        return False, {}
+
+
 def main() -> int:
     _ok, message = sync()
     print(f"[ULTRON] {message}")
