@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {Download,Maximize2,Play,RotateCcw,Sparkles,Video} from 'lucide-react';
 import UltronCore from './core/UltronCore';
-import {request,type CoreState,type HologramConfig,type StageState} from './runtime';
+import {request,type CoreState,type HologramConfig,type SceneObject,type SceneState,type StageState} from './runtime';
 
 type Props={stage:StageState;state:CoreState;amplitude:number;notify:(text:string)=>void};
 
@@ -92,13 +92,88 @@ function HologramStage({config,customModel}:{config:HologramConfig;customModel:A
  return <div className="stage-hologram"><div ref={host} className="stage-webgl"/><div className="stage-holo-label"><b>{config.label||'ULTRON'}</b><span>{String(config.kind||'energy').toUpperCase()} HOLOGRAM</span></div></div>;
 }
 
+
+function SceneLab({scene,onCommand}:{scene:SceneState;onCommand:(operation:string,extra?:Record<string,unknown>)=>void}){
+ const host=useRef<HTMLDivElement>(null);
+ const key=JSON.stringify(scene);
+ useEffect(()=>{
+  const el=host.current;if(!el)return;
+  const world=new THREE.Scene();world.fog=new THREE.FogExp2(0x020407,.038);
+  const camera=new THREE.PerspectiveCamera(42,1,.1,100);
+  const cam=scene.camera||'isometric';
+  if(cam==='front')camera.position.set(0,1.2,9);
+  else if(cam==='top')camera.position.set(0,9,.01);
+  else if(cam==='side')camera.position.set(9,1.2,0);
+  else if(cam==='close')camera.position.set(0,.8,5.2);
+  else camera.position.set(6,4.2,7.2);
+  camera.lookAt(0,0,0);
+  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setClearColor(0x000000,0);el.appendChild(renderer.domElement);
+  const sceneRoot=new THREE.Group();world.add(sceneRoot);
+  if(scene.grid){
+   const grid=new THREE.GridHelper(14,28,0xff3047,0x36111b);grid.position.y=-1.55;sceneRoot.add(grid);
+  }
+  const matFor=(o:SceneObject)=>new THREE.MeshBasicMaterial({color:colorOf(o.color),wireframe:o.wireframe,transparent:true,opacity:o.opacity});
+  const addPart=(group:THREE.Group,geo:THREE.BufferGeometry,mat:THREE.Material,pos:[number,number,number],dir:[number,number,number]=pos)=>{
+   const m=new THREE.Mesh(geo,mat);m.position.set(...pos);m.userData.base=[...pos];m.userData.dir=[...dir];group.add(m);return m;
+  };
+  const objectGroups=new Map<string,THREE.Group>();
+  for(const o of scene.objects||[]){
+   const group=new THREE.Group();group.userData.objectId=o.id;group.position.set(o.position?.[0]||0,o.position?.[1]||0,o.position?.[2]||0);group.rotation.set(o.rotation?.[0]||0,o.rotation?.[1]||0,o.rotation?.[2]||0);group.scale.setScalar(o.scale||1);
+   const mat=matFor(o),dim=new THREE.MeshBasicMaterial({color:colorOf(o.color),wireframe:true,transparent:true,opacity:Math.max(.18,o.opacity*.38)});
+   const kind=o.kind||'energy';
+   if(kind==='vehicle'){
+    addPart(group,new THREE.BoxGeometry(2.5,.48,1.15),dim,[0,0,0],[0,0,0]);
+    addPart(group,new THREE.BoxGeometry(1.25,.48,.95),dim,[-.15,.46,0],[0,1,0]);
+    for(const x of [-.82,.82])for(const z of [-.66,.66]){const w=addPart(group,new THREE.TorusGeometry(.3,.07,8,32),mat,[x,-.34,z],[x,-.5,z]);w.rotation.y=Math.PI/2;}
+   }else if(kind==='drone'){
+    addPart(group,new THREE.OctahedronGeometry(.58,1),mat,[0,0,0],[0,0,0]).scale.set(1.5,.42,1);
+    for(const x of [-1.18,1.18])for(const z of [-.72,.72]){const arm=addPart(group,new THREE.BoxGeometry(1.15,.055,.055),dim,[x*.48,0,z*.48],[x,0,z]);arm.rotation.y=Math.atan2(z,x);const r=addPart(group,new THREE.TorusGeometry(.38,.018,8,40),mat,[x,0,z],[x,0,z]);r.rotation.x=Math.PI/2;}
+   }else if(kind==='globe'){
+    addPart(group,new THREE.SphereGeometry(1.2,28,20),dim,[0,0,0],[0,0,0]);
+    for(let i=0;i<5;i++){const r=addPart(group,new THREE.TorusGeometry(1.22,.012,7,80),mat,[0,0,0],[0,0,0]);r.rotation.y=i*Math.PI/5;}
+   }else if(kind==='network'){
+    for(let i=0;i<16;i++){const p=new THREE.Vector3().randomDirection().multiplyScalar(.35+(i%5)*.23);addPart(group,new THREE.SphereGeometry(.055,8,6),mat,[p.x,p.y,p.z],[p.x,p.y,p.z]);}
+   }else if(kind==='logo'){
+    addPart(group,new THREE.TorusGeometry(1.2,.035,8,80),mat,[0,0,0],[0,0,0]);const a=addPart(group,new THREE.ConeGeometry(.62,1.55,3),dim,[0,.05,0],[0,.5,0]);a.rotation.z=Math.PI;
+   }else if(kind==='ring'){
+    const ring=addPart(group,new THREE.TorusGeometry(1.25,.025,8,100),mat,[0,0,0],[0,0,0]);ring.rotation.x=Math.PI/2;
+   }else if(kind==='tower'){
+    addPart(group,new THREE.CylinderGeometry(.28,.46,2.3,8),dim,[0,0,0],[0,0,0]);for(let i=0;i<4;i++){const r=addPart(group,new THREE.TorusGeometry(.7+i*.16,.012,7,70),mat,[0,-.8+i*.55,0],[0,-.8+i*.55,0]);r.rotation.x=Math.PI/2;}
+   }else{
+    addPart(group,new THREE.IcosahedronGeometry(kind==='sphere'?1.05:.9,kind==='sphere'?2:1),kind==='sphere'?dim:mat,[0,0,0],[0,0,0]);
+    for(let i=0;i<3;i++){const r=addPart(group,new THREE.TorusGeometry(1.12+i*.16,.012,7,80),mat,[0,0,0],[0,0,0]);r.rotation.set(i*.55,i*.7,i);}
+   }
+   group.traverse(ch=>{ch.userData.objectId=o.id;});
+   if(o.id===scene.selected_id){const helper=new THREE.BoxHelper(group,colorOf('#ffffff'));helper.userData.selection=true;group.add(helper);}
+   sceneRoot.add(group);objectGroups.set(o.id,group);
+  }
+  const scan=new THREE.Mesh(new THREE.RingGeometry(.8,3.6,64),new THREE.MeshBasicMaterial({color:0xff3047,wireframe:true,transparent:true,opacity:.16,side:THREE.DoubleSide}));scan.rotation.x=Math.PI/2;scan.visible=scene.animation==='scan';sceneRoot.add(scan);
+  world.add(new THREE.AmbientLight(0xffffff,.7));const light=new THREE.PointLight(0xff3047,14,30);light.position.set(3,5,5);world.add(light);
+  let dead=false,raf=0,last=performance.now();
+  const resize=()=>{const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};resize();const ro=new ResizeObserver(resize);ro.observe(el);
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();
+  const click=(e:PointerEvent)=>{const r=renderer.domElement.getBoundingClientRect();mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;ray.setFromCamera(mouse,camera);const hits=ray.intersectObjects([...objectGroups.values()],true);const hit=hits.find(h=>!h.object.userData.selection);if(hit){let obj:THREE.Object3D|null=hit.object;while(obj&&!obj.userData.objectId)obj=obj.parent;const id=obj?.userData.objectId;if(id)onCommand('scene_select',{object_id:id});}};
+  renderer.domElement.addEventListener('pointerdown',click);
+  const loop=(now:number)=>{if(dead)return;const dt=Math.min(.05,(now-last)/1000);last=now;if(scene.auto_orbit||scene.camera==='orbit')sceneRoot.rotation.y+=dt*.12;
+   for(const o of scene.objects||[]){const g=objectGroups.get(o.id);if(!g)continue;g.rotation.y+=dt*(o.spin||0);const ex=Math.max(0,Number(scene.explode||0)+Number(o.explode||0));g.traverse(ch=>{if(!(ch instanceof THREE.Mesh)||!ch.userData.base)return;const b=ch.userData.base as number[],d=ch.userData.dir as number[];ch.position.set(b[0]+d[0]*ex*.35,b[1]+d[1]*ex*.35,b[2]+d[2]*ex*.35);});}
+   if(scan.visible)scan.position.y=-1.3+((now*.001)%1)*2.6;renderer.render(world,camera);raf=requestAnimationFrame(loop);};raf=requestAnimationFrame(loop);
+  return()=>{dead=true;cancelAnimationFrame(raf);ro.disconnect();renderer.domElement.removeEventListener('pointerdown',click);renderer.dispose();world.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const mm=(m as any).material;if(mm)(Array.isArray(mm)?mm:[mm]).forEach((x:THREE.Material)=>x.dispose());});renderer.domElement.remove();};
+ },[key]);
+ return <div className="scene-lab-webgl" ref={host}/>;
+}
+
 function drawVideoFrame(ctx:CanvasRenderingContext2D,w:number,h:number,p:number,stage:StageState){
  const video=stage.video,color=colorOf(stage.hologram.color),theme='#'+color.getHexString(),title=video.title||'ULTRON',template=video.template||'ultron_intro';
  ctx.fillStyle='#020407';ctx.fillRect(0,0,w,h);
  const g=ctx.createRadialGradient(w*.5,h*.48,10,w*.5,h*.48,w*.48);g.addColorStop(0,theme+'55');g.addColorStop(.45,theme+'13');g.addColorStop(1,'#00000000');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
  ctx.save();ctx.translate(w/2,h/2);ctx.strokeStyle=theme;ctx.shadowColor=theme;ctx.shadowBlur=16;ctx.globalAlpha=.9;
  const spin=p*Math.PI*2*(template==='energy_core'?2.2:1);
- if(template==='hologram_capture'){
+ if(template==='hologram_capture'&&stage.video.source_scene){
+  const objs=stage.scene.objects||[];ctx.save();ctx.rotate(spin*.08);
+  for(const [i,o] of objs.entries()){const x=(o.position?.[0]||0)*70,y=-(o.position?.[2]||0)*42+(o.position?.[1]||0)*55,s=36*(o.scale||1);ctx.save();ctx.translate(x,y);ctx.rotate(spin*(o.spin||.3)*.15+i*.2);ctx.strokeStyle=o.color||theme;ctx.globalAlpha=o.opacity||.85;ctx.strokeRect(-s,-s*.6,s*2,s*1.2);ctx.beginPath();ctx.arc(0,0,s*.65,0,Math.PI*2);ctx.stroke();ctx.font='12px Consolas';ctx.fillStyle=o.color||theme;ctx.textAlign='center';ctx.fillText(o.label||o.kind,0,s*.95);ctx.restore();}
+  ctx.restore();
+ }else if(template==='hologram_capture'){
   const kind=stage.hologram.kind||'energy';ctx.save();ctx.rotate(spin*.32);ctx.lineWidth=2.2;ctx.globalAlpha=.9;
   if(kind==='globe'){
    ctx.beginPath();ctx.arc(0,0,185,0,Math.PI*2);ctx.stroke();
@@ -178,6 +253,10 @@ export default function CenterStage({stage,state,amplitude,notify}:Props){
    <button onClick={()=>command('video_from_stage',{duration:6,title:stage.hologram.label})}><Video/> VİDEOYA ÇEVİR</button>
    <button onClick={()=>command('reset')}><RotateCcw/> CORE</button>
   </div></>}
+  {stage.mode==='scene_lab'&&<div className="scene-lab-shell"><SceneLab scene={stage.scene} onCommand={(op,extra={})=>{void command(op,extra);}}/><div className="scene-object-list"><b>SCENE OBJECTS</b>{stage.scene.objects.map(o=><button key={o.id} className={o.id===stage.scene.selected_id?'active':''} onClick={()=>command('scene_select',{object_id:o.id})}><span>{o.label}</span><small>{o.kind.toUpperCase()}</small></button>)}</div><div className="scene-toolbar">
+   <button onClick={()=>command('scene_add',{kind:'energy',label:'CORE',x:0,y:0,z:0})}>+ CORE</button><button onClick={()=>command('scene_add',{kind:'vehicle',label:'VEHICLE'})}>+ VEHICLE</button><button onClick={()=>command('scene_add',{kind:'drone',label:'DRONE'})}>+ DRONE</button><button onClick={()=>command('scene_add',{kind:'globe',label:'EARTH',color:'#35ffe4'})}>+ GLOBE</button>
+   <button onClick={()=>command('scene_arrange',{layout:'orbit'})}>ORBIT DÜZEN</button><button onClick={()=>command('scene_arrange',{layout:'grid'})}>GRID DÜZEN</button><button onClick={()=>command('scene_camera',{camera:'isometric'})}>ISO CAM</button><button onClick={()=>command('scene_camera',{camera:'top'})}>TOP CAM</button><button onClick={()=>command('scene_animation',{animation:stage.scene.explode?'assemble':'explode'})}>{stage.scene.explode?'BİRLEŞTİR':'PATLAT'}</button><button onClick={()=>command('scene_animation',{animation:stage.scene.animation==='scan'?'idle':'scan'})}>SCAN</button><button onClick={()=>command('video_from_stage',{duration:8,title:'ULTRON SCENE'})}><Video/> SAHNEYİ VİDEO YAP</button><button onClick={()=>command('reset')}><RotateCcw/> CORE</button>
+  </div>{(()=>{const o=stage.scene.objects.find(x=>x.id===stage.scene.selected_id);if(!o)return null;return <div className="scene-inspector"><b>{o.label}</b><span>{o.id}</span><div><button onClick={()=>command('scene_update',{object_id:o.id,x:(o.position?.[0]||0)-.5})}>←</button><button onClick={()=>command('scene_update',{object_id:o.id,x:(o.position?.[0]||0)+.5})}>→</button><button onClick={()=>command('scene_update',{object_id:o.id,y:(o.position?.[1]||0)+.5})}>↑</button><button onClick={()=>command('scene_update',{object_id:o.id,y:(o.position?.[1]||0)-.5})}>↓</button></div><label>BOYUT<input type="range" min=".2" max="3" step=".1" value={o.scale} onChange={e=>command('scene_update',{object_id:o.id,scale:+e.target.value})}/></label><label>PATLAT<input type="range" min="0" max="2" step=".1" value={o.explode||0} onChange={e=>command('scene_update',{object_id:o.id,explode:+e.target.value})}/></label><button onClick={()=>command('scene_remove',{object_id:o.id})}>NESNEYİ SİL</button></div>})()}</div>}
   {stage.mode==='video_rendering'&&<div className="stage-video-render"><VideoRenderer stage={stage} onReady={(url,blob)=>{if(videoUrl)URL.revokeObjectURL(videoUrl);setVideoUrl(url);setVideoBlob(blob);setRenderProgress(100);}} onError={setRenderError} onProgress={setRenderProgress}/><div className="render-overlay"><Sparkles/><h2>ULTRON VIDEO RENDER</h2><p>{stage.video.template.replaceAll('_',' ').toUpperCase()} · {stage.video.duration}s</p><div className="stage-progress"><i style={{width:renderProgress+'%'}}/></div><b className="render-percent">%{renderProgress}</b><small>{renderError||'Frame üretimi ve WebM kodlama devam ediyor…'}</small></div></div>}
   {stage.mode==='video_preview'&&<div className="stage-video-preview">{videoUrl?<video ref={video} src={videoUrl} autoPlay loop controls playsInline/>:<div className="stage-missing-video"><Video/><h2>VIDEO OTURUMU HAZIR</h2><p>Bu render başka bir UI oturumunda üretildi. Yeniden üretmek için Render düğmesini kullan.</p></div>}<div className="video-actions"><button onClick={()=>{const v=video.current;if(!v)return;v.paused?v.play():v.pause();}}><Play/> OYNAT / DURAKLAT</button><button disabled={!videoBlob} onClick={downloadVideo}><Download/> KAYDET</button><button onClick={()=>command('video_create',{template:stage.video.template,duration:stage.video.duration,title:stage.video.title})}><RotateCcw/> YENİDEN RENDER</button><button onClick={()=>command('reset')}><Maximize2/> CORE</button></div></div>}
   {stage.mode==='task_progress'&&<div className="stage-task"><div className="task-orb"/><h2>{stage.title}</h2><p>{stage.subtitle}</p><div className="stage-progress"><i style={{width:Math.max(0,Math.min(100,stage.progress))+'%'}}/></div><b>%{Math.round(stage.progress)}</b></div>}
