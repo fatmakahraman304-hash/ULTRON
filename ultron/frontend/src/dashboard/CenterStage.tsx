@@ -149,7 +149,7 @@ function SceneLab({scene,transformMode,onCommand}:{scene:SceneState;transformMod
   const addPart=(group:THREE.Group,geo:THREE.BufferGeometry,mat:THREE.Material,pos:[number,number,number],dir:[number,number,number]=pos)=>{
    const m=new THREE.Mesh(geo,mat);m.position.set(...pos);m.userData.base=[...pos];m.userData.dir=[...dir];group.add(m);return m;
   };
-  const objectGroups=new Map<string,THREE.Group>();let dead=false;const sceneGltfLoader=new GLTFLoader();
+  const objectGroups=new Map<string,THREE.Group>(),mixers:THREE.AnimationMixer[]=[];let dead=false;const sceneGltfLoader=new GLTFLoader();
   for(const o of scene.objects||[]){
    if(o.visible===false)continue;
    const group=new THREE.Group();group.userData.objectId=o.id;group.userData.basePosition=[...(o.position||[0,0,0])];group.userData.baseRotation=[...(o.rotation||[0,0,0])];group.userData.baseScale=o.scale||1;group.position.set(o.position?.[0]||0,o.position?.[1]||0,o.position?.[2]||0);group.rotation.set(o.rotation?.[0]||0,o.rotation?.[1]||0,o.rotation?.[2]||0);group.scale.setScalar(o.scale||1);
@@ -157,7 +157,7 @@ function SceneLab({scene,transformMode,onCommand}:{scene:SceneState;transformMod
    const kind=o.kind||'energy';
    if(kind==='custom'&&o.model_id){
     const holder=new THREE.Group();group.add(holder);
-    sceneGltfLoader.load('/api/stage/model/'+encodeURIComponent(o.model_id),gltf=>{if(dead)return;const model=gltf.scene;model.traverse(node=>{const mesh=node as THREE.Mesh;if(mesh.isMesh){const old=mesh.material;mesh.material=new THREE.MeshBasicMaterial({color:colorOf(o.color),wireframe:o.wireframe,transparent:true,opacity:o.opacity});if(Array.isArray(old))old.forEach(m=>m.dispose());else old?.dispose?.();}});const box=new THREE.Box3().setFromObject(model),size=new THREE.Vector3(),center=new THREE.Vector3();box.getSize(size);box.getCenter(center);model.position.sub(center);const max=Math.max(size.x,size.y,size.z,.001);model.scale.setScalar(2.4/max);holder.add(model);},undefined,err=>console.warn('Scene Lab GLB:',o.model_id,err));
+    sceneGltfLoader.load('/api/stage/model/'+encodeURIComponent(o.model_id),gltf=>{if(dead)return;const model=gltf.scene;model.traverse(node=>{const mesh=node as THREE.Mesh;if(mesh.isMesh){const old=mesh.material;mesh.material=new THREE.MeshBasicMaterial({color:colorOf(o.color),wireframe:o.wireframe,transparent:true,opacity:o.opacity});if(Array.isArray(old))old.forEach(m=>m.dispose());else old?.dispose?.();}});const box=new THREE.Box3().setFromObject(model),size=new THREE.Vector3(),center=new THREE.Vector3();box.getSize(size);box.getCenter(center);model.position.sub(center);const max=Math.max(size.x,size.y,size.z,.001);model.scale.setScalar(2.4/max);holder.add(model);if(gltf.animations?.length){const mixer=new THREE.AnimationMixer(model);for(const clip of gltf.animations.slice(0,4))mixer.clipAction(clip).play();mixers.push(mixer);}},undefined,err=>console.warn('Scene Lab GLB:',o.model_id,err));
    }else if(kind==='vehicle'){
     addPart(group,new THREE.BoxGeometry(2.5,.48,1.15),dim,[0,0,0],[0,0,0]);
     addPart(group,new THREE.BoxGeometry(1.25,.48,.95),dim,[-.15,.46,0],[0,1,0]);
@@ -242,6 +242,7 @@ function SceneLab({scene,transformMode,onCommand}:{scene:SceneState;transformMod
   const click=(e:PointerEvent)=>{const r=renderer.domElement.getBoundingClientRect();mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;ray.setFromCamera(mouse,camera);const hits=ray.intersectObjects([...objectGroups.values()],true);const hit=hits.find(h=>!h.object.userData.selection);if(hit){let obj:THREE.Object3D|null=hit.object;while(obj&&!obj.userData.objectId)obj=obj.parent;const id=obj?.userData.objectId;if(id)onCommand('scene_select',{object_id:id});}};
   renderer.domElement.addEventListener('pointerdown',click);
   const loop=(now:number)=>{if(dead)return;const dt=Math.min(.05,(now-last)/1000);last=now;const seconds=now/1000,tlTime=timelineCursor(scene,Date.now()/1000);
+   for(const mixer of mixers)mixer.update(dt);
    for(const o of scene.objects||[]){const g=objectGroups.get(o.id);if(!g)continue;const sampled=sampleSceneObject(scene,o,tlTime),motion=o.motion||{type:'none',speed:1,radius:1.5,amplitude:.5,axis:'y'};let px=sampled.position[0]||0,py=sampled.position[1]||0,pz=sampled.position[2]||0;const ms=Number(motion.speed)||1,amp=Number(motion.amplitude)||.5,rad=Number(motion.radius)||1.5;
     if(motion.type==='orbit'){px+=Math.cos(seconds*ms)*rad;pz+=Math.sin(seconds*ms)*rad;}
     else if(motion.type==='bob'){py+=Math.sin(seconds*ms*2)*amp;}
@@ -259,7 +260,7 @@ function SceneLab({scene,transformMode,onCommand}:{scene:SceneState;transformMod
     else camera.position.set(Math.cos(a)*7,3.4,Math.sin(a)*7);camera.lookAt(0,0,0);orbit.target.set(0,0,0);
    }
    if(scan.visible)scan.position.y=-1.3+((now*.001)%1)*2.6;orbit.update();renderer.render(world,camera);raf=requestAnimationFrame(loop);};raf=requestAnimationFrame(loop);
-  return()=>{dead=true;cancelAnimationFrame(raf);ro.disconnect();renderer.domElement.removeEventListener('pointerdown',click);transform.detach();transform.dispose();orbit.dispose();renderer.dispose();world.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const tex=(o as any).userData?.labelTexture;if(tex)tex.dispose();const mm=(m as any).material;if(mm)(Array.isArray(mm)?mm:[mm]).forEach((x:THREE.Material)=>x.dispose());});renderer.domElement.remove();};
+  return()=>{dead=true;cancelAnimationFrame(raf);for(const mixer of mixers)mixer.stopAllAction();ro.disconnect();renderer.domElement.removeEventListener('pointerdown',click);transform.detach();transform.dispose();orbit.dispose();renderer.dispose();world.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const tex=(o as any).userData?.labelTexture;if(tex)tex.dispose();const mm=(m as any).material;if(mm)(Array.isArray(mm)?mm:[mm]).forEach((x:THREE.Material)=>x.dispose());});renderer.domElement.remove();};
  },[key,transformMode]);
  return <div className="scene-lab-webgl" ref={host}/>;
 }
