@@ -19,7 +19,8 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
     body: dict[str, Any] = {"operation": operation}
     for key in ("kind", "color", "label", "template", "title", "subtitle",
                 "object_id", "camera", "layout", "preset", "animation", "objects_json",
-                "motion", "axis", "theme", "keyframe_id", "cinematic", "scene_json"):
+                "motion", "axis", "theme", "keyframe_id", "cinematic", "scene_json",
+                "source_id", "target_id", "link_id"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -84,7 +85,7 @@ TOOL = {
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
                     "scene_arrange", "scene_preset", "scene_animation", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
-                    "scene_redo", "scene_focus", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
+                    "scene_redo", "scene_focus", "scene_link", "scene_unlink", "scene_auto_link", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
                     "timeline_remove_keyframe", "timeline_clear", "timeline_seek",
                     "timeline_play", "timeline_pause", "timeline_preset",
                     "video_create", "video_from_stage", "video_play",
@@ -132,6 +133,9 @@ TOOL = {
             "theme": {"type": "STRING"},
             "keyframe_id": {"type": "STRING"},
             "cinematic": {"type": "STRING"},
+            "source_id": {"type": "STRING"},
+            "target_id": {"type": "STRING"},
+            "link_id": {"type": "STRING"},
             "auto_orbit": {"type": "BOOLEAN"},
             "grid": {"type": "BOOLEAN"},
             "loop": {"type": "BOOLEAN"},
