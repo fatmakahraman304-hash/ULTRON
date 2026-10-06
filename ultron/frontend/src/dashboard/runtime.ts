@@ -58,7 +58,7 @@ export function useUltron(){
    ws.onmessage=e=>{if(stopped)return;let m;try{m=JSON.parse(e.data);}catch{return;}
     if(m.type==='hello'){setSystem(m.system);setAi(m.ai);setState(coreState(m.agent?.state));setNotifications(m.notifications??[]);setTools(m.tools??[]);setMemory(m.memory);if(m.stage)setStage(m.stage);}
     if(m.type==='tools')setTools(m.data??[]);if(m.type==='memory')setMemory(m.data);
-    if(m.type==='task_engine'){const status=m.data?.status??'';setTaskState(previous=>/START|RUNNING|STEP_START/.test(status)?'WORKING':/COMPLETE|FAILED|CANCELLED|PAUSED|APPROVAL/.test(status)?'IDLE':previous);}
+    if(m.type==='task_engine'){const status=m.data?.status??'';setTaskState(previous=>/START|RUNNING|STEP_START/.test(status)?'WORKING':/COMPLETE|FAILED|CANCELLED|PAUSED|APPROVAL/.test(status)?'IDLE':previous);setStage(previous=>{if(/START|RUNNING|STEP_START/.test(status)&&previous.mode==='core_idle')return {...previous,mode:'task_progress',title:String(m.data?.goal||m.data?.message||'GÖREV ÇALIŞIYOR').slice(0,100),subtitle:String(m.data?.message||status).slice(0,140),progress:Number(m.data?.percent??m.data?.progress??previous.progress??0)};if(/COMPLETE|FAILED|CANCELLED/.test(status)&&previous.mode==='task_progress')return {...defaultStage,revision:previous.revision+1};return previous;});}
     if(m.type==='system')setSystem(m.data);if(m.type==='ai')setAi(m.data);
     if(m.type==='agent'){setState(coreState(m.state));if(['DONE','ERROR'].includes(m.state)&&m.message)add('assistant',m.message);}
     if(m.type==='task')setPending(m.data);if(m.type==='patch')setPatch(m.data);
