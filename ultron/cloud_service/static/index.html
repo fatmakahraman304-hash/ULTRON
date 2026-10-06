@@ -121,9 +121,11 @@
     <section id="chatView" class="view active">
       <div id="messages"></div>
       <div class="composer">
-        <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON ile konuş">🎙</button><button id="attachBtn" class="attach-btn" aria-label="Fotoğraf ekle">📎</button><textarea id="message" class="grow" placeholder="Mesajını yaz..."></textarea><button id="sendBtn">Gönder</button></div>
+        <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON ile konuş">🎙</button><button id="attachBtn" class="attach-btn" aria-label="Fotoğraf ekle">📷</button><button id="pdfBtn" class="attach-btn" aria-label="PDF ekle">PDF</button><textarea id="message" class="grow" placeholder="Mesajını yaz..."></textarea><button id="sendBtn">Gönder</button></div>
         <input id="imageInput" type="file" accept="image/*" capture="environment" class="hidden" />
+        <input id="pdfInput" type="file" accept="application/pdf,.pdf" class="hidden" />
         <div id="imagePreview" class="image-preview"><img id="imageThumb" alt="Seçilen görsel"/><span id="imageName"></span><button id="clearImage" type="button">Kaldır</button></div>
+        <div id="pdfPreview" class="image-preview"><span style="font-size:22px">📄</span><span id="pdfName"></span><button id="clearPdf" type="button">Kaldır</button></div>
         <div class="voice-status" id="voiceStatus"><span class="voice-dot"></span><span id="voiceStatusText">Mikrofona dokun ve konuş</span></div>
         <div id="busy" class="busy"></div>
       </div>
@@ -184,7 +186,7 @@ let currentView='chat',messageSignature='',toastTimer=null;
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
 const scheduledSources=new Set();
-let pendingImage=null,pendingImageUrl='';
+let pendingImage=null,pendingImageUrl='',pendingPdf=null;
 
 async function api(path,options={}){
   let res;
@@ -197,6 +199,39 @@ async function api(path,options={}){
   let data={};try{data=await res.json()}catch{}
   if(!res.ok){const e=new Error(data.error||('HTTP '+res.status));e.status=res.status;e.data=data;throw e}
   return data;
+}
+async function documentApi(file,question=''){
+  const form=new FormData();form.append('document',file,file.name||'belge.pdf');form.append('question',question||'');
+  let res;
+  try{res=await fetch('/api/document',{method:'POST',credentials:'include',body:form})}
+  catch(err){const e=new Error('PDF yüklenirken bağlantı koptu.');e.network=true;throw e}
+  let data={};try{data=await res.json()}catch{}
+  if(!res.ok){const e=new Error(data.detail||data.error||('HTTP '+res.status));e.data=data;throw e}
+  return data;
+}
+function clearPendingPdf(){
+  pendingPdf=null;$('#pdfInput').value='';$('#pdfPreview').classList.remove('show');$('#pdfName').textContent='';
+}
+function choosePdf(file){
+  clearPendingPdf();if(!file)return;
+  if(file.type!=='application/pdf'&&!String(file.name||'').toLowerCase().endsWith('.pdf')){toast('Lütfen PDF dosyası seç.');return}
+  pendingPdf=file;$('#pdfName').textContent=file.name||'Belge.pdf';$('#pdfPreview').classList.add('show');
+}
+async function sendPdf(){
+  const file=pendingPdf;if(!file)return false;
+  const question=$('#message').value.trim();
+  $('#busy').textContent='ULTRON PDF’yi inceliyor…';$('#sendBtn').disabled=true;$('#pdfBtn').disabled=true;
+  addMessage('user','📄 '+(question||('PDF analizi: '+(file.name||'belge.pdf'))));
+  try{
+    const d=await documentApi(file,question);
+    conversationId=d.conversation_id||conversationId;if(conversationId)localStorage.setItem('ultronConversationId',conversationId);
+    addMessage('assistant',d.reply);messageSignature='';clearPendingPdf();$('#message').value='';
+    if(voiceEnabled&&!voiceListening)speakUltron(d.reply);
+    toast('PDF analiz edildi. Sesli modda bu belge hakkında soru sorabilirsin.');
+    return true;
+  }catch(e){
+    addMessage('assistant','PDF analizi başarısız: '+(e.message||'Bilinmeyen hata'));return false;
+  }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;$('#pdfBtn').disabled=false}
 }
 async function visionApi(file,question=''){
   const form=new FormData();form.append('image',file,file.name||'photo.jpg');form.append('question',question||'');
@@ -438,6 +473,7 @@ $('#loginBtn').onclick=async()=>{
 };
 async function send(fromVoice=false){
   if(pendingImage){await sendImage();return}
+  if(pendingPdf){await sendPdf();return}
   const text=$('#message').value.trim();if(!text)return;
   $('#message').value='';addMessage('user',text);$('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
   try{
@@ -452,6 +488,9 @@ $('#voiceBtn').onclick=startVoice;
 $('#attachBtn').onclick=()=>$('#imageInput').click();
 $('#imageInput').onchange=e=>chooseImage(e.target.files?.[0]||null);
 $('#clearImage').onclick=clearPendingImage;
+$('#pdfBtn').onclick=()=>$('#pdfInput').click();
+$('#pdfInput').onchange=e=>choosePdf(e.target.files?.[0]||null);
+$('#clearPdf').onclick=clearPendingPdf;
 
 $('#voiceToggle').onclick=()=>setVoiceEnabled(!voiceEnabled,true);
 if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=()=>pickUltronVoice()}
