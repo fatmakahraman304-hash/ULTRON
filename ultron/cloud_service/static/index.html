@@ -298,6 +298,13 @@
 
     .voice-status.locked:after{content:"SES KİLİDİ";margin-left:auto;font-size:8px;font-weight:900;letter-spacing:.08em;color:#ff6077;border:1px solid rgba(255,36,71,.45);border-radius:999px;padding:4px 7px}
 
+    /* Voice command HUD */
+    .voice-status{transition:.18s ease}
+    .voice-status.awake{border-color:rgba(255,36,71,.85)!important;box-shadow:0 0 22px rgba(255,36,71,.22)}
+    .voice-status.awake .voice-dot{animation:wakePulse .62s ease-in-out infinite alternate;box-shadow:0 0 18px #ff2447}
+    @keyframes wakePulse{from{transform:scale(.92)}to{transform:scale(1.55)}}
+    .background-status.awake .stage-status{border-color:rgba(255,36,71,.85)!important;box-shadow:0 0 22px rgba(255,36,71,.16)!important}
+
   </style>
 </head>
 <body>
@@ -859,6 +866,11 @@ function consumePendingVoice(role,text){
   if(idx<0)return false;
   pendingVoiceMessages.splice(idx,1);return true;
 }
+function setWakeUi(awake){
+  wakeWordActive=!!awake;
+  $('#voiceStatus').classList.toggle('awake',wakeWordActive);
+  $('.background-status')?.classList.toggle('awake',wakeWordActive);
+}
 function liveStatus(text,active=false){
   $('#voiceStatusText').textContent=text;$('#voiceStatus').classList.toggle('live',active);$('#voiceStatus').classList.toggle('locked',!!voiceProfile||serverSpeakerEnrolled);
   $('#voiceBtn').classList.toggle('listening',voiceListening);
@@ -917,7 +929,7 @@ async function openLiveSocket(){
       $('#stageVoiceText').textContent=(d.resumed?'Gemini Live hazır • ':'Gemini Live • ')+(d.voice||'ULTRON')+' • wake-word bekliyor';
     }
     if(d.type==='wake_state'){
-      wakeWordActive=!!d.awake;
+      setWakeUi(!!d.awake);
       if(wakeWordActive){
         liveStatus('Uyandım • seni dinliyorum…',true);
         $('#stageVoiceText').textContent='ULTRON aktif • komutunu dinliyorum';
@@ -928,9 +940,20 @@ async function openLiveSocket(){
       }
     }
     if(d.type==='ambient_ignored'){
-      wakeWordActive=false;
+      setWakeUi(false);
       liveStatus('“ULTRON” diyerek uyandır',true);
       $('#stageVoiceText').textContent='Ortam sesi yok sayıldı • ULTRON bekliyor';
+    }
+    if(d.type==='phone_action'){
+      const action=String(d.action||'');
+      if(action==='chat')showView('chat');
+      if(action==='memory')showView('memory');
+      if(action==='remote')showView('remote');
+      if(action==='camera'&&!cameraStream)startPhoneCamera();
+      if(action==='vibrate'&&navigator.vibrate)navigator.vibrate([80,45,80]);
+      if(action==='scroll_top')window.scrollTo({top:0,behavior:'smooth'});
+      const labels={chat:'Sohbet açıldı',memory:'Hafıza açıldı',remote:'Uzaktan kontrol açıldı',camera:'Kamera açılıyor',vibrate:'Titreşim gönderildi',scroll_top:'Üste çıkıldı'};
+      if(labels[action])toast(labels[action]);
     }
     if(d.type==='input_transcript'&&d.text){
       const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
@@ -952,7 +975,7 @@ async function openLiveSocket(){
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
       if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
-      messageSignature='';wakeWordActive=false;liveStatus('“ULTRON” diyerek uyandır',true);$('#stageVoiceText').textContent='Ses kilidi aktif • wake-word bekliyor';
+      messageSignature='';setWakeUi(false);liveStatus('“ULTRON” diyerek uyandır',true);$('#stageVoiceText').textContent='Ses kilidi aktif • wake-word bekliyor';
       loadMemories().catch(()=>{});
     }
     if(d.type==='error'){
@@ -969,7 +992,7 @@ async function openLiveSocket(){
 }
 async function stopLiveVoice(){
   intentionalVoiceStop=true;liveDesired=false;clearLiveReconnect();releaseVoiceWakeLock().catch(()=>{});
-  voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;wakeWordActive=false;stopPlayback();resetVoiceGateSegment();
+  voiceListening=false;liveSpeaking=false;suppressOutput=false;bargeBlocks=0;setWakeUi(false);stopPlayback();resetVoiceGateSegment();
   try{if(micProcessor)micProcessor.disconnect()}catch{}
   try{if(micSource)micSource.disconnect()}catch{}
   try{if(micStream)micStream.getTracks().forEach(t=>t.stop())}catch{}
@@ -1208,7 +1231,7 @@ function fmtTime(value){
 }
 async function phoneHeartbeat(){
   if($('#app').classList.contains('hidden'))return;
-  try{await api('/api/device-presence/heartbeat',{method:'POST',body:JSON.stringify({state:{view:currentView,visible:!document.hidden}})})}catch(e){}
+  try{await api('/api/device-presence/heartbeat',{method:'POST',body:JSON.stringify({state:{view:currentView,visible:!document.hidden,voice_listening:voiceListening,wake_active:wakeWordActive,speaker_lock:serverSpeakerEnrolled||!!voiceProfile}})})}catch(e){}
 }
 async function loadRemoteState(){
   const d=await api('/api/device-presence');
