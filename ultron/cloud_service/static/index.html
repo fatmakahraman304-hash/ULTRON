@@ -330,6 +330,11 @@
     .shortcut-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
     .shortcut-foot{display:block;margin-top:9px;color:var(--muted);line-height:1.35}
 
+    .phone-direct{margin-top:12px;padding:14px}
+    .phone-direct-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .phone-direct-grid button{min-height:42px;font-size:11px;font-weight:900;letter-spacing:.04em}
+    .phone-direct-note{display:block;margin-top:10px;color:var(--muted);line-height:1.4}
+
   </style>
 </head>
 <body>
@@ -401,6 +406,20 @@
         <button class="remote-card" data-command="mute"><b>MİKROFONU KAPAT</b><span>Laptop ULTRON mikrofonunu sessize al.</span></button>
         <button class="remote-card" data-command="unmute"><b>MİKROFONU AÇ</b><span>Laptop ULTRON mikrofonunu yeniden aç.</span></button>
         <button class="remote-card" data-command="sync_memory"><b>HAFIZAYI EŞİTLE</b><span>Cloud hafızasını laptopa hemen çek.</span></button>
+      </div>
+      <div class="phone-direct panel">
+        <div class="section-title" style="margin:0 0 10px"><h2>IPHONE KONTROLÜ</h2><small>Shortcuts gerektirmez</small></div>
+        <div class="phone-direct-grid">
+          <button data-phone-action="browser" data-phone-query="">CHROME</button>
+          <button data-phone-action="maps" data-phone-query="">HARİTALAR</button>
+          <button data-phone-action="open_app" data-phone-query="youtube">YOUTUBE</button>
+          <button data-phone-action="open_app" data-phone-query="spotify">SPOTIFY</button>
+          <button data-phone-action="open_app" data-phone-query="whatsapp">WHATSAPP</button>
+          <button data-phone-action="open_app" data-phone-query="instagram">INSTAGRAM</button>
+          <button data-phone-action="sms" data-phone-query="">MESAJ</button>
+          <button data-phone-action="email" data-phone-query="">E-POSTA</button>
+        </div>
+        <small class="phone-direct-note">iOS’un izin verdiği uygulama bağlantıları doğrudan açılır. Sistem ayarları (Wi‑Fi, Bluetooth, parlaklık vb.) Apple nedeniyle Shortcuts ister.</small>
       </div>
       <div class="remote-note">Serbest görev kutusu, telefondan yazdığın görevi laptopta çalışan ULTRON'a iletir. Kullanılabilen işlemler laptopta kurulu ULTRON araçları ve işletim sistemi izinlerine göre belirlenir.</div>
       <div class="shortcut-setup panel" id="shortcutSetup">
@@ -998,11 +1017,46 @@ async function openLiveSocket(){
         const number=query.replace(/[^+0-9]/g,'');
         if(number)location.href='tel:'+number;
       }
+      if(action==='sms'){
+        const number=query.replace(/[^+0-9]/g,'');
+        location.href=number?('sms:'+number):'sms:';
+      }
+      if(action==='email'){
+        location.href=query?('mailto:'+encodeURIComponent(query)):'mailto:';
+      }
+      if(action==='facetime'&&query){
+        const target=query.replace(/\s+/g,'');
+        if(target)location.href='facetime:'+target;
+      }
+      if(action==='open_app'){
+        const app=(query||'').trim().toLowerCase();
+        const schemes={
+          youtube:'youtube://',
+          spotify:'spotify://',
+          whatsapp:'whatsapp://',
+          instagram:'instagram://',
+          chrome:'googlechrome://',
+          maps:'maps://'
+        };
+        const fallbacks={
+          youtube:'https://www.youtube.com',
+          spotify:'https://open.spotify.com',
+          whatsapp:'https://wa.me/',
+          instagram:'https://www.instagram.com',
+          chrome:'https://www.google.com',
+          maps:'https://maps.apple.com/'
+        };
+        const scheme=schemes[app],fallback=fallbacks[app];
+        if(scheme){
+          const started=Date.now();location.href=scheme;
+          if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},900);
+        }
+      }
 
       const labels={
         chat:'Sohbet açıldı',memory:'Hafıza açıldı',remote:'Uzaktan kontrol açıldı',
         camera:'Kamera açılıyor',vibrate:'Titreşim gönderildi',scroll_top:'Üste çıkıldı',
-        browser:'Tarayıcı açılıyor',search_web:'Web araması açılıyor',maps:'Haritalar açılıyor',call:'Arama ekranı açılıyor'
+        browser:'Tarayıcı açılıyor',search_web:'Web araması açılıyor',maps:'Haritalar açılıyor',call:'Arama ekranı açılıyor',sms:'Mesajlar açılıyor',email:'E-posta açılıyor',facetime:'FaceTime açılıyor',open_app:'Uygulama açılıyor'
       };
       if(labels[action])toast(labels[action]);
     }
@@ -1439,6 +1493,21 @@ if(testShortcutBridge)testShortcutBridge.onclick=()=>{
   toast('ULTRON Bridge test komutu gönderildi • parlaklık %35');
   runShortcutUrl('ULTRON Bridge',JSON.stringify(command));
 };
+document.querySelectorAll('[data-phone-action]').forEach(btn=>btn.onclick=()=>{
+  const action=btn.dataset.phoneAction||'',query=btn.dataset.phoneQuery||'';
+  const fake={type:'phone_action',action,query};
+  // Reuse the same safe intent logic used by voice commands.
+  if(action==='browser'){location.href='googlechrome://';setTimeout(()=>{location.href='https://www.google.com'},900)}
+  if(action==='maps')location.href='https://maps.apple.com/';
+  if(action==='open_app'){
+    const schemes={youtube:'youtube://',spotify:'spotify://',whatsapp:'whatsapp://',instagram:'instagram://'};
+    const fallbacks={youtube:'https://www.youtube.com',spotify:'https://open.spotify.com',whatsapp:'https://wa.me/',instagram:'https://www.instagram.com'};
+    const scheme=schemes[query],fallback=fallbacks[query],started=Date.now();
+    if(scheme){location.href=scheme;if(fallback)setTimeout(()=>{if(Date.now()-started<1800)location.href=fallback},900)}
+  }
+  if(action==='sms')location.href='sms:';
+  if(action==='email')location.href='mailto:';
+});
 $('#refreshRemote').onclick=()=>Promise.all([loadRemoteState(),loadRemoteHistory()]).catch(e=>toast(e.message));
 async function completePhoneCommand(id,ok=true,message=''){
   if(!id)return;
