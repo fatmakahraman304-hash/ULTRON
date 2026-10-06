@@ -981,6 +981,20 @@ async function openLiveSocket(){
       if(status==='completed')$('#stageVoiceText').textContent='Laptop görevi tamamlandı';
       if(currentView==='remote')setTimeout(()=>loadRemoteHistory().catch(()=>{}),150);
     }
+    if(d.type==='laptop_task_quick_status'){
+      const task=String(d.task||'Görev').trim();
+      const msg=String(d.message||'Görev 5 saniye içinde tamamlanmadı.').trim();
+      toast(msg);
+      $('#stageVoiceText').textContent='Laptop görevi sürüyor';
+      // Give the user a guaranteed spoken status at ~5 seconds without
+      // touching the Gemini Live session.
+      speakRemoteResult(
+        /aç/i.test(task)
+          ? 'Henüz açıldığı doğrulanmadı, çalışmaya devam ediyorum.'
+          : 'Görev 5 saniye içinde tamamlanmadı, çalışmaya devam ediyorum.',
+        'running'
+      );
+    }
     if(d.type==='laptop_task_result'){
       const status=String(d.status||'');
       const result=d.result&&typeof d.result==='object'?d.result:{};
