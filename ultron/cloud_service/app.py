@@ -506,7 +506,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                     END
                 FROM picked
                 WHERE d.id=picked.id
-                RETURNING d.id,d.target,d.command,d.payload,d.source_device,d.created_at
+                RETURNING d.id,d.target,d.command,d.payload,d.source_device,d.progress,d.checkpoint,d.retry_count,d.max_retries,d.created_at
                 """,
                 request["user_id"], target,
             )
@@ -693,6 +693,66 @@ async def append_device_command_progress(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
 
 
+async def save_device_command_checkpoint(request: web.Request) -> web.Response:
+    try:
+        command_id = int(request.match_info["id"])
+    except Exception:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "invalid_command_id"}),
+            content_type="application/json",
+        )
+
+    if request.get("auth_kind", "") != "device":
+        raise web.HTTPForbidden(
+            text=json.dumps({"error": "device_auth_required"}),
+            content_type="application/json",
+        )
+
+    body = await request.json()
+    try:
+        step_index = max(0, min(99, int(body.get("step_index", 0) or 0)))
+    except Exception:
+        step_index = 0
+    state = body.get("state", {})
+    if not isinstance(state, dict):
+        state = {}
+    note = str(body.get("note", "")).strip()[:2000]
+    checkpoint = {
+        "step_index": step_index,
+        "state": state,
+        "note": note,
+        "updated_at": time.time(),
+    }
+    row = await request.app["db"].fetchrow(
+        """
+        UPDATE device_commands
+        SET checkpoint=$1::jsonb,
+            progress=COALESCE(progress,'[]'::jsonb) ||
+              jsonb_build_array(jsonb_build_object(
+                'stage','checkpoint',
+                'message',COALESCE(NULLIF($2,''),'Görev kontrol noktası kaydedildi.'),
+                'percent',NULL,
+                'step_index',$3,
+                'at',EXTRACT(EPOCH FROM NOW())
+              ))
+        WHERE id=$4 AND user_id=$5 AND target='desktop'
+          AND status IN ('delivered','queued')
+        RETURNING id,status,checkpoint,progress
+        """,
+        json.dumps(checkpoint, ensure_ascii=False),
+        note,
+        step_index,
+        command_id,
+        request["user_id"],
+    )
+    if not row:
+        raise web.HTTPNotFound(
+            text=json.dumps({"error": "command_not_found"}),
+            content_type="application/json",
+        )
+    return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+
+
 async def recent_device_commands(request: web.Request) -> web.Response:
     auth_kind = request.get("auth_kind", "")
     target = "desktop" if auth_kind == "web" else "phone"
@@ -710,7 +770,7 @@ async def recent_device_commands(request: web.Request) -> web.Response:
     )
     rows = await request.app["db"].fetch(
         """
-        SELECT id,target,command,payload,source_device,status,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
+        SELECT id,target,command,payload,source_device,status,result,progress,checkpoint,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
         FROM device_commands
         WHERE user_id=$1 AND target=$2
         ORDER BY id DESC LIMIT $3
@@ -720,7 +780,7 @@ async def recent_device_commands(request: web.Request) -> web.Response:
     items = []
     for row in rows:
         item = dict(row)
-        for key in ("payload", "result", "progress"):
+        for key in ("payload", "result", "progress", "checkpoint"):
             value = item.get(key, {})
             if isinstance(value, str):
                 try:
@@ -1264,6 +1324,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use get_latest_laptop_task when the user asks what happened to the last laptop task, whether it finished, or for its result. "
           "Use cancel_laptop_task when the user explicitly asks to cancel the latest queued laptop task. "
           "send_laptop_task may schedule a task for later by setting delay_minutes. "
+          "For complex laptop tasks, include a short ordered plan of 2-7 concrete steps so the desktop agent can report progress and resume from checkpoints. "
           "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it was sent live, scheduled, queued, retried, or completed. "
           "Do not claim access to laptop-only tools unless the laptop remote-agent path is explicitly used. "
           "The phone uses an ULTRON wake-word gate. When the gate is asleep, any audio may be ambient and must not be treated as a command. "
@@ -1382,7 +1443,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     "type": "OBJECT",
                     "properties": {
                         "task": {"type": "STRING", "description": "The exact desktop task requested by the user, concise but complete."},
-                        "delay_minutes": {"type": "INTEGER", "description": "Optional delay before the laptop may claim this task. Use 0 for immediately."}
+                        "delay_minutes": {"type": "INTEGER", "description": "Optional delay before the laptop may claim this task. Use 0 for immediately."},
+                        "plan": {"type": "ARRAY", "items": {"type": "STRING"}, "description": "Optional ordered 2-7 step plan for complex tasks."}
                     },
                     "required": ["task"]
                 }
@@ -1602,6 +1664,13 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         delay_minutes = max(0, min(1440, int(args.get("delay_minutes", 0) or 0)))
                     except Exception:
                         delay_minutes = 0
+                    raw_plan = args.get("plan", [])
+                    plan = []
+                    if isinstance(raw_plan, list):
+                        for step in raw_plan[:7]:
+                            value = str(step or "").strip()[:240]
+                            if value:
+                                plan.append(value)
 
                     online = bool(await pool.fetchval(
                         """
@@ -1618,7 +1687,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         RETURNING id,created_at,run_after
                         """,
                         user_id,
-                        json.dumps({"text": task_text, "origin": "voice"}, ensure_ascii=False),
+                        json.dumps({"text": task_text, "origin": "voice", "plan": plan}, ensure_ascii=False),
                         device_id,
                         delay_minutes,
                     )
@@ -1910,6 +1979,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/device-commands/claim", claim_device_commands)
     app.router.add_post("/api/device-commands/{id}/complete", complete_device_command)
     app.router.add_post("/api/device-commands/{id}/progress", append_device_command_progress)
+    app.router.add_post("/api/device-commands/{id}/checkpoint", save_device_command_checkpoint)
     app.router.add_post("/api/device-commands/{id}/cancel", cancel_device_command)
     app.router.add_get("/api/device-commands/recent", recent_device_commands)
     app.router.add_post("/api/device-presence/heartbeat", device_presence_heartbeat)
