@@ -89,6 +89,11 @@ export default function Dashboard(){
    if(selected&&/(?:devriye|patrol|sağa sola git|saga sola git)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'patrol',motion_speed:1,amplitude:1.4});return 'Seçili nesne devriye hareketine geçti.';}
    if(selected&&/(?:nabız|nabiz|pulse).*(?:hareket|yap|ver)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'pulse',motion_speed:1,amplitude:.8});return 'Seçili nesne pulse animasyonuna geçti.';}
    if(selected&&/(?:hareketi|animasyonu).*(?:durdur|kapat)/.test(t)){await action('scene_motion',{object_id:selected.id,motion:'none'});return 'Seçili nesnenin hareketi durduruldu.';}
+   if(/(?:sahneyi|scene).*(?:analiz modu|analysis mode)|(?:analiz modu|analysis mode).*(?:yap|aç|ac)/.test(t)){await action('scene_director',{preset:'analysis',duration});return 'Scene Director analiz modu aktif.';}
+   if(/(?:sahneyi|scene).*(?:savaş|savas|battle|taktik).*(?:mod|yap)|(?:battle mode|savaş modu|savas modu)/.test(t)){await action('scene_director',{preset:'battle',duration});return 'Scene Director battle modu aktif.';}
+   if(/(?:sunum|presentation).*(?:mod|yap|sahne)/.test(t)){await action('scene_director',{preset:'presentation',duration});return 'Scene Director sunum modu aktif.';}
+   if(/(?:launch sequence|kalkış sekansı|kalkis sekansi|fırlatma sekansı|firlatma sekansi)/.test(t)){await action('scene_director',{preset:'launch',duration});return 'Scene Director launch sekansı aktif.';}
+   if(/(?:sahneyi|scene).*(?:showcase|sinematik göster|sinematik goster|etkileyici göster|etkileyici goster)/.test(t)){await action('scene_director',{preset:'showcase',duration});return 'Scene Director showcase modu aktif.';}
    if(/(?:sinematik|cinematic).*(?:kamera|başlat|baslat|aç|ac)/.test(t)){const preset=/spiral/.test(t)?'spiral':/flyby|geçiş|gecis/.test(t)?'flyby':/üstten|ustten/.test(t)?'topdown':/hero|kahraman/.test(t)?'hero':'orbit';await action('scene_cinematic',{cinematic:preset,duration,loop:true});return 'Sinematik kamera başladı.';}
    if(/(?:sinematik|cinematic).*(?:durdur|kapat)/.test(t)){await action('scene_cinematic',{cinematic:'off'});return 'Sinematik kamera durdu.';}
    if(/(?:cyan|turkuaz).*(?:tema|sahne)|(?:tema|sahne).*(?:cyan|turkuaz)/.test(t)){await action('scene_theme',{theme:'cyan'});return 'Scene Lab teması cyan oldu.';}
