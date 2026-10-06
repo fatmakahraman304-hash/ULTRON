@@ -1,0 +1,27 @@
+name: ULTRONMobile
+options:
+  bundleIdPrefix: com.ultron
+  deploymentTarget:
+    iOS: "18.0"
+
+targets:
+  ULTRONMobile:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ultron.mobile
+        SWIFT_VERSION: 5.10
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: ULTRON
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: ULTRON sürekli sesli komutları dinlemek için mikrofona erişir.
+        INFOPLIST_KEY_UIBackgroundModes:
+          - audio
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+    scheme:
+      testTargets: []
