@@ -54,3 +54,5 @@
 .scan-frame i:nth-child(3){left:-1px;bottom:-1px;border-left:3px solid;border-bottom:3px solid}
 .scan-frame i:nth-child(4){right:-1px;bottom:-1px;border-right:3px solid;border-bottom:3px solid}
 @keyframes stageSpin{to{transform:rotate(360deg)}}@keyframes renderSweep{from{transform:translateX(-35%)}to{transform:translateX(175%)}}@keyframes scanLine{from{top:0}to{top:100%}}
+
+.render-percent{display:block;margin:9px 0;color:#ff536a;font:24px Consolas,monospace;letter-spacing:2px}
