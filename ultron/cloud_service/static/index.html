@@ -471,7 +471,7 @@ let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initial
 const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
-let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false,silentActionTurn=false;
+let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false,silentActionTurn=false,remoteResultSpeaking=false;
 let liveSessionId=localStorage.getItem('ultronLiveSessionId')||'';
 let voiceWakeLock=null;
 const pendingVoiceMessages=[];
@@ -666,6 +666,29 @@ function speakUltron(text,force=false){
   const u=new SpeechSynthesisUtterance(cleaned);u.lang='tr-TR';u.rate=.92;u.pitch=.72;u.volume=1;
   const v=pickUltronVoice();if(v)u.voice=v;speechSynthesis.speak(u);
 }
+function speakRemoteResult(text,status='completed'){
+  if(!text||!('speechSynthesis' in window))return;
+  const cleaned=String(text).replace(/[*_#>]/g,' ').replace(/\s+/g,' ').trim();
+  if(!cleaned)return;
+  try{speechSynthesis.cancel()}catch{}
+  remoteResultSpeaking=true;
+  liveSpeaking=false;
+  stopPlayback();
+  const u=new SpeechSynthesisUtterance(cleaned);
+  u.lang='tr-TR';u.rate=.92;u.pitch=.72;u.volume=1;
+  const v=pickUltronVoice();if(v)u.voice=v;
+  const finish=()=>{
+    remoteResultSpeaking=false;
+    if(liveDesired&&voiceListening){
+      liveStatus('Seni dinliyorum…',true);
+      $('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
+    }
+  };
+  u.onend=finish;u.onerror=finish;
+  $('#stageVoiceText').textContent=status==='completed'?'Laptop sonucu okunuyor':'Laptop görev sonucu';
+  try{speechSynthesis.speak(u)}catch{finish()}
+}
+
 function setVoiceEnabled(value,announce=false){
   voiceEnabled=!!value;localStorage.setItem('ultronVoiceEnabled',voiceEnabled?'1':'0');
   $('#voiceToggle').textContent=voiceEnabled?'◖))':'◖×';
@@ -910,6 +933,9 @@ async function openLiveSocket(){
     liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live bağlı • sürekli dinleme aktif';
     micProcessor.onaudioprocess=e=>{
       if(!liveDesired||!voiceListening||!liveSocket||liveSocket.readyState!==WebSocket.OPEN)return;
+      // Do not feed the phone's own local TTS back into Gemini Live while a
+      // desktop-task result is being announced.
+      if(remoteResultSpeaking)return;
       const mono=e.inputBuffer.getChannelData(0);
       if(liveSpeaking){
         const rms=micRms(mono);
@@ -948,6 +974,25 @@ async function openLiveSocket(){
       toast(scheduled?'Laptop görevi planlandı.':(online?'Laptop ULTRON görevi aldı: '+task.slice(0,80):'Laptop çevrimdışı • görev kuyruğa alındı'));
       $('#stageVoiceText').textContent=scheduled?'Laptop görevi planlandı':(online?'Laptop görevi gönderildi':'Laptop görevi kuyruğa alındı');
       if(currentView==='remote')setTimeout(()=>loadRemoteHistory().catch(()=>{}),500);
+    }
+    if(d.type==='laptop_task_update'){
+      const status=String(d.status||'');
+      if(status==='delivered')$('#stageVoiceText').textContent='Laptop ULTRON çalışıyor';
+      if(status==='completed')$('#stageVoiceText').textContent='Laptop görevi tamamlandı';
+      if(currentView==='remote')setTimeout(()=>loadRemoteHistory().catch(()=>{}),150);
+    }
+    if(d.type==='laptop_task_result'){
+      const status=String(d.status||'');
+      const result=d.result&&typeof d.result==='object'?d.result:{};
+      const reply=String(d.assistant_reply||result.assistant_reply||result.message||'').trim();
+      const fallback=status==='completed'?'Laptop görevi tamamlandı.':('Laptop görevi '+status+' durumuyla sonuçlandı.');
+      const spoken=reply||fallback;
+      toast((status==='completed'?'Laptop görevi tamamlandı: ':'Laptop görev sonucu: ')+spoken.slice(0,150));
+      rememberPendingVoice('assistant',spoken);
+      addMessage('assistant',spoken);
+      messageSignature='';
+      speakRemoteResult(spoken,status);
+      if(currentView==='remote')setTimeout(()=>loadRemoteHistory().catch(()=>{}),150);
     }
     if(d.type==='laptop_task_cancelled'){
       toast('Bekleyen laptop görevi iptal edildi.');
