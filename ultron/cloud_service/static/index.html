@@ -997,10 +997,26 @@ async function openLiveSocket(){
     }
     if(d.type==='laptop_task_result'){
       const status=String(d.status||'');
+      const task=String(d.task||'').trim();
       const result=d.result&&typeof d.result==='object'?d.result:{};
       const reply=String(d.assistant_reply||result.assistant_reply||result.message||'').trim();
-      const fallback=status==='completed'?'Laptop görevi tamamlandı.':('Laptop görevi '+status+' durumuyla sonuçlandı.');
-      const spoken=reply||fallback;
+      const isOpenTask=/\baç\b|\baçıl/i.test(task.toLocaleLowerCase('tr-TR'));
+      let spoken='';
+      if(isOpenTask){
+        const target=task
+          .replace(/\b(aç|açılır mı|açarmısın|açar mısın)\b/gi,'')
+          .replace(/[.,!?]+/g,' ')
+          .replace(/\s+/g,' ')
+          .trim()
+          .replace(/['’]?(u|ü|ı|i)$/i,'')
+          .trim();
+        spoken=status==='completed'
+          ? ((target||'Uygulama')+' açıldı.')
+          : ((target||'Uygulama')+' açılamadı.');
+      }else{
+        const fallback=status==='completed'?'Laptop görevi tamamlandı.':('Laptop görevi '+status+' durumuyla sonuçlandı.');
+        spoken=reply||fallback;
+      }
       toast((status==='completed'?'Laptop görevi tamamlandı: ':'Laptop görev sonucu: ')+spoken.slice(0,150));
       rememberPendingVoice('assistant',spoken);
       addMessage('assistant',spoken);
