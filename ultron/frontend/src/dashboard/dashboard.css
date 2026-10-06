@@ -114,3 +114,24 @@
 
 .scene-custom-anim{margin-top:8px;padding-top:7px;border-top:1px solid #3b242d}
 .scene-custom-anim button{width:100%;margin-top:5px}
+
+.scene-projects{position:absolute;z-index:40;left:175px;top:62px;width:410px;max-height:390px;overflow:auto;padding:10px;background:#05070bf5;border:1px solid #633044;box-shadow:0 8px 36px #000}
+.scene-projects>header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.scene-projects>header b{font:10px Consolas,monospace;letter-spacing:1.4px;color:#ff5870}
+.scene-projects>header button{width:26px;height:24px;padding:0}
+.scene-project-save{display:grid;grid-template-columns:1fr auto;gap:6px;margin-bottom:8px}
+.scene-project-save input{min-width:0;background:#080b10;border:1px solid #4c2631;color:#fff;padding:6px 8px;font:9px Consolas,monospace}
+.scene-project-save button{font-size:8px;padding:6px 8px}
+.scene-project-list{display:grid;gap:5px}
+.scene-project-list article{display:grid;grid-template-columns:1fr auto auto;gap:5px;align-items:center;padding:7px;border:1px solid #2d2026;background:#080a0e}
+.scene-project-list article div{min-width:0}
+.scene-project-list article b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:9px Consolas,monospace;color:#e8edf2}
+.scene-project-list article small{display:block;margin-top:2px;color:#788592;font:7px Consolas,monospace}
+.scene-project-list article button{font-size:7px;padding:5px 6px}
+.scene-project-list>p{color:#7e8b97;font:9px Consolas,monospace}
+.scene-hud-editor{margin-top:8px;padding-top:7px;border-top:1px solid #3b242d}
+.scene-hud-editor>b{display:inline-block;color:#9aa7b4;font:8px Consolas,monospace;margin-right:7px}
+.scene-hud-editor>button{font-size:7px;padding:4px 6px}
+.scene-hud-editor>div{display:flex;align-items:center;gap:5px;margin-top:4px;padding:4px 5px;background:#080b10;border:1px solid #302128}
+.scene-hud-editor>div span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cbd4dd;font:7px Consolas,monospace}
+.scene-hud-editor>div button{width:22px;padding:2px}
