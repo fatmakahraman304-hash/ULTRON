@@ -66,6 +66,8 @@ ALTER TABLE device_commands
 ALTER TABLE device_commands
   ADD COLUMN IF NOT EXISTS run_after TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE device_commands
+  ADD COLUMN IF NOT EXISTS checkpoint JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE device_commands
   ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 ALTER TABLE device_commands
   DROP CONSTRAINT IF EXISTS device_commands_status_check;
