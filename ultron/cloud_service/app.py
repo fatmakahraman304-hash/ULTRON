@@ -25,6 +25,11 @@ COOKIE_NAME = "ultron_session"
 DEFAULT_USER_ID = os.getenv("ULTRON_USER_ID", "murat")
 SESSION_DAYS = int(os.getenv("ULTRON_SESSION_DAYS", "30"))
 
+DEVICE_COMMANDS = {
+    "desktop": {"wake", "mute", "unmute", "interrupt", "sync_memory"},
+    "phone": {"ping", "refresh", "open_memory", "focus_chat"},
+}
+
 
 def required_env(name: str) -> str:
     value = os.getenv(name, "").strip()
@@ -79,6 +84,7 @@ async def auth_middleware(request: web.Request, handler):
         if hmac.compare_digest(candidate, device_token):
             request["user_id"] = DEFAULT_USER_ID
             request["device_id"] = request.headers.get("X-ULTRON-DEVICE", "desktop")[:80]
+            request["auth_kind"] = "device"
             return await handler(request)
 
     cookie = request.cookies.get(COOKIE_NAME, "")
@@ -86,6 +92,7 @@ async def auth_middleware(request: web.Request, handler):
     if user_id:
         request["user_id"] = user_id
         request["device_id"] = request.headers.get("X-ULTRON-DEVICE", "iphone-web")[:80]
+        request["auth_kind"] = "web"
         return await handler(request)
 
     raise web.HTTPUnauthorized(text=json.dumps({"error": "unauthorized"}), content_type="application/json")
@@ -192,6 +199,77 @@ async def delete_memory(request: web.Request) -> web.Response:
         request["user_id"], key,
     )
     return web.json_response({"ok": result.endswith("1")})
+
+
+async def send_device_command(request: web.Request) -> web.Response:
+    body = await request.json()
+    target = str(body.get("target", "")).strip().lower()
+    command = str(body.get("command", "")).strip().lower()
+    payload = body.get("payload", {})
+    if target not in DEVICE_COMMANDS or command not in DEVICE_COMMANDS[target]:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "unsupported_device_command"}),
+            content_type="application/json",
+        )
+    if not isinstance(payload, dict):
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "payload_must_be_object"}),
+            content_type="application/json",
+        )
+
+    # Phone/web sessions may control only the paired desktop ULTRON surface.
+    # The desktop device token may control only the ULTRON web client on phone.
+    auth_kind = request.get("auth_kind", "")
+    expected_target = "desktop" if auth_kind == "web" else "phone"
+    if target != expected_target:
+        raise web.HTTPForbidden(
+            text=json.dumps({"error": "device_direction_not_allowed"}),
+            content_type="application/json",
+        )
+
+    row = await request.app["db"].fetchrow(
+        """
+        INSERT INTO device_commands(user_id,target,command,payload,source_device)
+        VALUES($1,$2,$3,$4::jsonb,$5)
+        RETURNING id,target,command,created_at
+        """,
+        request["user_id"], target, command, json.dumps(payload), request["device_id"],
+    )
+    return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+
+
+async def claim_device_commands(request: web.Request) -> web.Response:
+    body = await request.json()
+    target = str(body.get("target", "")).strip().lower()
+    auth_kind = request.get("auth_kind", "")
+    expected_target = "phone" if auth_kind == "web" else "desktop"
+    if target != expected_target:
+        raise web.HTTPForbidden(
+            text=json.dumps({"error": "device_direction_not_allowed"}),
+            content_type="application/json",
+        )
+
+    async with request.app["db"].acquire() as conn:
+        async with conn.transaction():
+            rows = await conn.fetch(
+                """
+                WITH picked AS (
+                  SELECT id FROM device_commands
+                  WHERE user_id=$1 AND target=$2 AND status='queued'
+                    AND created_at > NOW() - INTERVAL '24 hours'
+                  ORDER BY id ASC
+                  LIMIT 20
+                  FOR UPDATE SKIP LOCKED
+                )
+                UPDATE device_commands d
+                SET status='delivered', delivered_at=NOW()
+                FROM picked
+                WHERE d.id=picked.id
+                RETURNING d.id,d.target,d.command,d.payload,d.source_device,d.created_at
+                """,
+                request["user_id"], target,
+            )
+    return web.json_response({"commands": [dict(r) for r in rows]}, dumps=_json_dumps)
 
 
 async def list_messages(request: web.Request) -> web.Response:
@@ -371,6 +449,8 @@ def build_app() -> web.Application:
     app.router.add_get("/api/session", session)
     app.router.add_get("/api/messages", list_messages)
     app.router.add_post("/api/chat", chat)
+    app.router.add_post("/api/device-commands", send_device_command)
+    app.router.add_post("/api/device-commands/claim", claim_device_commands)
     app.router.add_get("/api/memories", list_memories)
     app.router.add_put("/api/memories", upsert_memory)
     app.router.add_delete("/api/memories/{key}", delete_memory)
