@@ -59,6 +59,7 @@ from integration.cloud_memory_sync import (
     sync as sync_cloud_memory,
     heartbeat as cloud_presence_heartbeat,
 )
+from cloud_client import CloudClient
 
 # The file-backed tools (open_app, web_search, browser_control, …) are no longer
 # imported or declared here — they self-describe via a TOOL dict in their own
@@ -2041,6 +2042,159 @@ class UltronLive:
             except Exception as e:
                 print(f"[Proactive] ⚠️ {e}")
 
+    async def _handle_cloud_remote_command(self, client: CloudClient, item: dict) -> None:
+        """Execute one Cloud command claimed for this desktop instance."""
+        command_id = int(item.get("id") or 0)
+        command = str(item.get("command") or "").strip().lower()
+        payload = item.get("payload") or {}
+        if not isinstance(payload, dict):
+            payload = {}
+
+        async def finish(ok: bool, message: str, *, retryable: bool = False) -> None:
+            if not command_id:
+                return
+            try:
+                await client.complete_task(
+                    command_id,
+                    ok=ok,
+                    message=message,
+                    retryable=retryable,
+                )
+            except Exception as exc:
+                print(f"[CloudRemote] completion report failed: {type(exc).__name__}: {exc}")
+
+        try:
+            if command == "wake":
+                self.wake(reason="phone remote command")
+                await finish(True, "Laptop ULTRON uyandırıldı.")
+                return
+
+            if command == "mute":
+                self.ui.muted = True
+                await finish(True, "Laptop mikrofonu kapatıldı.")
+                return
+
+            if command == "unmute":
+                self.ui.muted = False
+                await finish(True, "Laptop mikrofonu açıldı.")
+                return
+
+            if command == "interrupt":
+                self.interrupt()
+                await finish(True, "Laptop ULTRON konuşması durduruldu.")
+                return
+
+            if command == "sync_memory":
+                ok, message = await asyncio.to_thread(sync_cloud_memory)
+                await finish(bool(ok), message)
+                return
+
+            if command != "agent_task":
+                await finish(False, f"Desteklenmeyen laptop komutu: {command}")
+                return
+
+            task_text = str(payload.get("text") or "").strip()
+            if not task_text:
+                await finish(False, "Laptop görevi boş geldi.")
+                return
+
+            # The Cloud queue can claim a task before Gemini Live has finished
+            # connecting. Keep the claimed task in-process until the local agent
+            # is actually ready instead of dropping it.
+            for _ in range(200):
+                if self.session is not None and self._turn_done_event is not None:
+                    break
+                await asyncio.sleep(0.1)
+            if self.session is None or self._turn_done_event is None:
+                await finish(False, "Laptop yerel ajanı hazır değil.", retryable=True)
+                return
+
+            if self._wake_enabled and not self._awake:
+                self.wake(reason="phone remote task")
+
+            plan = payload.get("plan") or []
+            plan_text = ""
+            if isinstance(plan, list):
+                clean_plan = [str(x).strip() for x in plan[:7] if str(x).strip()]
+                if clean_plan:
+                    plan_text = "\nPlan:\n" + "\n".join(
+                        f"{n}. {step}" for n, step in enumerate(clean_plan, 1)
+                    )
+
+            await client.report_task_progress(
+                command_id,
+                stage="received",
+                message="Telefon görevi laptop ULTRON tarafından alındı.",
+                percent=10,
+            )
+            self.ui.write_log(f"PHONE→LAPTOP: {task_text}")
+
+            self._turn_done_event.clear()
+            remote_prompt = (
+                "[REMOTE LAPTOP TASK FROM THE OWNER'S PHONE]\n"
+                f"{task_text}{plan_text}\n\n"
+                "Execute this task on THIS Windows laptop now using your available "
+                "local tools. Treat it exactly like a direct user command. Do not "
+                "claim completion unless the tool action actually succeeds."
+            )
+            await self.session.send_client_content(
+                turns={"role": "user", "parts": [{"text": remote_prompt}]},
+                turn_complete=True,
+            )
+            await client.report_task_progress(
+                command_id,
+                stage="executing",
+                message="Laptop yerel ajanı görevi çalıştırıyor.",
+                percent=40,
+            )
+
+            try:
+                await asyncio.wait_for(self._turn_done_event.wait(), timeout=180.0)
+            except asyncio.TimeoutError:
+                await finish(
+                    False,
+                    "Görev laptop ajanına teslim edildi ancak 180 saniye içinde son tur tamamlanmadı.",
+                    retryable=False,
+                )
+                return
+
+            await client.report_task_progress(
+                command_id,
+                stage="completed",
+                message="Laptop yerel ajanı görevi işledi.",
+                percent=100,
+            )
+            await finish(True, "Görev laptop ULTRON tarafından işlendi.")
+        except Exception as exc:
+            await finish(
+                False,
+                f"Laptop görevi çalıştırılırken hata: {type(exc).__name__}: {str(exc)[:500]}",
+                retryable=False,
+            )
+
+    async def _cloud_remote_loop(self) -> None:
+        """Poll ULTRON Cloud for phone-originated laptop commands."""
+        client = CloudClient()
+        self._cloud_client = client
+        if not client.enabled:
+            self.ui.write_log(
+                "SYS: Cloud uzaktan kontrol kapalı • ULTRON_CLOUD_URL veya cihaz anahtarı eksik."
+            )
+            return
+
+        self.ui.write_log("SYS: Cloud uzaktan kontrol hazır • telefon komutları bekleniyor.")
+        backoff = 1.2
+        while True:
+            try:
+                commands = await client.claim_desktop_commands()
+                backoff = 1.2
+                for item in commands:
+                    await self._handle_cloud_remote_command(client, item)
+            except Exception as exc:
+                print(f"[CloudRemote] {type(exc).__name__}: {str(exc)[:300]}")
+                backoff = min(10.0, backoff * 1.7)
+            await asyncio.sleep(backoff)
+
     async def _cloud_presence_loop(self) -> None:
         """Advertise desktop voice availability for cross-device single-speaker mode."""
         last_announced = None
@@ -2156,6 +2310,7 @@ class UltronLive:
         # both phone and laptop voice sessions are active, the phone can stay
         # listening but mute its own playback so only the laptop speaks.
         asyncio.create_task(self._cloud_presence_loop())
+        asyncio.create_task(self._cloud_remote_loop())
 
         # Start dashboard (optional — needs: pip install fastapi "uvicorn[standard]" cryptography)
         try:
