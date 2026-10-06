@@ -86,7 +86,7 @@ export default function Dashboard(){
    if(selected&&/(?:launch|fırlat|firlat|kalkış|kalkis).*(?:animasyon|hareket|yap|oluştur|olustur)/.test(t)){await action('timeline_preset',{preset:'launch',duration});return 'Launch timeline oluşturuldu.';}
    if(selected&&/(?:flyby|geçiş|gecis).*(?:animasyon|hareket|yap|oluştur|olustur)/.test(t)){await action('timeline_preset',{preset:'flyby',duration});return 'Flyby timeline oluşturuldu.';}
    if(/(?:timeline|keyframe).*(?:temizle|sil|sıfırla|sifirla)/.test(t)){await action('timeline_clear');return 'Timeline temizlendi.';}
-   if(/(?:sahneyi|hepsini).*(?:videoya çevir|video yap|render)/.test(t)){await action('video_from_stage',{duration,title:'ULTRON SCENE'});return 'Scene Lab video renderına geçti.';}
+   if(/(?:sahneyi|hepsini).*(?:videoya çevir|video yap|kaydet.*video|render)/.test(t)){await action('scene_record',{duration,title:'ULTRON SCENE'});return 'Canlı 3D Scene Lab video kaydı başladı.';}
    if(/(?:üstten|ustten|top).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'top'});return 'Kamera üst görünüme geçti.';}
    if(/(?:önden|onden|front).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'front'});return 'Kamera ön görünüme geçti.';}
    if(/(?:yandan|side).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'side'});return 'Kamera yan görünüme geçti.';}
