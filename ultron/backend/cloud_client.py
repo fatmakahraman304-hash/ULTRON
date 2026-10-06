@@ -127,8 +127,14 @@ class CloudClient:
         ok: bool,
         message: str = "",
         extra: dict[str, Any] | None = None,
+        retryable: bool = False,
+        retry_after_seconds: int = 30,
     ) -> dict[str, Any]:
-        result = {"message": str(message)[:8000]}
+        result = {
+            "message": str(message)[:8000],
+            "retryable": bool(retryable),
+            "retry_after_seconds": max(10, min(900, int(retry_after_seconds))),
+        }
         if extra:
             result.update(extra)
         return await self._request(
