@@ -95,7 +95,7 @@ final class PhoneActionRouter: ObservableObject {
             content: content,
             trigger: nil
         )
-        UNUserNotificationCenter.current().add(request)
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
     }
 
     private func pendingDescription(_ item: PendingPhoneAction) -> String {
