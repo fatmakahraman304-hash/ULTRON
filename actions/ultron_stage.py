@@ -18,13 +18,15 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
 
     body: dict[str, Any] = {"operation": operation}
     for key in ("kind", "color", "label", "template", "title", "subtitle",
-                "object_id", "camera", "layout", "preset", "animation", "objects_json"):
+                "object_id", "camera", "layout", "preset", "animation", "objects_json",
+                "motion", "axis", "theme", "keyframe_id", "cinematic"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
 
     for key in ("glow", "speed", "scale", "opacity", "duration", "progress",
-                "x", "y", "z", "rx", "ry", "rz", "spin", "explode"):
+                "x", "y", "z", "rx", "ry", "rz", "spin", "explode", "time",
+                "motion_speed", "radius", "amplitude", "snap"):
         value = _num(parameters.get(key))
         if value is not None:
             body[key] = value
@@ -37,7 +39,8 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
             except Exception:
                 pass
 
-    for key in ("wireframe", "pulse"):
+    for key in ("wireframe", "pulse", "auto_orbit", "grid", "loop", "show_labels",
+                "visible", "locked"):
         value = parameters.get(key)
         if isinstance(value, bool):
             body[key] = value
@@ -65,7 +68,7 @@ TOOL = {
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
         "describe the requested visual action. Scene Lab supports multiple selectable objects, camera views, layouts, exploded views and animations. Hologram/scene kinds: energy, globe, "
-        "network, drone, vehicle, logo, sphere, ring, tower. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary. Video templates: ultron_intro, "
+        "network, drone, vehicle, logo, sphere, ring, tower. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V3 also supports duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), timeline keyframes, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary. Video templates: ultron_intro, "
         "logo_reveal, energy_core, system_activation, task_complete, "
         "hologram_capture. For 'make this bigger/brighter/faster/red' after a "
         "hologram request, use hologram_update with only the changed fields."
@@ -80,6 +83,10 @@ TOOL = {
                     "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_update",
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
                     "scene_arrange", "scene_preset", "scene_animation", "scene_save",
+                    "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
+                    "scene_redo", "scene_cinematic", "timeline_set", "timeline_capture",
+                    "timeline_remove_keyframe", "timeline_clear", "timeline_seek",
+                    "timeline_play", "timeline_pause", "timeline_preset",
                     "video_create", "video_from_stage", "video_play",
                     "video_pause", "video_save", "task_progress", "screen_preview"
                 ],
@@ -114,6 +121,22 @@ TOOL = {
             "rz": {"type": "NUMBER"},
             "spin": {"type": "NUMBER"},
             "explode": {"type": "NUMBER"},
+            "time": {"type": "NUMBER"},
+            "motion_speed": {"type": "NUMBER"},
+            "radius": {"type": "NUMBER"},
+            "amplitude": {"type": "NUMBER"},
+            "snap": {"type": "NUMBER"},
+            "motion": {"type": "STRING"},
+            "axis": {"type": "STRING"},
+            "theme": {"type": "STRING"},
+            "keyframe_id": {"type": "STRING"},
+            "cinematic": {"type": "STRING"},
+            "auto_orbit": {"type": "BOOLEAN"},
+            "grid": {"type": "BOOLEAN"},
+            "loop": {"type": "BOOLEAN"},
+            "show_labels": {"type": "BOOLEAN"},
+            "visible": {"type": "BOOLEAN"},
+            "locked": {"type": "BOOLEAN"},
         },
         "required": ["operation"],
     },
