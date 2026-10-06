@@ -85,7 +85,7 @@ TOOL = {
                     "scene_select", "scene_remove", "scene_clear", "scene_camera",
                     "scene_arrange", "scene_preset", "scene_animation", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
-                    "scene_redo", "scene_focus", "scene_link", "scene_unlink", "scene_auto_link", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
+                    "scene_redo", "scene_focus", "scene_link", "scene_unlink", "scene_clear_links", "scene_auto_link", "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
                     "timeline_remove_keyframe", "timeline_clear", "timeline_seek",
                     "timeline_play", "timeline_pause", "timeline_preset",
                     "video_create", "video_from_stage", "video_play",
