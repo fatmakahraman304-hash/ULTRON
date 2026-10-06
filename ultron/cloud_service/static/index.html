@@ -228,7 +228,10 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showView(b.da
 document.querySelectorAll('[data-command]').forEach(b=>b.onclick=async()=>{
   const command=b.dataset.command;b.disabled=true;
   try{await api('/api/device-commands',{method:'POST',body:JSON.stringify({target:'desktop',command})});toast('Laptop komutu gönderildi: '+b.querySelector('b').textContent)}
-  catch(e){toast('Komut gönderilemedi: '+e.message)}
+  catch(e){
+    if(e.data?.error==='desktop_offline')toast('Laptop çevrimdışı. Bu anlık komut kuyruğa alınmadı.');
+    else toast('Komut gönderilemedi: '+e.message);
+  }
   finally{setTimeout(()=>b.disabled=false,500)}
 });
 async function sendRemoteTask(textOverride=''){
@@ -237,7 +240,11 @@ async function sendRemoteTask(textOverride=''){
   try{
     await api('/api/device-commands',{method:'POST',body:JSON.stringify({target:'desktop',command:'agent_task',payload:{text}})});
     if(!textOverride)$('#remoteTask').value='';
-    toast('Görev laptop ULTRON agente gönderildi.');
+    try{
+      const d=await api('/api/device-presence');
+      const laptop=(d.devices||[]).find(x=>x.device==='desktop');
+      toast(laptop?.online?'Görev laptop ULTRON agente gönderildi.':'Laptop çevrimdışı. Görev güvenli kuyruğa alındı ve 24 saat içinde laptop açılırsa çalışacak.');
+    }catch{toast('Görev Cloud kuyruğuna kaydedildi.')}
     setTimeout(()=>loadRemoteHistory().catch(()=>{}),500);
   }catch(e){toast('Görev gönderilemedi: '+e.message)}
   finally{$('#remoteTaskBtn').disabled=false;$('#remoteBusy').textContent=''}
