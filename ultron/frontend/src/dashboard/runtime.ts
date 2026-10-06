@@ -14,13 +14,13 @@ export type SceneCinematic={enabled:boolean;preset:string;duration:number;starte
 export type SceneState={objects:SceneObject[];selected_id?:string|null;camera:string;explode:number;auto_orbit:boolean;grid:boolean;show_labels?:boolean;theme?:string;snap?:number;animation:string;timeline?:SceneTimeline;cinematic?:SceneCinematic};
 export type StageState={
  mode:StageMode;title:string;subtitle:string;progress:number;revision:number;
- job_id?:string|null;video_paused?:boolean;save_nonce?:number;save_kind?:string;
+ job_id?:string|null;video_paused?:boolean;save_nonce?:number;save_kind?:string;record_nonce?:number;record_duration?:number;
  hologram:HologramConfig;
  scene:SceneState;
  video:{template:string;duration:number;title:string;ready:boolean;mime:string;bytes:number;source_hologram?:boolean;source_scene?:boolean};
 };
 export const defaultStage:StageState={
- mode:'core_idle',title:'ULTRON',subtitle:'NEURAL CORE',progress:0,revision:0,job_id:null,save_nonce:0,save_kind:'',
+ mode:'core_idle',title:'ULTRON',subtitle:'NEURAL CORE',progress:0,revision:0,job_id:null,save_nonce:0,save_kind:'',record_nonce:0,record_duration:8,
  hologram:{kind:'energy',color:'#ff3047',glow:1,speed:1,rings:4,particles:900,scale:1,opacity:.92,wireframe:false,pulse:true,label:'ULTRON'},
  scene:{objects:[],selected_id:null,camera:'isometric',explode:0,auto_orbit:true,grid:true,show_labels:true,theme:'crimson',snap:.25,animation:'idle',timeline:{duration:8,cursor:0,playing:false,loop:true,started_at:null,keyframes:[]},cinematic:{enabled:false,preset:'orbit',duration:8,started_at:null,loop:true}},
  video:{template:'ultron_intro',duration:6,title:'ULTRON',ready:false,mime:'',bytes:0}
