@@ -92,6 +92,13 @@ class Hub:
                 "opacity": 0.92, "wireframe": False, "pulse": True,
                 "label": "ULTRON",
             },
+            "earth": {
+                "auto_rotate": True, "rotation_speed": 0.08,
+                "clouds": True, "atmosphere": True, "stars": True,
+                "grid": False, "night": False, "live_iss": False,
+                "focus_lat": 20.0, "focus_lon": 0.0, "focus_label": "GLOBAL",
+                "markers": [],
+            },
             "scene": {
                 "objects": [],
                 "links": [],
@@ -129,6 +136,8 @@ class Hub:
             if isinstance(_stage_saved, dict):
                 if isinstance(_stage_saved.get("hologram"), dict):
                     self.stage_state["hologram"].update(_stage_saved["hologram"])
+                if isinstance(_stage_saved.get("earth"), dict):
+                    self.stage_state["earth"].update(_stage_saved["earth"])
                 if isinstance(_stage_saved.get("scene"), dict):
                     self.stage_state["scene"].update(_stage_saved["scene"])
                     _restored_scene = self.stage_state["scene"]
@@ -155,7 +164,7 @@ class Hub:
                         _path["started_at"] = None
                         _obj["path"] = _path
                 _saved_mode = str(_stage_saved.get("mode") or "")
-                if _saved_mode in {"core_idle", "hologram_lab", "scene_lab"}:
+                if _saved_mode in {"core_idle", "hologram_lab", "scene_lab", "earth_watch"}:
                     self.stage_state["mode"] = _saved_mode
                     self.stage_state["title"] = str(_stage_saved.get("title") or self.stage_state["title"])[:100]
                     self.stage_state["subtitle"] = str(_stage_saved.get("subtitle") or self.stage_state["subtitle"])[:140]
@@ -807,7 +816,7 @@ async def api_voice_live(req: web.Request) -> web.Response:
 
 
 # ---------------- Dynamic Center Stage ----------------
-_STAGE_MODES = {"core_idle", "hologram_lab", "scene_lab", "video_rendering", "video_preview",
+_STAGE_MODES = {"core_idle", "hologram_lab", "scene_lab", "earth_watch", "video_rendering", "video_preview",
                 "task_progress", "screen_preview"}
 
 
@@ -829,7 +838,7 @@ async def _stage_publish() -> None:
     hub.stage_state["revision"] = int(hub.stage_state.get("revision", 0)) + 1
     try:
         mode = hub.stage_state.get("mode")
-        persistent_mode = mode if mode in {"core_idle","hologram_lab","scene_lab"} else (
+        persistent_mode = mode if mode in {"core_idle","hologram_lab","scene_lab","earth_watch"} else (
             "scene_lab" if (hub.stage_state.get("scene") or {}).get("objects") else "core_idle"
         )
         if persistent_mode == "core_idle":
@@ -838,6 +847,9 @@ async def _stage_publish() -> None:
             _holo = hub.stage_state.get("hologram") or {}
             persistent_title = str(_holo.get("label") or "HOLOGRAM")[:100]
             persistent_subtitle = f"{str(_holo.get('kind') or 'energy').upper()} / LIVE"
+        elif persistent_mode == "earth_watch":
+            persistent_title = "EARTH WATCH"
+            persistent_subtitle = "3D GLOBAL MONITOR"
         else:
             _scene = hub.stage_state.get("scene") or {}
             persistent_title = "SCENE LAB"
@@ -848,6 +860,7 @@ async def _stage_publish() -> None:
             "title": persistent_title,
             "subtitle": persistent_subtitle,
             "hologram": hub.stage_state.get("hologram"),
+            "earth": hub.stage_state.get("earth"),
             "scene": hub.stage_state.get("scene"),
             "saved_at": time.time(),
         }
@@ -1126,6 +1139,40 @@ async def api_stage_command(req: web.Request) -> web.Response:
     if op in {"reset", "core", "core_idle"}:
         state.update({"mode": "core_idle", "title": "ULTRON",
                       "subtitle": "NEURAL CORE", "progress": 0, "job_id": None})
+    elif op in {"earth_open", "earth_watch", "world_watch"}:
+        earth=dict(state.get("earth") or {})
+        earth.setdefault("auto_rotate",True);earth.setdefault("rotation_speed",.08)
+        earth.setdefault("clouds",True);earth.setdefault("atmosphere",True);earth.setdefault("stars",True)
+        earth.setdefault("grid",False);earth.setdefault("night",False);earth.setdefault("live_iss",False)
+        earth.setdefault("focus_lat",20.0);earth.setdefault("focus_lon",0.0);earth.setdefault("focus_label","GLOBAL")
+        earth.setdefault("markers",[])
+        state["earth"]=earth;state.update({"mode":"earth_watch","title":"EARTH WATCH","subtitle":"3D GLOBAL MONITOR","progress":100})
+    elif op == "earth_control":
+        earth=dict(state.get("earth") or {})
+        for key in ("auto_rotate","clouds","atmosphere","stars","grid","night","live_iss"):
+            if key in body:earth[key]=bool(body.get(key))
+        if "rotation_speed" in body:earth["rotation_speed"]=_stage_number(body.get("rotation_speed"),earth.get("rotation_speed",.08),0,1.5)
+        state["earth"]=earth;state["mode"]="earth_watch"
+    elif op == "earth_focus":
+        earth=dict(state.get("earth") or {})
+        earth["focus_lat"]=_stage_number(body.get("lat",earth.get("focus_lat",20)),20,-90,90)
+        earth["focus_lon"]=_stage_number(body.get("lon",earth.get("focus_lon",0)),0,-180,180)
+        earth["focus_label"]=str(body.get("place") or body.get("label") or "TARGET")[:80]
+        state["earth"]=earth;state.update({"mode":"earth_watch","title":"EARTH WATCH","subtitle":f"{earth['focus_label']} / TARGET"})
+    elif op == "earth_marker_add":
+        earth=dict(state.get("earth") or {});markers=list(earth.get("markers") or [])
+        marker={"id":uuid.uuid4().hex[:8],
+                "lat":_stage_number(body.get("lat",0),0,-90,90),
+                "lon":_stage_number(body.get("lon",0),0,-180,180),
+                "label":str(body.get("label") or "MARKER")[:80],
+                "color":str(body.get("color") or "#ff334d")[:24]}
+        markers.append(marker);earth["markers"]=markers[-64:];state["earth"]=earth;state["mode"]="earth_watch";state["earth_result"]=marker
+    elif op == "earth_marker_remove":
+        earth=dict(state.get("earth") or {});marker_id=str(body.get("marker_id") or "")
+        earth["markers"]=[m for m in (earth.get("markers") or []) if str(m.get("id"))!=marker_id]
+        state["earth"]=earth;state["mode"]="earth_watch"
+    elif op == "earth_marker_clear":
+        earth=dict(state.get("earth") or {});earth["markers"]=[];state["earth"]=earth;state["mode"]="earth_watch"
     elif op in {"hologram_create", "hologram", "hologram_show"}:
         holo = dict(state.get("hologram") or {})
         kind = str(body.get("kind") or holo.get("kind") or "energy").strip().lower()
