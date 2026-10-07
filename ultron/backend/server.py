@@ -1015,7 +1015,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     state = hub.stage_state
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
-    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list"}:
+    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete"}:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
@@ -1694,7 +1694,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
                             "motion":{"type":"none","speed":1.0,"radius":1.5,"amplitude":.5,"axis":"y"}})
         scene = _scene_ensure(scene)
         scene.update({"objects":objects,"selected_id":objects[0]["id"] if objects else None,
-                      "camera":"isometric","auto_orbit":True,"grid":True,"animation":"idle"})
+                      "selected_ids":[objects[0]["id"]] if objects else [],
+                      "groups":[],"camera":"isometric","auto_orbit":True,"grid":True,"animation":"idle"})
         state["scene"] = scene
         state.update({"mode":"scene_lab","title":"SCENE LAB",
                       "subtitle":f"{preset.upper()} / {len(objects)} OBJECTS","progress":100})
