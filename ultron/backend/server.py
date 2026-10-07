@@ -845,9 +845,9 @@ def _scene_checkpoint() -> None:
 def _scene_defaults() -> dict:
     return {
         "objects": [], "links": [], "hud": [], "groups": [], "camera_bookmarks": [], "measurements": [],
-        "selected_id": None, "selected_ids": [], "focus_id": None, "camera": "isometric",
+        "selected_id": None, "selected_ids": [], "focus_id": None, "target_id": None, "camera": "isometric",
         "camera_pose": None, "camera_track": [], "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
-        "show_labels": True, "show_trails": True, "audio_reactive": True, "collision_overlay": False, "theme": "crimson", "snap": 0.25,
+        "show_labels": True, "show_trails": True, "audio_reactive": True, "collision_overlay": False, "render_mode": "hologram", "theme": "crimson", "snap": 0.25,
         "animation": "idle",
         "timeline": {
             "duration": 8.0, "cursor": 0.0, "playing": False,
@@ -892,12 +892,32 @@ def _scene_ensure(scene: dict) -> dict:
             obj["parent_id"] = None
         if "physics" not in obj or not isinstance(obj.get("physics"), dict):
             obj["physics"] = {"mode":"off","gravity":9.81,"velocity":[0.0,0.0,0.0],"bounce":.45,"floor":-1.3,"started_at":None}
+        if "constraint" not in obj or not isinstance(obj.get("constraint"), dict):
+            obj["constraint"] = {"type":"none","target_id":None,"distance":2.0,"speed":1.0,"offset":[0.0,0.0,0.0]}
+        if "path" not in obj or not isinstance(obj.get("path"), dict):
+            obj["path"] = {"points":[],"speed":1.0,"loop":True,"started_at":None}
     ids = {str(o.get("id")) for o in scene.get("objects") or [] if isinstance(o, dict)}
     for obj in scene.get("objects") or []:
         if not isinstance(obj, dict): continue
         parent = str(obj.get("parent_id") or "")
         if parent not in ids or parent == str(obj.get("id")):
             obj["parent_id"] = None
+    for obj in scene.get("objects") or []:
+        if not isinstance(obj,dict): continue
+        constraint=dict(obj.get("constraint") or {})
+        target=str(constraint.get("target_id") or "")
+        if target not in ids or target==str(obj.get("id")):
+            constraint["target_id"]=None
+            if str(constraint.get("type") or "none")!="none": constraint["type"]="none"
+        obj["constraint"]=constraint
+        path=dict(obj.get("path") or {});points=[]
+        for point in (path.get("points") or [])[:32]:
+            if not isinstance(point,list): continue
+            p=list(point)
+            while len(p)<3:p.append(0)
+            points.append([_stage_number(p[0],0,-12,12),_stage_number(p[1],0,-8,8),_stage_number(p[2],0,-12,12)])
+        path["points"]=points;obj["path"]=path
+    if str(scene.get("target_id") or "") not in ids: scene["target_id"]=None
     scene["selected_ids"] = [str(x) for x in scene.get("selected_ids") or [] if str(x) in ids][:16]
     selected = str(scene.get("selected_id") or "")
     if selected and selected in ids and selected not in scene["selected_ids"]:
@@ -1019,7 +1039,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     state = hub.stage_state
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
-    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete", "scene_diagnostics", "scene_collision_overlay"}:
+    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete", "scene_diagnostics", "scene_collision_overlay", "scene_target_lock", "scene_target_clear"}:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
@@ -1105,6 +1125,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "clip_paused":bool(spec.get("clip_paused",False)),
                 "parent_id":re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("parent_id") or ""))[:24] or None,
                 "physics":dict(spec.get("physics") or {"mode":"off","gravity":9.81,"velocity":[0,0,0],"bounce":.45,"floor":-1.3,"started_at":None}),
+                "constraint":dict(spec.get("constraint") or {"type":"none","target_id":None,"distance":2.0,"speed":1.0,"offset":[0,0,0]}),
+                "path":dict(spec.get("path") or {"points":[],"speed":1.0,"loop":True,"started_at":None}),
                 "motion":{"type":str(motion.get("type") or "none"),"speed":_stage_number(motion.get("speed",1),1,.05,5),
                           "radius":_stage_number(motion.get("radius",1.5),1.5,.1,6),"amplitude":_stage_number(motion.get("amplitude",.5),.5,.05,4),
                           "axis":str(motion.get("axis") or "y")},
@@ -1117,6 +1139,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
         if loaded["selected_id"] and loaded["selected_id"] not in loaded["selected_ids"]:
             loaded["selected_ids"].insert(0, loaded["selected_id"])
         focus=str(raw.get("focus_id") or "");loaded["focus_id"]=focus if any(o["id"]==focus for o in objects) else None
+        target_id=str(raw.get("target_id") or "");loaded["target_id"]=target_id if any(o["id"]==target_id for o in objects) else None
+        render_mode=str(raw.get("render_mode") or "hologram").lower();loaded["render_mode"]=render_mode if render_mode in {"hologram","blueprint","xray","solid","thermal"} else "hologram"
         loaded["camera"]=str(raw.get("camera") or "isometric") if str(raw.get("camera") or "isometric") in {"front","top","side","isometric","orbit","close","custom"} else "isometric"
         pose=raw.get("camera_pose")
         if isinstance(pose,dict):
@@ -1248,6 +1272,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "clip_paused": bool(spec.get("clip_paused",False)),
                 "parent_id": re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("parent_id") or ""))[:24] or None,
                 "physics": {"mode":"off","gravity":9.81,"velocity":[0.0,0.0,0.0],"bounce":.45,"floor":-1.3,"started_at":None},
+                "constraint": {"type":"none","target_id":None,"distance":2.0,"speed":1.0,"offset":[0.0,0.0,0.0]},
+                "path": {"points":[],"speed":1.0,"loop":True,"started_at":None},
                 "motion": {
                     "type": str(spec.get("motion") or "none"),
                     "speed": _stage_number(spec.get("motion_speed",1),1,.05,5),
@@ -1306,6 +1332,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "clip_paused": bool(body.get("clip_paused",False)),
                 "parent_id": re.sub(r"[^A-Za-z0-9_-]","",str(body.get("parent_id") or ""))[:24] or None,
                 "physics": {"mode":"off","gravity":9.81,"velocity":[0.0,0.0,0.0],"bounce":.45,"floor":-1.3,"started_at":None},
+                "constraint": {"type":"none","target_id":None,"distance":2.0,"speed":1.0,"offset":[0.0,0.0,0.0]},
+                "path": {"points":[],"speed":1.0,"loop":True,"started_at":None},
                 "motion": {
                     "type": str(body.get("motion") or "none"),
                     "speed": _stage_number(body.get("motion_speed",1),1,.05,5),
