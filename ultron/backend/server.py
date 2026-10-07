@@ -1847,6 +1847,47 @@ async def api_stage_command(req: web.Request) -> web.Response:
         path=Path(DATA_DIR)/"scene_projects"/f"{project_id}.json"
         if path.exists(): path.unlink()
         state["project_result"]={"deleted":project_id}
+    elif op == "scene_asset_list":
+        directory=Path(DATA_DIR)/"scene_models";models=[]
+        if directory.exists():
+            for meta_path in sorted(directory.glob("*.json"),key=lambda p:p.stat().st_mtime,reverse=True)[:100]:
+                try:
+                    data=json.loads(meta_path.read_text(encoding="utf-8"))
+                    mid=re.sub(r"[^A-Za-z0-9_-]","",str(data.get("id") or meta_path.stem))[:48]
+                    glb=directory/f"{mid}.glb"
+                    if not glb.exists():continue
+                    models.append({"id":mid,"name":str(data.get("name") or "model.glb")[:160],
+                                   "bytes":int(data.get("bytes") or glb.stat().st_size),
+                                   "created_at":float(data.get("created_at") or glb.stat().st_mtime)})
+                except Exception:continue
+        state["asset_result"]={"models":models};state["mode"]="scene_lab"
+    elif op == "scene_asset_add":
+        directory=Path(DATA_DIR)/"scene_models";raw=str(body.get("model_id") or body.get("asset_name") or body.get("label") or "").strip()
+        match=None
+        if directory.exists():
+            for meta_path in directory.glob("*.json"):
+                try:
+                    data=json.loads(meta_path.read_text(encoding="utf-8"));mid=str(data.get("id") or meta_path.stem);name=str(data.get("name") or "")
+                    if raw==mid or raw.lower()==name.lower() or (raw and raw.lower() in name.lower()):
+                        match={"id":mid,"name":name};break
+                except Exception:continue
+        if not match:return web.json_response({"ok":False,"error":"asset_not_found"},status=404)
+        body={"operation":"scene_add","kind":"custom","model_id":match["id"],"label":str(body.get("label") or match["name"]).replace(".glb","")[:60],
+              "color":str(body.get("color") or "#ff3047"),"wireframe":bool(body.get("wireframe",True))}
+        class _AssetReq:
+            async def json(self):return body
+        return await api_stage_command(_AssetReq())
+    elif op == "scene_asset_delete":
+        model_id=re.sub(r"[^A-Za-z0-9_-]","",str(body.get("model_id") or ""))[:48]
+        if not model_id:return web.json_response({"ok":False,"error":"model_id_required"},status=400)
+        if any(str(o.get("model_id") or "")==model_id for o in (state.get("scene",{}).get("objects") or [])):
+            return web.json_response({"ok":False,"error":"model_in_use"},status=409)
+        directory=Path(DATA_DIR)/"scene_models";removed=False
+        for suffix in (".glb",".json"):
+            path=directory/f"{model_id}{suffix}"
+            if path.exists():path.unlink();removed=True
+        if not removed:return web.json_response({"ok":False,"error":"asset_not_found"},status=404)
+        state["asset_result"]={"deleted":model_id};state["mode"]="scene_lab"
     elif op == "scene_focus":
         scene = dict(state.get("scene") or {})
         target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
