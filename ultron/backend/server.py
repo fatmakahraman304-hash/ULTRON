@@ -1991,6 +1991,68 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "scene_hud_clear":
         scene=dict(state.get("scene") or {});scene["hud"]=[];state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_trigger_add":
+        scene=dict(state.get("scene") or {})
+        condition=str(body.get("condition_type") or "timer").lower()
+        allowed_conditions={"timer","distance_lt","distance_gt","collision"}
+        if condition not in allowed_conditions:return web.json_response({"ok":False,"error":"invalid_trigger_condition"},status=400)
+        action=str(body.get("action_operation") or "").lower()
+        allowed_actions={"scene_select","scene_target_lock","scene_target_clear","scene_render_mode","scene_animation",
+                         "scene_cinematic","scene_camera","scene_focus","scene_physics","scene_path_play","scene_path_stop",
+                         "scene_constraint","timeline_play","timeline_pause","scene_hud_add","scene_hud_clear",
+                         "scene_sequence_play","scene_sequence_stop"}
+        if action not in allowed_actions:return web.json_response({"ok":False,"error":"invalid_trigger_action"},status=400)
+        source=_scene_resolve_object(scene,body.get("source_id"),body.get("source_label"))
+        target=_scene_resolve_object(scene,body.get("target_id"),body.get("target_label"))
+        if condition in {"distance_lt","distance_gt","collision"} and (not source or not target or source==target):
+            return web.json_response({"ok":False,"error":"trigger_requires_two_objects"},status=400)
+        args=body.get("action_args")
+        if args is None and body.get("action_args_json"):
+            try:args=json.loads(str(body.get("action_args_json")))
+            except Exception:args={}
+        if not isinstance(args,dict):args={}
+        safe_args={str(k)[:40]:v for k,v in list(args.items())[:24] if isinstance(v,(str,int,float,bool)) or v is None}
+        trigger={"id":uuid.uuid4().hex[:8],"name":str(body.get("trigger_name") or body.get("label") or condition.upper())[:60],
+                 "enabled":bool(body.get("enabled",True)),"condition_type":condition,
+                 "source_id":source or None,"target_id":target or None,
+                 "threshold":_stage_number(body.get("threshold",2),2,.05,50),
+                 "delay":_stage_number(body.get("delay",0),0,0,120),
+                 "action_operation":action,"action_args":safe_args,
+                 "once":bool(body.get("once",True)),"cooldown":_stage_number(body.get("cooldown",2),2,.1,120),
+                 "fired":False,"last_fired_at":None,"armed_at":time.time()}
+        triggers=list(scene.get("triggers") or []);triggers.append(trigger);scene["triggers"]=triggers[-32:]
+        state["scene"]=scene;state["mode"]="scene_lab";state["trigger_result"]=trigger
+    elif op == "scene_trigger_remove":
+        scene=dict(state.get("scene") or {});tid=str(body.get("trigger_id") or "")
+        before=len(scene.get("triggers") or []);scene["triggers"]=[t for t in (scene.get("triggers") or []) if str(t.get("id"))!=tid]
+        if len(scene["triggers"])==before:return web.json_response({"ok":False,"error":"trigger_not_found"},status=404)
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_trigger_clear":
+        scene=dict(state.get("scene") or {});scene["triggers"]=[];state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_trigger_reset":
+        scene=dict(state.get("scene") or {});tid=str(body.get("trigger_id") or "");found=False
+        for trig in scene.get("triggers") or []:
+            if tid and str(trig.get("id"))!=tid:continue
+            trig["fired"]=False;trig["last_fired_at"]=None;trig["armed_at"]=time.time();found=True
+        if tid and not found:return web.json_response({"ok":False,"error":"trigger_not_found"},status=404)
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_trigger_enable":
+        scene=dict(state.get("scene") or {});tid=str(body.get("trigger_id") or "");found=False
+        for trig in scene.get("triggers") or []:
+            if str(trig.get("id"))==tid:
+                trig["enabled"]=bool(body.get("enabled",True))
+                if trig["enabled"] and bool(body.get("reset",False)):
+                    trig["fired"]=False;trig["last_fired_at"]=None;trig["armed_at"]=time.time()
+                found=True;break
+        if not found:return web.json_response({"ok":False,"error":"trigger_not_found"},status=404)
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_trigger_fire":
+        scene=dict(state.get("scene") or {});tid=str(body.get("trigger_id") or "");found=None
+        for trig in scene.get("triggers") or []:
+            if str(trig.get("id"))==tid:
+                trig["fired"]=True;trig["last_fired_at"]=time.time();found=copy.deepcopy(trig);break
+        if found is None:return web.json_response({"ok":False,"error":"trigger_not_found"},status=404)
+        state["scene"]=scene;state["mode"]="scene_lab";state["trigger_result"]=found
     elif op == "scene_sequence_set":
         scene=dict(state.get("scene") or {})
         raw=body.get("steps")
@@ -2442,6 +2504,10 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 issues.append({"type":"invalid_measurement","id":str(measurement.get("id") or "")})
         for frame in (scene.get("timeline") or {}).get("keyframes") or []:
             if str(frame.get("object_id")) not in idset:issues.append({"type":"dangling_keyframe","id":str(frame.get("id") or "")})
+        for trig in scene.get("triggers") or []:
+            if trig.get("condition_type") in {"distance_lt","distance_gt","collision"}:
+                if str(trig.get("source_id") or "") not in idset or str(trig.get("target_id") or "") not in idset:
+                    issues.append({"type":"invalid_trigger","id":str(trig.get("id") or "")})
         # Approximate world transforms for collision diagnostics. Bounding spheres are orientation-independent.
         def _world_transform(oid,seen=None):
             seen=set(seen or ())
@@ -2467,7 +2533,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                                        "distance":round(dist,3),"threshold":round(threshold,3)})
         result={"ok":not issues,"health":"warning" if issues or collisions else "ok","objects":len(objects),
                 "groups":len(scene.get("groups") or []),"links":len(scene.get("links") or []),"hud":len(scene.get("hud") or []),
-                "measurements":len(scene.get("measurements") or []),"object_keyframes":len((scene.get("timeline") or {}).get("keyframes") or []),
+                "measurements":len(scene.get("measurements") or []),"triggers":len(scene.get("triggers") or []),"object_keyframes":len((scene.get("timeline") or {}).get("keyframes") or []),
                 "camera_keyframes":len(scene.get("camera_track") or []),"issues":issues[:40],"collisions":collisions[:40]}
         state["diagnostics_result"]=result;state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "scene_theme":
