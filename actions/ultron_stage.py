@@ -25,7 +25,9 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 "project_name", "project_id", "easing", "object_ids_json", "selection_mode",
                 "group_id", "group_name", "align", "parent_id", "parent_label",
                 "bookmark_id", "bookmark_name", "asset_name", "physics_mode", "velocity_json",
-                "constraint", "constraint_type", "offset_json", "point_json", "render_mode"):
+                "constraint", "constraint_type", "offset_json", "point_json", "render_mode",
+                "steps_json", "sequence_name", "step_operation", "step_args_json", "step_label",
+                "snapshot_name", "snapshot_id"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -77,7 +79,7 @@ TOOL = {
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
         "describe the requested visual action. Scene Lab supports multiple selectable objects and object_label can target them naturally by visible name, camera views, layouts, exploded views and animations. Hologram/scene kinds: energy, globe, "
-        "network, drone, vehicle, logo, sphere, ring, tower, robot, arm, satellite, aircraft, building, ship, radar, portal, cube and persistent imported custom GLB models. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V5 supports multi-select, named groups, batch transforms, align/distribute, arrays/formations, parent-child hierarchy, camera bookmarks and timeline-synced camera keyframes, target lock, follow/look-at/orbit-target constraints, waypoint route playback, hologram/blueprint/xray/solid/thermal technical render modes, live drop/launch/zero-G/float physics, holographic distance measurements, scene diagnostics and live collision-risk overlays, a persistent GLB asset library (scene_asset_list/add/delete), duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), multi-object timeline capture/editing, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary, command_center, city_scan, space_ops, robotics. Video templates: ultron_intro, "
+        "network, drone, vehicle, logo, sphere, ring, tower, robot, arm, satellite, aircraft, building, ship, radar, portal, cube and persistent imported custom GLB models. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V6 supports multi-select, named groups, batch transforms, align/distribute, arrays/formations, parent-child hierarchy, camera bookmarks and timeline-synced camera keyframes, target lock, follow/look-at/orbit-target constraints, waypoint route playback, hologram/blueprint/xray/solid/thermal technical render modes, timed Mission Sequences (set/add/preset/play/stop/clear) and persistent Snapshot Vault save/list/restore/delete, live drop/launch/zero-G/float physics, holographic distance measurements, scene diagnostics and live collision-risk overlays, a persistent GLB asset library (scene_asset_list/add/delete), duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), multi-object timeline capture/editing, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary, command_center, city_scan, space_ops, robotics. Video templates: ultron_intro, "
         "logo_reveal, energy_core, system_activation, task_complete, "
         "hologram_capture. For 'make this bigger/brighter/faster/red' after a "
         "hologram request, use hologram_update with only the changed fields."
@@ -95,8 +97,10 @@ TOOL = {
                     "scene_array", "scene_parent", "scene_unparent", "scene_asset_list", "scene_asset_add",
                     "scene_asset_delete", "scene_physics", "scene_constraint", "scene_waypoint_add",
                     "scene_waypoint_clear", "scene_path_play", "scene_path_stop", "scene_target_lock",
-                    "scene_target_clear", "scene_render_mode", "scene_measure", "scene_measure_clear",
-                    "scene_diagnostics", "scene_collision_overlay", "scene_remove", "scene_clear", "scene_camera",
+                    "scene_target_clear", "scene_render_mode", "scene_sequence_set", "scene_sequence_add",
+                    "scene_sequence_preset", "scene_sequence_play", "scene_sequence_stop", "scene_sequence_clear",
+                    "scene_snapshot_save", "scene_snapshot_list", "scene_snapshot_restore", "scene_snapshot_delete",
+                    "scene_measure", "scene_measure_clear", "scene_diagnostics", "scene_collision_overlay", "scene_remove", "scene_clear", "scene_camera",
                     "scene_camera_bookmark_save", "scene_camera_bookmark_load", "scene_camera_bookmark_delete",
                     "scene_camera_bookmark_list", "scene_arrange", "scene_preset", "scene_animation", "scene_director", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
@@ -187,6 +191,13 @@ TOOL = {
             "offset_json": {"type": "STRING", "description": "Optional JSON [x,y,z] target-follow offset."},
             "point_json": {"type": "STRING", "description": "Optional JSON [x,y,z] waypoint coordinate."},
             "render_mode": {"type": "STRING", "description": "hologram, blueprint, xray, solid or thermal."},
+            "steps_json": {"type": "STRING", "description": "JSON array of mission sequence steps: [{at,operation,args,label}]."},
+            "sequence_name": {"type": "STRING"},
+            "step_operation": {"type": "STRING"},
+            "step_args_json": {"type": "STRING", "description": "JSON object of arguments for scene_sequence_add."},
+            "step_label": {"type": "STRING"},
+            "snapshot_name": {"type": "STRING"},
+            "snapshot_id": {"type": "STRING"},
             "dx": {"type": "NUMBER"}, "dy": {"type": "NUMBER"}, "dz": {"type": "NUMBER"},
             "drx": {"type": "NUMBER"}, "dry": {"type": "NUMBER"}, "drz": {"type": "NUMBER"},
             "scale_factor": {"type": "NUMBER"},
