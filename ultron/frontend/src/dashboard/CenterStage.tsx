@@ -217,9 +217,11 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
    }
    if(scene.show_labels!==false){const label=makeLabelSprite(o.label||o.kind,o.color||accent);label.userData.objectId=o.id;group.add(label);}
    group.traverse(ch=>{ch.userData.objectId=o.id;});
-   if(o.id===scene.selected_id){const helper=new THREE.BoxHelper(group,colorOf('#ffffff'));helper.userData.selection=true;group.add(helper);}
+   if((scene.selected_ids?.length?scene.selected_ids:[scene.selected_id]).includes(o.id)){const helper=new THREE.BoxHelper(group,colorOf(o.id===scene.selected_id?'#ffffff':'#35ffe4'));helper.userData.selection=true;group.add(helper);}
    sceneRoot.add(group);objectGroups.set(o.id,group);
   }
+  // Parent-child Scene Graph: child transforms become local to their parent.
+  for(const o of scene.objects||[]){if(!o.parent_id)continue;const child=objectGroups.get(o.id),parent=objectGroups.get(o.parent_id);if(child&&parent&&child!==parent)parent.add(child);}
   let globalHudIndex=0;
   for(const card of scene.hud||[]){
    const sprite=makeHudSprite(card.title||'DATA',card.value||'',card.unit||'',card.color||accent);sprite.userData.hudCard=true;
@@ -261,7 +263,7 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
   let raf=0,last=performance.now();
   const resize=()=>{const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};resize();const ro=new ResizeObserver(resize);ro.observe(el);
   const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();
-  const click=(e:PointerEvent)=>{const r=renderer.domElement.getBoundingClientRect();mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;ray.setFromCamera(mouse,camera);const hits=ray.intersectObjects([...objectGroups.values()],true);const hit=hits.find(h=>!h.object.userData.selection);if(hit){let obj:THREE.Object3D|null=hit.object;while(obj&&!obj.userData.objectId)obj=obj.parent;const id=obj?.userData.objectId;if(id)onCommand('scene_select',{object_id:id});}};
+  const click=(e:PointerEvent)=>{const r=renderer.domElement.getBoundingClientRect();mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;ray.setFromCamera(mouse,camera);const hits=ray.intersectObjects([...objectGroups.values()],true);const hit=hits.find(h=>!h.object.userData.selection);if(hit){let obj:THREE.Object3D|null=hit.object;while(obj&&!obj.userData.objectId)obj=obj.parent;const id=obj?.userData.objectId;if(id)onCommand(e.shiftKey?'scene_multi_select':'scene_select',e.shiftKey?{object_id:id,selection_mode:'toggle'}:{object_id:id});}};
   renderer.domElement.addEventListener('pointerdown',click);
   const exportGlb=()=>{const clean=sceneRoot.clone(true),remove:THREE.Object3D[]=[];clean.traverse(node=>{if(node instanceof THREE.Sprite||node.userData.selection||node.userData.hudCard)remove.push(node);});for(const node of remove)node.removeFromParent();const exporter=new GLTFExporter();exporter.parse(clean,result=>{if(!(result instanceof ArrayBuffer))return;const blob=new Blob([result],{type:'model/gltf-binary'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(scene.project_name||'ultron-scene').replace(/[^a-zA-Z0-9_-]+/g,'_')+'.glb';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);},err=>console.warn('Scene GLB export:',err),{binary:true,trs:true,onlyVisible:true,maxTextureSize:2048});};
   window.addEventListener('ultron-scene-export-glb',exportGlb as EventListener);
