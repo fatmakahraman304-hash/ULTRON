@@ -1914,6 +1914,169 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "scene_hud_clear":
         scene=dict(state.get("scene") or {});scene["hud"]=[];state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_sequence_set":
+        scene=dict(state.get("scene") or {})
+        raw=body.get("steps")
+        if raw is None and body.get("steps_json"):
+            try: raw=json.loads(str(body.get("steps_json")))
+            except Exception: raw=None
+        if not isinstance(raw,list):
+            return web.json_response({"ok":False,"error":"sequence_steps_required"},status=400)
+        allowed={"scene_select","scene_target_lock","scene_target_clear","scene_render_mode","scene_animation",
+                 "scene_cinematic","scene_camera","scene_focus","scene_physics","scene_path_play","scene_path_stop",
+                 "scene_constraint","timeline_play","timeline_pause","scene_hud_add","scene_hud_clear"}
+        steps=[]
+        for step in raw[:64]:
+            if not isinstance(step,dict): continue
+            sop=str(step.get("operation") or "").strip().lower()
+            if sop not in allowed: continue
+            args=step.get("args") if isinstance(step.get("args"),dict) else {}
+            safe_args={str(k)[:40]:v for k,v in list(args.items())[:24] if isinstance(v,(str,int,float,bool)) or v is None}
+            steps.append({"id":uuid.uuid4().hex[:8],"at":_stage_number(step.get("at",0),0,0,120),
+                          "operation":sop,"args":safe_args,"label":str(step.get("label") or sop)[:60]})
+        steps.sort(key=lambda x:float(x.get("at",0)))
+        sequence={"name":str(body.get("sequence_name") or body.get("label") or "MISSION SEQUENCE")[:80],
+                  "steps":steps,"playing":False,"loop":bool(body.get("loop",False)),
+                  "started_at":None,"run_id":int((scene.get("sequence") or {}).get("run_id",0))+1,
+                  "duration":max([float(x.get("at",0)) for x in steps],default=0.0)}
+        scene["sequence"]=sequence;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_sequence_add":
+        scene=dict(state.get("scene") or {});sequence=dict(scene.get("sequence") or {})
+        sop=str(body.get("step_operation") or body.get("action") or "").strip().lower()
+        allowed={"scene_select","scene_target_lock","scene_target_clear","scene_render_mode","scene_animation",
+                 "scene_cinematic","scene_camera","scene_focus","scene_physics","scene_path_play","scene_path_stop",
+                 "scene_constraint","timeline_play","timeline_pause","scene_hud_add","scene_hud_clear"}
+        if sop not in allowed:return web.json_response({"ok":False,"error":"sequence_operation_not_allowed"},status=400)
+        args=body.get("step_args")
+        if args is None and body.get("step_args_json"):
+            try:args=json.loads(str(body.get("step_args_json")))
+            except Exception:args={}
+        if not isinstance(args,dict):args={}
+        safe_args={str(k)[:40]:v for k,v in list(args.items())[:24] if isinstance(v,(str,int,float,bool)) or v is None}
+        steps=list(sequence.get("steps") or [])
+        steps.append({"id":uuid.uuid4().hex[:8],"at":_stage_number(body.get("at",0),0,0,120),
+                      "operation":sop,"args":safe_args,"label":str(body.get("step_label") or sop)[:60]})
+        steps=sorted(steps,key=lambda x:float(x.get("at",0)))[:64]
+        sequence.update({"steps":steps,"playing":False,"started_at":None,
+                         "run_id":int(sequence.get("run_id",0))+1,
+                         "duration":max([float(x.get("at",0)) for x in steps],default=0.0)})
+        if body.get("sequence_name"):sequence["name"]=str(body.get("sequence_name"))[:80]
+        scene["sequence"]=sequence;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_sequence_preset":
+        scene=dict(state.get("scene") or {});objects=list(scene.get("objects") or [])
+        preset=str(body.get("preset") or "scan_reveal").lower()
+        selected=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
+        first=selected or (str(objects[0].get("id")) if objects else "")
+        second=next((str(o.get("id")) for o in objects if str(o.get("id"))!=first),"")
+        steps=[]
+        name=preset.replace("_"," ").upper()
+        def add(at,operation,args=None,label=None):
+            steps.append({"id":uuid.uuid4().hex[:8],"at":float(at),"operation":operation,
+                          "args":dict(args or {}),"label":str(label or operation)[:60]})
+        if preset=="target_chase" and first and second:
+            add(0,"scene_select",{"object_id":first},"SELECT TRACKER")
+            add(.1,"scene_target_lock",{"object_id":second},"LOCK TARGET")
+            add(.2,"scene_constraint",{"object_id":first,"constraint":"follow","target_id":second,"distance":2.2,"constraint_speed":1.2},"FOLLOW")
+            add(.4,"scene_render_mode",{"render_mode":"thermal"},"THERMAL")
+            add(.6,"scene_cinematic",{"cinematic":"orbit","duration":8,"loop":True},"ORBIT CAMERA")
+            add(8.2,"scene_constraint",{"object_id":first,"constraint":"none"},"STOP FOLLOW")
+            add(8.3,"scene_target_clear",{},"CLEAR TARGET")
+            add(8.4,"scene_cinematic",{"cinematic":"off"},"CAMERA STOP")
+            add(8.5,"scene_render_mode",{"render_mode":"hologram"},"HOLOGRAM")
+        elif preset=="launch" and first:
+            add(0,"scene_select",{"object_id":first},"SELECT")
+            add(.1,"scene_target_lock",{"object_id":first},"TARGET LOCK")
+            add(.2,"scene_render_mode",{"render_mode":"blueprint"},"BLUEPRINT")
+            add(.5,"scene_camera",{"camera":"close"},"CLOSE CAMERA")
+            add(1.0,"scene_physics",{"object_id":first,"physics_mode":"launch","vy":5.5,"vx":1.0,"gravity":5.5,"bounce":.15},"LAUNCH")
+            add(1.2,"scene_cinematic",{"cinematic":"hero","duration":7,"loop":False},"HERO CAMERA")
+            add(7.8,"scene_render_mode",{"render_mode":"hologram"},"HOLOGRAM")
+            add(8.0,"scene_target_clear",{},"CLEAR TARGET")
+        elif preset=="presentation":
+            add(0,"scene_render_mode",{"render_mode":"solid"},"SOLID")
+            add(.2,"scene_camera",{"camera":"isometric"},"ISO CAMERA")
+            add(.4,"scene_animation",{"animation":"scan"},"SCAN")
+            add(1.0,"scene_cinematic",{"cinematic":"hero","duration":10,"loop":False},"HERO CAMERA")
+            add(10.4,"scene_animation",{"animation":"idle"},"SCAN STOP")
+            add(10.5,"scene_render_mode",{"render_mode":"hologram"},"HOLOGRAM")
+        else:
+            preset="scan_reveal";name="SCAN REVEAL"
+            add(0,"scene_render_mode",{"render_mode":"blueprint"},"BLUEPRINT")
+            add(.2,"scene_animation",{"animation":"scan"},"SCAN START")
+            add(.6,"scene_camera",{"camera":"top"},"TOP CAMERA")
+            if first:add(1.4,"scene_target_lock",{"object_id":first},"TARGET LOCK")
+            add(3.0,"scene_camera",{"camera":"isometric"},"ISO CAMERA")
+            add(4.0,"scene_render_mode",{"render_mode":"xray"},"X-RAY")
+            add(5.4,"scene_render_mode",{"render_mode":"hologram"},"HOLOGRAM")
+            add(5.6,"scene_animation",{"animation":"idle"},"SCAN STOP")
+            add(5.8,"scene_target_clear",{},"CLEAR TARGET")
+        sequence={"name":name,"steps":steps,"playing":False,"loop":bool(body.get("loop",False)),
+                  "started_at":None,"run_id":int((scene.get("sequence") or {}).get("run_id",0))+1,
+                  "duration":max([float(x.get("at",0)) for x in steps],default=0.0)}
+        scene["sequence"]=sequence;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_sequence_play":
+        scene=dict(state.get("scene") or {});sequence=dict(scene.get("sequence") or {})
+        if not sequence.get("steps"):
+            return web.json_response({"ok":False,"error":"sequence_empty"},status=400)
+        sequence["playing"]=True;sequence["started_at"]=time.time()
+        if "loop" in body:sequence["loop"]=bool(body.get("loop"))
+        sequence["run_id"]=int(sequence.get("run_id",0))+1
+        scene["sequence"]=sequence;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_sequence_stop":
+        scene=dict(state.get("scene") or {});sequence=dict(scene.get("sequence") or {})
+        sequence["playing"]=False;sequence["started_at"]=None;sequence["run_id"]=int(sequence.get("run_id",0))+1
+        scene["sequence"]=sequence;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_sequence_clear":
+        scene=dict(state.get("scene") or {});scene["sequence"]={"name":"","steps":[],"playing":False,"loop":False,"started_at":None,
+                                                               "run_id":int((scene.get("sequence") or {}).get("run_id",0))+1,"duration":0.0}
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_snapshot_save":
+        scene=copy.deepcopy(_scene_ensure(dict(state.get("scene") or {})))
+        sequence=dict(scene.get("sequence") or {});sequence.update({"playing":False,"started_at":None});scene["sequence"]=sequence
+        timeline=dict(scene.get("timeline") or {});timeline.update({"playing":False,"started_at":None});scene["timeline"]=timeline
+        cinematic=dict(scene.get("cinematic") or {});cinematic.update({"enabled":False,"started_at":None});scene["cinematic"]=cinematic
+        for obj in scene.get("objects") or []:
+            if isinstance(obj,dict):
+                physics=dict(obj.get("physics") or {});physics["started_at"]=None;obj["physics"]=physics
+                path=dict(obj.get("path") or {});path["started_at"]=None;obj["path"]=path
+        name=str(body.get("snapshot_name") or body.get("label") or f"Snapshot {time.strftime('%H:%M:%S')}")[:80]
+        snapshot_id=f"snap_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+        directory=Path(DATA_DIR)/"scene_snapshots";directory.mkdir(parents=True,exist_ok=True)
+        payload={"id":snapshot_id,"name":name,"created_at":time.time(),"scene":scene}
+        (directory/f"{snapshot_id}.json").write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding="utf-8")
+        state["snapshot_result"]={"id":snapshot_id,"name":name,"created_at":payload["created_at"]}
+    elif op == "scene_snapshot_list":
+        directory=Path(DATA_DIR)/"scene_snapshots";items=[]
+        if directory.exists():
+            for path in sorted(directory.glob("snap_*.json"),key=lambda p:p.stat().st_mtime,reverse=True)[:60]:
+                try:
+                    data=json.loads(path.read_text(encoding="utf-8"))
+                    items.append({"id":str(data.get("id") or path.stem),"name":str(data.get("name") or path.stem)[:80],
+                                  "created_at":float(data.get("created_at") or path.stat().st_mtime)})
+                except Exception:continue
+        state["snapshot_result"]={"snapshots":items}
+    elif op == "scene_snapshot_restore":
+        snapshot_id=re.sub(r"[^A-Za-z0-9_-]","",str(body.get("snapshot_id") or ""))[:90]
+        path=Path(DATA_DIR)/"scene_snapshots"/f"{snapshot_id}.json"
+        if not snapshot_id or not path.exists():return web.json_response({"ok":False,"error":"snapshot_not_found"},status=404)
+        try:data=json.loads(path.read_text(encoding="utf-8"))
+        except Exception:return web.json_response({"ok":False,"error":"snapshot_invalid"},status=400)
+        raw=data.get("scene")
+        if not isinstance(raw,dict):return web.json_response({"ok":False,"error":"snapshot_invalid"},status=400)
+        restored=_scene_ensure(copy.deepcopy(raw))
+        sequence=dict(restored.get("sequence") or {});sequence.update({"playing":False,"started_at":None,"run_id":int(sequence.get("run_id",0))+1});restored["sequence"]=sequence
+        timeline=dict(restored.get("timeline") or {});timeline.update({"playing":False,"started_at":None});restored["timeline"]=timeline
+        cinematic=dict(restored.get("cinematic") or {});cinematic.update({"enabled":False,"started_at":None});restored["cinematic"]=cinematic
+        for obj in restored.get("objects") or []:
+            if isinstance(obj,dict):
+                physics=dict(obj.get("physics") or {});physics["started_at"]=None;obj["physics"]=physics
+                path_data=dict(obj.get("path") or {});path_data["started_at"]=None;obj["path"]=path_data
+        state["scene"]=restored;state["mode"]="scene_lab";state["snapshot_result"]={"restored":snapshot_id,"name":str(data.get("name") or snapshot_id)}
+    elif op == "scene_snapshot_delete":
+        snapshot_id=re.sub(r"[^A-Za-z0-9_-]","",str(body.get("snapshot_id") or ""))[:90]
+        path=Path(DATA_DIR)/"scene_snapshots"/f"{snapshot_id}.json"
+        if not snapshot_id or not path.exists():return web.json_response({"ok":False,"error":"snapshot_not_found"},status=404)
+        path.unlink();state["snapshot_result"]={"deleted":snapshot_id}
     elif op == "scene_project_save":
         scene=copy.deepcopy(state.get("scene") or {})
         name=str(body.get("project_name") or scene.get("project_name") or "Scene")[:80].strip() or "Scene"
