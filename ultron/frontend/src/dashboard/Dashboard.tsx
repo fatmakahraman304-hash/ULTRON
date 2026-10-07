@@ -77,6 +77,26 @@ export default function Dashboard(){
   if(sceneMode&&/(?:sahneyi|scene|bunu).*(?:kaydet|save)/.test(t)){await action('scene_save');return 'Scene Lab projesi kaydediliyor.';}
   if(sceneMode){
    const namedTarget=u.stage.scene.objects.find(o=>{const name=String(o.label||'').toLocaleLowerCase('tr-TR');return name.length>1&&t.includes(name);});
+   const selectedCount=u.stage.scene.selected_ids?.length||0;
+   if(/(?:hepsini|tümünü|tumunu|bütününü|butununu).*(?:seç|sec|select all)/.test(t)){await action('scene_multi_select',{selection_mode:'all'});return 'Sahnedeki tüm nesneler seçildi.';}
+   if(/(?:seçimi|secimi|selection).*(?:temizle|kaldır|kaldir|clear)/.test(t)){await action('scene_multi_select',{selection_mode:'clear'});return 'Çoklu seçim temizlendi.';}
+   if(selectedCount>1&&/(?:seçtiklerimi|sectiklerimi|seçili nesneleri|secili nesneleri).*(?:grupla|grup yap|group)/.test(t)){await action('scene_group_create',{group_name:'GROUP '+((u.stage.scene.groups?.length||0)+1)});return 'Seçili nesneler grup haline getirildi.';}
+   if(selectedCount>1&&/(?:seçtiklerimi|sectiklerimi|seçili nesneleri|secili nesneleri).*(?:sağa|saga)/.test(t)){await action('scene_batch_transform',{dx:.6});return 'Seçili nesneler sağa taşındı.';}
+   if(selectedCount>1&&/(?:seçtiklerimi|sectiklerimi|seçili nesneleri|secili nesneleri).*(?:sola)/.test(t)){await action('scene_batch_transform',{dx:-.6});return 'Seçili nesneler sola taşındı.';}
+   if(selectedCount>1&&/(?:seçtiklerimi|sectiklerimi|seçili nesneleri|secili nesneleri).*(?:yukarı|yukari)/.test(t)){await action('scene_batch_transform',{dy:.5});return 'Seçili nesneler yukarı taşındı.';}
+   if(selectedCount>1&&/(?:seçtiklerimi|sectiklerimi|seçili nesneleri|secili nesneleri).*(?:büyüt|buyut)/.test(t)){await action('scene_batch_transform',{scale_factor:1.15});return 'Seçili nesneler büyütüldü.';}
+   if(selectedCount>1&&/(?:seçtiklerimi|sectiklerimi|seçili nesneleri|secili nesneleri).*(?:küçült|kucult)/.test(t)){await action('scene_batch_transform',{scale_factor:.87});return 'Seçili nesneler küçültüldü.';}
+   if(selectedCount>1&&/(?:x eksen|x axis).*(?:hizala|align)|(?:hizala|align).*(?:x eksen|x axis)/.test(t)){await action('scene_align',{axis:'x',align:'center'});return 'Seçili nesneler X ekseninde hizalandı.';}
+   if(selectedCount>1&&/(?:y eksen|y axis).*(?:hizala|align)|(?:hizala|align).*(?:y eksen|y axis)/.test(t)){await action('scene_align',{axis:'y',align:'center'});return 'Seçili nesneler Y ekseninde hizalandı.';}
+   if(selectedCount>1&&/(?:z eksen|z axis).*(?:hizala|align)|(?:hizala|align).*(?:z eksen|z axis)/.test(t)){await action('scene_align',{axis:'z',align:'center'});return 'Seçili nesneler Z ekseninde hizalandı.';}
+   if(selectedCount>2&&/(?:eşit|esit).*(?:dağıt|dagit|distribute).*(?:x|yatay)/.test(t)){await action('scene_distribute',{axis:'x'});return 'Seçili nesneler X boyunca eşit dağıtıldı.';}
+   if(selectedCount>2&&/(?:eşit|esit).*(?:dağıt|dagit|distribute).*(?:z|derinlik)/.test(t)){await action('scene_distribute',{axis:'z'});return 'Seçili nesneler Z boyunca eşit dağıtıldı.';}
+   if(selected&&/(?:bundan|bunu).*(\d+)\s*(?:tane|adet).*(?:daire|çember|cember|radial|orbit)/.test(t)){const m=t.match(/(?:bundan|bunu).*?(\d+)\s*(?:tane|adet)/);await action('scene_array',{object_id:selected.id,count:Math.min(12,Math.max(2,Number(m?.[1]||6))),layout:'radial',radius:2.8});return 'Seçili nesneden dairesel array oluşturuldu.';}
+   if(selected&&/(?:bundan|bunu).*(\d+)\s*(?:tane|adet).*(?:sıra|sira|line|çizgi|cizgi)/.test(t)){const m=t.match(/(?:bundan|bunu).*?(\d+)\s*(?:tane|adet)/);await action('scene_array',{object_id:selected.id,count:Math.min(12,Math.max(2,Number(m?.[1]||5))),layout:'line',spacing:1.3});return 'Seçili nesneden doğrusal array oluşturuldu.';}
+   if(/(?:kamera|açı|aci).*(?:kaydet|bookmark)/.test(t)){await action('scene_camera_bookmark_save',{bookmark_name:'CAM '+((u.stage.scene.camera_bookmarks?.length||0)+1)});return 'Kamera açısı kaydedildi.';}
+   const cameraMark=(u.stage.scene.camera_bookmarks||[]).find(b=>t.includes(String(b.name||'').toLocaleLowerCase('tr-TR')));
+   if(cameraMark&&/(?:kamera|açı|aci|dön|don|yükle|yukle|aç|ac)/.test(t)){await action('scene_camera_bookmark_load',{bookmark_id:cameraMark.id});return cameraMark.name+' kamera açısı yüklendi.';}
+   if(/(?:tüm sahneye|tum sahneye|hepsine).*(?:keyframe|anahtar kare).*(?:ekle|koy|yakala)/.test(t)){await action('timeline_capture_all',{selection_mode:'all'});return 'Tüm sahnenin keyframe’i yakalandı.';}
    if(namedTarget&&/(?:seç|sec|select)/.test(t)){await action('scene_select',{object_label:namedTarget.label});return namedTarget.label+' seçildi.';}
    if(namedTarget&&/(?:odaklan|focus)/.test(t)){await action('scene_focus',{object_label:namedTarget.label});return 'Kamera '+namedTarget.label+' nesnesine odaklandı.';}
    if(namedTarget&&/(?:kopyala|çoğalt|cogalt|duplicate)/.test(t)){await action('scene_duplicate',{object_label:namedTarget.label});return namedTarget.label+' çoğaltıldı.';}
