@@ -157,7 +157,7 @@ function updateHudSpriteValue(sprite:THREE.Sprite,value:string){
  const tex=sprite.userData.labelTexture as THREE.CanvasTexture|undefined;if(tex)tex.needsUpdate=true;
 }
 
-function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;transformMode:'translate'|'rotate'|'scale';amplitude:number;onCommand:(operation:string,extra?:Record<string,unknown>)=>void}){
+function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;transformMode:'translate'|'rotate'|'scale';amplitude:number;onCommand:(operation:string,extra?:Record<string,unknown>)=>void|Promise<unknown>}){
  const host=useRef<HTMLDivElement>(null),amplitudeRef=useRef(amplitude);amplitudeRef.current=amplitude;
  const key=JSON.stringify(scene);
  useEffect(()=>{
@@ -310,7 +310,7 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
   world.add(transform.getHelper());
   const scan=new THREE.Mesh(new THREE.RingGeometry(.8,3.6,64),new THREE.MeshBasicMaterial({color:accentColor,wireframe:true,transparent:true,opacity:.16,side:THREE.DoubleSide}));scan.rotation.x=Math.PI/2;scan.visible=scene.animation==='scan';sceneRoot.add(scan);
   world.add(new THREE.AmbientLight(0xffffff,.7));const light=new THREE.PointLight(accentColor,14,30);light.position.set(3,5,5);world.add(light);
-  let raf=0,last=performance.now();
+  let raf=0,last=performance.now(),lastTriggerCheck=0;const triggerLocalFire=new Map<string,number>();
   const resize=()=>{const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};resize();const ro=new ResizeObserver(resize);ro.observe(el);
   const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();
   const click=(e:PointerEvent)=>{const r=renderer.domElement.getBoundingClientRect();mouse.x=((e.clientX-r.left)/r.width)*2-1;mouse.y=-((e.clientY-r.top)/r.height)*2+1;ray.setFromCamera(mouse,camera);const hits=ray.intersectObjects([...objectGroups.values()],true);const hit=hits.find(h=>!h.object.userData.selection);if(hit){let obj:THREE.Object3D|null=hit.object;while(obj&&!obj.userData.objectId)obj=obj.parent;const id=obj?.userData.objectId;if(id)onCommand(e.shiftKey?'scene_multi_select':'scene_select',e.shiftKey?{object_id:id,selection_mode:'toggle'}:{object_id:id});}};
@@ -351,6 +351,14 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
     }
    }
    sceneRoot.updateMatrixWorld(true);
+   if((scene.triggers?.length||0)>0&&now-lastTriggerCheck>=120){lastTriggerCheck=now;const wall=Date.now()/1000;
+    for(const trigger of scene.triggers||[]){if(!trigger.enabled||(trigger.once&&trigger.fired))continue;const lastLocal=triggerLocalFire.get(trigger.id)||0,lastRemote=Number(trigger.last_fired_at||0),cooldown=Math.max(.1,Number(trigger.cooldown)||2);if(wall-Math.max(lastLocal,lastRemote)<cooldown)continue;
+     let matched=false;
+     if(trigger.condition_type==='timer')matched=wall-Number(trigger.armed_at||wall)>=Math.max(0,Number(trigger.delay)||0);
+     else{const a=trigger.source_id?objectGroups.get(trigger.source_id):undefined,b=trigger.target_id?objectGroups.get(trigger.target_id):undefined;if(a&&b){const ap=new THREE.Vector3(),bp=new THREE.Vector3(),as=new THREE.Vector3(),bs=new THREE.Vector3();a.getWorldPosition(ap);b.getWorldPosition(bp);const distance=ap.distanceTo(bp),threshold=Math.max(.05,Number(trigger.threshold)||2);if(trigger.condition_type==='distance_lt')matched=distance<threshold;else if(trigger.condition_type==='distance_gt')matched=distance>threshold;else if(trigger.condition_type==='collision'){a.getWorldScale(as);b.getWorldScale(bs);const ao=(scene.objects||[]).find(x=>x.id===trigger.source_id),bo=(scene.objects||[]).find(x=>x.id===trigger.target_id),ar=sceneObjectRadius(ao?.kind)*Math.max(Math.abs(as.x),Math.abs(as.y),Math.abs(as.z)),br=sceneObjectRadius(bo?.kind)*Math.max(Math.abs(bs.x),Math.abs(bs.y),Math.abs(bs.z));matched=distance<(ar+br)*.72;}}}
+     if(!matched)continue;triggerLocalFire.set(trigger.id,wall);Promise.resolve(onCommand('scene_trigger_fire',{trigger_id:trigger.id})).then(()=>{if(trigger.action_operation) return onCommand(trigger.action_operation,trigger.action_args||{});}).catch(()=>{});
+    }
+   }
    const targetGroup=scene.target_id?objectGroups.get(scene.target_id):undefined;if(targetGroup){const reticle=targetGroup.children.find(x=>x.userData.targetReticle);if(reticle){reticle.rotation.x+=dt*.38;reticle.rotation.y+=dt*.62;reticle.rotation.z-=dt*.31;const pulse=1+Math.sin(seconds*4)*.08;reticle.scale.setScalar(pulse);}}
    for(const item of linkLines.values()){const a=objectGroups.get(item.source),b=objectGroups.get(item.target);if(!a||!b)continue;a.getWorldPosition(worldA);b.getWorldPosition(worldB);const pa=sceneRoot.worldToLocal(worldA.clone()),pb=sceneRoot.worldToLocal(worldB.clone()),attr=item.line.geometry.getAttribute('position') as THREE.BufferAttribute;attr.setXYZ(0,pa.x,pa.y,pa.z);attr.setXYZ(1,pb.x,pb.y,pb.z);attr.needsUpdate=true;item.line.computeLineDistances();}
    for(const item of measurementLines.values()){const a=objectGroups.get(item.source),b=objectGroups.get(item.target);if(!a||!b)continue;a.getWorldPosition(worldA);b.getWorldPosition(worldB);const distance=worldA.distanceTo(worldB),pa=sceneRoot.worldToLocal(worldA.clone()),pb=sceneRoot.worldToLocal(worldB.clone()),attr=item.line.geometry.getAttribute('position') as THREE.BufferAttribute;attr.setXYZ(0,pa.x,pa.y,pa.z);attr.setXYZ(1,pb.x,pb.y,pb.z);attr.needsUpdate=true;item.line.computeLineDistances();item.label.position.copy(pa.clone().add(pb).multiplyScalar(.5)).add(new THREE.Vector3(0,.28,0));const formatted=distance.toFixed(2);if(formatted!==item.last){item.last=formatted;updateHudSpriteValue(item.label,formatted);}}
