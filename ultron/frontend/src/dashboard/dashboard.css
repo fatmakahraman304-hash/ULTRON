@@ -166,3 +166,8 @@
 .scene-asset-list article b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:10px Consolas,monospace;color:#eef5fa}
 .scene-asset-list article small{display:block;color:#8a9ba8;font:8px Consolas,monospace;margin-top:2px}
 .scene-asset-list article button{font-size:8px;padding:6px 8px}
+
+.scene-physics{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:8px;padding-top:7px;border-top:1px solid #27313a}
+.scene-physics>b{grid-column:1/-1;font:8px Consolas,monospace;color:#ffd43b;letter-spacing:1.4px}
+.scene-physics button{padding:5px 3px;font-size:7px}
+.scene-physics button.active{border-color:#ffd43b;color:#fff;background:#4a3510}
