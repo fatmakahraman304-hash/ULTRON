@@ -14,7 +14,7 @@ export default function Dashboard(){
  const notify=(message:string)=>{u.setNotice(message);setLocalState('ERROR');clearTimeout(errorTimer.current);errorTimer.current=setTimeout(()=>setLocalState('IDLE'),1800);};
  const stageIntent=async(raw:string)=>{
   const t=raw.toLocaleLowerCase('tr-TR').replace(/[’']/g,'').replace(/\s+/g,' ').trim();
-  const action=async(operation:string,extra:Record<string,unknown>={})=>{await request('/api/stage/command',{operation,...extra});};
+  const action=async(operation:string,extra:Record<string,unknown>={})=>await request('/api/stage/command',{operation,...extra});
   const color=(()=>{
    if(/kırmızı|kirmizi|red/.test(t))return '#ff3047';if(/cyan|turkuaz/.test(t))return '#35ffe4';
    if(/mavi|blue/.test(t))return '#268bff';if(/yeşil|yesil|green/.test(t))return '#25ff8a';
@@ -78,6 +78,14 @@ export default function Dashboard(){
   if(sceneMode){
    const namedTarget=u.stage.scene.objects.find(o=>{const name=String(o.label||'').toLocaleLowerCase('tr-TR');return name.length>1&&t.includes(name);});
    const selectedCount=u.stage.scene.selected_ids?.length||0;
+   if(selectedCount===2&&/(?:mesafe|uzaklık|uzaklik|distance).*(?:ölç|olc|göster|goster|hesapla)|(?:seçtiklerimin|sectiklerimin).*(?:arasını|arasini|mesafesini).*(?:ölç|olc|hesapla)?/.test(t)){const res=await action('scene_measure');const d=Number(res?.measurement_result?.distance);return Number.isFinite(d)?'Seçili nesneler arası mesafe '+d.toFixed(2)+' birim.':'Mesafe ölçümü sahneye eklendi.';}
+   if(/(?:ölçüm|olcum|measurement).*(?:temizle|sil|kaldır|kaldir)/.test(t)){await action('scene_measure_clear');return 'Sahne ölçümleri temizlendi.';}
+   if(selected&&/(?:bunu|nesneyi|seçileni|secileni).*(?:düşür|dusur|drop)|(?:yerçekimi|yercekimi).*(?:aç|ac|uygula)/.test(t)){await action('scene_physics',{object_id:selected.id,physics_mode:'drop',gravity:9.81,bounce:.45});return 'Seçili nesne fiziksel düşüşe geçti.';}
+   if(selected&&/(?:bunu|nesneyi|seçileni|secileni).*(?:fırlat|firlat|launch)/.test(t)){await action('scene_physics',{object_id:selected.id,physics_mode:'launch',vy:5,vx:1.2,gravity:9.81,bounce:.35});return 'Seçili nesne launch fiziğine geçti.';}
+   if(selected&&/(?:zero.?g|sıfır yerçekimi|sifir yercekimi|ağırlıksız|agirliksiz)/.test(t)){await action('scene_physics',{object_id:selected.id,physics_mode:'zero_g',vx:.15,vy:.08,vz:.1,gravity:0});return 'Seçili nesne zero-G moduna geçti.';}
+   if(selected&&/(?:bunu|nesneyi|seçileni|secileni).*(?:süzdür|suzdur|float|havada yüzdür|havada yuzdur)/.test(t)){await action('scene_physics',{object_id:selected.id,physics_mode:'float',gravity:0});return 'Seçili nesne float moduna geçti.';}
+   if(selected&&/(?:fizik|physics|yerçekimi|yercekimi).*(?:kapat|durdur|off|sıfırla|sifirla)/.test(t)){await action('scene_physics',{object_id:selected.id,physics_mode:'off'});return 'Seçili nesnenin fizik simülasyonu kapatıldı.';}
+   if(/(?:asset|model kütüphanesi|model kutuphanesi).*(?:listele|göster|goster|aç|ac)/.test(t)){const res=await action('scene_asset_list');const models=Array.isArray(res?.asset_result?.models)?res.asset_result.models:[];return models.length?models.slice(0,8).map((m:any)=>String(m.name)).join(', '):'Asset Library boş.';}
    if(/(?:hepsini|tümünü|tumunu|bütününü|butununu).*(?:seç|sec|select all)/.test(t)){await action('scene_multi_select',{selection_mode:'all'});return 'Sahnedeki tüm nesneler seçildi.';}
    if(/(?:seçimi|secimi|selection).*(?:temizle|kaldır|kaldir|clear)/.test(t)){await action('scene_multi_select',{selection_mode:'clear'});return 'Çoklu seçim temizlendi.';}
    if(selectedCount>1&&/(?:seçtiklerimi|sectiklerimi|seçili nesneleri|secili nesneleri).*(?:grupla|grup yap|group)/.test(t)){await action('scene_group_create',{group_name:'GROUP '+((u.stage.scene.groups?.length||0)+1)});return 'Seçili nesneler grup haline getirildi.';}
