@@ -1484,7 +1484,10 @@ async def api_stage_command(req: web.Request) -> web.Response:
             try:pose={"position":json.loads(str(body["position_json"])),"target":json.loads(str(body["target_json"]))}
             except Exception:pose=None
         if pose is None:pose=scene.get("camera_pose")
-        if not isinstance(pose,dict):return web.json_response({"ok":False,"error":"camera_pose_required"},status=400)
+        if not isinstance(pose,dict):
+            preset=str(scene.get("camera") or "isometric")
+            positions={"front":[0,1.2,9],"top":[0,9,.01],"side":[9,1.2,0],"close":[0,.8,5.2],"orbit":[6,4.2,7.2],"isometric":[6,4.2,7.2]}
+            pose={"position":positions.get(preset,[6,4.2,7.2]),"target":[0,0,0]}
         p=list(pose.get("position") or [6,4.2,7.2]);target=list(pose.get("target") or [0,0,0])
         while len(p)<3:p.append(0)
         while len(target)<3:target.append(0)
