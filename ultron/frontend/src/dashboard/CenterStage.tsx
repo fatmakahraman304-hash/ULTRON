@@ -184,7 +184,19 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
   if(scene.grid){
    const grid=new THREE.GridHelper(14,28,accentColor.getHex(),colorOf(accent).multiplyScalar(.22).getHex());grid.position.y=-1.55;sceneRoot.add(grid);
   }
-  const matFor=(o:SceneObject)=>new THREE.MeshBasicMaterial({color:colorOf(o.color),wireframe:o.wireframe,transparent:true,opacity:o.opacity});
+  const renderMode=scene.render_mode||'hologram';
+  const renderColor=(o:SceneObject,dim=false)=>{
+   if(renderMode==='blueprint'||renderMode==='xray')return colorOf('#35ffe4');
+   if(renderMode==='thermal'){let hash=0;for(const ch of String(o.id||o.kind))hash=(hash*31+ch.charCodeAt(0))>>>0;const colors=['#ff2d20','#ff7a18','#ffd43b','#ff4fc3'];return colorOf(colors[hash%colors.length]);}
+   if(renderMode==='solid')return colorOf(o.color||'#d7e0e8');
+   return colorOf(o.color);
+  };
+  const matFor=(o:SceneObject,dim=false):THREE.Material=>{
+   const opacity=renderMode==='xray'?(dim?.12:.28):renderMode==='blueprint'?(dim?.25:.72):dim?Math.max(.18,o.opacity*.38):o.opacity;
+   const wireframe=renderMode==='blueprint'||renderMode==='xray'?true:(renderMode==='solid'?false:o.wireframe);
+   if(renderMode==='solid')return new THREE.MeshStandardMaterial({color:renderColor(o,dim),wireframe:false,transparent:o.opacity<1,opacity:o.opacity,roughness:.5,metalness:.42});
+   return new THREE.MeshBasicMaterial({color:renderColor(o,dim),wireframe,transparent:true,opacity,depthTest:renderMode!=='xray',blending:renderMode==='xray'?THREE.AdditiveBlending:THREE.NormalBlending});
+  };
   const addPart=(group:THREE.Group,geo:THREE.BufferGeometry,mat:THREE.Material,pos:[number,number,number],dir:[number,number,number]=pos)=>{
    const m=new THREE.Mesh(geo,mat);m.position.set(...pos);m.userData.base=[...pos];m.userData.dir=[...dir];group.add(m);return m;
   };
@@ -192,11 +204,11 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
   for(const o of scene.objects||[]){
    if(o.visible===false)continue;
    const group=new THREE.Group();group.userData.objectId=o.id;group.userData.basePosition=[...(o.position||[0,0,0])];group.userData.baseRotation=[...(o.rotation||[0,0,0])];group.userData.baseScale=o.scale||1;group.position.set(o.position?.[0]||0,o.position?.[1]||0,o.position?.[2]||0);group.rotation.set(o.rotation?.[0]||0,o.rotation?.[1]||0,o.rotation?.[2]||0);group.scale.setScalar(o.scale||1);
-   const mat=matFor(o),dim=new THREE.MeshBasicMaterial({color:colorOf(o.color),wireframe:true,transparent:true,opacity:Math.max(.18,o.opacity*.38)});
+   const mat=matFor(o),dim=matFor(o,true);
    const kind=o.kind||'energy';
    if(kind==='custom'&&o.model_id){
     const holder=new THREE.Group();group.add(holder);
-    sceneGltfLoader.load('/api/stage/model/'+encodeURIComponent(o.model_id),gltf=>{if(dead)return;const model=gltf.scene;model.traverse(node=>{const mesh=node as THREE.Mesh;if(mesh.isMesh){const old=mesh.material;mesh.material=new THREE.MeshBasicMaterial({color:colorOf(o.color),wireframe:o.wireframe,transparent:true,opacity:o.opacity});if(Array.isArray(old))old.forEach(m=>m.dispose());else old?.dispose?.();}});const box=new THREE.Box3().setFromObject(model),size=new THREE.Vector3(),center=new THREE.Vector3();box.getSize(size);box.getCenter(center);model.position.sub(center);const max=Math.max(size.x,size.y,size.z,.001);model.scale.setScalar(2.4/max);holder.add(model);if(gltf.animations?.length){const mixer=new THREE.AnimationMixer(model);mixer.timeScale=Math.max(0,Number(o.clip_speed??1));for(const clip of gltf.animations.slice(0,4)){const action=mixer.clipAction(clip);action.paused=Boolean(o.clip_paused);action.play();}mixers.push(mixer);}},undefined,err=>console.warn('Scene Lab GLB:',o.model_id,err));
+    sceneGltfLoader.load('/api/stage/model/'+encodeURIComponent(o.model_id),gltf=>{if(dead)return;const model=gltf.scene;model.traverse(node=>{const mesh=node as THREE.Mesh;if(mesh.isMesh){const old=mesh.material;mesh.material=matFor(o);if(Array.isArray(old))old.forEach(m=>m.dispose());else old?.dispose?.();}});const box=new THREE.Box3().setFromObject(model),size=new THREE.Vector3(),center=new THREE.Vector3();box.getSize(size);box.getCenter(center);model.position.sub(center);const max=Math.max(size.x,size.y,size.z,.001);model.scale.setScalar(2.4/max);holder.add(model);if(gltf.animations?.length){const mixer=new THREE.AnimationMixer(model);mixer.timeScale=Math.max(0,Number(o.clip_speed??1));for(const clip of gltf.animations.slice(0,4)){const action=mixer.clipAction(clip);action.paused=Boolean(o.clip_paused);action.play();}mixers.push(mixer);}},undefined,err=>console.warn('Scene Lab GLB:',o.model_id,err));
    }else if(kind==='vehicle'){
     addPart(group,new THREE.BoxGeometry(2.5,.48,1.15),dim,[0,0,0],[0,0,0]);
     addPart(group,new THREE.BoxGeometry(1.25,.48,.95),dim,[-.15,.46,0],[0,1,0]);
@@ -246,6 +258,7 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
   }
   // Parent-child Scene Graph: child transforms become local to their parent.
   for(const o of scene.objects||[]){if(!o.parent_id)continue;const child=objectGroups.get(o.id),parent=objectGroups.get(o.parent_id);if(child&&parent&&child!==parent)parent.add(child);}
+  if(scene.target_id){const target=objectGroups.get(scene.target_id);if(target){const reticle=new THREE.Group();reticle.userData.selection=true;for(let i=0;i<3;i++){const r=new THREE.Mesh(new THREE.TorusGeometry(1.35+i*.16,.018,7,80),new THREE.MeshBasicMaterial({color:i===1?0xffffff:0xff3047,transparent:true,opacity:.75,depthTest:false}));r.rotation.set(i*.55,i*.32,i*.8);reticle.add(r);}const crossGeo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-1.8,0,0),new THREE.Vector3(1.8,0,0),new THREE.Vector3(0,-1.8,0),new THREE.Vector3(0,1.8,0)]);reticle.add(new THREE.LineSegments(crossGeo,new THREE.LineBasicMaterial({color:0xff3047,transparent:true,opacity:.58,depthTest:false})));reticle.userData.targetReticle=true;target.add(reticle);}}
   const collisionHelpers=new Map<string,THREE.Mesh>();
   if(scene.collision_overlay){
    for(const o of scene.objects||[]){const group=objectGroups.get(o.id);if(!group||o.visible===false)continue;const helper=new THREE.Mesh(new THREE.SphereGeometry(sceneObjectRadius(o.kind),18,12),new THREE.MeshBasicMaterial({color:0xff233f,wireframe:true,transparent:true,opacity:.32,depthTest:false}));helper.visible=false;helper.userData.selection=true;helper.userData.collisionHelper=true;group.add(helper);collisionHelpers.set(o.id,helper);}
@@ -279,6 +292,7 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
     let points:THREE.Vector3[]=[];
     if(frames.length>=2)points=frames.map(k=>new THREE.Vector3(k.position?.[0]||0,k.position?.[1]||0,k.position?.[2]||0));
     else if(selectedObj.motion?.type==='orbit'){const base=selectedObj.position||[0,0,0],rad=Number(selectedObj.motion.radius)||1.5;for(let i=0;i<=64;i++){const a=i/64*Math.PI*2;points.push(new THREE.Vector3((base[0]||0)+Math.cos(a)*rad,base[1]||0,(base[2]||0)+Math.sin(a)*rad));}}
+    else if((selectedObj.path?.points?.length||0)>=2){points=(selectedObj.path?.points||[]).map(p=>new THREE.Vector3(p?.[0]||0,p?.[1]||0,p?.[2]||0));}
     else if(selectedObj.motion?.type==='patrol'){const base=selectedObj.position||[0,0,0],amp=Number(selectedObj.motion.amplitude)||1.4;points=[new THREE.Vector3((base[0]||0)-amp*2,base[1]||0,base[2]||0),new THREE.Vector3((base[0]||0)+amp*2,base[1]||0,base[2]||0)];}
     if(points.length>=2){const geo=new THREE.BufferGeometry().setFromPoints(points),line=new THREE.Line(geo,new THREE.LineDashedMaterial({color:accentColor,dashSize:.15,gapSize:.08,transparent:true,opacity:.58}));line.computeLineDistances();sceneRoot.add(line);}
    }
