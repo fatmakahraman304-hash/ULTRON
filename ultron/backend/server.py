@@ -1881,6 +1881,53 @@ async def api_stage_command(req: web.Request) -> web.Response:
         scene["timeline"] = timeline
         state["scene"] = scene
         state["mode"] = "scene_lab"
+    elif op == "timeline_capture_all":
+        scene = dict(state.get("scene") or {})
+        timeline = dict(scene.get("timeline") or {})
+        frames = list(timeline.get("keyframes") or [])
+        duration = float(timeline.get("duration",8))
+        at = _stage_number(body.get("time", timeline.get("cursor",0)), timeline.get("cursor",0), 0, duration)
+        selected = [str(x) for x in scene.get("selected_ids") or []]
+        capture_all = str(body.get("selection_mode") or "").lower() == "all" or not selected
+        targets = [o for o in scene.get("objects") or [] if capture_all or str(o.get("id")) in selected]
+        easing = str(body.get("easing") or "ease_in_out")
+        if easing not in {"linear","ease_in","ease_out","ease_in_out"}: easing="ease_in_out"
+        for obj in targets:
+            oid=str(obj.get("id"))
+            # Replace a same-time keyframe for this object instead of stacking duplicates.
+            frames=[k for k in frames if not (str(k.get("object_id"))==oid and abs(float(k.get("time",0))-at)<.001)]
+            frames.append({"id":uuid.uuid4().hex[:8],"time":at,"object_id":oid,
+                           "position":copy.deepcopy(obj.get("position") or [0,0,0]),
+                           "rotation":copy.deepcopy(obj.get("rotation") or [0,0,0]),
+                           "scale":float(obj.get("scale",1)),"easing":easing})
+        timeline["keyframes"]=sorted(frames,key=lambda x:(float(x.get("time",0)),str(x.get("object_id"))))[:256]
+        timeline["cursor"]=at
+        scene["timeline"]=timeline;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "timeline_keyframe_update":
+        scene=dict(state.get("scene") or {});timeline=dict(scene.get("timeline") or {});frames=list(timeline.get("keyframes") or [])
+        kid=str(body.get("keyframe_id") or "");found=False;duration=float(timeline.get("duration",8))
+        for i,kf in enumerate(frames):
+            if str(kf.get("id"))!=kid:continue
+            item=dict(kf)
+            if "time" in body:item["time"]=_stage_number(body.get("time"),item.get("time",0),0,duration)
+            if "easing" in body:
+                easing=str(body.get("easing") or "ease_in_out");item["easing"]=easing if easing in {"linear","ease_in","ease_out","ease_in_out"} else "ease_in_out"
+            frames[i]=item;found=True;break
+        if not found:return web.json_response({"ok":False,"error":"keyframe_not_found"},status=404)
+        timeline["keyframes"]=sorted(frames,key=lambda x:(float(x.get("time",0)),str(x.get("object_id"))))
+        scene["timeline"]=timeline;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "timeline_shift":
+        scene=dict(state.get("scene") or {});timeline=dict(scene.get("timeline") or {});duration=float(timeline.get("duration",8))
+        delta=_stage_number(body.get("delta_time",0),0,-60,60);selected=[str(x) for x in scene.get("selected_ids") or []]
+        all_frames=str(body.get("selection_mode") or "").lower()=="all" or not selected
+        frames=[]
+        for kf in timeline.get("keyframes") or []:
+            item=dict(kf)
+            if all_frames or str(item.get("object_id")) in selected:
+                item["time"]=_stage_number(float(item.get("time",0))+delta,0,0,duration)
+            frames.append(item)
+        timeline["keyframes"]=sorted(frames,key=lambda x:(float(x.get("time",0)),str(x.get("object_id"))))
+        scene["timeline"]=timeline;state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "timeline_remove_keyframe":
         scene = dict(state.get("scene") or {})
         timeline = dict(scene.get("timeline") or {})
