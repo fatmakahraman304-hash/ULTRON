@@ -1654,7 +1654,11 @@ async def api_stage_command(req: web.Request) -> web.Response:
         scene["groups"]=clean_groups
         for obj in objects:
             if str(obj.get("parent_id") or "")==target: obj["parent_id"]=None
+            constraint=dict(obj.get("constraint") or {})
+            if str(constraint.get("target_id") or "")==target:
+                obj["constraint"]={"type":"none","target_id":None,"distance":2.0,"speed":1.0,"offset":[0,0,0]}
         if str(scene.get("focus_id") or "") == target: scene["focus_id"] = None
+        if str(scene.get("target_id") or "") == target: scene["target_id"] = None
         state["scene"] = scene
         state.update({"mode":"scene_lab","title":"SCENE LAB",
                       "subtitle":f"{len(objects)} OBJECTS / LIVE"})
@@ -1948,6 +1952,92 @@ async def api_stage_command(req: web.Request) -> web.Response:
             if path.exists():path.unlink();removed=True
         if not removed:return web.json_response({"ok":False,"error":"asset_not_found"},status=404)
         state["asset_result"]={"deleted":model_id};state["mode"]="scene_lab"
+    elif op == "scene_constraint":
+        scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
+        source=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
+        kind=str(body.get("constraint") or body.get("constraint_type") or "none").lower()
+        if kind not in {"none","follow","look_at","orbit_target"}:kind="none"
+        target=_scene_resolve_object(scene,body.get("target_id"),body.get("target_label"))
+        if kind!="none" and (not target or target==source):
+            return web.json_response({"ok":False,"error":"constraint_target_required"},status=400)
+        found=False
+        for obj in objects:
+            if str(obj.get("id"))!=source:continue
+            offset=body.get("offset")
+            if offset is None and body.get("offset_json"):
+                try:offset=json.loads(str(body.get("offset_json")))
+                except Exception:offset=None
+            if not isinstance(offset,list):offset=[_stage_number(body.get("dx",0),0,-8,8),_stage_number(body.get("dy",0),0,-6,6),_stage_number(body.get("dz",0),0,-8,8)]
+            while len(offset)<3:offset.append(0)
+            obj["constraint"]={"type":kind,"target_id":target if kind!="none" else None,
+                               "distance":_stage_number(body.get("distance",2),2,.2,8),
+                               "speed":_stage_number(body.get("constraint_speed",body.get("speed",1)),1,.05,5),
+                               "offset":[_stage_number(offset[0],0,-8,8),_stage_number(offset[1],0,-6,6),_stage_number(offset[2],0,-8,8)]}
+            found=True;break
+        if not found:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_waypoint_add":
+        scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
+        target=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"));found=False
+        for obj in objects:
+            if str(obj.get("id"))!=target:continue
+            path=dict(obj.get("path") or {});points=list(path.get("points") or [])
+            current=list(obj.get("position") or [0,0,0])
+            while len(current)<3:current.append(0)
+            point=body.get("point")
+            if point is None and body.get("point_json"):
+                try:point=json.loads(str(body.get("point_json")))
+                except Exception:point=None
+            if not isinstance(point,list):point=[body.get("x",current[0]),body.get("y",current[1]),body.get("z",current[2])]
+            while len(point)<3:point.append(0)
+            points.append([_stage_number(point[0],0,-12,12),_stage_number(point[1],0,-8,8),_stage_number(point[2],0,-12,12)])
+            path.update({"points":points[-32:],"speed":_stage_number(body.get("path_speed",path.get("speed",1)),1,.05,5),
+                         "loop":bool(body.get("loop",path.get("loop",True)))})
+            obj["path"]=path;found=True;break
+        if not found:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_waypoint_clear":
+        scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
+        target=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"));found=False
+        for obj in objects:
+            if str(obj.get("id"))==target:
+                obj["path"]={"points":[],"speed":1.0,"loop":True,"started_at":None};found=True;break
+        if not found:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_path_play":
+        scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
+        target=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"));found=False
+        for obj in objects:
+            if str(obj.get("id"))!=target:continue
+            path=dict(obj.get("path") or {});points=list(path.get("points") or [])
+            if len(points)<2:return web.json_response({"ok":False,"error":"path_requires_two_waypoints"},status=400)
+            path["speed"]=_stage_number(body.get("path_speed",path.get("speed",1)),1,.05,5)
+            if "loop" in body:path["loop"]=bool(body["loop"])
+            path["started_at"]=time.time();obj["path"]=path;found=True;break
+        if not found:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_path_stop":
+        scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
+        target=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"));found=False
+        for obj in objects:
+            if str(obj.get("id"))==target:
+                path=dict(obj.get("path") or {});path["started_at"]=None;obj["path"]=path;found=True;break
+        if not found:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_target_lock":
+        scene=dict(state.get("scene") or {});target=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
+        if not target:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        scene["target_id"]=target;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_target_clear":
+        scene=dict(state.get("scene") or {});scene["target_id"]=None;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_render_mode":
+        scene=dict(state.get("scene") or {});mode=str(body.get("render_mode") or body.get("preset") or "hologram").lower()
+        if mode not in {"hologram","blueprint","xray","solid","thermal"}:mode="hologram"
+        scene["render_mode"]=mode
+        if mode=="blueprint":scene.update({"theme":"cyan","grid":True,"show_labels":True,"audio_reactive":False})
+        elif mode=="xray":scene.update({"theme":"cyan","grid":True,"audio_reactive":False})
+        elif mode=="thermal":scene.update({"theme":"amber","grid":False,"audio_reactive":False})
+        state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "scene_physics":
         scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
         target=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
@@ -2054,6 +2144,9 @@ async def api_stage_command(req: web.Request) -> web.Response:
         for obj in objects:
             oid=str(obj.get("id"));parent=str(obj.get("parent_id") or "")
             if parent and parent not in idset:issues.append({"type":"invalid_parent","object":oid,"parent":parent})
+            constraint=dict(obj.get("constraint") or {});constraint_target=str(constraint.get("target_id") or "")
+            if str(constraint.get("type") or "none")!="none" and constraint_target not in idset:
+                issues.append({"type":"invalid_constraint","object":oid,"target":constraint_target})
             model_id=str(obj.get("model_id") or "")
             if model_id:
                 path=Path(DATA_DIR)/"scene_models"/f"{re.sub(r'[^A-Za-z0-9_-]','',model_id)[:48]}.glb"
