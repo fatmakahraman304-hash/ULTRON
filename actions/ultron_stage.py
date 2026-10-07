@@ -22,19 +22,23 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 "motion", "axis", "theme", "keyframe_id", "cinematic", "scene_json",
                 "source_id", "target_id", "source_label", "target_label", "link_id", "model_id",
                 "position_json", "target_json", "hud_id", "hud_title", "hud_value", "unit",
-                "project_name", "project_id", "easing"):
+                "project_name", "project_id", "easing", "object_ids_json", "selection_mode",
+                "group_id", "group_name", "align", "parent_id", "parent_label",
+                "bookmark_id", "bookmark_name"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
 
     for key in ("glow", "speed", "scale", "opacity", "duration", "progress",
                 "x", "y", "z", "rx", "ry", "rz", "spin", "explode", "time",
-                "motion_speed", "radius", "amplitude", "snap", "clip_speed"):
+                "motion_speed", "radius", "amplitude", "snap", "clip_speed",
+                "dx", "dy", "dz", "drx", "dry", "drz", "scale_factor",
+                "spacing", "delta_time"):
         value = _num(parameters.get(key))
         if value is not None:
             body[key] = value
 
-    for key in ("rings", "particles"):
+    for key in ("rings", "particles", "count"):
         value = parameters.get(key)
         if value is not None:
             try:
@@ -71,7 +75,7 @@ TOOL = {
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
         "describe the requested visual action. Scene Lab supports multiple selectable objects and object_label can target them naturally by visible name, camera views, layouts, exploded views and animations. Hologram/scene kinds: energy, globe, "
-        "network, drone, vehicle, logo, sphere, ring, tower, robot, arm, satellite, aircraft, building, ship, radar, portal, cube and persistent imported custom GLB models. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V3 also supports duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), timeline keyframes, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary, command_center, city_scan, space_ops, robotics. Video templates: ultron_intro, "
+        "network, drone, vehicle, logo, sphere, ring, tower, robot, arm, satellite, aircraft, building, ship, radar, portal, cube and persistent imported custom GLB models. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V4 supports multi-select, named groups, batch transforms, align/distribute, arrays/formations, parent-child hierarchy, camera bookmarks, duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), multi-object timeline capture/editing, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary, command_center, city_scan, space_ops, robotics. Video templates: ultron_intro, "
         "logo_reveal, energy_core, system_activation, task_complete, "
         "hologram_capture. For 'make this bigger/brighter/faster/red' after a "
         "hologram request, use hologram_update with only the changed fields."
@@ -84,13 +88,17 @@ TOOL = {
                 "enum": [
                     "status", "reset", "hologram_create", "hologram_update",
                     "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_load", "scene_update",
-                    "scene_select", "scene_remove", "scene_clear", "scene_camera",
-                    "scene_arrange", "scene_preset", "scene_animation", "scene_director", "scene_save",
+                    "scene_select", "scene_multi_select", "scene_group_create", "scene_group_select",
+                    "scene_group_delete", "scene_batch_transform", "scene_align", "scene_distribute",
+                    "scene_array", "scene_parent", "scene_unparent", "scene_remove", "scene_clear", "scene_camera",
+                    "scene_camera_bookmark_save", "scene_camera_bookmark_load", "scene_camera_bookmark_delete",
+                    "scene_camera_bookmark_list", "scene_arrange", "scene_preset", "scene_animation", "scene_director", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
                     "scene_redo", "scene_focus", "scene_camera_pose", "scene_link", "scene_unlink", "scene_clear_links", "scene_auto_link",
                     "scene_hud_add", "scene_hud_update", "scene_hud_remove", "scene_hud_clear",
                     "scene_project_save", "scene_project_list", "scene_project_load", "scene_project_delete",
                     "scene_cinematic", "scene_record", "timeline_set", "timeline_capture",
+                    "timeline_capture_all", "timeline_keyframe_update", "timeline_shift",
                     "timeline_remove_keyframe", "timeline_clear", "timeline_seek",
                     "timeline_play", "timeline_pause", "timeline_preset",
                     "video_create", "video_from_stage", "video_play",
@@ -155,6 +163,21 @@ TOOL = {
             "project_name": {"type": "STRING"},
             "project_id": {"type": "STRING"},
             "easing": {"type": "STRING"},
+            "object_ids_json": {"type": "STRING", "description": "JSON array of scene object IDs for multi-select or batch editing."},
+            "selection_mode": {"type": "STRING", "description": "replace, add, toggle, all or clear."},
+            "group_id": {"type": "STRING"},
+            "group_name": {"type": "STRING"},
+            "align": {"type": "STRING", "description": "center, min or max."},
+            "parent_id": {"type": "STRING"},
+            "parent_label": {"type": "STRING"},
+            "bookmark_id": {"type": "STRING"},
+            "bookmark_name": {"type": "STRING"},
+            "dx": {"type": "NUMBER"}, "dy": {"type": "NUMBER"}, "dz": {"type": "NUMBER"},
+            "drx": {"type": "NUMBER"}, "dry": {"type": "NUMBER"}, "drz": {"type": "NUMBER"},
+            "scale_factor": {"type": "NUMBER"},
+            "spacing": {"type": "NUMBER"},
+            "delta_time": {"type": "NUMBER"},
+            "count": {"type": "INTEGER"},
             "auto_orbit": {"type": "BOOLEAN"},
             "grid": {"type": "BOOLEAN"},
             "loop": {"type": "BOOLEAN"},
