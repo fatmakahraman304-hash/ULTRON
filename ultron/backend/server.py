@@ -958,6 +958,50 @@ async def api_stage_model_get(req: web.Request) -> web.StreamResponse:
     return web.FileResponse(path, headers={"Content-Type":"model/gltf-binary","Cache-Control":"private, max-age=3600"})
 
 
+async def api_stage_models_list(_req: web.Request) -> web.Response:
+    directory = Path(DATA_DIR) / "scene_models"
+    models = []
+    if directory.exists():
+        for meta_path in sorted(directory.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+            try:
+                data = json.loads(meta_path.read_text(encoding="utf-8"))
+                model_id = re.sub(r"[^A-Za-z0-9_-]", "", str(data.get("id") or meta_path.stem))[:48]
+                glb = directory / f"{model_id}.glb"
+                if not glb.exists():
+                    continue
+                models.append({"id":model_id,"name":str(data.get("name") or "model.glb")[:160],
+                               "bytes":int(data.get("bytes") or glb.stat().st_size),
+                               "created_at":float(data.get("created_at") or glb.stat().st_mtime)})
+            except Exception:
+                continue
+    return web.json_response({"ok":True,"models":models[:100]})
+
+
+async def api_stage_model_delete(req: web.Request) -> web.Response:
+    try:
+        body = await req.json()
+    except Exception:
+        body = {}
+    model_id = re.sub(r"[^A-Za-z0-9_-]", "", str(body.get("model_id") or ""))[:48]
+    if not model_id:
+        return web.json_response({"ok":False,"error":"model_id_required"}, status=400)
+    in_use = [o for o in (hub.stage_state.get("scene",{}).get("objects") or [])
+              if str(o.get("model_id") or "") == model_id]
+    if in_use:
+        return web.json_response({"ok":False,"error":"model_in_use"}, status=409)
+    directory = Path(DATA_DIR) / "scene_models"
+    removed = False
+    for suffix in (".glb",".json"):
+        path = directory / f"{model_id}{suffix}"
+        if path.exists():
+            path.unlink()
+            removed = True
+    if not removed:
+        return web.json_response({"ok":False,"error":"model_not_found"}, status=404)
+    await hub.on_activity(f"Scene model removed: {model_id[:12]}", "info")
+    return web.json_response({"ok":True,"deleted":model_id})
+
+
 async def api_stage_get(_req: web.Request) -> web.Response:
     return web.json_response({"ok": True, **hub.stage_state})
 
@@ -3130,6 +3174,8 @@ def main() -> None:
     app.router.add_post("/api/memory/import", api_memory_import)
     app.router.add_get("/api/stage", api_stage_get)
     app.router.add_post("/api/stage/model", api_stage_model_upload)
+    app.router.add_get("/api/stage/models", api_stage_models_list)
+    app.router.add_post("/api/stage/model/delete", api_stage_model_delete)
     app.router.add_get("/api/stage/model/{model_id}", api_stage_model_get)
     app.router.add_post("/api/stage/command", api_stage_command)
     app.router.add_post("/api/stage/control", api_stage_control)
