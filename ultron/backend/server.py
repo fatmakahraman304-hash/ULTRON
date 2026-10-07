@@ -849,6 +849,10 @@ def _scene_defaults() -> dict:
         "camera_pose": None, "camera_track": [], "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
         "show_labels": True, "show_trails": True, "audio_reactive": True, "collision_overlay": False, "render_mode": "hologram", "theme": "crimson", "snap": 0.25,
         "animation": "idle",
+        "sequence": {
+            "name": "", "steps": [], "playing": False, "loop": False,
+            "started_at": None, "run_id": 0, "duration": 0.0,
+        },
         "timeline": {
             "duration": 8.0, "cursor": 0.0, "playing": False,
             "loop": True, "started_at": None, "keyframes": [],
@@ -875,6 +879,27 @@ def _scene_ensure(scene: dict) -> dict:
     if not isinstance(scene.get("selected_ids"), list): scene["selected_ids"] = []
     if not isinstance(scene.get("timeline"), dict): scene["timeline"] = copy.deepcopy(defaults["timeline"])
     if not isinstance(scene.get("cinematic"), dict): scene["cinematic"] = copy.deepcopy(defaults["cinematic"])
+    if not isinstance(scene.get("sequence"), dict): scene["sequence"] = copy.deepcopy(defaults["sequence"])
+    seq=dict(scene.get("sequence") or {});steps=[]
+    allowed_seq_ops={"scene_select","scene_target_lock","scene_target_clear","scene_render_mode","scene_animation",
+                     "scene_cinematic","scene_camera","scene_focus","scene_physics","scene_path_play","scene_path_stop",
+                     "scene_constraint","timeline_play","timeline_pause","scene_hud_add","scene_hud_clear"}
+    for step in (seq.get("steps") or [])[:64]:
+        if not isinstance(step,dict): continue
+        sop=str(step.get("operation") or "").strip().lower()
+        if sop not in allowed_seq_ops: continue
+        args=step.get("args") if isinstance(step.get("args"),dict) else {}
+        safe_args={}
+        for k,v in list(args.items())[:24]:
+            if isinstance(v,(str,int,float,bool)) or v is None: safe_args[str(k)[:40]]=v
+        steps.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(step.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                      "at":_stage_number(step.get("at",0),0,0,120),
+                      "operation":sop,"args":safe_args,"label":str(step.get("label") or sop)[:60]})
+    steps.sort(key=lambda x:float(x.get("at",0)))
+    seq["steps"]=steps;seq["duration"]=max([float(x.get("at",0)) for x in steps],default=0.0)
+    seq["playing"]=bool(seq.get("playing",False));seq["loop"]=bool(seq.get("loop",False))
+    seq["run_id"]=_stage_int(seq.get("run_id",0),0,0,2_000_000_000)
+    scene["sequence"]=seq
     for obj in scene.get("objects") or []:
         if not isinstance(obj, dict):
             continue
@@ -1039,7 +1064,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
     state = hub.stage_state
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
-    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete", "scene_diagnostics", "scene_collision_overlay", "scene_target_lock", "scene_target_clear"}:
+    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete", "scene_diagnostics", "scene_collision_overlay", "scene_target_lock", "scene_target_clear",
+ "scene_sequence_play", "scene_sequence_stop", "scene_snapshot_list"}:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
@@ -1233,6 +1259,23 @@ async def api_stage_command(req: web.Request) -> web.Response:
                             "loop":bool(rt.get("loop",True)),"started_at":None,"keyframes":frames}
         rc=dict(raw.get("cinematic") or {});loaded["cinematic"]={"enabled":False,"preset":str(rc.get("preset") or "orbit"),
                             "duration":_stage_number(rc.get("duration",8),8,2,30),"started_at":None,"loop":bool(rc.get("loop",True))}
+        raw_seq=dict(raw.get("sequence") or {});seq_steps=[]
+        allowed_seq_ops={"scene_select","scene_target_lock","scene_target_clear","scene_render_mode","scene_animation",
+                         "scene_cinematic","scene_camera","scene_focus","scene_physics","scene_path_play","scene_path_stop",
+                         "scene_constraint","timeline_play","timeline_pause","scene_hud_add","scene_hud_clear"}
+        for step in (raw_seq.get("steps") or [])[:64]:
+            if not isinstance(step,dict): continue
+            sop=str(step.get("operation") or "").lower()
+            if sop not in allowed_seq_ops: continue
+            args=step.get("args") if isinstance(step.get("args"),dict) else {}
+            safe_args={str(k)[:40]:v for k,v in list(args.items())[:24] if isinstance(v,(str,int,float,bool)) or v is None}
+            seq_steps.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(step.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                              "at":_stage_number(step.get("at",0),0,0,120),"operation":sop,
+                              "args":safe_args,"label":str(step.get("label") or sop)[:60]})
+        seq_steps.sort(key=lambda x:float(x.get("at",0)))
+        loaded["sequence"]={"name":str(raw_seq.get("name") or "")[:80],"steps":seq_steps,"playing":False,
+                            "loop":bool(raw_seq.get("loop",False)),"started_at":None,"run_id":0,
+                            "duration":max([float(x.get("at",0)) for x in seq_steps],default=0.0)}
         state["scene"]=loaded
         state.update({"mode":"scene_lab","title":"SCENE LAB","subtitle":f"{len(objects)} OBJECTS / LOADED","progress":100})
     elif op == "scene_batch":
