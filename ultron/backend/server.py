@@ -867,7 +867,7 @@ def _scene_checkpoint() -> None:
 
 def _scene_defaults() -> dict:
     return {
-        "objects": [], "links": [], "hud": [], "groups": [], "camera_bookmarks": [], "measurements": [],
+        "objects": [], "links": [], "hud": [], "groups": [], "camera_bookmarks": [], "measurements": [], "triggers": [],
         "selected_id": None, "selected_ids": [], "focus_id": None, "target_id": None, "camera": "isometric",
         "camera_pose": None, "camera_track": [], "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
         "show_labels": True, "show_trails": True, "audio_reactive": True, "collision_overlay": False, "render_mode": "hologram", "theme": "crimson", "snap": 0.25,
@@ -923,6 +923,32 @@ def _scene_ensure(scene: dict) -> dict:
     seq["playing"]=bool(seq.get("playing",False));seq["loop"]=bool(seq.get("loop",False))
     seq["run_id"]=_stage_int(seq.get("run_id",0),0,0,2_000_000_000)
     scene["sequence"]=seq
+    if not isinstance(scene.get("triggers"),list): scene["triggers"]=[]
+    clean_triggers=[]
+    allowed_conditions={"timer","distance_lt","distance_gt","collision"}
+    allowed_actions={"scene_select","scene_target_lock","scene_target_clear","scene_render_mode","scene_animation",
+                     "scene_cinematic","scene_camera","scene_focus","scene_physics","scene_path_play","scene_path_stop",
+                     "scene_constraint","timeline_play","timeline_pause","scene_hud_add","scene_hud_clear",
+                     "scene_sequence_play","scene_sequence_stop"}
+    for trig in (scene.get("triggers") or [])[:32]:
+        if not isinstance(trig,dict): continue
+        condition=str(trig.get("condition_type") or "timer").lower()
+        action=str(trig.get("action_operation") or "").lower()
+        if condition not in allowed_conditions or action not in allowed_actions: continue
+        args=trig.get("action_args") if isinstance(trig.get("action_args"),dict) else {}
+        safe_args={str(k)[:40]:v for k,v in list(args.items())[:24] if isinstance(v,(str,int,float,bool)) or v is None}
+        clean_triggers.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(trig.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                               "name":str(trig.get("name") or condition.upper())[:60],
+                               "enabled":bool(trig.get("enabled",True)),"condition_type":condition,
+                               "source_id":str(trig.get("source_id") or "") or None,
+                               "target_id":str(trig.get("target_id") or "") or None,
+                               "threshold":_stage_number(trig.get("threshold",2),2,.05,50),
+                               "delay":_stage_number(trig.get("delay",0),0,0,120),
+                               "action_operation":action,"action_args":safe_args,
+                               "once":bool(trig.get("once",True)),"cooldown":_stage_number(trig.get("cooldown",2),2,.1,120),
+                               "fired":bool(trig.get("fired",False)),"last_fired_at":trig.get("last_fired_at"),
+                               "armed_at":float(trig.get("armed_at") or time.time())})
+    scene["triggers"]=clean_triggers
     for obj in scene.get("objects") or []:
         if not isinstance(obj, dict):
             continue
@@ -966,6 +992,11 @@ def _scene_ensure(scene: dict) -> dict:
             points.append([_stage_number(p[0],0,-12,12),_stage_number(p[1],0,-8,8),_stage_number(p[2],0,-12,12)])
         path["points"]=points;obj["path"]=path
     if str(scene.get("target_id") or "") not in ids: scene["target_id"]=None
+    for trig in scene.get("triggers") or []:
+        if str(trig.get("source_id") or "") not in ids: trig["source_id"]=None
+        if str(trig.get("target_id") or "") not in ids: trig["target_id"]=None
+        if trig.get("condition_type") in {"distance_lt","distance_gt","collision"} and (not trig.get("source_id") or not trig.get("target_id")):
+            trig["enabled"]=False
     scene["selected_ids"] = [str(x) for x in scene.get("selected_ids") or [] if str(x) in ids][:16]
     selected = str(scene.get("selected_id") or "")
     if selected and selected in ids and selected not in scene["selected_ids"]:
@@ -1088,7 +1119,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
     if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete", "scene_diagnostics", "scene_collision_overlay", "scene_target_lock", "scene_target_clear",
- "scene_sequence_play", "scene_sequence_stop", "scene_snapshot_save", "scene_snapshot_list", "scene_snapshot_delete"}:
+ "scene_sequence_play", "scene_sequence_stop", "scene_snapshot_save", "scene_snapshot_list", "scene_snapshot_delete",
+ "scene_trigger_fire"}:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
@@ -1266,6 +1298,28 @@ async def api_stage_command(req: web.Request) -> web.Response:
                                      "source":a,"target":b,"label":str(m.get("label") or "DIST")[:40],
                                      "color":str(m.get("color") or "#ffd43b")[:24]})
         loaded["measurements"]=measurements
+        triggers=[];allowed_conditions={"timer","distance_lt","distance_gt","collision"}
+        allowed_actions={"scene_select","scene_target_lock","scene_target_clear","scene_render_mode","scene_animation",
+                         "scene_cinematic","scene_camera","scene_focus","scene_physics","scene_path_play","scene_path_stop",
+                         "scene_constraint","timeline_play","timeline_pause","scene_hud_add","scene_hud_clear",
+                         "scene_sequence_play","scene_sequence_stop"}
+        for trig in (raw.get("triggers") or [])[:32]:
+            if not isinstance(trig,dict):continue
+            condition=str(trig.get("condition_type") or "timer").lower();action=str(trig.get("action_operation") or "").lower()
+            if condition not in allowed_conditions or action not in allowed_actions:continue
+            source=str(trig.get("source_id") or "");target_obj=str(trig.get("target_id") or "")
+            args=trig.get("action_args") if isinstance(trig.get("action_args"),dict) else {}
+            triggers.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(trig.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                             "name":str(trig.get("name") or condition.upper())[:60],"enabled":bool(trig.get("enabled",True)),
+                             "condition_type":condition,"source_id":source if source in used else None,
+                             "target_id":target_obj if target_obj in used else None,
+                             "threshold":_stage_number(trig.get("threshold",2),2,.05,50),
+                             "delay":_stage_number(trig.get("delay",0),0,0,120),
+                             "action_operation":action,
+                             "action_args":{str(k)[:40]:v for k,v in list(args.items())[:24] if isinstance(v,(str,int,float,bool)) or v is None},
+                             "once":bool(trig.get("once",True)),"cooldown":_stage_number(trig.get("cooldown",2),2,.1,120),
+                             "fired":False,"last_fired_at":None,"armed_at":time.time()})
+        loaded["triggers"]=triggers
         rt=dict(raw.get("timeline") or {});duration=_stage_number(rt.get("duration",8),8,1,60);frames=[]
         for frame in (rt.get("keyframes") or [])[:128]:
             if not isinstance(frame,dict) or str(frame.get("object_id")) not in used: continue
