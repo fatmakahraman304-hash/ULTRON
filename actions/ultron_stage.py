@@ -24,7 +24,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 "position_json", "target_json", "hud_id", "hud_title", "hud_value", "unit",
                 "project_name", "project_id", "easing", "object_ids_json", "selection_mode",
                 "group_id", "group_name", "align", "parent_id", "parent_label",
-                "bookmark_id", "bookmark_name", "asset_name"):
+                "bookmark_id", "bookmark_name", "asset_name", "physics_mode", "velocity_json"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -33,7 +33,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 "x", "y", "z", "rx", "ry", "rz", "spin", "explode", "time",
                 "motion_speed", "radius", "amplitude", "snap", "clip_speed",
                 "dx", "dy", "dz", "drx", "dry", "drz", "scale_factor",
-                "spacing", "delta_time"):
+                "spacing", "delta_time", "gravity", "bounce", "floor", "vx", "vy", "vz"):
         value = _num(parameters.get(key))
         if value is not None:
             body[key] = value
@@ -75,7 +75,7 @@ TOOL = {
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
         "describe the requested visual action. Scene Lab supports multiple selectable objects and object_label can target them naturally by visible name, camera views, layouts, exploded views and animations. Hologram/scene kinds: energy, globe, "
-        "network, drone, vehicle, logo, sphere, ring, tower, robot, arm, satellite, aircraft, building, ship, radar, portal, cube and persistent imported custom GLB models. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V4 supports multi-select, named groups, batch transforms, align/distribute, arrays/formations, parent-child hierarchy, camera bookmarks, a persistent GLB asset library (scene_asset_list/add/delete), duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), multi-object timeline capture/editing, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary, command_center, city_scan, space_ops, robotics. Video templates: ultron_intro, "
+        "network, drone, vehicle, logo, sphere, ring, tower, robot, arm, satellite, aircraft, building, ship, radar, portal, cube and persistent imported custom GLB models. For a request containing several different objects, use scene_batch once with objects_json rather than repeating scene_add. Scene Lab V4 supports multi-select, named groups, batch transforms, align/distribute, arrays/formations, parent-child hierarchy, camera bookmarks, live drop/launch/zero-G/float physics, holographic distance measurements, a persistent GLB asset library (scene_asset_list/add/delete), duplicate, undo/redo, object motion (orbit/bob/patrol/pulse), multi-object timeline capture/editing, launch/flyby/showcase timeline presets, cinematic camera paths (orbit/flyby/topdown/hero/spiral), themes, visibility and lock. Scene camera: front, top, side, isometric, orbit, close. Layouts: line, grid, orbit. Presets: operations, vehicle_scan, drone_bay, planetary, command_center, city_scan, space_ops, robotics. Video templates: ultron_intro, "
         "logo_reveal, energy_core, system_activation, task_complete, "
         "hologram_capture. For 'make this bigger/brighter/faster/red' after a "
         "hologram request, use hologram_update with only the changed fields."
@@ -91,7 +91,8 @@ TOOL = {
                     "scene_select", "scene_multi_select", "scene_group_create", "scene_group_select",
                     "scene_group_delete", "scene_batch_transform", "scene_align", "scene_distribute",
                     "scene_array", "scene_parent", "scene_unparent", "scene_asset_list", "scene_asset_add",
-                    "scene_asset_delete", "scene_remove", "scene_clear", "scene_camera",
+                    "scene_asset_delete", "scene_physics", "scene_measure", "scene_measure_clear",
+                    "scene_remove", "scene_clear", "scene_camera",
                     "scene_camera_bookmark_save", "scene_camera_bookmark_load", "scene_camera_bookmark_delete",
                     "scene_camera_bookmark_list", "scene_arrange", "scene_preset", "scene_animation", "scene_director", "scene_save",
                     "scene_duplicate", "scene_motion", "scene_theme", "scene_undo",
@@ -174,11 +175,19 @@ TOOL = {
             "bookmark_id": {"type": "STRING"},
             "bookmark_name": {"type": "STRING"},
             "asset_name": {"type": "STRING", "description": "Saved GLB asset name or partial name."},
+            "physics_mode": {"type": "STRING", "description": "off, drop, launch, zero_g or float."},
+            "velocity_json": {"type": "STRING", "description": "Optional JSON [vx,vy,vz] launch/zero-G velocity."},
             "dx": {"type": "NUMBER"}, "dy": {"type": "NUMBER"}, "dz": {"type": "NUMBER"},
             "drx": {"type": "NUMBER"}, "dry": {"type": "NUMBER"}, "drz": {"type": "NUMBER"},
             "scale_factor": {"type": "NUMBER"},
             "spacing": {"type": "NUMBER"},
             "delta_time": {"type": "NUMBER"},
+            "gravity": {"type": "NUMBER"},
+            "bounce": {"type": "NUMBER"},
+            "floor": {"type": "NUMBER"},
+            "vx": {"type": "NUMBER"},
+            "vy": {"type": "NUMBER"},
+            "vz": {"type": "NUMBER"},
             "count": {"type": "INTEGER"},
             "auto_orbit": {"type": "BOOLEAN"},
             "grid": {"type": "BOOLEAN"},
