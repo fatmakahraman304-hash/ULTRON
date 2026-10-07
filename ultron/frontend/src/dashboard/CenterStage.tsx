@@ -118,6 +118,16 @@ function sampleSceneObject(scene:SceneState,o:SceneObject,time:number){
  const span=Math.max(.0001,b.time-a.time),t=easeValue((time-a.time)/span,b.easing||'ease_in_out');
  return {position:[0,1,2].map(i=>lerp(a.position?.[i]||0,b.position?.[i]||0,t)),rotation:[0,1,2].map(i=>lerp(a.rotation?.[i]||0,b.rotation?.[i]||0,t)),scale:lerp(a.scale||1,b.scale||1,t)};
 }
+function sampleCameraTrack(scene:SceneState,time:number){
+ const frames=[...(scene.camera_track||[])].sort((a,b)=>a.time-b.time);
+ if(!frames.length)return null;
+ if(time<=frames[0].time)return {position:[...frames[0].position],target:[...frames[0].target]};
+ if(time>=frames[frames.length-1].time){const k=frames[frames.length-1];return {position:[...k.position],target:[...k.target]};}
+ let a=frames[0],b=frames[frames.length-1];
+ for(let i=0;i<frames.length-1;i++)if(time>=frames[i].time&&time<=frames[i+1].time){a=frames[i];b=frames[i+1];break;}
+ const span=Math.max(.0001,b.time-a.time),t=easeValue((time-a.time)/span,b.easing||'ease_in_out');
+ return {position:[0,1,2].map(i=>lerp(a.position?.[i]||0,b.position?.[i]||0,t)),target:[0,1,2].map(i=>lerp(a.target?.[i]||0,b.target?.[i]||0,t))};
+}
 function makeLabelSprite(text:string,color:string){
  const canvas=document.createElement('canvas');canvas.width=320;canvas.height=72;const ctx=canvas.getContext('2d')!;
  ctx.clearRect(0,0,320,72);ctx.fillStyle='rgba(2,4,7,.78)';ctx.fillRect(2,2,316,68);ctx.strokeStyle=color;ctx.lineWidth=2;ctx.strokeRect(2,2,316,68);
@@ -304,16 +314,19 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
    sceneRoot.updateMatrixWorld(true);const worldA=new THREE.Vector3(),worldB=new THREE.Vector3();
    for(const item of linkLines.values()){const a=objectGroups.get(item.source),b=objectGroups.get(item.target);if(!a||!b)continue;a.getWorldPosition(worldA);b.getWorldPosition(worldB);const pa=sceneRoot.worldToLocal(worldA.clone()),pb=sceneRoot.worldToLocal(worldB.clone()),attr=item.line.geometry.getAttribute('position') as THREE.BufferAttribute;attr.setXYZ(0,pa.x,pa.y,pa.z);attr.setXYZ(1,pb.x,pb.y,pb.z);attr.needsUpdate=true;item.line.computeLineDistances();}
    for(const item of measurementLines.values()){const a=objectGroups.get(item.source),b=objectGroups.get(item.target);if(!a||!b)continue;a.getWorldPosition(worldA);b.getWorldPosition(worldB);const distance=worldA.distanceTo(worldB),pa=sceneRoot.worldToLocal(worldA.clone()),pb=sceneRoot.worldToLocal(worldB.clone()),attr=item.line.geometry.getAttribute('position') as THREE.BufferAttribute;attr.setXYZ(0,pa.x,pa.y,pa.z);attr.setXYZ(1,pb.x,pb.y,pb.z);attr.needsUpdate=true;item.line.computeLineDistances();item.label.position.copy(pa.clone().add(pb).multiplyScalar(.5)).add(new THREE.Vector3(0,.28,0));const formatted=distance.toFixed(2);if(formatted!==item.last){item.last=formatted;updateHudSpriteValue(item.label,formatted);}}
-   const focus=scene.focus_id?objectGroups.get(scene.focus_id):undefined;if(focus&&!scene.cinematic?.enabled)orbit.target.lerp(focus.position,.08);
-   const cin=scene.cinematic;if(cin?.enabled&&cin.started_at){const d=Math.max(2,Number(cin.duration)||8),elapsed=Math.max(0,Date.now()/1000-Number(cin.started_at)),p=(cin.loop?elapsed%d:Math.min(d,elapsed))/d,a=p*Math.PI*2;
+   const focus=scene.focus_id?objectGroups.get(scene.focus_id):undefined;if(focus&&!scene.cinematic?.enabled&&!scene.timeline?.playing)orbit.target.lerp(focus.position,.08);
+   const cin=scene.cinematic,cameraTrackActive=!cin?.enabled&&Boolean(scene.timeline?.playing)&&(scene.camera_track?.length||0)>0;
+   if(cin?.enabled&&cin.started_at){const d=Math.max(2,Number(cin.duration)||8),elapsed=Math.max(0,Date.now()/1000-Number(cin.started_at)),p=(cin.loop?elapsed%d:Math.min(d,elapsed))/d,a=p*Math.PI*2;
     if(cin.preset==='flyby')camera.position.set(lerp(-8,8,p),2.2,5.5);
     else if(cin.preset==='topdown')camera.position.set(Math.sin(a)*2,8.5,Math.cos(a)*2);
     else if(cin.preset==='hero')camera.position.set(Math.sin(a*.5)*2.2,1.2+Math.sin(a)*.6,4.4+Math.cos(a)*.7);
     else if(cin.preset==='spiral'){const r=8-4*p;camera.position.set(Math.cos(a*2)*r,2+4*p,Math.sin(a*2)*r);}
     else camera.position.set(Math.cos(a)*7,3.4,Math.sin(a)*7);camera.lookAt(0,0,0);orbit.target.set(0,0,0);
+   }else if(cameraTrackActive){
+    const shot=sampleCameraTrack(scene,tlTime);if(shot){camera.position.set(shot.position[0]||0,shot.position[1]||0,shot.position[2]||0);orbit.target.set(shot.target[0]||0,shot.target[1]||0,shot.target[2]||0);camera.lookAt(orbit.target);}
    }
    particleField.rotation.y+=dt*.018;particleField.rotation.x=Math.sin(now*.00008)*.08;if(scene.audio_reactive!==false)(particleField.material as THREE.PointsMaterial).opacity=.28+Math.min(.45,Math.max(0,amplitudeRef.current)*.55);
-   if(scan.visible)scan.position.y=-1.3+((now*.001)%1)*2.6;orbit.update();renderer.render(world,camera);raf=requestAnimationFrame(loop);};raf=requestAnimationFrame(loop);
+   if(scan.visible)scan.position.y=-1.3+((now*.001)%1)*2.6;if(!cin?.enabled&&!cameraTrackActive)orbit.update();renderer.render(world,camera);raf=requestAnimationFrame(loop);};raf=requestAnimationFrame(loop);
   return()=>{dead=true;cancelAnimationFrame(raf);for(const mixer of mixers)mixer.stopAllAction();ro.disconnect();renderer.domElement.removeEventListener('pointerdown',click);window.removeEventListener('ultron-scene-export-glb',exportGlb as EventListener);transform.detach();transform.dispose();orbit.removeEventListener('end',saveCamera);orbit.dispose();renderer.dispose();world.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const tex=(o as any).userData?.labelTexture;if(tex)tex.dispose();const mm=(m as any).material;if(mm)(Array.isArray(mm)?mm:[mm]).forEach((x:THREE.Material)=>x.dispose());});renderer.domElement.remove();};
  },[key,transformMode]);
  return <div className="scene-lab-webgl" ref={host}/>;
@@ -324,8 +337,8 @@ function SceneTimeline({scene,onCommand}:{scene:SceneState;onCommand:(operation:
  useEffect(()=>{if(!tl.playing)return;const id=setInterval(()=>tick(v=>v+1),60);return()=>clearInterval(id);},[tl.playing,tl.started_at]);
  const cursor=timelineCursor(scene),duration=Math.max(1,Number(tl.duration)||8),selected=scene.selected_id,frames=(tl.keyframes||[]).filter(k=>!selected||k.object_id===selected);
  return <div className="scene-timeline">
-  <div className="timeline-head"><b>TIMELINE</b><span>{cursor.toFixed(2)}s / {duration.toFixed(1)}s</span><button onClick={()=>onCommand(tl.playing?'timeline_pause':'timeline_play')}>{tl.playing?'PAUSE':'PLAY'}</button><button disabled={!selected} onClick={()=>onCommand('timeline_capture',{time:cursor})}>+ KEY</button><button onClick={()=>onCommand('timeline_capture_all',{time:cursor,selection_mode:(scene.selected_ids?.length||0)>1?'selected':'all'})}>KEY ALL</button><button disabled={!selected} onClick={()=>onCommand('timeline_preset',{preset:'showcase',duration})}>SHOWCASE</button><button disabled={!selected} onClick={()=>onCommand('timeline_preset',{preset:'launch',duration})}>LAUNCH</button><button onClick={()=>onCommand('timeline_shift',{delta_time:-.5,selection_mode:'all'})}>← .5s</button><button onClick={()=>onCommand('timeline_shift',{delta_time:.5,selection_mode:'all'})}>.5s →</button><button onClick={()=>onCommand('timeline_clear')}>CLEAR</button></div>
-  <div className="timeline-track"><input type="range" min="0" max={duration} step=".05" value={cursor} onChange={e=>onCommand('timeline_seek',{time:+e.target.value})}/><i className="timeline-playhead" style={{left:(cursor/duration*100)+'%'}}/>{frames.map(k=><button className="timeline-key" key={k.id} title={k.time.toFixed(2)+'s'} style={{left:(k.time/duration*100)+'%'}} onDoubleClick={()=>onCommand('timeline_remove_keyframe',{keyframe_id:k.id})}/>)}</div>
+  <div className="timeline-head"><b>TIMELINE</b><span>{cursor.toFixed(2)}s / {duration.toFixed(1)}s</span><button onClick={()=>onCommand(tl.playing?'timeline_pause':'timeline_play')}>{tl.playing?'PAUSE':'PLAY'}</button><button disabled={!selected} onClick={()=>onCommand('timeline_capture',{time:cursor})}>+ KEY</button><button onClick={()=>onCommand('timeline_capture_all',{time:cursor,selection_mode:(scene.selected_ids?.length||0)>1?'selected':'all'})}>KEY ALL</button><button onClick={()=>onCommand('camera_keyframe_capture',{time:cursor})}>+ CAM KEY</button><button disabled={!selected} onClick={()=>onCommand('timeline_preset',{preset:'showcase',duration})}>SHOWCASE</button><button disabled={!selected} onClick={()=>onCommand('timeline_preset',{preset:'launch',duration})}>LAUNCH</button><button onClick={()=>onCommand('timeline_shift',{delta_time:-.5,selection_mode:'all'})}>← .5s</button><button onClick={()=>onCommand('timeline_shift',{delta_time:.5,selection_mode:'all'})}>.5s →</button><button onClick={()=>onCommand('camera_track_clear')}>CAM CLEAR</button><button onClick={()=>onCommand('timeline_clear')}>CLEAR</button></div>
+  <div className="timeline-track"><input type="range" min="0" max={duration} step=".05" value={cursor} onChange={e=>onCommand('timeline_seek',{time:+e.target.value})}/><i className="timeline-playhead" style={{left:(cursor/duration*100)+'%'}}/>{frames.map(k=><button className="timeline-key" key={k.id} title={k.time.toFixed(2)+'s'} style={{left:(k.time/duration*100)+'%'}} onDoubleClick={()=>onCommand('timeline_remove_keyframe',{keyframe_id:k.id})}/>)}{(scene.camera_track||[]).map(k=><button className="timeline-camera-key" key={k.id} title={'CAM '+k.time.toFixed(2)+'s'} style={{left:(k.time/duration*100)+'%'}} onDoubleClick={()=>onCommand('camera_keyframe_remove',{keyframe_id:k.id})}/>)}</div>
  </div>;
 }
 
