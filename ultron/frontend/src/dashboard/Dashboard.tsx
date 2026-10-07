@@ -78,6 +78,28 @@ export default function Dashboard(){
   if(sceneMode){
    const namedTarget=u.stage.scene.objects.find(o=>{const name=String(o.label||'').toLocaleLowerCase('tr-TR');return name.length>1&&t.includes(name);});
    const selectedCount=u.stage.scene.selected_ids?.length||0;
+   const sceneAliases:Record<string,string[]>={
+    vehicle:['vehicle','car','araba','araç','arac'],drone:['drone','dron'],globe:['globe','earth','dünya','dunya'],
+    radar:['radar'],robot:['robot'],satellite:['satellite','uydu'],aircraft:['aircraft','uçak','ucak'],
+    ship:['ship','gemi'],building:['building','bina'],arm:['arm','robot kolu'],tower:['tower','kule'],portal:['portal'],cube:['cube','küp','kup']
+   };
+   const sceneMentions=u.stage.scene.objects.map(o=>{const terms=[String(o.label||'').toLocaleLowerCase('tr-TR'),...(sceneAliases[o.kind]||[])].filter(Boolean);const pos=Math.min(...terms.map(v=>t.indexOf(v)).filter(v=>v>=0),Number.POSITIVE_INFINITY);return {o,pos};}).filter(x=>Number.isFinite(x.pos)).sort((a,b)=>a.pos-b.pos).map(x=>x.o);
+   const sourceMention=sceneMentions[0]||selected,targetMention=sceneMentions.find(x=>x.id!==sourceMention?.id)||null;
+   if(/(?:blueprint|mavi plan|teknik çizim|teknik cizim)/.test(t)){await action('scene_render_mode',{render_mode:'blueprint'});return 'Scene Lab blueprint moduna geçti.';}
+   if(/(?:x.?ray|x ışını|x isini|röntgen|rontgen)/.test(t)){await action('scene_render_mode',{render_mode:'xray'});return 'Scene Lab X-ray moduna geçti.';}
+   if(/(?:thermal|termal|ısı haritası|isi haritasi)/.test(t)){await action('scene_render_mode',{render_mode:'thermal'});return 'Scene Lab thermal moduna geçti.';}
+   if(/(?:solid|katı görünüm|kati gorunum|normal model)/.test(t)){await action('scene_render_mode',{render_mode:'solid'});return 'Scene Lab solid moduna geçti.';}
+   if(/(?:hologram modu|holografik görünüm|holografik gorunum|hologram görünüm|hologram gorunum)/.test(t)){await action('scene_render_mode',{render_mode:'hologram'});return 'Scene Lab hologram moduna geçti.';}
+   if(sourceMention&&targetMention&&/(?:takip et|takip etsin|peşinden git|pesinden git|follow)/.test(t)){await action('scene_constraint',{object_id:sourceMention.id,constraint:'follow',target_id:targetMention.id,distance:2,constraint_speed:1});return sourceMention.label+' artık '+targetMention.label+' nesnesini takip ediyor.';}
+   if(sourceMention&&targetMention&&/(?:etrafında dön|etrafinda don|çevresinde dön|cevresinde don|orbit target|yörüngesinde dön|yorungesinde don)/.test(t)){await action('scene_constraint',{object_id:sourceMention.id,constraint:'orbit_target',target_id:targetMention.id,distance:2.5,constraint_speed:1});return sourceMention.label+' artık '+targetMention.label+' çevresinde dönüyor.';}
+   if(sourceMention&&targetMention&&/(?:baksın|baksin|ona bak|look at|yüzünü dön|yuzunu don|hedefe dön|hedefe don)/.test(t)){await action('scene_constraint',{object_id:sourceMention.id,constraint:'look_at',target_id:targetMention.id});return sourceMention.label+' artık '+targetMention.label+' yönüne bakıyor.';}
+   if(selected&&/(?:takibi|constraint|hedef takibi).*(?:durdur|kapat|temizle|sil)/.test(t)){await action('scene_constraint',{object_id:selected.id,constraint:'none'});return 'Seçili nesnenin target constraint’i kapatıldı.';}
+   if((namedTarget||selected)&&/(?:hedefle|target lock|hedef olarak kilitle|hedefe kilitle)/.test(t)){const target=namedTarget||selected!;await action('scene_target_lock',{object_id:target.id});return target.label+' hedef olarak kilitlendi.';}
+   if(/(?:hedef kilidini|target lock).*(?:kaldır|kaldir|temizle|kapat)/.test(t)){await action('scene_target_clear');return 'Hedef kilidi kaldırıldı.';}
+   if(selected&&/(?:waypoint|rota noktası|rota noktasi).*(?:ekle|koy|kaydet|işaretle|isaretle)|(?:burayı|burayi).*(?:waypoint|rota noktası|rota noktasi)/.test(t)){await action('scene_waypoint_add',{object_id:selected.id,x:selected.position?.[0]||0,y:selected.position?.[1]||0,z:selected.position?.[2]||0});return 'Seçili nesnenin rotasına waypoint eklendi.';}
+   if(selected&&/(?:rotayı|rotayi|waypoint).*(?:başlat|baslat|oynat|takip et|play)/.test(t)){await action('scene_path_play',{object_id:selected.id,path_speed:selected.path?.speed||1,loop:true});return 'Seçili nesnenin waypoint rotası başladı.';}
+   if(selected&&/(?:rotayı|rotayi|waypoint).*(?:durdur|pause|stop)/.test(t)){await action('scene_path_stop',{object_id:selected.id});return 'Waypoint rotası durduruldu.';}
+   if(selected&&/(?:rotayı|rotayi|waypoint).*(?:temizle|sil|sıfırla|sifirla|clear)/.test(t)){await action('scene_waypoint_clear',{object_id:selected.id});return 'Seçili nesnenin waypoint rotası temizlendi.';}
    if(selectedCount===2&&/(?:mesafe|uzaklık|uzaklik|distance).*(?:ölç|olc|göster|goster|hesapla)|(?:seçtiklerimin|sectiklerimin).*(?:arasını|arasini|mesafesini).*(?:ölç|olc|hesapla)?/.test(t)){const res=await action('scene_measure');const d=Number(res?.measurement_result?.distance);return Number.isFinite(d)?'Seçili nesneler arası mesafe '+d.toFixed(2)+' birim.':'Mesafe ölçümü sahneye eklendi.';}
    if(/(?:ölçüm|olcum|measurement).*(?:temizle|sil|kaldır|kaldir)/.test(t)){await action('scene_measure_clear');return 'Sahne ölçümleri temizlendi.';}
    if(selected&&/(?:bunu|nesneyi|seçileni|secileni).*(?:düşür|dusur|drop)|(?:yerçekimi|yercekimi).*(?:aç|ac|uygula)/.test(t)){await action('scene_physics',{object_id:selected.id,physics_mode:'drop',gravity:9.81,bounce:.45});return 'Seçili nesne fiziksel düşüşe geçti.';}
