@@ -847,7 +847,7 @@ def _scene_defaults() -> dict:
         "objects": [], "links": [], "hud": [], "groups": [], "camera_bookmarks": [], "measurements": [],
         "selected_id": None, "selected_ids": [], "focus_id": None, "camera": "isometric",
         "camera_pose": None, "camera_track": [], "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
-        "show_labels": True, "show_trails": True, "audio_reactive": True, "theme": "crimson", "snap": 0.25,
+        "show_labels": True, "show_trails": True, "audio_reactive": True, "collision_overlay": False, "theme": "crimson", "snap": 0.25,
         "animation": "idle",
         "timeline": {
             "duration": 8.0, "cursor": 0.0, "playing": False,
@@ -1019,7 +1019,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     state = hub.stage_state
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
-    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete"}:
+    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete", "scene_diagnostics", "scene_collision_overlay"}:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
@@ -2014,6 +2014,58 @@ async def api_stage_command(req: web.Request) -> web.Response:
         scene["objects"] = objects
         state["scene"] = scene
         state["mode"] = "scene_lab"
+    elif op == "scene_collision_overlay":
+        scene=dict(state.get("scene") or {})
+        scene["collision_overlay"]=bool(body.get("enabled", not bool(scene.get("collision_overlay",False))))
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_diagnostics":
+        scene=_scene_ensure(dict(state.get("scene") or {}));objects=[o for o in scene.get("objects") or [] if isinstance(o,dict)]
+        ids=[str(o.get("id")) for o in objects];idset=set(ids);byid={str(o.get("id")):o for o in objects}
+        issues=[]
+        if len(ids)!=len(idset):issues.append({"type":"duplicate_id","detail":"Duplicate scene object IDs detected."})
+        for obj in objects:
+            oid=str(obj.get("id"));parent=str(obj.get("parent_id") or "")
+            if parent and parent not in idset:issues.append({"type":"invalid_parent","object":oid,"parent":parent})
+            model_id=str(obj.get("model_id") or "")
+            if model_id:
+                path=Path(DATA_DIR)/"scene_models"/f"{re.sub(r'[^A-Za-z0-9_-]','',model_id)[:48]}.glb"
+                if not path.exists():issues.append({"type":"missing_asset","object":oid,"model_id":model_id})
+        for link in scene.get("links") or []:
+            if str(link.get("source")) not in idset or str(link.get("target")) not in idset:
+                issues.append({"type":"invalid_link","id":str(link.get("id") or "")})
+        for measurement in scene.get("measurements") or []:
+            if str(measurement.get("source")) not in idset or str(measurement.get("target")) not in idset:
+                issues.append({"type":"invalid_measurement","id":str(measurement.get("id") or "")})
+        for frame in (scene.get("timeline") or {}).get("keyframes") or []:
+            if str(frame.get("object_id")) not in idset:issues.append({"type":"dangling_keyframe","id":str(frame.get("id") or "")})
+        # Approximate world transforms for collision diagnostics. Bounding spheres are orientation-independent.
+        def _world_transform(oid,seen=None):
+            seen=set(seen or ())
+            if oid in seen:return ([0.0,0.0,0.0],1.0)
+            seen.add(oid);obj=byid.get(oid) or {};pos=list(obj.get("position") or [0,0,0])
+            while len(pos)<3:pos.append(0)
+            scale=float(obj.get("scale",1) or 1);parent=str(obj.get("parent_id") or "")
+            if parent and parent in byid:
+                pp,ps=_world_transform(parent,seen)
+                return ([pp[0]+float(pos[0])*ps,pp[1]+float(pos[1])*ps,pp[2]+float(pos[2])*ps],scale*ps)
+            return ([float(pos[0]),float(pos[1]),float(pos[2])],scale)
+        radii={"vehicle":1.45,"drone":1.35,"globe":1.2,"robot":1.05,"arm":1.0,"aircraft":1.5,"ship":1.45,
+               "building":1.1,"satellite":1.2,"network":1.1,"tower":1.15,"ring":1.25,"portal":1.25,"custom":1.0}
+        collisions=[]
+        visible=[o for o in objects if o.get("visible",True) is not False]
+        for i,a in enumerate(visible):
+            aid=str(a.get("id"));ap,ascale=_world_transform(aid);ar=radii.get(str(a.get("kind") or ""),1.0)*abs(ascale)
+            for b in visible[i+1:]:
+                bid=str(b.get("id"));bp,bscale=_world_transform(bid);br=radii.get(str(b.get("kind") or ""),1.0)*abs(bscale)
+                dist=math.sqrt(sum((ap[k]-bp[k])**2 for k in range(3)));threshold=(ar+br)*.72
+                if dist<threshold:
+                    collisions.append({"a":aid,"a_label":str(a.get("label") or aid),"b":bid,"b_label":str(b.get("label") or bid),
+                                       "distance":round(dist,3),"threshold":round(threshold,3)})
+        result={"ok":not issues,"health":"warning" if issues or collisions else "ok","objects":len(objects),
+                "groups":len(scene.get("groups") or []),"links":len(scene.get("links") or []),"hud":len(scene.get("hud") or []),
+                "measurements":len(scene.get("measurements") or []),"object_keyframes":len((scene.get("timeline") or {}).get("keyframes") or []),
+                "camera_keyframes":len(scene.get("camera_track") or []),"issues":issues[:40],"collisions":collisions[:40]}
+        state["diagnostics_result"]=result;state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "scene_theme":
         scene = dict(state.get("scene") or {})
         theme = str(body.get("theme") or "crimson").lower()
