@@ -35,6 +35,36 @@ export default function Dashboard(){
   if(/(?:videoyu|video).*(?:kaydet|indir)/.test(t)){await action('video_save');return 'Video kaydetme penceresi açıldı.';}
   if(/(?:hologramı|hologrami|tasarımı|tasarimi).*(?:kaydet|indir)/.test(t)){await action('hologram_save');return 'Hologram projesi kaydediliyor.';}
 
+  if(/(?:3d\s*dünya|3d\s*dunya|earth watch|global monitor|normal\s*3d\s*dünya|normal\s*3d\s*dunya|dünyayı\s*(?:aç|ac|göster|goster|izle)|dunya(?:yı|yi)\s*(?:aç|ac|göster|goster|izle))/.test(t)){await action('earth_open');return 'EARTH WATCH açıldı.';}
+  const earthMode=u.stage.mode==='earth_watch';
+  if(earthMode){
+   const places:Array<[RegExp,string,number,number]>= [
+    [/(?:türkiye|turkiye|turkey)/,'TÜRKİYE',39,35],
+    [/(?:kıbrıs|kibris|cyprus)/,'KIBRIS',35.13,33.43],
+    [/(?:istanbul)/,'İSTANBUL',41.01,28.98],
+    [/(?:londra|london)/,'LONDON',51.5074,-.1278],
+    [/(?:new york|nyc)/,'NEW YORK',40.7128,-74.006],
+    [/(?:tokyo|tokyo)/,'TOKYO',35.6762,139.6503],
+    [/(?:avrupa|europe)/,'EUROPE',50,15]
+   ];
+   const place=places.find(([re])=>re.test(t));
+   const coords=t.match(/(-?\d+(?:[.,]\d+)?)\s*(?:,|\s)\s*(-?\d+(?:[.,]\d+)?)\s*(?:koordinat|coordinate|enlem|lat|°)?/);
+   if(place&&/(?:git|dön|don|odaklan|göster|goster|yaklaş|yaklas|focus|zoom)/.test(t)){await action('earth_focus',{place:place[1],lat:place[2],lon:place[3]});return place[1]+' konumuna odaklanıldı.';}
+   if(coords&&/(?:koordinat|enlem|boylam|lat|lon|odaklan|focus|git)/.test(t)){const lat=Number(coords[1].replace(',','.')),lon=Number(coords[2].replace(',','.'));await action('earth_focus',{place:'COORDINATE',lat,lon});return lat.toFixed(3)+', '+lon.toFixed(3)+' koordinatına odaklanıldı.';}
+   if(/(?:iss|uzay istasyonu).*(?:göster|goster|aç|ac|izle|takip)/.test(t)){await action('earth_control',{live_iss:true});return 'Canlı ISS takibi açıldı.';}
+   if(/(?:iss|uzay istasyonu).*(?:kapat|gizle|durdur)/.test(t)){await action('earth_control',{live_iss:false});return 'ISS takibi kapatıldı.';}
+   if(/(?:gece modu|night mode|gece görünümü|gece gorunumu).*(?:aç|ac|geç|gec|aktif)?/.test(t)){await action('earth_control',{night:true});return 'Earth Watch gece moduna geçti.';}
+   if(/(?:gündüz modu|gunduz modu|day mode)/.test(t)){await action('earth_control',{night:false});return 'Earth Watch gündüz moduna geçti.';}
+   if(/(?:enlem|boylam|lat.?lon).*(?:grid|ızgara|izgara).*(?:aç|ac|göster|goster)/.test(t)){await action('earth_control',{grid:true});return 'Enlem-boylam ızgarası açıldı.';}
+   if(/(?:grid|ızgara|izgara).*(?:kapat|gizle)/.test(t)){await action('earth_control',{grid:false});return 'Dünya ızgarası kapatıldı.';}
+   if(/(?:bulut|cloud).*(?:kapat|gizle)/.test(t)){await action('earth_control',{clouds:false});return 'Bulut katmanı kapatıldı.';}
+   if(/(?:bulut|cloud).*(?:aç|ac|göster|goster)/.test(t)){await action('earth_control',{clouds:true});return 'Bulut katmanı açıldı.';}
+   if(/(?:dünya|dunya).*(?:dönmeyi|donmeyi|dönüşü|donusu|rotasyonu).*(?:durdur|kapat)/.test(t)){await action('earth_control',{auto_rotate:false});return 'Dünya otomatik dönüşü durduruldu.';}
+   if(/(?:dünya|dunya).*(?:dönsün|donsun|döndür|dondur|rotasyon).*(?:başlat|baslat|aç|ac)?/.test(t)){await action('earth_control',{auto_rotate:true});return 'Dünya otomatik dönüşü açıldı.';}
+   if(place&&/(?:pin|işaret|isaret|marker).*(?:koy|ekle|işaretle|isaretle)/.test(t)){await action('earth_marker_add',{label:place[1],lat:place[2],lon:place[3],color:color||'#ff334d'});return place[1]+' için Dünya üzerine pin eklendi.';}
+   if(/(?:pin|işaret|isaret|marker).*(?:temizle|sil|kaldır|kaldir)/.test(t)){await action('earth_marker_clear');return 'Earth Watch pinleri temizlendi.';}
+  }
+
   const sceneMode=u.stage.mode==='scene_lab';
   const selected=sceneMode?u.stage.scene.objects.find(o=>o.id===u.stage.scene.selected_id):undefined;
   if(/(?:sahne|operasyon masası|operasyon masasi|scene lab).*(?:aç|ac|başlat|baslat|kur|oluştur|olustur)/.test(t)){await action('scene_open');return 'Scene Lab açıldı.';}
