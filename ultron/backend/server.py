@@ -1297,15 +1297,227 @@ async def api_stage_command(req: web.Request) -> web.Response:
         if not any(str(o.get("id")) == target for o in scene.get("objects") or []):
             return web.json_response({"ok": False, "error": "scene_object_not_found"}, status=404)
         scene["selected_id"] = target
+        scene["selected_ids"] = [target]
         state["scene"] = scene
         state["mode"] = "scene_lab"
+    elif op == "scene_multi_select":
+        scene = dict(state.get("scene") or {})
+        ids = body.get("object_ids")
+        if ids is None and body.get("object_ids_json"):
+            try: ids = json.loads(str(body.get("object_ids_json")))
+            except Exception: ids = None
+        if not isinstance(ids, list):
+            one = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"))
+            ids = [one] if one else []
+        valid = {str(o.get("id")) for o in scene.get("objects") or []}
+        incoming = [str(x) for x in ids if str(x) in valid]
+        mode = str(body.get("selection_mode") or "replace").lower()
+        current = [str(x) for x in scene.get("selected_ids") or [] if str(x) in valid]
+        if mode == "add":
+            selected = current + [x for x in incoming if x not in current]
+        elif mode == "toggle":
+            selected = list(current)
+            for x in incoming:
+                if x in selected: selected.remove(x)
+                else: selected.append(x)
+        elif mode == "all":
+            selected = [str(o.get("id")) for o in scene.get("objects") or []]
+        elif mode == "clear":
+            selected = []
+        else:
+            selected = incoming
+        scene["selected_ids"] = selected[:16]
+        scene["selected_id"] = scene["selected_ids"][-1] if scene["selected_ids"] else None
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "scene_group_create":
+        scene = dict(state.get("scene") or {})
+        ids = body.get("object_ids")
+        if ids is None and body.get("object_ids_json"):
+            try: ids = json.loads(str(body.get("object_ids_json")))
+            except Exception: ids = None
+        valid = {str(o.get("id")) for o in scene.get("objects") or []}
+        members = [str(x) for x in (ids if isinstance(ids,list) else scene.get("selected_ids") or []) if str(x) in valid]
+        if len(members) < 2:
+            return web.json_response({"ok":False,"error":"group_requires_two_objects"},status=400)
+        groups = list(scene.get("groups") or [])
+        gid = uuid.uuid4().hex[:8]
+        groups.append({"id":gid,"name":str(body.get("group_name") or body.get("label") or f"GROUP {len(groups)+1}")[:60],
+                       "members":members[:16]})
+        scene["groups"] = groups[:16]
+        scene["selected_ids"] = members[:16]
+        scene["selected_id"] = members[-1]
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+        state["group_result"] = groups[-1]
+    elif op == "scene_group_select":
+        scene = dict(state.get("scene") or {})
+        groups = list(scene.get("groups") or [])
+        raw = str(body.get("group_id") or body.get("group_name") or body.get("label") or "").strip()
+        group = next((g for g in groups if str(g.get("id")) == raw or str(g.get("name") or "").lower() == raw.lower()), None)
+        if group is None and raw:
+            group = next((g for g in groups if raw.lower() in str(g.get("name") or "").lower()), None)
+        if not group:
+            return web.json_response({"ok":False,"error":"scene_group_not_found"},status=404)
+        valid = {str(o.get("id")) for o in scene.get("objects") or []}
+        members = [str(x) for x in group.get("members") or [] if str(x) in valid]
+        scene["selected_ids"] = members
+        scene["selected_id"] = members[-1] if members else None
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "scene_group_delete":
+        scene = dict(state.get("scene") or {})
+        raw = str(body.get("group_id") or body.get("group_name") or body.get("label") or "").strip()
+        scene["groups"] = [g for g in (scene.get("groups") or []) if str(g.get("id")) != raw and str(g.get("name") or "").lower() != raw.lower()]
+        state["scene"] = scene
+        state["mode"] = "scene_lab"
+    elif op == "scene_batch_transform":
+        scene = dict(state.get("scene") or {})
+        valid = {str(o.get("id")) for o in scene.get("objects") or []}
+        ids = body.get("object_ids")
+        if ids is None and body.get("object_ids_json"):
+            try: ids = json.loads(str(body.get("object_ids_json")))
+            except Exception: ids = None
+        targets = [str(x) for x in (ids if isinstance(ids,list) else scene.get("selected_ids") or []) if str(x) in valid]
+        if not targets and scene.get("selected_id"): targets=[str(scene.get("selected_id"))]
+        if not targets:
+            return web.json_response({"ok":False,"error":"scene_selection_empty"},status=400)
+        dx=_stage_number(body.get("dx",0),0,-12,12);dy=_stage_number(body.get("dy",0),0,-8,8);dz=_stage_number(body.get("dz",0),0,-12,12)
+        drx=_stage_number(body.get("drx",0),0,-6.3,6.3);dry=_stage_number(body.get("dry",0),0,-6.3,6.3);drz=_stage_number(body.get("drz",0),0,-6.3,6.3)
+        factor=_stage_number(body.get("scale_factor",1),1,.1,10)
+        objects=[]
+        for item in scene.get("objects") or []:
+            obj=dict(item)
+            if str(obj.get("id")) in targets and not bool(obj.get("locked",False)):
+                pos=list(obj.get("position") or [0,0,0]);rot=list(obj.get("rotation") or [0,0,0])
+                while len(pos)<3:pos.append(0)
+                while len(rot)<3:rot.append(0)
+                obj["position"]=[_stage_number(pos[0]+dx,0,-6,6),_stage_number(pos[1]+dy,0,-4,4),_stage_number(pos[2]+dz,0,-6,6)]
+                obj["rotation"]=[_stage_number(rot[0]+drx,0,-6.3,6.3),_stage_number(rot[1]+dry,0,-6.3,6.3),_stage_number(rot[2]+drz,0,-6.3,6.3)]
+                obj["scale"]=_stage_number(float(obj.get("scale",1))*factor,1,.2,3)
+                if "color" in body: obj["color"]=str(body.get("color") or "#ff3047")[:24]
+                if "visible" in body: obj["visible"]=bool(body["visible"])
+                if "wireframe" in body: obj["wireframe"]=bool(body["wireframe"])
+            objects.append(obj)
+        scene["objects"]=objects
+        scene["selected_ids"]=targets[:16]
+        scene["selected_id"]=targets[-1]
+        state["scene"]=scene
+        state["mode"]="scene_lab"
+    elif op == "scene_align":
+        scene = dict(state.get("scene") or {})
+        selected = [str(x) for x in scene.get("selected_ids") or []]
+        objects=[dict(o) for o in scene.get("objects") or []]
+        chosen=[o for o in objects if str(o.get("id")) in selected]
+        if len(chosen)<2:
+            return web.json_response({"ok":False,"error":"align_requires_two_objects"},status=400)
+        axis=str(body.get("axis") or "x").lower()
+        idx={"x":0,"y":1,"z":2}.get(axis,0)
+        values=[float((o.get("position") or [0,0,0])[idx]) for o in chosen]
+        mode=str(body.get("align") or "center").lower()
+        target=min(values) if mode=="min" else max(values) if mode=="max" else sum(values)/len(values)
+        for obj in objects:
+            if str(obj.get("id")) in selected and not bool(obj.get("locked",False)):
+                pos=list(obj.get("position") or [0,0,0])
+                while len(pos)<3:pos.append(0)
+                pos[idx]=target;obj["position"]=pos
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_distribute":
+        scene=dict(state.get("scene") or {});selected=[str(x) for x in scene.get("selected_ids") or []]
+        objects=[dict(o) for o in scene.get("objects") or []];axis=str(body.get("axis") or "x").lower();idx={"x":0,"y":1,"z":2}.get(axis,0)
+        chosen=[o for o in objects if str(o.get("id")) in selected]
+        if len(chosen)<3:return web.json_response({"ok":False,"error":"distribute_requires_three_objects"},status=400)
+        chosen.sort(key=lambda o:float((o.get("position") or [0,0,0])[idx]));lo=float((chosen[0].get("position") or [0,0,0])[idx]);hi=float((chosen[-1].get("position") or [0,0,0])[idx]);step=(hi-lo)/(len(chosen)-1)
+        byid={str(o.get("id")):lo+i*step for i,o in enumerate(chosen)}
+        for obj in objects:
+            oid=str(obj.get("id"))
+            if oid in byid and not bool(obj.get("locked",False)):
+                pos=list(obj.get("position") or [0,0,0])
+                while len(pos)<3:pos.append(0)
+                pos[idx]=byid[oid];obj["position"]=pos
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_array":
+        scene=dict(state.get("scene") or {});objects=list(scene.get("objects") or [])
+        target=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
+        src=next((copy.deepcopy(o) for o in objects if str(o.get("id"))==target),None)
+        if not src:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        count=_stage_int(body.get("count",4),4,2,12);available=max(0,16-len(objects));count=min(count,available+1)
+        if count<=1:return web.json_response({"ok":False,"error":"scene_object_limit"},status=409)
+        pattern=str(body.get("layout") or "line").lower();spacing=_stage_number(body.get("spacing",1.2),1.2,.2,6);radius=_stage_number(body.get("radius",2.4),2.4,.5,6)
+        base=list(src.get("position") or [0,0,0]);created=[target]
+        for i in range(1,count):
+            clone=copy.deepcopy(src);clone["id"]=uuid.uuid4().hex[:8];clone["label"]=(str(src.get("label") or src.get("kind") or "OBJECT")+f" {i+1}")[:60]
+            if pattern in {"radial","orbit","circle"}:
+                angle=(i/count)*math.pi*2;clone["position"]=[_stage_number(base[0]+math.cos(angle)*radius,0,-6,6),base[1],_stage_number(base[2]+math.sin(angle)*radius,0,-6,6)]
+            elif pattern=="grid":
+                cols=max(2,int(math.ceil(math.sqrt(count))));clone["position"]=[_stage_number(base[0]+(i%cols)*spacing,0,-6,6),base[1],_stage_number(base[2]+(i//cols)*spacing,0,-6,6)]
+            else:
+                clone["position"]=[_stage_number(base[0]+i*spacing,0,-6,6),base[1],base[2]]
+            objects.append(clone);created.append(clone["id"])
+        scene["objects"]=objects;scene["selected_ids"]=created;scene["selected_id"]=created[-1]
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_parent":
+        scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
+        child=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
+        parent=_scene_resolve_object(scene,body.get("parent_id"),body.get("parent_label"))
+        if not child or not parent or child==parent:return web.json_response({"ok":False,"error":"invalid_parent"},status=400)
+        byid={str(o.get("id")):o for o in objects}
+        if child not in byid or parent not in byid:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        cursor=parent;seen=set()
+        while cursor and cursor not in seen:
+            if cursor==child:return web.json_response({"ok":False,"error":"parent_cycle"},status=400)
+            seen.add(cursor);cursor=str(byid.get(cursor,{}).get("parent_id") or "")
+        byid[child]["parent_id"]=parent
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_unparent":
+        scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
+        child=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
+        found=False
+        for obj in objects:
+            if str(obj.get("id"))==child:obj["parent_id"]=None;found=True;break
+        if not found:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_camera_bookmark_save":
+        scene=dict(state.get("scene") or {});pose=body.get("pose")
+        if pose is None and body.get("position_json") and body.get("target_json"):
+            try:pose={"position":json.loads(str(body["position_json"])),"target":json.loads(str(body["target_json"]))}
+            except Exception:pose=None
+        if pose is None:pose=scene.get("camera_pose")
+        if not isinstance(pose,dict):return web.json_response({"ok":False,"error":"camera_pose_required"},status=400)
+        p=list(pose.get("position") or [6,4.2,7.2]);target=list(pose.get("target") or [0,0,0])
+        while len(p)<3:p.append(0)
+        while len(target)<3:target.append(0)
+        bookmark={"id":uuid.uuid4().hex[:8],"name":str(body.get("bookmark_name") or body.get("label") or "CAMERA")[:60],
+                  "pose":{"position":[_stage_number(p[0],6,-30,30),_stage_number(p[1],4.2,-30,30),_stage_number(p[2],7.2,-30,30)],
+                          "target":[_stage_number(target[0],0,-10,10),_stage_number(target[1],0,-10,10),_stage_number(target[2],0,-10,10)]}}
+        marks=list(scene.get("camera_bookmarks") or []);marks.append(bookmark);scene["camera_bookmarks"]=marks[-12:]
+        state["scene"]=scene;state["mode"]="scene_lab";state["bookmark_result"]=bookmark
+    elif op == "scene_camera_bookmark_load":
+        scene=dict(state.get("scene") or {});raw=str(body.get("bookmark_id") or body.get("bookmark_name") or body.get("label") or "")
+        mark=next((b for b in scene.get("camera_bookmarks") or [] if str(b.get("id"))==raw or str(b.get("name") or "").lower()==raw.lower()),None)
+        if not mark:return web.json_response({"ok":False,"error":"camera_bookmark_not_found"},status=404)
+        scene["camera"]="custom";scene["auto_orbit"]=False;scene["camera_pose"]=copy.deepcopy(mark.get("pose"));state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_camera_bookmark_delete":
+        scene=dict(state.get("scene") or {});raw=str(body.get("bookmark_id") or body.get("bookmark_name") or body.get("label") or "")
+        scene["camera_bookmarks"]=[b for b in scene.get("camera_bookmarks") or [] if str(b.get("id"))!=raw and str(b.get("name") or "").lower()!=raw.lower()]
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_camera_bookmark_list":
+        scene=dict(state.get("scene") or {});state["bookmark_result"]={"bookmarks":scene.get("camera_bookmarks") or []};state["mode"]="scene_lab"
     elif op == "scene_remove":
         scene = dict(state.get("scene") or {})
         target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
         objects = [o for o in (scene.get("objects") or []) if str(o.get("id")) != target]
         scene["objects"] = objects
         scene["links"] = [l for l in (scene.get("links") or []) if target not in {str(l.get("source")),str(l.get("target"))}]
-        scene["selected_id"] = str(objects[-1].get("id")) if objects else None
+        scene["selected_ids"] = [str(x) for x in scene.get("selected_ids") or [] if str(x) != target]
+        scene["selected_id"] = scene["selected_ids"][-1] if scene["selected_ids"] else (str(objects[-1].get("id")) if objects else None)
+        clean_groups=[]
+        for group in scene.get("groups") or []:
+            g=dict(group);g["members"]=[str(x) for x in g.get("members") or [] if str(x)!=target]
+            if g["members"]:clean_groups.append(g)
+        scene["groups"]=clean_groups
+        for obj in objects:
+            if str(obj.get("parent_id") or "")==target: obj["parent_id"]=None
         if str(scene.get("focus_id") or "") == target: scene["focus_id"] = None
         state["scene"] = scene
         state.update({"mode":"scene_lab","title":"SCENE LAB",
