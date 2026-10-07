@@ -323,6 +323,11 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
     if(motion.type==='orbit'){px+=Math.cos(seconds*ms)*rad;pz+=Math.sin(seconds*ms)*rad;}
     else if(motion.type==='bob'){py+=Math.sin(seconds*ms*2)*amp;}
     else if(motion.type==='patrol'){px+=Math.sin(seconds*ms)*amp*2;}
+    const path=o.path;if(path?.started_at&&(path.points?.length||0)>=2){
+     const pts=path.points||[],speed=Math.max(.05,Number(path.speed)||1),elapsed=Math.max(0,Date.now()/1000-Number(path.started_at));
+     const lengths:number[]=[];let total=0;for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1],d=Math.hypot((b?.[0]||0)-(a?.[0]||0),(b?.[1]||0)-(a?.[1]||0),(b?.[2]||0)-(a?.[2]||0));lengths.push(d);total+=d;}
+     if(total>.0001){let travel=elapsed*speed;if(path.loop)travel%=total;else travel=Math.min(total,travel);let seg=0;while(seg<lengths.length-1&&travel>lengths[seg]){travel-=lengths[seg];seg++;}const a=pts[seg]||pts[0],b=pts[Math.min(seg+1,pts.length-1)]||a,span=Math.max(.0001,lengths[seg]||1),q=Math.max(0,Math.min(1,travel/span));px=lerp(a?.[0]||0,b?.[0]||0,q);py=lerp(a?.[1]||0,b?.[1]||0,q);pz=lerp(a?.[2]||0,b?.[2]||0,q);}
+    }
     const physics=o.physics;if(physics&&physics.mode&&physics.mode!=='off'&&physics.started_at){
      const pt=Math.max(0,Date.now()/1000-Number(physics.started_at)),v=physics.velocity||[0,0,0],vx=Number(v[0])||0,vy=Number(v[1])||0,vz=Number(v[2])||0,gForce=Math.max(0,Number(physics.gravity)||0),floor=Number(physics.floor??-1.3),bounce=Math.max(0,Math.min(1,Number(physics.bounce)||0));
      if(physics.mode==='drop'||physics.mode==='launch'){px+=vx*pt;pz+=vz*pt;const ballistic=py+vy*pt-.5*gForce*pt*pt;if(ballistic>=floor)py=ballistic;else{const settle=Math.exp(-pt*.28),height=Math.max(.03,bounce*1.25*settle);py=floor+Math.abs(Math.sin(pt*(3.5+gForce*.12)))*height;}}
@@ -333,6 +338,20 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
     const ex=Math.max(0,Number(scene.explode||0)+Number(o.explode||0));g.traverse(ch=>{if(!(ch instanceof THREE.Mesh)||!ch.userData.base)return;const b=ch.userData.base as number[],d=ch.userData.dir as number[];ch.position.set(b[0]+d[0]*ex*.35,b[1]+d[1]*ex*.35,b[2]+d[2]*ex*.35);});
    }
    sceneRoot.updateMatrixWorld(true);const worldA=new THREE.Vector3(),worldB=new THREE.Vector3();
+   for(const o of scene.objects||[]){const constraint=o.constraint,g=objectGroups.get(o.id);if(!g||!constraint||constraint.type==='none'||!constraint.target_id)continue;const target=objectGroups.get(constraint.target_id);if(!target)continue;
+    const targetWorld=new THREE.Vector3();target.getWorldPosition(targetWorld);const offset=constraint.offset||[0,0,0],speed=Math.max(.05,Number(constraint.speed)||1),distance=Math.max(.2,Number(constraint.distance)||2);
+    if(constraint.type==='look_at'){g.lookAt(targetWorld);}
+    else{
+     let desired=targetWorld.clone();
+     if(constraint.type==='orbit_target'){const a=seconds*speed;desired.add(new THREE.Vector3(Math.cos(a)*distance,Number(offset[1])||0,Math.sin(a)*distance));}
+     else desired.add(new THREE.Vector3(Number(offset[0])||0,Number(offset[1])||0,Number(offset[2])||distance));
+     if(constraint.type==='follow'){const current=g.userData.constraintWorld instanceof THREE.Vector3?(g.userData.constraintWorld as THREE.Vector3):g.getWorldPosition(new THREE.Vector3());current.lerp(desired,1-Math.exp(-dt*speed*3));g.userData.constraintWorld=current.clone();desired=current;}
+     const parent=g.parent;if(parent){const local=parent.worldToLocal(desired.clone());g.position.copy(local);}else g.position.copy(desired);
+     g.updateMatrixWorld(true);g.lookAt(targetWorld);
+    }
+   }
+   sceneRoot.updateMatrixWorld(true);
+   const targetGroup=scene.target_id?objectGroups.get(scene.target_id):undefined;if(targetGroup){const reticle=targetGroup.children.find(x=>x.userData.targetReticle);if(reticle){reticle.rotation.x+=dt*.38;reticle.rotation.y+=dt*.62;reticle.rotation.z-=dt*.31;const pulse=1+Math.sin(seconds*4)*.08;reticle.scale.setScalar(pulse);}}
    for(const item of linkLines.values()){const a=objectGroups.get(item.source),b=objectGroups.get(item.target);if(!a||!b)continue;a.getWorldPosition(worldA);b.getWorldPosition(worldB);const pa=sceneRoot.worldToLocal(worldA.clone()),pb=sceneRoot.worldToLocal(worldB.clone()),attr=item.line.geometry.getAttribute('position') as THREE.BufferAttribute;attr.setXYZ(0,pa.x,pa.y,pa.z);attr.setXYZ(1,pb.x,pb.y,pb.z);attr.needsUpdate=true;item.line.computeLineDistances();}
    for(const item of measurementLines.values()){const a=objectGroups.get(item.source),b=objectGroups.get(item.target);if(!a||!b)continue;a.getWorldPosition(worldA);b.getWorldPosition(worldB);const distance=worldA.distanceTo(worldB),pa=sceneRoot.worldToLocal(worldA.clone()),pb=sceneRoot.worldToLocal(worldB.clone()),attr=item.line.geometry.getAttribute('position') as THREE.BufferAttribute;attr.setXYZ(0,pa.x,pa.y,pa.z);attr.setXYZ(1,pb.x,pb.y,pb.z);attr.needsUpdate=true;item.line.computeLineDistances();item.label.position.copy(pa.clone().add(pb).multiplyScalar(.5)).add(new THREE.Vector3(0,.28,0));const formatted=distance.toFixed(2);if(formatted!==item.last){item.last=formatted;updateHudSpriteValue(item.label,formatted);}}
    if(scene.collision_overlay){for(const helper of collisionHelpers.values())helper.visible=false;const visible=(scene.objects||[]).filter(o=>o.visible!==false);for(let i=0;i<visible.length;i++){const aData=visible[i],a=objectGroups.get(aData.id);if(!a)continue;const ap=new THREE.Vector3(),as=new THREE.Vector3();a.getWorldPosition(ap);a.getWorldScale(as);const ar=sceneObjectRadius(aData.kind)*Math.max(Math.abs(as.x),Math.abs(as.y),Math.abs(as.z));for(let j=i+1;j<visible.length;j++){const bData=visible[j],b=objectGroups.get(bData.id);if(!b)continue;const bp=new THREE.Vector3(),bs=new THREE.Vector3();b.getWorldPosition(bp);b.getWorldScale(bs);const br=sceneObjectRadius(bData.kind)*Math.max(Math.abs(bs.x),Math.abs(bs.y),Math.abs(bs.z));if(ap.distanceTo(bp)<(ar+br)*.72){const ah=collisionHelpers.get(aData.id),bh=collisionHelpers.get(bData.id);if(ah)ah.visible=true;if(bh)bh.visible=true;}}}}
