@@ -232,6 +232,7 @@ TOOL = {
             "visible": {"type": "BOOLEAN"},
             "locked": {"type": "BOOLEAN"},
             "clip_paused": {"type": "BOOLEAN"},
+            "enabled": {"type": "BOOLEAN"},
             "once": {"type": "BOOLEAN"},
             "reset": {"type": "BOOLEAN"},
         },
