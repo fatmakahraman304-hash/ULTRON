@@ -99,6 +99,9 @@ function HologramStage({config,customModel}:{config:HologramConfig;customModel:A
 function sceneAccent(theme?:string){
  return {cyan:'#35ffe4',purple:'#a855f7',amber:'#ffb020',mono:'#d7e0e8',crimson:'#ff3047'}[theme||'crimson']||'#ff3047';
 }
+function sceneObjectRadius(kind?:string){
+ return {vehicle:1.45,drone:1.35,globe:1.2,robot:1.05,arm:1,aircraft:1.5,ship:1.45,building:1.1,satellite:1.2,network:1.1,tower:1.15,ring:1.25,portal:1.25,custom:1}[kind||'']||1;
+}
 function lerp(a:number,b:number,t:number){return a+(b-a)*t;}
 function easeValue(t:number,mode?:string){const x=Math.max(0,Math.min(1,t));if(mode==='ease_in')return x*x;if(mode==='ease_out')return 1-(1-x)*(1-x);if(mode==='ease_in_out')return x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;return x;}
 function timelineCursor(scene:SceneState,nowSec=Date.now()/1000){
@@ -243,6 +246,10 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
   }
   // Parent-child Scene Graph: child transforms become local to their parent.
   for(const o of scene.objects||[]){if(!o.parent_id)continue;const child=objectGroups.get(o.id),parent=objectGroups.get(o.parent_id);if(child&&parent&&child!==parent)parent.add(child);}
+  const collisionHelpers=new Map<string,THREE.Mesh>();
+  if(scene.collision_overlay){
+   for(const o of scene.objects||[]){const group=objectGroups.get(o.id);if(!group||o.visible===false)continue;const helper=new THREE.Mesh(new THREE.SphereGeometry(sceneObjectRadius(o.kind),18,12),new THREE.MeshBasicMaterial({color:0xff233f,wireframe:true,transparent:true,opacity:.32,depthTest:false}));helper.visible=false;helper.userData.selection=true;helper.userData.collisionHelper=true;group.add(helper);collisionHelpers.set(o.id,helper);}
+  }
   let globalHudIndex=0;
   for(const card of scene.hud||[]){
    const sprite=makeHudSprite(card.title||'DATA',card.value||'',card.unit||'',card.color||accent);sprite.userData.hudCard=true;
@@ -314,6 +321,7 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
    sceneRoot.updateMatrixWorld(true);const worldA=new THREE.Vector3(),worldB=new THREE.Vector3();
    for(const item of linkLines.values()){const a=objectGroups.get(item.source),b=objectGroups.get(item.target);if(!a||!b)continue;a.getWorldPosition(worldA);b.getWorldPosition(worldB);const pa=sceneRoot.worldToLocal(worldA.clone()),pb=sceneRoot.worldToLocal(worldB.clone()),attr=item.line.geometry.getAttribute('position') as THREE.BufferAttribute;attr.setXYZ(0,pa.x,pa.y,pa.z);attr.setXYZ(1,pb.x,pb.y,pb.z);attr.needsUpdate=true;item.line.computeLineDistances();}
    for(const item of measurementLines.values()){const a=objectGroups.get(item.source),b=objectGroups.get(item.target);if(!a||!b)continue;a.getWorldPosition(worldA);b.getWorldPosition(worldB);const distance=worldA.distanceTo(worldB),pa=sceneRoot.worldToLocal(worldA.clone()),pb=sceneRoot.worldToLocal(worldB.clone()),attr=item.line.geometry.getAttribute('position') as THREE.BufferAttribute;attr.setXYZ(0,pa.x,pa.y,pa.z);attr.setXYZ(1,pb.x,pb.y,pb.z);attr.needsUpdate=true;item.line.computeLineDistances();item.label.position.copy(pa.clone().add(pb).multiplyScalar(.5)).add(new THREE.Vector3(0,.28,0));const formatted=distance.toFixed(2);if(formatted!==item.last){item.last=formatted;updateHudSpriteValue(item.label,formatted);}}
+   if(scene.collision_overlay){for(const helper of collisionHelpers.values())helper.visible=false;const visible=(scene.objects||[]).filter(o=>o.visible!==false);for(let i=0;i<visible.length;i++){const aData=visible[i],a=objectGroups.get(aData.id);if(!a)continue;const ap=new THREE.Vector3(),as=new THREE.Vector3();a.getWorldPosition(ap);a.getWorldScale(as);const ar=sceneObjectRadius(aData.kind)*Math.max(Math.abs(as.x),Math.abs(as.y),Math.abs(as.z));for(let j=i+1;j<visible.length;j++){const bData=visible[j],b=objectGroups.get(bData.id);if(!b)continue;const bp=new THREE.Vector3(),bs=new THREE.Vector3();b.getWorldPosition(bp);b.getWorldScale(bs);const br=sceneObjectRadius(bData.kind)*Math.max(Math.abs(bs.x),Math.abs(bs.y),Math.abs(bs.z));if(ap.distanceTo(bp)<(ar+br)*.72){const ah=collisionHelpers.get(aData.id),bh=collisionHelpers.get(bData.id);if(ah)ah.visible=true;if(bh)bh.visible=true;}}}}
    const focus=scene.focus_id?objectGroups.get(scene.focus_id):undefined;if(focus&&!scene.cinematic?.enabled&&!scene.timeline?.playing)orbit.target.lerp(focus.position,.08);
    const cin=scene.cinematic,cameraTrackActive=!cin?.enabled&&Boolean(scene.timeline?.playing)&&(scene.camera_track?.length||0)>0;
    if(cin?.enabled&&cin.started_at){const d=Math.max(2,Number(cin.duration)||8),elapsed=Math.max(0,Date.now()/1000-Number(cin.started_at)),p=(cin.loop?elapsed%d:Math.min(d,elapsed))/d,a=p*Math.PI*2;
