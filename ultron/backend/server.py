@@ -131,6 +131,29 @@ class Hub:
                     self.stage_state["hologram"].update(_stage_saved["hologram"])
                 if isinstance(_stage_saved.get("scene"), dict):
                     self.stage_state["scene"].update(_stage_saved["scene"])
+                    _restored_scene = self.stage_state["scene"]
+                    _seq = dict(_restored_scene.get("sequence") or {})
+                    _seq["playing"] = False
+                    _seq["started_at"] = None
+                    _seq["run_id"] = int(_seq.get("run_id", 0) or 0) + 1
+                    _restored_scene["sequence"] = _seq
+                    _tl = dict(_restored_scene.get("timeline") or {})
+                    _tl["playing"] = False
+                    _tl["started_at"] = None
+                    _restored_scene["timeline"] = _tl
+                    _cin = dict(_restored_scene.get("cinematic") or {})
+                    _cin["enabled"] = False
+                    _cin["started_at"] = None
+                    _restored_scene["cinematic"] = _cin
+                    for _obj in _restored_scene.get("objects") or []:
+                        if not isinstance(_obj, dict):
+                            continue
+                        _physics = dict(_obj.get("physics") or {})
+                        _physics["started_at"] = None
+                        _obj["physics"] = _physics
+                        _path = dict(_obj.get("path") or {})
+                        _path["started_at"] = None
+                        _obj["path"] = _path
                 _saved_mode = str(_stage_saved.get("mode") or "")
                 if _saved_mode in {"core_idle", "hologram_lab", "scene_lab"}:
                     self.stage_state["mode"] = _saved_mode
@@ -1065,7 +1088,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
     if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list", "scene_asset_list", "scene_asset_add", "scene_asset_delete", "scene_diagnostics", "scene_collision_overlay", "scene_target_lock", "scene_target_clear",
- "scene_sequence_play", "scene_sequence_stop", "scene_snapshot_list"}:
+ "scene_sequence_play", "scene_sequence_stop", "scene_snapshot_save", "scene_snapshot_list", "scene_snapshot_delete"}:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
