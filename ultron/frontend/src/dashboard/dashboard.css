@@ -197,3 +197,25 @@
 .scene-v5-path>b span{float:right;color:#fff}
 .scene-v5-path>div{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
 .scene-toolbar select{background:#080b11;color:#dfe7ef;border:1px solid #3a2830;font:8px Consolas,monospace;padding:4px 6px}
+
+/* ---------- Scene Lab V6: Mission Sequence + Snapshot Vault ---------- */
+.scene-sequence-status{position:absolute;z-index:28;left:180px;top:68px;width:260px;padding:9px 10px;background:#05090df0;border:1px solid #33414c;box-shadow:0 0 26px #000;pointer-events:none}
+.scene-sequence-status.playing{border-color:#35ffe4;box-shadow:0 0 28px #0b5f5a55}
+.scene-sequence-status header{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.scene-sequence-status header b{font:8px Consolas,monospace;color:#35ffe4;letter-spacing:1.4px}
+.scene-sequence-status header span{max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font:8px Consolas,monospace;color:#eef5fa}
+.sequence-progress{height:3px;margin:7px 0;background:#152129;overflow:hidden}
+.sequence-progress i{display:block;height:100%;background:#35ffe4;box-shadow:0 0 8px #35ffe4;transition:width .08s linear}
+.scene-sequence-status footer{display:flex;justify-content:space-between;gap:8px;font:7px Consolas,monospace;color:#82909c}
+.scene-sequence-status footer b{max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#ff536a}
+.scene-snapshots{position:absolute;z-index:33;left:50%;top:50%;transform:translate(-50%,-50%);width:560px;max-height:440px;overflow:hidden;background:#04080cf7;border:1px solid #35606a;box-shadow:0 0 70px #000}
+.scene-snapshots header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #26343d}
+.scene-snapshots header b{font:11px Consolas,monospace;color:#35ffe4;letter-spacing:2px}
+.scene-snapshots header button{padding:4px 8px}
+.scene-snapshot-actions{padding:8px 10px;border-bottom:1px solid #202c34}
+.scene-snapshot-actions button{font-size:8px;padding:6px 9px}
+.scene-snapshot-list{max-height:350px;overflow:auto;padding:9px}
+.scene-snapshot-list article{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px;border-bottom:1px solid #222e36}
+.scene-snapshot-list article b{display:block;font:10px Consolas,monospace;color:#eef5fa}
+.scene-snapshot-list article small{display:block;margin-top:2px;font:8px Consolas,monospace;color:#81909c}
+.scene-snapshot-list article button{font-size:8px;padding:6px 8px}
