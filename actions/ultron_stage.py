@@ -28,7 +28,8 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 "constraint", "constraint_type", "offset_json", "point_json", "render_mode",
                 "steps_json", "sequence_name", "step_operation", "step_args_json", "step_label",
                 "snapshot_name", "snapshot_id", "trigger_id", "trigger_name",
-                "condition_type", "action_operation", "action_args_json"):
+                "condition_type", "action_operation", "action_args_json",
+                "place", "marker_id"):
         value = parameters.get(key)
         if value not in (None, ""):
             body[key] = str(value)
@@ -38,7 +39,8 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 "motion_speed", "radius", "amplitude", "snap", "clip_speed",
                 "dx", "dy", "dz", "drx", "dry", "drz", "scale_factor",
                 "spacing", "delta_time", "gravity", "bounce", "floor", "vx", "vy", "vz",
-                "distance", "constraint_speed", "path_speed", "threshold", "delay", "cooldown"):
+                "distance", "constraint_speed", "path_speed", "threshold", "delay", "cooldown",
+                "lat", "lon", "rotation_speed"):
         value = _num(parameters.get(key))
         if value is not None:
             body[key] = value
@@ -52,7 +54,8 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
                 pass
 
     for key in ("wireframe", "pulse", "auto_orbit", "grid", "loop", "show_labels",
-                "show_trails", "audio_reactive", "visible", "locked", "clip_paused", "enabled", "once", "reset"):
+                "show_trails", "audio_reactive", "visible", "locked", "clip_paused", "enabled", "once", "reset",
+                "auto_rotate", "clouds", "atmosphere", "stars", "night", "live_iss"):
         value = parameters.get(key)
         if isinstance(value, bool):
             body[key] = value
@@ -74,7 +77,7 @@ def ultron_stage(parameters: dict, **_ctx) -> str:
 TOOL = {
     "name": "ultron_stage",
     "description": (
-        "Control the main visual Center Stage in the ULTRON desktop UI. Use it "
+        "Control the main visual Center Stage in the ULTRON desktop UI, including Earth Watch: a normal shaded 3D Earth viewer with atmosphere, clouds, stars, real latitude/longitude markers, focus controls and optional live ISS tracking. Use it "
         "whenever the user asks to create/show/control a hologram, create a short "
         "animation video, record the live 3D Scene Lab canvas as a video, convert the current hologram into a video, play/pause "
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
@@ -91,7 +94,9 @@ TOOL = {
             "operation": {
                 "type": "STRING",
                 "enum": [
-                    "status", "reset", "hologram_create", "hologram_update",
+                    "status", "reset", "earth_open", "earth_control", "earth_focus",
+                    "earth_marker_add", "earth_marker_remove", "earth_marker_clear",
+                    "hologram_create", "hologram_update",
                     "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_load", "scene_update",
                     "scene_select", "scene_multi_select", "scene_group_create", "scene_group_select",
                     "scene_group_delete", "scene_batch_transform", "scene_align", "scene_distribute",
@@ -205,6 +210,8 @@ TOOL = {
             "condition_type": {"type": "STRING", "description": "timer, distance_lt, distance_gt or collision."},
             "action_operation": {"type": "STRING", "description": "Supported Scene Lab action to execute when trigger fires."},
             "action_args_json": {"type": "STRING", "description": "JSON object passed to the trigger action."},
+            "place": {"type": "STRING", "description": "Earth Watch focus label/location name."},
+            "marker_id": {"type": "STRING"},
             "dx": {"type": "NUMBER"}, "dy": {"type": "NUMBER"}, "dz": {"type": "NUMBER"},
             "drx": {"type": "NUMBER"}, "dry": {"type": "NUMBER"}, "drz": {"type": "NUMBER"},
             "scale_factor": {"type": "NUMBER"},
@@ -222,6 +229,9 @@ TOOL = {
             "threshold": {"type": "NUMBER"},
             "delay": {"type": "NUMBER"},
             "cooldown": {"type": "NUMBER"},
+            "lat": {"type": "NUMBER"},
+            "lon": {"type": "NUMBER"},
+            "rotation_speed": {"type": "NUMBER"},
             "count": {"type": "INTEGER"},
             "auto_orbit": {"type": "BOOLEAN"},
             "grid": {"type": "BOOLEAN"},
@@ -235,6 +245,12 @@ TOOL = {
             "enabled": {"type": "BOOLEAN"},
             "once": {"type": "BOOLEAN"},
             "reset": {"type": "BOOLEAN"},
+            "auto_rotate": {"type": "BOOLEAN"},
+            "clouds": {"type": "BOOLEAN"},
+            "atmosphere": {"type": "BOOLEAN"},
+            "stars": {"type": "BOOLEAN"},
+            "night": {"type": "BOOLEAN"},
+            "live_iss": {"type": "BOOLEAN"},
         },
         "required": ["operation"],
     },
