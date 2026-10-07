@@ -2803,6 +2803,17 @@ async def api_stage_command(req: web.Request) -> web.Response:
         if "explode" in body: scene["explode"] = _stage_number(body.get("explode"), scene.get("explode",0), 0, 2)
         state["scene"] = scene
         state["mode"] = "scene_lab"
+    elif op == "scene_sequence_record":
+        scene=_scene_ensure(dict(state.get("scene") or {}));sequence=dict(scene.get("sequence") or {})
+        if not sequence.get("steps"):return web.json_response({"ok":False,"error":"sequence_empty"},status=400)
+        sequence["playing"]=True;sequence["loop"]=False;sequence["started_at"]=time.time();sequence["run_id"]=int(sequence.get("run_id",0))+1
+        scene["sequence"]=sequence;state["scene"]=scene
+        duration=_stage_number(float(sequence.get("duration",0) or 0)+1.0,8,2,30)
+        job_id=uuid.uuid4().hex[:10];state["record_nonce"]=int(state.get("record_nonce",0))+1;state["record_duration"]=duration;state["job_id"]=job_id
+        state["video"]={"template":"mission_sequence","duration":duration,
+                        "title":str(body.get("title") or sequence.get("name") or "ULTRON MISSION")[:100],
+                        "ready":False,"mime":"","bytes":0,"source_hologram":False,"source_scene":True}
+        state.update({"mode":"scene_lab","title":"MISSION RECORD","subtitle":f"{str(sequence.get('name') or 'SEQUENCE').upper()} / {duration:.1f}s","progress":0})
     elif op == "scene_record":
         duration = _stage_number(body.get("duration",8),8,2,30)
         job_id = uuid.uuid4().hex[:10]
