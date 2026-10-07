@@ -10,6 +10,7 @@ on:
       - "actions/**"
       - "core/**"
       - "integration/**"
+      - "ultron/cloud_service/**"
       - ".github/workflows/scene-check.yml"
 
 jobs:
@@ -28,6 +29,7 @@ jobs:
           python -m py_compile ultron/backend/server.py
           python -m py_compile actions/ultron_stage.py
           python -m py_compile integration/web_panel.py
+          python -m py_compile ultron/cloud_service/app.py
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
