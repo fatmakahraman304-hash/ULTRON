@@ -17,8 +17,9 @@ export type SceneHud={id:string;object_id?:string|null;title:string;value:string
 export type SceneCameraPose={position:number[];target:number[]};
 export type SceneGroup={id:string;name:string;members:string[]};
 export type SceneCameraBookmark={id:string;name:string;pose:SceneCameraPose};
+export type SceneCameraKeyframe={id:string;time:number;position:number[];target:number[];easing?:'linear'|'ease_in'|'ease_out'|'ease_in_out'};
 export type SceneMeasurement={id:string;source:string;target:string;label:string;color:string};
-export type SceneState={objects:SceneObject[];links?:SceneLink[];hud?:SceneHud[];groups?:SceneGroup[];camera_bookmarks?:SceneCameraBookmark[];measurements?:SceneMeasurement[];selected_id?:string|null;selected_ids?:string[];focus_id?:string|null;camera:string;camera_pose?:SceneCameraPose|null;project_name?:string;explode:number;auto_orbit:boolean;grid:boolean;show_labels?:boolean;show_trails?:boolean;audio_reactive?:boolean;theme?:string;snap?:number;animation:string;timeline?:SceneTimeline;cinematic?:SceneCinematic};
+export type SceneState={objects:SceneObject[];links?:SceneLink[];hud?:SceneHud[];groups?:SceneGroup[];camera_bookmarks?:SceneCameraBookmark[];camera_track?:SceneCameraKeyframe[];measurements?:SceneMeasurement[];selected_id?:string|null;selected_ids?:string[];focus_id?:string|null;camera:string;camera_pose?:SceneCameraPose|null;project_name?:string;explode:number;auto_orbit:boolean;grid:boolean;show_labels?:boolean;show_trails?:boolean;audio_reactive?:boolean;theme?:string;snap?:number;animation:string;timeline?:SceneTimeline;cinematic?:SceneCinematic};
 export type StageState={
  mode:StageMode;title:string;subtitle:string;progress:number;revision:number;
  job_id?:string|null;video_paused?:boolean;save_nonce?:number;save_kind?:string;record_nonce?:number;record_duration?:number;project_result?:any;
@@ -29,7 +30,7 @@ export type StageState={
 export const defaultStage:StageState={
  mode:'core_idle',title:'ULTRON',subtitle:'NEURAL CORE',progress:0,revision:0,job_id:null,save_nonce:0,save_kind:'',record_nonce:0,record_duration:8,
  hologram:{kind:'energy',color:'#ff3047',glow:1,speed:1,rings:4,particles:900,scale:1,opacity:.92,wireframe:false,pulse:true,label:'ULTRON'},
- scene:{objects:[],links:[],hud:[],groups:[],camera_bookmarks:[],measurements:[],selected_id:null,selected_ids:[],focus_id:null,camera:'isometric',camera_pose:null,project_name:'Untitled',explode:0,auto_orbit:true,grid:true,show_labels:true,show_trails:true,audio_reactive:true,theme:'crimson',snap:.25,animation:'idle',timeline:{duration:8,cursor:0,playing:false,loop:true,started_at:null,keyframes:[]},cinematic:{enabled:false,preset:'orbit',duration:8,started_at:null,loop:true}},
+ scene:{objects:[],links:[],hud:[],groups:[],camera_bookmarks:[],camera_track:[],measurements:[],selected_id:null,selected_ids:[],focus_id:null,camera:'isometric',camera_pose:null,project_name:'Untitled',explode:0,auto_orbit:true,grid:true,show_labels:true,show_trails:true,audio_reactive:true,theme:'crimson',snap:.25,animation:'idle',timeline:{duration:8,cursor:0,playing:false,loop:true,started_at:null,keyframes:[]},cinematic:{enabled:false,preset:'orbit',duration:8,started_at:null,loop:true}},
  video:{template:'ultron_intro',duration:6,title:'ULTRON',ready:false,mime:'',bytes:0}
 };
 export const coreState=(value:string):CoreState=>({PLANNING:'THINKING',EXECUTING:'WORKING',VERIFYING:'WORKING',DONE:'IDLE',WAITING_APPROVAL:'IDLE'}[value]??(['IDLE','LISTENING','THINKING','SPEAKING','WORKING','ERROR'].includes(value)?value:'IDLE')) as CoreState;
