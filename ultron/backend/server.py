@@ -844,7 +844,8 @@ def _scene_checkpoint() -> None:
 
 def _scene_defaults() -> dict:
     return {
-        "objects": [], "links": [], "hud": [], "selected_id": None, "focus_id": None, "camera": "isometric",
+        "objects": [], "links": [], "hud": [], "groups": [], "camera_bookmarks": [],
+        "selected_id": None, "selected_ids": [], "focus_id": None, "camera": "isometric",
         "camera_pose": None, "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
         "show_labels": True, "show_trails": True, "audio_reactive": True, "theme": "crimson", "snap": 0.25,
         "animation": "idle",
@@ -867,6 +868,9 @@ def _scene_ensure(scene: dict) -> dict:
     if not isinstance(scene.get("objects"), list): scene["objects"] = []
     if not isinstance(scene.get("links"), list): scene["links"] = []
     if not isinstance(scene.get("hud"), list): scene["hud"] = []
+    if not isinstance(scene.get("groups"), list): scene["groups"] = []
+    if not isinstance(scene.get("camera_bookmarks"), list): scene["camera_bookmarks"] = []
+    if not isinstance(scene.get("selected_ids"), list): scene["selected_ids"] = []
     if not isinstance(scene.get("timeline"), dict): scene["timeline"] = copy.deepcopy(defaults["timeline"])
     if not isinstance(scene.get("cinematic"), dict): scene["cinematic"] = copy.deepcopy(defaults["cinematic"])
     for obj in scene.get("objects") or []:
@@ -882,6 +886,26 @@ def _scene_ensure(scene: dict) -> dict:
             obj["clip_speed"] = 1.0
         if "clip_paused" not in obj:
             obj["clip_paused"] = False
+        if "parent_id" not in obj:
+            obj["parent_id"] = None
+    ids = {str(o.get("id")) for o in scene.get("objects") or [] if isinstance(o, dict)}
+    scene["selected_ids"] = [str(x) for x in scene.get("selected_ids") or [] if str(x) in ids][:16]
+    selected = str(scene.get("selected_id") or "")
+    if selected and selected in ids and selected not in scene["selected_ids"]:
+        scene["selected_ids"].insert(0, selected)
+    if not selected and scene["selected_ids"]:
+        scene["selected_id"] = scene["selected_ids"][0]
+    # Keep only valid group memberships/bookmarks.
+    clean_groups = []
+    for group in scene.get("groups") or []:
+        if not isinstance(group, dict): continue
+        members = [str(x) for x in group.get("members") or [] if str(x) in ids]
+        if members:
+            clean_groups.append({"id": str(group.get("id") or uuid.uuid4().hex[:8])[:24],
+                                 "name": str(group.get("name") or "GROUP")[:60],
+                                 "members": members[:16]})
+    scene["groups"] = clean_groups[:16]
+    scene["camera_bookmarks"] = [b for b in (scene.get("camera_bookmarks") or []) if isinstance(b, dict)][:12]
     return scene
 
 
@@ -942,7 +966,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     state = hub.stage_state
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
-    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load"}:
+    if op.startswith("scene_") and op not in {"scene_open", "scene_select", "scene_multi_select", "scene_group_select", "scene_save", "scene_undo", "scene_redo", "scene_project_list", "scene_project_load", "scene_camera_bookmark_list"}:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
@@ -1026,6 +1050,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "explode":_stage_number(spec.get("explode",0),0,0,2),"visible":bool(spec.get("visible",True)),
                 "locked":bool(spec.get("locked",False)),"clip_speed":_stage_number(spec.get("clip_speed",1),1,0,4),
                 "clip_paused":bool(spec.get("clip_paused",False)),
+                "parent_id":re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("parent_id") or ""))[:24] or None,
                 "motion":{"type":str(motion.get("type") or "none"),"speed":_stage_number(motion.get("speed",1),1,.05,5),
                           "radius":_stage_number(motion.get("radius",1.5),1.5,.1,6),"amplitude":_stage_number(motion.get("amplitude",.5),.5,.05,4),
                           "axis":str(motion.get("axis") or "y")},
@@ -1033,6 +1058,10 @@ async def api_stage_command(req: web.Request) -> web.Response:
         loaded["objects"]=objects
         selected=str(raw.get("selected_id") or "")
         loaded["selected_id"]=selected if any(o["id"]==selected for o in objects) else (objects[0]["id"] if objects else None)
+        raw_selected = raw.get("selected_ids") if isinstance(raw.get("selected_ids"), list) else []
+        loaded["selected_ids"] = [str(x) for x in raw_selected if str(x) in used][:16]
+        if loaded["selected_id"] and loaded["selected_id"] not in loaded["selected_ids"]:
+            loaded["selected_ids"].insert(0, loaded["selected_id"])
         focus=str(raw.get("focus_id") or "");loaded["focus_id"]=focus if any(o["id"]==focus for o in objects) else None
         loaded["camera"]=str(raw.get("camera") or "isometric") if str(raw.get("camera") or "isometric") in {"front","top","side","isometric","orbit","close","custom"} else "isometric"
         pose=raw.get("camera_pose")
@@ -1066,6 +1095,27 @@ async def api_stage_command(req: web.Request) -> web.Response:
                         "value":str(card.get("value") or "")[:80],"unit":str(card.get("unit") or "")[:16],
                         "color":str(card.get("color") or "#35ffe4")[:24]})
         loaded["hud"]=hud
+        groups=[]
+        for group in (raw.get("groups") or [])[:16]:
+            if not isinstance(group,dict): continue
+            members=[str(x) for x in (group.get("members") or []) if str(x) in used]
+            if members:
+                groups.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(group.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                               "name":str(group.get("name") or "GROUP")[:60],"members":members[:16]})
+        loaded["groups"]=groups
+        bookmarks=[]
+        for mark in (raw.get("camera_bookmarks") or [])[:12]:
+            if not isinstance(mark,dict): continue
+            pose=mark.get("pose")
+            if not isinstance(pose,dict): continue
+            p=list(pose.get("position") or [6,4.2,7.2]);target=list(pose.get("target") or [0,0,0])
+            while len(p)<3:p.append(0)
+            while len(target)<3:target.append(0)
+            bookmarks.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(mark.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                              "name":str(mark.get("name") or "CAMERA")[:60],
+                              "pose":{"position":[_stage_number(p[0],6,-30,30),_stage_number(p[1],4.2,-30,30),_stage_number(p[2],7.2,-30,30)],
+                                      "target":[_stage_number(target[0],0,-10,10),_stage_number(target[1],0,-10,10),_stage_number(target[2],0,-10,10)]}})
+        loaded["camera_bookmarks"]=bookmarks
         rt=dict(raw.get("timeline") or {});duration=_stage_number(rt.get("duration",8),8,1,60);frames=[]
         for frame in (rt.get("keyframes") or [])[:128]:
             if not isinstance(frame,dict) or str(frame.get("object_id")) not in used: continue
@@ -1119,6 +1169,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "locked": bool(spec.get("locked", False)),
                 "clip_speed": _stage_number(spec.get("clip_speed",1),1,0,4),
                 "clip_paused": bool(spec.get("clip_paused",False)),
+                "parent_id": re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("parent_id") or ""))[:24] or None,
                 "motion": {
                     "type": str(spec.get("motion") or "none"),
                     "speed": _stage_number(spec.get("motion_speed",1),1,.05,5),
@@ -1129,7 +1180,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             })
         if not objects:
             return web.json_response({"ok": False, "error": "scene_objects_invalid"}, status=400)
-        scene.update({"objects":objects,"selected_id":objects[0]["id"],
+        scene.update({"objects":objects,"selected_id":objects[0]["id"],"selected_ids":[objects[0]["id"]],
                       "camera":str(body.get("camera") or "isometric"),
                       "auto_orbit":bool(body.get("auto_orbit",True)),
                       "grid":bool(body.get("grid",True)),
@@ -1174,6 +1225,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "locked": bool(body.get("locked", False)),
                 "clip_speed": _stage_number(body.get("clip_speed",1),1,0,4),
                 "clip_paused": bool(body.get("clip_paused",False)),
+                "parent_id": re.sub(r"[^A-Za-z0-9_-]","",str(body.get("parent_id") or ""))[:24] or None,
                 "motion": {
                     "type": str(body.get("motion") or "none"),
                     "speed": _stage_number(body.get("motion_speed",1),1,.05,5),
@@ -1183,7 +1235,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 },
             }
             objects.append(obj)
-            scene.update({"objects": objects, "selected_id": oid})
+            scene.update({"objects": objects, "selected_id": oid, "selected_ids": [oid]})
             state["scene"] = scene
             state.update({"mode": "scene_lab", "title": "SCENE LAB",
                           "subtitle": f"{len(objects)} OBJECTS / LIVE", "progress": 100})
