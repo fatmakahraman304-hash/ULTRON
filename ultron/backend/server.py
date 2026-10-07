@@ -844,7 +844,7 @@ def _scene_checkpoint() -> None:
 
 def _scene_defaults() -> dict:
     return {
-        "objects": [], "links": [], "hud": [], "groups": [], "camera_bookmarks": [],
+        "objects": [], "links": [], "hud": [], "groups": [], "camera_bookmarks": [], "measurements": [],
         "selected_id": None, "selected_ids": [], "focus_id": None, "camera": "isometric",
         "camera_pose": None, "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
         "show_labels": True, "show_trails": True, "audio_reactive": True, "theme": "crimson", "snap": 0.25,
@@ -870,6 +870,7 @@ def _scene_ensure(scene: dict) -> dict:
     if not isinstance(scene.get("hud"), list): scene["hud"] = []
     if not isinstance(scene.get("groups"), list): scene["groups"] = []
     if not isinstance(scene.get("camera_bookmarks"), list): scene["camera_bookmarks"] = []
+    if not isinstance(scene.get("measurements"), list): scene["measurements"] = []
     if not isinstance(scene.get("selected_ids"), list): scene["selected_ids"] = []
     if not isinstance(scene.get("timeline"), dict): scene["timeline"] = copy.deepcopy(defaults["timeline"])
     if not isinstance(scene.get("cinematic"), dict): scene["cinematic"] = copy.deepcopy(defaults["cinematic"])
@@ -888,6 +889,8 @@ def _scene_ensure(scene: dict) -> dict:
             obj["clip_paused"] = False
         if "parent_id" not in obj:
             obj["parent_id"] = None
+        if "physics" not in obj or not isinstance(obj.get("physics"), dict):
+            obj["physics"] = {"mode":"off","gravity":9.81,"velocity":[0.0,0.0,0.0],"bounce":.45,"floor":-1.3,"started_at":None}
     ids = {str(o.get("id")) for o in scene.get("objects") or [] if isinstance(o, dict)}
     for obj in scene.get("objects") or []:
         if not isinstance(obj, dict): continue
@@ -1100,6 +1103,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "locked":bool(spec.get("locked",False)),"clip_speed":_stage_number(spec.get("clip_speed",1),1,0,4),
                 "clip_paused":bool(spec.get("clip_paused",False)),
                 "parent_id":re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("parent_id") or ""))[:24] or None,
+                "physics":dict(spec.get("physics") or {"mode":"off","gravity":9.81,"velocity":[0,0,0],"bounce":.45,"floor":-1.3,"started_at":None}),
                 "motion":{"type":str(motion.get("type") or "none"),"speed":_stage_number(motion.get("speed",1),1,.05,5),
                           "radius":_stage_number(motion.get("radius",1.5),1.5,.1,6),"amplitude":_stage_number(motion.get("amplitude",.5),.5,.05,4),
                           "axis":str(motion.get("axis") or "y")},
@@ -1165,6 +1169,15 @@ async def api_stage_command(req: web.Request) -> web.Response:
                               "pose":{"position":[_stage_number(p[0],6,-30,30),_stage_number(p[1],4.2,-30,30),_stage_number(p[2],7.2,-30,30)],
                                       "target":[_stage_number(target[0],0,-10,10),_stage_number(target[1],0,-10,10),_stage_number(target[2],0,-10,10)]}})
         loaded["camera_bookmarks"]=bookmarks
+        measurements=[]
+        for m in (raw.get("measurements") or [])[:24]:
+            if not isinstance(m,dict): continue
+            a,b=str(m.get("source") or ""),str(m.get("target") or "")
+            if a in used and b in used and a!=b:
+                measurements.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(m.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                                     "source":a,"target":b,"label":str(m.get("label") or "DIST")[:40],
+                                     "color":str(m.get("color") or "#ffd43b")[:24]})
+        loaded["measurements"]=measurements
         rt=dict(raw.get("timeline") or {});duration=_stage_number(rt.get("duration",8),8,1,60);frames=[]
         for frame in (rt.get("keyframes") or [])[:128]:
             if not isinstance(frame,dict) or str(frame.get("object_id")) not in used: continue
@@ -1219,6 +1232,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "clip_speed": _stage_number(spec.get("clip_speed",1),1,0,4),
                 "clip_paused": bool(spec.get("clip_paused",False)),
                 "parent_id": re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("parent_id") or ""))[:24] or None,
+                "physics": {"mode":"off","gravity":9.81,"velocity":[0.0,0.0,0.0],"bounce":.45,"floor":-1.3,"started_at":None},
                 "motion": {
                     "type": str(spec.get("motion") or "none"),
                     "speed": _stage_number(spec.get("motion_speed",1),1,.05,5),
@@ -1276,6 +1290,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 "clip_speed": _stage_number(body.get("clip_speed",1),1,0,4),
                 "clip_paused": bool(body.get("clip_paused",False)),
                 "parent_id": re.sub(r"[^A-Za-z0-9_-]","",str(body.get("parent_id") or ""))[:24] or None,
+                "physics": {"mode":"off","gravity":9.81,"velocity":[0.0,0.0,0.0],"bounce":.45,"floor":-1.3,"started_at":None},
                 "motion": {
                     "type": str(body.get("motion") or "none"),
                     "speed": _stage_number(body.get("motion_speed",1),1,.05,5),
@@ -1586,6 +1601,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         objects = [o for o in (scene.get("objects") or []) if str(o.get("id")) != target]
         scene["objects"] = objects
         scene["links"] = [l for l in (scene.get("links") or []) if target not in {str(l.get("source")),str(l.get("target"))}]
+        scene["measurements"] = [m for m in (scene.get("measurements") or []) if target not in {str(m.get("source")),str(m.get("target"))}]
         scene["selected_ids"] = [str(x) for x in scene.get("selected_ids") or [] if str(x) != target]
         scene["selected_id"] = scene["selected_ids"][-1] if scene["selected_ids"] else (str(objects[-1].get("id")) if objects else None)
         clean_groups=[]
@@ -1889,6 +1905,44 @@ async def api_stage_command(req: web.Request) -> web.Response:
             if path.exists():path.unlink();removed=True
         if not removed:return web.json_response({"ok":False,"error":"asset_not_found"},status=404)
         state["asset_result"]={"deleted":model_id};state["mode"]="scene_lab"
+    elif op == "scene_physics":
+        scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
+        target=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
+        mode=str(body.get("physics_mode") or body.get("preset") or "off").lower()
+        if mode not in {"off","drop","launch","zero_g","float"}:mode="off"
+        found=False
+        for obj in objects:
+            if str(obj.get("id"))!=target:continue
+            velocity=body.get("velocity")
+            if velocity is None and body.get("velocity_json"):
+                try:velocity=json.loads(str(body.get("velocity_json")))
+                except Exception:velocity=None
+            if not isinstance(velocity,list):velocity=[_stage_number(body.get("vx",0),0,-20,20),_stage_number(body.get("vy",0 if mode!="launch" else 4),0,-20,20),_stage_number(body.get("vz",0),0,-20,20)]
+            while len(velocity)<3:velocity.append(0)
+            obj["physics"]={"mode":mode,"gravity":_stage_number(body.get("gravity",9.81),9.81,0,30),
+                            "velocity":[_stage_number(velocity[0],0,-20,20),_stage_number(velocity[1],0,-20,20),_stage_number(velocity[2],0,-20,20)],
+                            "bounce":_stage_number(body.get("bounce",.45),.45,0,1),"floor":_stage_number(body.get("floor",-1.3),-1.3,-4,4),
+                            "started_at":time.time() if mode!="off" else None}
+            found=True;break
+        if not found:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
+        scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_measure":
+        scene=dict(state.get("scene") or {});objects=list(scene.get("objects") or [])
+        source=_scene_resolve_object(scene,body.get("source_id"),body.get("source_label"),(scene.get("selected_ids") or [scene.get("selected_id")])[0] if (scene.get("selected_ids") or [scene.get("selected_id")]) else None)
+        target=_scene_resolve_object(scene,body.get("target_id"),body.get("target_label"),(scene.get("selected_ids") or [None,None])[-1])
+        byid={str(o.get("id")):o for o in objects}
+        if source not in byid or target not in byid or source==target:return web.json_response({"ok":False,"error":"measurement_requires_two_objects"},status=400)
+        a=list(byid[source].get("position") or [0,0,0]);b=list(byid[target].get("position") or [0,0,0])
+        while len(a)<3:a.append(0)
+        while len(b)<3:b.append(0)
+        distance=math.sqrt(sum((float(a[i])-float(b[i]))**2 for i in range(3)))
+        m={"id":uuid.uuid4().hex[:8],"source":source,"target":target,
+           "label":str(body.get("label") or "DIST")[:40],"color":str(body.get("color") or "#ffd43b")[:24]}
+        measurements=list(scene.get("measurements") or []);measurements.append(m);scene["measurements"]=measurements[-24:]
+        state["measurement_result"]={"id":m["id"],"distance":distance,"source":source,"target":target}
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "scene_measure_clear":
+        scene=dict(state.get("scene") or {});scene["measurements"]=[];state["scene"]=scene;state["mode"]="scene_lab";state["measurement_result"]={"cleared":True}
     elif op == "scene_focus":
         scene = dict(state.get("scene") or {})
         target = _scene_resolve_object(scene, body.get("object_id"), body.get("object_label"), scene.get("selected_id"))
