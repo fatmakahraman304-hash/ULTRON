@@ -846,7 +846,7 @@ def _scene_defaults() -> dict:
     return {
         "objects": [], "links": [], "hud": [], "groups": [], "camera_bookmarks": [], "measurements": [],
         "selected_id": None, "selected_ids": [], "focus_id": None, "camera": "isometric",
-        "camera_pose": None, "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
+        "camera_pose": None, "camera_track": [], "project_name": "Untitled", "explode": 0.0, "auto_orbit": True, "grid": True,
         "show_labels": True, "show_trails": True, "audio_reactive": True, "theme": "crimson", "snap": 0.25,
         "animation": "idle",
         "timeline": {
@@ -870,6 +870,7 @@ def _scene_ensure(scene: dict) -> dict:
     if not isinstance(scene.get("hud"), list): scene["hud"] = []
     if not isinstance(scene.get("groups"), list): scene["groups"] = []
     if not isinstance(scene.get("camera_bookmarks"), list): scene["camera_bookmarks"] = []
+    if not isinstance(scene.get("camera_track"), list): scene["camera_track"] = []
     if not isinstance(scene.get("measurements"), list): scene["measurements"] = []
     if not isinstance(scene.get("selected_ids"), list): scene["selected_ids"] = []
     if not isinstance(scene.get("timeline"), dict): scene["timeline"] = copy.deepcopy(defaults["timeline"])
@@ -1169,6 +1170,20 @@ async def api_stage_command(req: web.Request) -> web.Response:
                               "pose":{"position":[_stage_number(p[0],6,-30,30),_stage_number(p[1],4.2,-30,30),_stage_number(p[2],7.2,-30,30)],
                                       "target":[_stage_number(target[0],0,-10,10),_stage_number(target[1],0,-10,10),_stage_number(target[2],0,-10,10)]}})
         loaded["camera_bookmarks"]=bookmarks
+        camera_track=[]
+        for shot in (raw.get("camera_track") or [])[:64]:
+            if not isinstance(shot,dict): continue
+            p=list(shot.get("position") or [6,4.2,7.2]);target=list(shot.get("target") or [0,0,0])
+            while len(p)<3:p.append(0)
+            while len(target)<3:target.append(0)
+            easing=str(shot.get("easing") or "ease_in_out")
+            if easing not in {"linear","ease_in","ease_out","ease_in_out"}:easing="ease_in_out"
+            camera_track.append({"id":re.sub(r"[^A-Za-z0-9_-]","",str(shot.get("id") or ""))[:24] or uuid.uuid4().hex[:8],
+                                 "time":_stage_number(shot.get("time",0),0,0,60),
+                                 "position":[_stage_number(p[0],6,-30,30),_stage_number(p[1],4.2,-30,30),_stage_number(p[2],7.2,-30,30)],
+                                 "target":[_stage_number(target[0],0,-10,10),_stage_number(target[1],0,-10,10),_stage_number(target[2],0,-10,10)],
+                                 "easing":easing})
+        loaded["camera_track"]=sorted(camera_track,key=lambda x:float(x.get("time",0)))
         measurements=[]
         for m in (raw.get("measurements") or [])[:24]:
             if not isinstance(m,dict): continue
@@ -2032,6 +2047,35 @@ async def api_stage_command(req: web.Request) -> web.Response:
         scene["timeline"] = timeline
         state["scene"] = scene
         state["mode"] = "scene_lab"
+    elif op == "camera_keyframe_capture":
+        scene=dict(state.get("scene") or {});timeline=dict(scene.get("timeline") or {})
+        duration=max(1.0,float(timeline.get("duration",8)));at=_stage_number(body.get("time",timeline.get("cursor",0)),timeline.get("cursor",0),0,duration)
+        pose=body.get("pose")
+        if pose is None and body.get("position_json") and body.get("target_json"):
+            try:pose={"position":json.loads(str(body["position_json"])),"target":json.loads(str(body["target_json"]))}
+            except Exception:pose=None
+        if pose is None:pose=scene.get("camera_pose")
+        if not isinstance(pose,dict):
+            preset=str(scene.get("camera") or "isometric");positions={"front":[0,1.2,9],"top":[0,9,.01],"side":[9,1.2,0],"close":[0,.8,5.2],"orbit":[6,4.2,7.2],"isometric":[6,4.2,7.2]}
+            pose={"position":positions.get(preset,[6,4.2,7.2]),"target":[0,0,0]}
+        p=list(pose.get("position") or [6,4.2,7.2]);target=list(pose.get("target") or [0,0,0])
+        while len(p)<3:p.append(0)
+        while len(target)<3:target.append(0)
+        easing=str(body.get("easing") or "ease_in_out")
+        if easing not in {"linear","ease_in","ease_out","ease_in_out"}:easing="ease_in_out"
+        shots=[s for s in (scene.get("camera_track") or []) if abs(float(s.get("time",0))-at)>=.001]
+        shot={"id":uuid.uuid4().hex[:8],"time":at,
+              "position":[_stage_number(p[0],6,-30,30),_stage_number(p[1],4.2,-30,30),_stage_number(p[2],7.2,-30,30)],
+              "target":[_stage_number(target[0],0,-10,10),_stage_number(target[1],0,-10,10),_stage_number(target[2],0,-10,10)],
+              "easing":easing}
+        shots.append(shot);scene["camera_track"]=sorted(shots,key=lambda x:float(x.get("time",0)))[:64]
+        timeline["cursor"]=at;scene["timeline"]=timeline;state["scene"]=scene;state["mode"]="scene_lab";state["camera_keyframe_result"]=shot
+    elif op == "camera_keyframe_remove":
+        scene=dict(state.get("scene") or {});kid=str(body.get("keyframe_id") or body.get("camera_keyframe_id") or "")
+        scene["camera_track"]=[s for s in (scene.get("camera_track") or []) if str(s.get("id"))!=kid]
+        state["scene"]=scene;state["mode"]="scene_lab"
+    elif op == "camera_track_clear":
+        scene=dict(state.get("scene") or {});scene["camera_track"]=[];state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "timeline_capture":
         scene = dict(state.get("scene") or {})
         timeline = dict(scene.get("timeline") or {})
