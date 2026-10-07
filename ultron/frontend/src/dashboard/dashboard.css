@@ -187,3 +187,13 @@
 .diag-list p{margin:4px 0;padding:4px 6px;background:#0b0f14;color:#b9c3cc;font:8px Consolas,monospace}
 .diag-list.danger>b,.diag-list.danger p{color:#ff536a}
 .scene-toolbar button.active{border-color:#35ffe4;background:#0c3d3c;color:#fff}
+
+.scene-v5-target,.scene-v5-path{margin-top:8px;padding-top:7px;border-top:1px solid #27313a}
+.scene-v5-target>b,.scene-v5-path>b{display:block;margin-bottom:5px;font:8px Consolas,monospace;color:#35ffe4;letter-spacing:1.3px}
+.scene-v5-target select{width:100%;margin-bottom:5px;background:#080b11;color:#dfe7ef;border:1px solid #28505a;padding:5px;font:8px Consolas,monospace}
+.scene-v5-target>div{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:5px}
+.scene-v5-target button,.scene-v5-path button{padding:5px 3px;font-size:7px}
+.scene-v5-target button.active,.scene-v5-path button.active{border-color:#35ffe4;background:#0b4242;color:#fff}
+.scene-v5-path>b span{float:right;color:#fff}
+.scene-v5-path>div{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.scene-toolbar select{background:#080b11;color:#dfe7ef;border:1px solid #3a2830;font:8px Consolas,monospace;padding:4px 6px}
