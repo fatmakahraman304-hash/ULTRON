@@ -1197,7 +1197,8 @@ async def api_stage_command(req: web.Request) -> web.Response:
         else:
             if len(objects) >= 16:
                 return web.json_response({"ok": False, "error": "scene_object_limit"}, status=409)
-            allowed = {"energy", "globe", "network", "drone", "vehicle", "logo", "sphere", "ring", "tower"}
+            allowed = {"energy", "globe", "network", "drone", "vehicle", "logo", "sphere", "ring", "tower",
+                       "robot", "arm", "satellite", "aircraft", "building", "ship", "radar", "portal", "cube", "custom"}
             kind = str(body.get("kind") or "energy").strip().lower()
             if kind not in allowed:
                 kind = "energy"
@@ -1796,6 +1797,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         objects.append(clone)
         scene["objects"] = objects
         scene["selected_id"] = clone["id"]
+        scene["selected_ids"] = [clone["id"]]
         state["scene"] = scene
         state.update({"mode":"scene_lab","title":"SCENE LAB","subtitle":f"{len(objects)} OBJECTS / LIVE"})
     elif op == "scene_motion":
