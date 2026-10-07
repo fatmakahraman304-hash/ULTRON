@@ -153,13 +153,14 @@ function SceneLab({scene,transformMode,amplitude,onCommand}:{scene:SceneState;tr
   const world=new THREE.Scene();world.fog=new THREE.FogExp2(0x020407,.038);
   const camera=new THREE.PerspectiveCamera(42,1,.1,100);
   const cam=scene.camera||'isometric',pose=scene.camera_pose;
-  if(cam==='custom'&&pose?.position?.length>=3)camera.position.set(pose.position[0],pose.position[1],pose.position[2]);
+  const posePosition=Array.isArray(pose?.position)?pose!.position:[],poseTarget=Array.isArray(pose?.target)?pose!.target:[];
+  if(cam==='custom'&&posePosition.length>=3)camera.position.set(posePosition[0],posePosition[1],posePosition[2]);
   else if(cam==='front')camera.position.set(0,1.2,9);
   else if(cam==='top')camera.position.set(0,9,.01);
   else if(cam==='side')camera.position.set(9,1.2,0);
   else if(cam==='close')camera.position.set(0,.8,5.2);
   else camera.position.set(6,4.2,7.2);
-  const initialTarget=cam==='custom'&&pose?.target?.length>=3?new THREE.Vector3(pose.target[0],pose.target[1],pose.target[2]):new THREE.Vector3(0,0,0);
+  const initialTarget=cam==='custom'&&poseTarget.length>=3?new THREE.Vector3(poseTarget[0],poseTarget[1],poseTarget[2]):new THREE.Vector3(0,0,0);
   camera.lookAt(initialTarget);
   const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});
   renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setClearColor(0x000000,0);el.appendChild(renderer.domElement);
