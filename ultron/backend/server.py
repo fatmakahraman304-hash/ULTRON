@@ -889,6 +889,11 @@ def _scene_ensure(scene: dict) -> dict:
         if "parent_id" not in obj:
             obj["parent_id"] = None
     ids = {str(o.get("id")) for o in scene.get("objects") or [] if isinstance(o, dict)}
+    for obj in scene.get("objects") or []:
+        if not isinstance(obj, dict): continue
+        parent = str(obj.get("parent_id") or "")
+        if parent not in ids or parent == str(obj.get("id")):
+            obj["parent_id"] = None
     scene["selected_ids"] = [str(x) for x in scene.get("selected_ids") or [] if str(x) in ids][:16]
     selected = str(scene.get("selected_id") or "")
     if selected and selected in ids and selected not in scene["selected_ids"]:
@@ -1468,14 +1473,38 @@ async def api_stage_command(req: web.Request) -> web.Response:
         while cursor and cursor not in seen:
             if cursor==child:return web.json_response({"ok":False,"error":"parent_cycle"},status=400)
             seen.add(cursor);cursor=str(byid.get(cursor,{}).get("parent_id") or "")
-        byid[child]["parent_id"]=parent
+        child_obj=byid[child];parent_obj=byid[parent]
+        cp=list(child_obj.get("position") or [0,0,0]);pp=list(parent_obj.get("position") or [0,0,0])
+        cr=list(child_obj.get("rotation") or [0,0,0]);pr=list(parent_obj.get("rotation") or [0,0,0])
+        while len(cp)<3:cp.append(0)
+        while len(pp)<3:pp.append(0)
+        while len(cr)<3:cr.append(0)
+        while len(pr)<3:pr.append(0)
+        ps=max(.001,float(parent_obj.get("scale",1)))
+        child_obj["position"]=[(cp[0]-pp[0])/ps,(cp[1]-pp[1])/ps,(cp[2]-pp[2])/ps]
+        child_obj["rotation"]=[cr[0]-pr[0],cr[1]-pr[1],cr[2]-pr[2]]
+        child_obj["scale"]=_stage_number(float(child_obj.get("scale",1))/ps,1,.2,3)
+        child_obj["parent_id"]=parent
         scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "scene_unparent":
         scene=dict(state.get("scene") or {});objects=[dict(o) for o in scene.get("objects") or []]
         child=_scene_resolve_object(scene,body.get("object_id"),body.get("object_label"),scene.get("selected_id"))
-        found=False
+        byid={str(o.get("id")):o for o in objects};found=False
         for obj in objects:
-            if str(obj.get("id"))==child:obj["parent_id"]=None;found=True;break
+            if str(obj.get("id"))!=child:continue
+            parent_id=str(obj.get("parent_id") or "");parent_obj=byid.get(parent_id)
+            if parent_obj:
+                cp=list(obj.get("position") or [0,0,0]);pp=list(parent_obj.get("position") or [0,0,0])
+                cr=list(obj.get("rotation") or [0,0,0]);pr=list(parent_obj.get("rotation") or [0,0,0])
+                while len(cp)<3:cp.append(0)
+                while len(pp)<3:pp.append(0)
+                while len(cr)<3:cr.append(0)
+                while len(pr)<3:pr.append(0)
+                ps=float(parent_obj.get("scale",1))
+                obj["position"]=[pp[0]+cp[0]*ps,pp[1]+cp[1]*ps,pp[2]+cp[2]*ps]
+                obj["rotation"]=[pr[0]+cr[0],pr[1]+cr[1],pr[2]+cr[2]]
+                obj["scale"]=_stage_number(float(obj.get("scale",1))*ps,1,.2,3)
+            obj["parent_id"]=None;found=True;break
         if not found:return web.json_response({"ok":False,"error":"scene_object_not_found"},status=404)
         scene["objects"]=objects;state["scene"]=scene;state["mode"]="scene_lab"
     elif op == "scene_camera_bookmark_save":
