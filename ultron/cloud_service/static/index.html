@@ -367,6 +367,10 @@
     .dev-form{display:grid;gap:9px}
     .dev-form select{min-height:42px;border-radius:10px;background:#0b111a;color:#f5e7ea;border:1px solid #74425c;padding:6px}
     #devNotice{font-size:11px;color:#b6cad5;min-height:24px}
+    .brain-picker{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:8px 11px;border:1px solid rgba(255,54,87,.3);border-radius:11px;background:rgba(3,6,10,.9);margin-bottom:7px}
+    .brain-picker label{font-size:10px;font-weight:800;letter-spacing:.09em;color:#b7d3df}
+    .brain-picker select{max-width:65%;font:11px system-ui,sans-serif;padding:7px 8px;border:1px solid #575e67;border-radius:9px;color:#fff;background:#141a21}
+    .brain-picker small{display:block;font-size:9px;color:#9faeb9}
   </style>
 </head>
 <body>
@@ -399,7 +403,8 @@
     <section id="chatView" class="view active">
       <div id="messages"></div>
       <div class="composer">
-        <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON ile konuş">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="ULTRON'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
+        <div class="brain-picker"><label for="brainMode">ULTRON BEYİN <small id="brainInfo">Ücretsiz yerel • laptop açık olmalı</small></label><select id="brainMode" aria-label="ULTRON yanıt modeli"><option value="local">YEREL QWEN • ÜCRETSİZ</option><option value="gemini">GEMINI • İSTEĞE BAĞLI</option></select></div>
+        <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="Gemini Live mikrofon, isteğe bağlı" title="Gemini Live mikrofon • isteğe bağlı">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="ULTRON'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
         <input id="imageInput" type="file" accept="image/*" class="hidden" />
         <input id="pdfInput" type="file" accept="application/pdf,.pdf" class="hidden" />
         <div id="imagePreview" class="image-preview"><img id="imageThumb" alt="Seçilen görsel"/><span id="imageName"></span><button id="clearImage" type="button">Kaldır</button></div>
@@ -537,6 +542,7 @@ let conversationId=localStorage.getItem('ultronConversationId')||'';
 let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initialMessagesLoaded=false;
 const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
+let brainMode=localStorage.getItem('ultronBrainModeV1')==='gemini'?'gemini':'local';
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
 let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false,silentActionTurn=false,remoteResultSpeaking=false,remoteResultWatchdog=null;
 let liveSessionId=localStorage.getItem('ultronLiveSessionId')||'';
@@ -1531,6 +1537,35 @@ function runDirectPhoneCommand(text){
   return true;
 }
 
+function updateBrainModeUi(){
+  const select=$('#brainMode');
+  if(!select)return;
+  select.value=brainMode;
+  $('#brainInfo').textContent=brainMode==='local'
+    ? 'Ücretsiz Qwen • bağlı Windows laptop gerekli'
+    : 'Gemini Cloud • mevcut sağlayıcı limitleri geçerli';
+}
+async function localBrainAnswer(text){
+  const submitted=await api('/api/local-chat',{
+    method:'POST',
+    body:JSON.stringify({message:text,conversation_id:conversationId||undefined})
+  });
+  if(!submitted.command_id)throw new Error('Yerel Ollama görevi oluşturulamadı.');
+  if(submitted.conversation_id){
+    conversationId=submitted.conversation_id;
+    localStorage.setItem('ultronConversationId',conversationId);
+  }
+  const id=encodeURIComponent(submitted.command_id);
+  for(let step=0;step<70;step++){
+    await new Promise(resolve=>setTimeout(resolve,1000));
+    const res=await api('/api/local-chat/'+id);
+    if(res.status==='completed'&&typeof res.reply==='string'&&res.reply.trim())return res;
+    if(['failed','expired','cancelled'].includes(res.status)){
+      throw new Error(res.detail||'Yerel Ollama cevabı tamamlanamadı.');
+    }
+  }
+  throw new Error('Yerel model yanıtı gecikti. Windows ULTRON ve Ollama durumunu kontrol et; otomatik Gemini kullanmadım.');
+}
 async function send(fromVoice=false){
   if(pendingImage){await sendImage();return}
   if(pendingPdf){await sendPdf();return}
@@ -1547,7 +1582,9 @@ async function send(fromVoice=false){
   }
   $('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
   try{
-    const d=await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
+    const d=brainMode==='local'
+      ? await localBrainAnswer(text)
+      : await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
     conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);
     rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply);
     messageSignature='';if(fromVoice||voiceEnabled)speakUltron(d.reply);
@@ -1557,7 +1594,20 @@ async function send(fromVoice=false){
   }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;scrollChatToBottom(false)}
 }
 $('#sendBtn').onclick=()=>send(false);
-$('#voiceBtn').onclick=startVoice;
+$('#brainMode').onchange=e=>{
+  if(liveDesired||voiceListening){toast('Gemini Live konuşmasını kapatıp modu değiştirebilirsin.');updateBrainModeUi();return}
+  brainMode=e.target.value==='gemini'?'gemini':'local';
+  localStorage.setItem('ultronBrainModeV1',brainMode);
+  updateBrainModeUi();
+  toast(brainMode==='local'?'Ücretsiz Qwen seçildi; Windows ULTRON açık olmalı.':'Gemini isteğe bağlı seçildi.');
+};
+updateBrainModeUi();
+$('#voiceBtn').onclick=()=>{
+  if(brainMode==='local'&&!liveDesired&&!voiceListening){
+    if(!confirm('Bu düğme Gemini Live sesli konuşmasını kullanır ve sağlayıcı kotasına tabidir. Ücretsiz Qwen sohbeti metin alanında çalışır. Gemini Live ile devam edilsin mi?'))return;
+  }
+  return startVoice();
+};
 $('#plusBtn').onclick=e=>{e.stopPropagation();toggleAttachMenu()};
 $('#photoOption').onclick=()=>{setAttachMenu(false);$('#imageInput').click()};
 $('#pdfOption').onclick=()=>{setAttachMenu(false);$('#pdfInput').click()};
