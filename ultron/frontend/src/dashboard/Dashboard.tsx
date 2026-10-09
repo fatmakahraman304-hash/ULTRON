@@ -51,6 +51,8 @@ export default function Dashboard(){
    const coords=t.match(/(-?\d+(?:[.,]\d+)?)\s*(?:,|\s)\s*(-?\d+(?:[.,]\d+)?)\s*(?:koordinat|coordinate|enlem|lat|°)?/);
    if(place&&/(?:git|dön|don|odaklan|göster|goster|yaklaş|yaklas|focus|zoom)/.test(t)){await action('earth_focus',{place:place[1],lat:place[2],lon:place[3]});return place[1]+' konumuna odaklanıldı.';}
    if(coords&&/(?:koordinat|enlem|boylam|lat|lon|odaklan|focus|git)/.test(t)){const lat=Number(coords[1].replace(',','.')),lon=Number(coords[2].replace(',','.'));await action('earth_focus',{place:'COORDINATE',lat,lon});return lat.toFixed(3)+', '+lon.toFixed(3)+' koordinatına odaklanıldı.';}
+   if(/(?:güneş|gunes|sun).*(?:kapat|sabit|senkronu durdur|utc.*kapat)/.test(t)){await action('earth_control',{sun_sync:false});return 'UTC Güneş senkronu kapatıldı.';}
+   if(/(?:güneş|gunes|sun).*(?:utc|gerçek zaman|gercek zaman|senkron|aktif et|aç|ac)/.test(t)){await action('earth_control',{sun_sync:true});return 'Earth Watch UTC Güneş aydınlatması açıldı.';}
    if(/(?:iss|uzay istasyonu).*(?:göster|goster|aç|ac|izle|takip)/.test(t)){await action('earth_control',{live_iss:true});return 'Canlı ISS takibi açıldı.';}
    if(/(?:iss|uzay istasyonu).*(?:kapat|gizle|durdur)/.test(t)){await action('earth_control',{live_iss:false});return 'ISS takibi kapatıldı.';}
    if(/(?:gece modu|night mode|gece görünümü|gece gorunumu).*(?:aç|ac|geç|gec|aktif)?/.test(t)){await action('earth_control',{night:true});return 'Earth Watch gece moduna geçti.';}
