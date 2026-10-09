@@ -25,6 +25,8 @@ jobs:
           python-version: "3.12"
       - name: Test consistent personality and memory boundaries
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_persona.py' -v
+      - name: Ten-capability readiness truthfulness tests
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_capability_readiness.py' -v
       - name: Desktop respectful personality regression
         env:
           PYTHONPATH: ultron/backend
