@@ -99,3 +99,9 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 2. `.github/workflows/ios-testflight.yml` dosyasını inceleyip default `main` dalına PR/merge yap (UI Run workflow default branch gerektiriyor); GitHub `testflight` environment koruması, 5 vars + 3 secrets ayarla.
 3. Kullanıcı workflow'u manuel başlatsın, signed archive/export ve TestFlight upload sonuçlarını CI loglarıyla doğrula. Yayın yaptık iddiasında bulunma; Apple beta processing, metadata, encryption questions, AppIcon ve TestFlight internal invitation ihtiyaçlarını kontrol et.
 4. iPhone TestFlight daveti ile kablosuz kurulum, Cloud password, Siri App Intents, kilit ekranı, arka plan, desktop queue/Approval Gate uca kadar test et.
+
+
+### 2026-10-09 — TestFlight hazırlığı native CI doğrulandı
+- TestFlight yayın hattı `.github/workflows/ios-testflight.yml` **yalnız elle** ve **sadece main** dalından çalışır; protected `testflight` environment ve Apple signing secrets/variables şarttır. Apple'a yükleme bu ortamda **NOT RUN**.
+- Kod SHA `076e9962959c7ce091dec440d2ec1a54673f4d10` için [Native iOS Build run 37919528795](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/37919528795): **SUCCESS**. Native iOS regresyon/sözleşme testleri, Simulator build, unsigned iPhone build, unsigned IPA ve Xcode projesi artifacts başarılı. Bu *imzalı TestFlight IPA* veya gerçek cihaz doğrulaması değildir.
+- Apple Developer Program üyelik, App Store Connect app record, distribution certificate .p12, provisioning profile ve p8 App Store API key henüz sağlanmadı; gerçek TestFlight upload, processing, invitation veya kablosuz kurulum yapılmadı.
