@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var desktopTask = ""
     @State private var sendingTask = false
     @State private var desktopTaskStatus = ""
+    @AppStorage("ultron.siri.brain_mode") private var siriBrainMode = "local"
 
     var body: some View {
         ZStack {
@@ -32,6 +33,7 @@ struct ContentView: View {
                     }
 
                     controlCard
+                    brainCard
                     desktopTaskCard
                     limitsCard
                 }
@@ -185,10 +187,29 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
             .tint(voice.desiredListening ? .gray : .red)
 
-            Text("Dinleme açıkken ULTRON, uygulama arka plandayken ses oturumunu korumaya ve Cloud bağlantısı koparsa otomatik yeniden bağlanmaya çalışır.")
+            Text("Sürekli dinleme hâlâ isteğe bağlı Gemini Live bağlantısını kullanır. Yerel Qwen metin/Siri için Windows ULTRON açık olmalıdır. iOS arka plan kısıtlamaları geçerlidir.")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
+        }
+        .ultronCard()
+    }
+
+    private var brainCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("SIRI / METİN BEYNİ", systemImage: "brain")
+                .font(.caption.weight(.black))
+                .foregroundStyle(.red)
+            Picker("Siri soru modeli", selection: $siriBrainMode) {
+                Text("Qwen • ücretsiz laptop").tag("local")
+                Text("Gemini • isteğe bağlı").tag("gemini")
+            }
+            .pickerStyle(.segmented)
+            Text(siriBrainMode == "local"
+                ? "Siri soruları Windows laptopundaki Ollama modeline gider. Laptop kapalıysa Gemini otomatik devreye girmez."
+                : "Siri soruları Gemini Cloud ile yanıtlanır ve sağlayıcı kullanım sınırlarına tabidir. Sürekli Gemini Live bağlantısı bu ayardan bağımsızdır.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.6))
         }
         .ultronCard()
     }
