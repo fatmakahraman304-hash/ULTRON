@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import asyncio
 import math
+import logging
+from urllib.parse import urlsplit
 import time
 from typing import Any
 from aiohttp import ClientSession, ClientTimeout, web
@@ -51,6 +53,7 @@ async def _upstream(url: str, *, ttl: int, key: str) -> dict[str, Any]:
             async with ClientSession(timeout=_TIMEOUT, headers={"User-Agent": _UA}) as session:
                 async with session.get(url, allow_redirects=False) as response:
                     if response.status != 200:
+                        logging.getLogger("ultron.world").warning("provider_status host=%s status=%s",urlsplit(url).hostname,response.status)
                         raise web.HTTPBadGateway(
                             text='{"error":"upstream_unavailable"}',
                             content_type="application/json",
@@ -68,7 +71,8 @@ async def _upstream(url: str, *, ttl: int, key: str) -> dict[str, Any]:
                         raise ValueError("Unexpected upstream structure")
         except web.HTTPException:
             raise
-        except (OSError, asyncio.TimeoutError, ValueError, TypeError, Exception) as exc:
+        except Exception as exc:
+            logging.getLogger("ultron.world").warning("provider_exception host=%s type=%s",urlsplit(url).hostname,type(exc).__name__)
             # Do not leak URL internals, API errors, or raw third-party payloads.
             raise web.HTTPBadGateway(text='{"error":"upstream_unavailable"}',
                                      content_type="application/json") from exc
