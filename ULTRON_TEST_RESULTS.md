@@ -37,3 +37,21 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Aynı run: Python syntax, Earth backend, resume tests, Node/npm install, TypeScript/Vite build, Earth math test: PASS.
 - Hatalı test harness ilk aşamalar: `37894708692` (source path) ve `37894774521` (fake aiohttp exception constructor) FAILED; düzeltildi.
 - **Kapsam sınırı:** AST-extracted gerçek handler fonksiyonları fake DB ile çalıştırıldı; gerçek PostgreSQL advisory lock semantiği, Render deploy, telefon-laptop runtime ve Windows smoke **NOT RUN**.
+
+
+### 2026-10-09 — Cloud attempt fencing: verified PASS
+- **Final code SHA:** `9d577a993f78aa7393c83c22b52c83d5c7d7dfac`.
+- **Scene Build Check:** `37897505788` — **PASS**.
+  - Python syntax/py_compile: Cloud app, laptop `mark_app.py`, `cloud_client.py`, Earth/backend.
+  - `test_earth_watch_config.py`: **5 PASS**.
+  - `test_device_queue_contract.py`: **14 PASS**.
+  - `test_ultron_dev_resume.py`: **3 PASS**.
+  - Frontend TypeScript/Vite production build: **PASS**.
+  - Earth geographic regression: **6 PASS**.
+- **Cloud Queue PostgreSQL Integration:** `37897505793` — **PASS**, **4 tests** on disposable PostgreSQL 16 service.
+  - Parallel claim single-agent lane; retry/reclaim increments fencing generation.
+  - Old worker cannot complete a new delivery; current worker can.
+  - Old worker cannot renew lease or write progress/checkpoint.
+  - Legacy one-shot wake completion remains accepted.
+- **Fixed failures honestly recorded:** early integration CI `37897241297` failed due to SQL `$3` type ambiguity plus raw JSONB response; `37897368506` failed due to test-side JSONB string parsing. Both corrected before final PASS.
+- **Limitations:** Real Render production deployment/phone/Windows/RTX microphone/Gemini Live end-to-end **NOT RUN**. Disposable real PostgreSQL is not a production deployment test. Cloud callback fencing does not prove exactly-once local tool side effects.
