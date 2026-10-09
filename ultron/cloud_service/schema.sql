@@ -69,6 +69,11 @@ ALTER TABLE device_commands
   ADD COLUMN IF NOT EXISTS checkpoint JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE device_commands
   ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+-- Each claim receives a monotonically increasing fencing generation.
+-- A stale worker from a prior lease cannot ack, renew, report or checkpoint
+-- a task that has since been claimed again by a different worker.
+ALTER TABLE device_commands
+  ADD COLUMN IF NOT EXISTS delivery_attempt INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE device_commands
   DROP CONSTRAINT IF EXISTS device_commands_status_check;
 ALTER TABLE device_commands
