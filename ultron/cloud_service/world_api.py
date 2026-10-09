@@ -90,9 +90,61 @@ async def _upstream(url: str, *, ttl: int, key: str) -> dict[str, Any]:
         return data
 
 
+def _met_weather(data: dict[str, Any], lat: float, lon: float) -> dict[str, Any]:
+    """Normalize Norwegian Meteorological Institute forecasts, without
+    substituting invented observations or unprovided UV/rain percentages."""
+    slots = (data.get("properties") or {}).get("timeseries") or []
+    if not slots or not isinstance(slots[0], dict):
+        raise web.HTTPBadGateway(text='{"error":"weather_data_missing"}',
+                                 content_type="application/json")
+    slot = slots[0]
+    current = ((slot.get("data") or {}).get("instant") or {}).get("details") or {}
+    period = ((slot.get("data") or {}).get("next_1_hours") or {}).get("details") or {}
+    if current.get("air_temperature") is None:
+        raise web.HTTPBadGateway(text='{"error":"weather_data_missing"}',
+                                 content_type="application/json")
+    wind = current.get("wind_speed")
+    if isinstance(wind, (float, int)) and math.isfinite(wind):
+        wind = round(wind * 3.6, 1)  # met.no m/s -> display km/h
+    else:
+        wind = None
+    precipitation = period.get("precipitation_amount")  # *Forecast* for next hour.
+    hourly = {"temperature_2m": [
+        ((s.get("data") or {}).get("instant") or {}).get("details", {}).get("air_temperature")
+        for s in slots[:24]
+    ]}
+    return {
+        "source": "MET Norway",
+        "updated": slot.get("time"),
+        "lat": lat, "lon": lon,
+        "forecast_not_observation": True,
+        "precipitation_period": "next_1_hour_forecast",
+        "current": {
+            "temperature_2m": current.get("air_temperature"),
+            "apparent_temperature": None,
+            "relative_humidity_2m": current.get("relative_humidity"),
+            "precipitation": precipitation,
+            "rain": None,
+            "weather_code": None,
+            "cloud_cover": current.get("cloud_area_fraction"),
+            "wind_speed_10m": wind,
+            "wind_direction_10m": current.get("wind_from_direction"),
+            "surface_pressure": current.get("air_pressure_at_sea_level"),
+        },
+        "hourly": hourly,
+        "daily": {},
+    }
+
+
 async def weather(request: web.Request) -> web.Response:
     lat, lon = point(request)
     key = f"weather:{round(lat,2)}:{round(lon,2)}"
+    # Cache the *normalized* fallback to avoid hammering an upstream that has
+    # rate-limited Render's shared outbound IP (observed HTTP 429 in production).
+    fallback = _CACHE.get("normalized:"+key)
+    if fallback and fallback[0] > time.monotonic():
+        return web.json_response(fallback[1])
+
     url = (
         "https://api.open-meteo.com/v1/forecast?latitude=" + str(lat)
         + "&longitude=" + str(lon)
@@ -102,17 +154,30 @@ async def weather(request: web.Request) -> web.Response:
         + "&hourly=temperature_2m,precipitation_probability,wind_speed_10m"
         + "&daily=sunrise,sunset,uv_index_max&timezone=auto&forecast_days=2"
     )
-    data = await _upstream(url, key=key, ttl=600)
-    if not isinstance(data.get("current"), dict):
-        raise web.HTTPBadGateway(text='{"error":"weather_data_missing"}',
-                                 content_type="application/json")
-    return web.json_response({
-        "source": "Open-Meteo", "updated": data["current"].get("time"),
-        "lat": lat, "lon": lon, "current": data["current"],
-        "hourly": {k: v[:24] for k, v in (data.get("hourly") or {}).items()
-                   if isinstance(v, list)},
-        "daily": data.get("daily", {}),
-    })
+    try:
+        data = await _upstream(url, key=key, ttl=600)
+        if not isinstance(data.get("current"), dict):
+            raise web.HTTPBadGateway(text='{"error":"weather_data_missing"}',
+                                     content_type="application/json")
+        return web.json_response({
+            "source": "Open-Meteo", "updated": data["current"].get("time"),
+            "lat": lat, "lon": lon, "current": data["current"],
+            "hourly": {k: v[:24] for k, v in (data.get("hourly") or {}).items()
+                       if isinstance(v, list)},
+            "daily": data.get("daily", {}),
+        })
+    except web.HTTPBadGateway:
+        logging.getLogger("ultron.world").warning(
+            "weather_fallback provider=MET Norway reason=Open-Meteo-unavailable"
+        )
+        met_url = (
+            "https://api.met.no/weatherapi/locationforecast/2.0/compact?lat="
+            + str(lat) + "&lon=" + str(lon)
+        )
+        met_data = await _upstream(met_url, key="met:"+key, ttl=600)
+        normalized = _met_weather(met_data, lat, lon)
+        _CACHE["normalized:"+key] = (time.monotonic() + 600, normalized)
+        return web.json_response(normalized)
 
 
 async def flights(request: web.Request) -> web.Response:
