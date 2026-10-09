@@ -31,6 +31,7 @@ jobs:
         run: |
           python -m py_compile ultron/backend/server.py
           python -m py_compile ultron/backend/app/core/fast_brain.py
+          python -m py_compile scripts/ultron_fast_brain_doctor.py
           python -m py_compile ultron/backend/app/core/model_router.py
           python -m py_compile ultron/backend/app/core/brain.py
           python -m py_compile ultron/backend/earth_watch.py
