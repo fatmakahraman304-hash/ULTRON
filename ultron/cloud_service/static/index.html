@@ -500,6 +500,17 @@
       <div class="world-embed"><iframe id="worldFrame" title="ULTRON World canlı harita" src="/static/world.html" loading="lazy" allow="geolocation"></iframe></div>
     </section>
     <section id="memoryView" class="view">
+      <div class="section-title"><h2>GÜNLÜK KİŞİSEL ASİSTAN</h2><small>İsteğinle görüntülenir</small></div>
+      <div class="memory-form panel" id="personalOverview">
+        <div class="section-title"><h2>GÜNLÜK ÖZET</h2><button type="button" class="secondary" id="refreshBriefing">ÖZETİ GÖSTER</button></div>
+        <p id="briefingStatus" class="remote-note" role="status" aria-live="polite">Yalnızca sen dokunduğunda kayıtlı ULTRON hafızan okunur. Takvim ve e-posta otomatik bağlanmaz.</p>
+        <div id="briefingItems" class="memory-list" aria-label="Kayıtlı kişisel hedefler"></div>
+      </div>
+      <div class="memory-form panel" id="personalReadiness">
+        <div class="section-title"><h2>10 JARVIS YETENEĞİ</h2><button type="button" class="secondary" id="refreshReadiness">DURUMU KONTROL ET</button></div>
+        <p id="readinessStatus" class="remote-note" role="status" aria-live="polite">Hangi özellik için hangi izin, bağlantı veya donanım gerektiğini gör.</p>
+        <div id="readinessItems" class="memory-list" aria-label="ULTRON özellik durumları"></div>
+      </div>
       <div class="section-title"><h2>ORTAK HAFIZA</h2><button class="secondary" id="reloadMemory">Yenile</button></div>
       <div class="memory-form panel">
         <div class="row"><input id="memoryKey" placeholder="Anahtar"/><input id="memoryCategory" placeholder="Kategori" value="FACT"/></div>
@@ -536,6 +547,7 @@
 <script src="/static/mobile-action-guard.js"></script>
 <script src="/static/dev-requests.js"></script>
 <script src="/static/local-voice.js"></script>
+<script src="/static/personal-panel.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 
@@ -1491,6 +1503,7 @@ async function boot(){
   }
 }
 window.ULTRONDevRequests?.init();
+window.ULTRONPersonalPanel?.create({fetchJson: path => api(path), document}).init();
 $('#loginBtn').onclick=async()=>{
   try{
     await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});
