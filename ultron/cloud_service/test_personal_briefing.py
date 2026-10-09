@@ -37,7 +37,8 @@ class TestPersonalBriefing(unittest.TestCase):
         app = (HERE / "app.py").read_text(encoding="utf-8")
         self.assertIn('app.router.add_get("/api/personal-briefing", personal_briefing_api)', app)
         self.assertIn('"ORDER BY updated_at DESC LIMIT 40", request["user_id"]', app)
-        self.assertIn('return web.json_response(build_briefing(rows))', app)
+        self.assertIn('return web.json_response(build_briefing(rows, plan_rows=plans))', app)
+        self.assertIn("FROM owner_plans WHERE user_id=$1 AND is_done=FALSE", app)
 
 
 if __name__ == "__main__":
