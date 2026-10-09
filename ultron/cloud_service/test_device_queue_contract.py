@@ -15,7 +15,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
-SOURCE = Path(__file__).resolve().parents[1] / "app.py"
+SOURCE = Path(__file__).resolve().with_name("app.py")
 
 
 class HTTPBadRequest(Exception):
