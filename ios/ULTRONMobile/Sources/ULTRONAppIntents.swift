@@ -69,7 +69,7 @@ struct ULTRONAppShortcuts: AppShortcutsProvider {
             intent: AskULTRONIntent(),
             phrases: [
                 "\(.applicationName) soru sor",
-                "\(.applicationName) ile konuş"
+                "\(.applicationName) bana cevap ver"
             ],
             shortTitle: "ULTRON'a Sor",
             systemImageName: "brain"
