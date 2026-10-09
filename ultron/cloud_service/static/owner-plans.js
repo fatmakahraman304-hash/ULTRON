@@ -40,7 +40,7 @@
       remove.className = "secondary";
       remove.textContent = "SİL";
       remove.addEventListener("click", () => {
-        if (ask("Bu ULTRON planını kalıcı olarak silmek istiyor musun?")) mutate(p.id, "DELETE");
+        if (ask("Bu ULTRON planını kalıcı olarak silmek istiyor musun?")) return mutate(p.id, "DELETE");
       });
       controls.append(done, remove);
       row.append(title, detail, state, controls);
