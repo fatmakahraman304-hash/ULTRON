@@ -118,3 +118,20 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 2. Gerçek iPhone 14 Pro Max Safari PWA'da (ana ekran simgesinden) ULTRON Bridge kurulu iken Gemini Live'dan `set_brightness=35` iste; izin modalı çıkmalı, otomatik Shortcuts geçişi olmamalı, kullanıcı VAZGEÇ sonrası ayar değişmemeli. Sonra KEStİRMELERİ AÇ'a basıp iOS izin davranışını test et.
 3. Arbitrary `ios_shortcut` adı veya kötü formatlı action geldiğinde PWA girişini reddetmeli; `UZAKTAN` sekmesinde queued/delivered sayılarını, görev sonrası badge sıfırlanmasını, offline/reconnect durumunu fiziksel cihazla kontrol et.
 4. Apple'ın sistem kısıtları altında izinli PWA voice UX, foreground reconnect ve bildirim seçeneklerini geliştir. Masaüstü Approval Gate veya Cloud lease/idempotency korumasını aşma.
+
+## 2026-10-09 — CORE küçük animasyon + ULTRON WORLD (kod ve canlı kaynaklar doğrulandı)
+- CORE içi animasyon: kuş / yörünge / nabız presetleri, React/CSS boyuta duyarlı panel, oynat/duraklat/kapat; animation_show backend + stage tool + Türkçe metin komutları. Rastgele Python/Pygame çıktısı henüz otomatik gömülmüyor.
+- Yerel frontend ve masaüstü backend CORE animasyon aşaması: SHA cfacb7355b87af174182b37b635152bd2c204729, frontend build 37925291261 SUCCESS, Scene build 37925291379 SUCCESS.
+- WORLD: iPhone ana ekran PWA DÜNYA sekmesi ve Windows CenterStage içi world_map modu; Leaflet OSM sokak haritası (zoom 19 ve atıf), Three.js WebGL küre, adres/koordinat arama, favoris, izinli geolocation.
+- Gerçek REST sağlayıcıları: Open-Meteo / MET Norway (Render IP Open-Meteo 429 olduğunda resmî MET Norway tahmin yedeği), adsb.lol / adsb.fi v3 (ADS-B uçak konumu), USGS depremler, Open-Meteo Air Quality, Photon OSM geocoding. Kısa süreli bounded cache, sabit upstream URL, açık kaynak atfı, 502 durumunda sahte veri üretmeme.
+- Uydu, Street View, trafik, yağış radarı, rüzgâr, gemiler işaretli harici servis bağlantılarıdır; ULTRON içinde native entegre canlı veri katmanı gibi sunulmaz. 3D her evin detaylı fotogrametrik modeli değildir.
+- SHA 5c0b8781f0303ae8351dc772d9df3dbcee57f6f9: Scene build 37927499485 SUCCESS, PostgreSQL 37927499348 SUCCESS, public production WORLD live smoke 37927499312 SUCCESS. 5/5 gerçek API kategorisi JSON kaynak doğrulama PASS (hava MET Norway, uçak adsb.lol, AQI Open-Meteo, deprem USGS, Photon adres). Sağlayıcı erişimi değişebilir.
+- Render autoDeploy yes, feat/ultron-cloud-shared-memory dalı. Son live SHA ayrıca Render panelinden doğrulanmalı. Windows bilgisayarda git pull/START.bat gerekir.
+- NOT RUN: gerçek iPhone Safari WORLD 2D/3D görsel ve harici harita tile/CDN testi; Windows Qt içinde CORE animasyon fiziksel testi; keyfi Pygame animasyonu gömme, harici trafik/uydu/gemi native katmanları.
+
+### Sonraki WORLD ve CORE görevleri
+1. Render live SHA kontrolü, iPhone Safari DÜNYA menüsü 2D/3D ve adres/POI/gerçek uçak/hava/deprem/AQI gerçek cihaz kullanıcı testi.
+2. Windows güncel branch git pull + START.bat, sesli küçük kuş animasyonunu ULTRON CORE'da başlat; boyut/oynatma/kapama davranışını fiziksel test et. Yeni masaüstü sürümü Windows yereline otomatik yüklenmez.
+3. Harici traffic/satellite/Street View/RainViewer/MET provider lisanslarına uyarak ve erişim anahtarı varsa ayrı sürümde gelişmiş bina 3D tiles; mevcut dış bağlantıları yerleşik native özellik PASS yazma.
+4. Keyfi Pygame animasyonunu güvenli MIME/size sınırı ve izinli içerikle CORE'da oynatmaya dönüştüren sonraki modül; mevcut 3 hazır animasyonla karıştırma.
+5. Sağlayıcı 429/502 için circuit breaker/backoff/normalization testleri, uygun harita CDN bağımlılığı ve gerçek iPhone WebGL testi.
