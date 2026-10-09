@@ -1,24 +1,33 @@
-# ULTRON — Kesintisiz Devam / Sıradaki İşler
+# ULTRON — Sonraki Kesin Görevler / Kesinti Devam Kaydı
 
-**Kaynak repo:** `fatmakahraman304-hash/ULTRON`  
-**Branch:** `feat/ultron-cloud-shared-memory`
+**Repo:** `fatmakahraman304-hash/ULTRON`  
+**Branch:** `feat/ultron-cloud-shared-memory`  
+**Doğrulanmış kod HEAD:** `a010726149f7a1352933a2e45af51f9b1a985662` (sonraki değişiklikler yalnızca bu belgelere ait olabilir).  
+**CI:** `ULTRON Scene Build Check` run `37893780863` — PASS.
 
 ## Hemen yapılacak
-1. `CenterStage.tsx` içindeki `EarthWatch` fonksiyonunun ekran etkileşimlerini düzelt:
-   - Earth kontrolünde kamera zoom/orbit konumunu koru.
-   - Pointer drag ile gerçek nokta seçimini ayır.
-   - Konum değiştirmeyi düzgün/smooth hale getir.
-2. Tekrarlanabilir Earth coğrafi koordinat dönüşüm testlerini ekle.
-3. `scene-check.yml` içinde ilgili testleri çalıştır.
-4. GitHub Actions son HEAD build'i PASS olmadıkça teslim edilmiş sayma.
-5. `ULTRON_PROGRESS.md` ve `ULTRON_TEST_RESULTS.md` gerçek sonuçlarla güncelle.
+1. `git status` ve `python scripts/ultron_dev_resume.py` ile yeni oturumun durumunu oku.
+2. Windows 11 cihazında son branch'i pull ederek `START.bat` çalıştır; Earth Watch kamera/zoom kaybı, drag seçimi, Türkiye/Kıbrıs focus ve UTC SUN düğmesini manuel test et. Başarı gözlemi olmadan PASS yazma.
+3. İnternetsiz durumdayken Earth Watch fallback, ISS WAIT durumu, network request ve UI cleanup davranışını gözle.
+4. `ultron/cloud_service/app.py`, `mark_app.py` ve `ultron/backend/server.py` ile Cloud queue teslim/lease/progress/result sözleşmesini incele; bir komutun iki kez işlenmesini engelleyen ve lease yarışını gösteren izolasyon testleri oluştur.
+5. Yeni kod için `npm run build`, `npm run test:earth`, backend pure unittests ve uygun CI workflow'u çalıştır; 4 geliştirme belgesine gerçek sonuçları yaz.
 
-## Sonraki büyük geliştirmeler
-- Earth Watch P1: offline texture varlığı ve açık lisanslı dünya/şehir katmanları.
-- Server P1: Earth operation input doğrulama + kötü niyetli payload regresyonları.
-- Agent P1: Cloud/device task at-most-once/idempotence testleri.
-- Ses ve Wake Word P2: donanım opsiyonel status/health testleri.
-- AI/Memory P2: model fallback, offline graceful degrade, permission/audit kapsamı.
+## Test komutları
+```bash
+python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
+python -m unittest discover -s scripts/tests -p 'test_ultron_dev_resume.py' -v
+python scripts/ultron_dev_resume.py
+cd ultron/frontend
+npm ci
+npm run build
+npm run test:earth
+```
 
-## Devam prosedürü
-`git status`, `git rev-parse --short HEAD`, dört ULTRON Markdown belgesi, son commit ve Actions job loglarını oku. Başarısız testleri ilk sıraya al. Kod, docs ve test sonuçlarının SHA'sını senkron tut. Güvenlik/hesap işlemlerinde kullanıcı onayı bekle; güvenli bir sonraki görev için bekleme.
+## Sonraki öncelikler
+- Kullanım hakkı açık offline texture + gerçek GPU memory/texture cleanup testi.
+- Audio owner, wake-word, Türkçe STT/TTS ve barge-in regresyonları.
+- Ollama local/cloud provider düşüşü ve memory persistence testleri.
+- Agent görev logları için bounded retry ve state/checkpoint mekanizması.
+
+## Kesinti koşulları
+GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısız adımı belirt. Bir oturum kendiliğinden arka planda devam etmez; sonraki Codex oturumunda `AGENTS.md` ve bu dosya üzerinden başlanır.
