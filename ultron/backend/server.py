@@ -100,7 +100,7 @@ class Hub:
             },
             "earth": {
                 "auto_rotate": True, "rotation_speed": 0.08,
-                "clouds": True, "atmosphere": True, "stars": True,
+                "clouds": True, "atmosphere": True, "stars": True, "sun_sync": True,
                 "grid": False, "night": False, "live_iss": False,
                 "focus_lat": 20.0, "focus_lon": 0.0, "focus_label": "GLOBAL",
                 "markers": [],
