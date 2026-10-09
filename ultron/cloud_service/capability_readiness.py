@@ -26,7 +26,7 @@ def readiness(desktop_online: bool = False) -> dict:
         ("self_update", "Kendini güncelleme", "requires_approval",
          "GitHub test ve güvenli güncelleme hazırlığı var; yerel kurulum, onay ve yeniden başlatma doğrulanmalı."),
         ("calendar_email", "Takvim ve e-posta", "requires_provider",
-         "Gerçek bağlantı, hesap izni ve senkronizasyon yapılmadan takvim/e-posta yönetildi denemez."),
+         "ULTRON içinde kendi tarihli planlarını oluşturup takip edebilirsin. Apple/Google Takvim veya e-posta bağlantısı, hesap izni ve doğrulanmış senkronizasyon olmadan mevcut değildir."),
         ("smart_devices", "Gerçek akıllı cihazlar", "requires_devices",
          "Desteklenen IoT adaptörleri var; gerçek bağlı cihaz ve kullanıcı izni gerekir."),
     ]
