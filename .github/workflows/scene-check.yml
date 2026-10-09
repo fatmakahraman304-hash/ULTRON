@@ -13,6 +13,7 @@ on:
       - "scripts/**"
       - "AGENTS.md"
       - "ultron/cloud_service/**"
+      - "mark_app.py"
       - ".github/workflows/scene-check.yml"
 
 jobs:
@@ -33,6 +34,8 @@ jobs:
           python -m py_compile actions/ultron_stage.py
           python -m py_compile integration/web_panel.py
           python -m py_compile ultron/cloud_service/app.py
+          python -m py_compile ultron/backend/cloud_client.py
+          python -m py_compile mark_app.py
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Cloud task queue race regression tests
