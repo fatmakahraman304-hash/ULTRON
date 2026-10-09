@@ -1,3 +1,4 @@
+from capability_readiness import readiness
 from __future__ import annotations
 
 import asyncio
@@ -2133,6 +2134,18 @@ def _json_dumps(value: Any) -> str:
     return json.dumps(value, default=str, ensure_ascii=False)
 
 
+async def capability_readiness_api(request: web.Request) -> web.Response:
+    """Read-only, authenticated assessment; heartbeat proves current desktop presence only."""
+    if request.get("auth_kind") not in ("web", "device"):
+        raise web.HTTPForbidden()
+    desktop_online = await request.app["db"].fetchval(
+        "SELECT COALESCE(last_seen > NOW() - INTERVAL '15 seconds', FALSE) "
+        "FROM device_presence WHERE user_id=$1 AND device='desktop'",
+        request["user_id"],
+    )
+    return web.json_response(readiness(bool(desktop_online)))
+
+
 def build_app() -> web.Application:
     app = web.Application(middlewares=[auth_middleware], client_max_size=18 * 1024 * 1024)
     app.router.add_get("/", index)
@@ -2144,6 +2157,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/login", login)
     app.router.add_post("/api/logout", logout)
     app.router.add_get("/api/session", session)
+    app.router.add_get("/api/capability-readiness", capability_readiness_api)
     app.router.add_get("/api/messages", list_messages)
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat", chat)
