@@ -44,9 +44,9 @@ def load_handlers():
     handlers = {
         node.name: node for node in tree.body
         if isinstance(node, ast.AsyncFunctionDef)
-        and node.name in {"complete_device_command", "claim_device_commands"}
+        and node.name in {"complete_device_command", "claim_device_commands", "append_device_command_progress", "save_device_command_checkpoint"}
     }
-    if len(handlers) != 2:
+    if len(handlers) != 4:
         raise AssertionError("Cloud command handlers not found")
     module = ast.Module(body=[
         ast.ImportFrom(module="__future__", names=[ast.alias(name="annotations")], level=0),
@@ -69,7 +69,9 @@ class FakeRequest(dict):
         super().__init__(user_id="owner", auth_kind=kind)
         self.app = {"db": db}
         self.match_info = {"id": command_id}
-        self.body = body
+        self.body = dict(body)
+        if kind == "device" and "delivery_attempt" not in self.body:
+            self.body["delivery_attempt"] = 1
 
     async def json(self):
         return self.body
@@ -80,15 +82,19 @@ class FakeDB:
         self.status = status
         self.retry_count = retry_count
         self.max_retries = max_retries
+        self.command = "agent_task"
+        self.delivery_attempt = 1
         self.result = {"message": "initial"}
         self.queries = []
 
     async def fetchrow(self, sql, *args):
         self.queries.append((sql, args))
         if sql.lstrip().startswith("SELECT"):
-            return {"status": self.status, "retry_count": self.retry_count, "max_retries": self.max_retries}
+            return {"status": self.status, "command": self.command,
+                    "delivery_attempt": self.delivery_attempt,
+                    "retry_count": self.retry_count, "max_retries": self.max_retries}
         # Enforce the same atomic CAS preconditions as the real UPDATE SQL.
-        if self.status != "delivered":
+        if self.status != "delivered" or (self.command == "agent_task" and self.delivery_attempt != args[-1]):
             return None
         if "SET status='queued'" in sql:
             if self.retry_count >= self.max_retries:
@@ -120,6 +126,7 @@ class ClaimDB:
     def __init__(self):
         self.lock = asyncio.Lock()
         self.command_status = {1: "queued", 2: "queued"}
+        self.attempts = {1: 0, 2: 0}
         self.advisory_calls = 0
         self.sql = []
 
@@ -149,10 +156,12 @@ class ClaimDB:
         for command_id, status in self.command_status.items():
             if status == "queued":
                 self.command_status[command_id] = "delivered"
+                self.attempts[command_id] += 1
                 return [{"id": command_id, "target": "desktop", "command": "agent_task",
                          "payload": {"text": "safe test"}, "source_device": "test",
                          "progress": [], "checkpoint": {}, "retry_count": 0,
-                         "max_retries": 2, "created_at": None}]
+                         "max_retries": 2, "delivery_attempt": self.attempts[command_id],
+                         "created_at": None}]
         return []
 
 
@@ -190,7 +199,8 @@ class CloudQueueContractTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(HTTPConflict):
             await self.handlers["complete_device_command"](FakeRequest(db, body))
         db.status = "delivered"
-        result = await self.handlers["complete_device_command"](FakeRequest(db, body))
+        db.delivery_attempt += 1
+        result = await self.handlers["complete_device_command"](FakeRequest(db, dict(body, delivery_attempt=2)))
         self.assertEqual(result["command"]["status"], "failed")
         self.assertEqual(db.retry_count, 1)
 
@@ -203,6 +213,9 @@ class CloudQueueContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(first["commands"]) + len(second["commands"]), 1)
         self.assertEqual(sum(state == "delivered" for state in db.command_status.values()), 1)
         self.assertEqual(db.advisory_calls, 2)
+        self.assertEqual(sum(db.attempts.values()), 1)
+        claimed = first["commands"] or second["commands"]
+        self.assertEqual(claimed[0]["delivery_attempt"], 1)
 
     async def test_claim_direction_guard(self):
         db = ClaimDB()
@@ -221,10 +234,12 @@ class CloudQueueContractTests(unittest.IsolatedAsyncioTestCase):
             if name == "complete_device_command":
                 self.assertGreaterEqual(len(re.findall(r"AND status='delivered'", sql)), 2)
                 self.assertIn("AND retry_count < max_retries", sql)
+                self.assertGreaterEqual(sql.count("delivery_attempt=$6"), 2)
             else:
                 self.assertIn("pg_advisory_xact_lock", sql)
                 self.assertIn("FOR UPDATE SKIP LOCKED", sql)
                 self.assertIn("NOT EXISTS", sql)
+                self.assertIn("delivery_attempt=delivery_attempt+1", sql)
         self.assertTrue(callable(ns["complete_device_command"]))
 
 
