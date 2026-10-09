@@ -2,8 +2,8 @@
 
 **Repo:** `fatmakahraman304-hash/ULTRON`  
 **Branch:** `feat/ultron-cloud-shared-memory`  
-**Doğrulanmış kod HEAD:** `34b80e43abe023e58a8f65c87688aa104d6d55e7` (ardından doc-only commit gelebilir).  
-**CI:** `ULTRON Scene Build Check` run `37914696238` — PASS.
+**Doğrulanmış kod HEAD:** `afe9f5b6855fc4742e384a4d298b71ee6c6feb18` (ardından yalnızca doküman commit'i gelebilir).  
+**CI:** `ULTRON Scene Build Check` run `37915768918` — PASS.
 
 ## Hemen yapılacak
 1. `git status` ve `python scripts/ultron_dev_resume.py` ile yeni oturumun durumunu oku.
@@ -66,8 +66,14 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 5. `ULTRON_ROADMAP.md`, `ULTRON_PROGRESS.md`, `ULTRON_NEXT_TASKS.md` ve `ULTRON_TEST_RESULTS.md` dosyalarını her doğrulama sonrası eşleştir.
 
 
-## Döngü 8 sonrası kesin adımlar (CI bekliyor)
-1. Yeni durable SQLite dispatch fence için GitHub Actions run/SHA'yı doğrula; başarısızsa düzelt.
+## Döngü 8 sonrası kesin adımlar (CI doğrulandı)
+1. Kod `afe9f5b6855fc4742e384a4d298b71ee6c6feb18` GitHub Actions `37915768918` PASS: 11 yeni dispatch testinin yanında 10 lease, 14 Cloud contract, 5 Earth backend, 3 resume testi, TypeScript/Vite ve Earth math PASS. Yeni kod değişikliği yapılınca aynı kontrolleri tekrar çalıştır.
 2. Gerçek Windows 11 üzerinde telefon → Cloud → desktop agent_task, yeniden deneme ve süreç kapanma/kurtarma senaryolarını gözle; canlı eylem ve onay testini PASS saymadan kaydet.
 3. Komut-seviyesi fence'den sonra *per-tool* permission-aware journal: tool çağrı kimliği, onay öncesi/sonrası durum ve crash 'uncertain' kararı; reset/manual audit akışı tasarla. Tam exactly-once vaadi verme.
 4. Render `/health` deploy.commit, Windows START.bat, Gemini Live, Earth Watch ve RTX GPU hâlâ cihaz testine bağımlı.
+
+### Windows tekrarlama testi için güvenli kılavuz
+- Testi geri alınabilir/yalnız okuma eylemiyle yap; gerçek belge silme, ödeme, kapatma veya sistem ayarı gibi işlemlerle duplicate/retry testi yapma.
+- Tek bir `agent_task` komut ID'sinin Cloud tarafından ikinci attempt ile verilmesini kontrollü test ortamında doğrula. İkinci otomatik Gemini dispatch olmamalı; telefon manuel kontrol mesajı görmeli.
+- `data/cloud_remote_dispatch.sqlite3` yerel, kalıcı ve `.gitignore` kapsamındadır. Dosyayı temizlemek önceki güvenlik kayıtlarını kaybettirir; otomatik temizleme önerilmez.
+- Render, canlı Cloud deploy ve gerçek Windows/telefon/RTX/mikrofon smoke testleri **NOT RUN**.

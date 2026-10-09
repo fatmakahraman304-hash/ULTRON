@@ -2,7 +2,7 @@
 
 ## 2026-10-09
 **Başlangıç HEAD:** `0638b116c30d221f4167a4df35381a5697237668`.  
-**Son kod/CI referansı:** `d96638e1ecaad7d0b800e20fb22580ade555e777`.
+**Son kod/CI referansı:** `afe9f5b6855fc4742e384a4d298b71ee6c6feb18`.
 
 ### GitHub Actions: PASS
 - Workflow: `ULTRON Scene Build Check`
@@ -70,7 +70,10 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - **Gerçek kapsam:** Cloud HTTP status handling ve lease monitor unit/regression testleri; `mark_app.py` import/syntax ve CI bağlantısı. Gerçek harici tool side-effect exactly-once **kanıtlanmadı**.
 
 
-### 2026-10-09 — Durable desktop dispatch fence (CI PENDING)
+### 2026-10-09 — Durable desktop dispatch fence (CI SUCCESS)
 - Yeni `cloud_dispatch_journal.py` ve `test_cloud_dispatch_journal.py`, `mark_app.py` entegrasyonu ve Scene CI adımı eklendi.
-- GitHub CI yürütmesi ve gerçek Windows/Cloud/Gemini Live henüz doğrulanmadı. Kaynak değişikliği tek başına PASS değildir.
+- `ULTRON Scene Build Check` run `37915768918` **SUCCESS** @ kod SHA `afe9f5b6855fc4742e384a4d298b71ee6c6feb18`; GitHub Actions job `verify` SUCCESS. Gerçek Windows/Cloud/Gemini Live E2E **NOT RUN**.
 - Doğrulanması gereken: ilk claim, yeniden claim, restart, corrupt DB fail-close, concurrency, plaintext gizliliği, pre-dispatch wiring ve Approval Gate etkilenmemesi.
+
+- **CI logları:** 11 durable dispatch journal testi PASS (first/duplicate/restart/changed-payload/different command/scope, no plaintext, invalid/corrupt fail-closed, concurrent reserve, pre-dispatch wiring). Diğer saf Python test grupları: 10 lease, 14 Cloud contract, 5 Earth backend, 3 resume = toplam 43 PASS. Python compile ve frontend TypeScript/Vite production build PASS; Earth math test step PASS.
+- **Bilinen sınır:** `RemoteDispatchJournal` aynı yerel sqlite'ı paylaşan masaüstü komutları için at-most-once Gemini dispatch sağlar. Tool-level exactly-once, Cloud-prod deploy/Windows/telefon gerçek cihaz doğrulaması değildir; crash sonucu belirsiz görevleri manuel kontrol gerektirir.
