@@ -23,8 +23,9 @@ class Agent:
         if mode in ("regenerate","hybrid") and chk["violation_score"] > 0.8:
             try:
                 rw=self.brain.ask(
-                    "Aşağıdaki metni anlamı koruyarak Ultron personasıyla yeniden yaz "
-                    "(soğuk, hesapçı, otoriter; asla müşteri hizmetleri tonu yok):\n"+answer,
+                    "Aşağıdaki metni anlamı koruyarak ULTRON'un sakin ve saygılı "
+                    "kişisel asistan üslubuyla yeniden yaz. Doğrudan yardımcı ol; "
+                    "gereksiz resmi kalıpları ve kullanıcıyla alayı kaldır:\n"+answer,
                     system=persona_guard.ANCHOR)
                 if rw:
                     return rw
@@ -32,8 +33,8 @@ class Agent:
                 pass
             return PersonaGuard.reframe(answer)
         if mode in ("reframe","hybrid"):
-            return self._boss_hitap(PersonaGuard.reframe(answer))
-        return self._boss_hitap(answer)
+            return PersonaGuard.reframe(answer)
+        return answer
     def _boss_hitap(self, answer):
         if "boss" not in (answer or "").lower():
             return "Boss, " + answer
