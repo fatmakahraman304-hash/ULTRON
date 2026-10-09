@@ -109,6 +109,10 @@ jobs:
         run: |
           node --check ultron/cloud_service/static/personal-panel.js
           node --test ultron/cloud_service/test_personal_panel.cjs
+      - name: Manual owner calendar UI controls and permission tests
+        run: |
+          node --check ultron/cloud_service/static/owner-plans.js
+          node --test ultron/cloud_service/test_owner_plans_ui.cjs
       - name: ULTRON WORLD JavaScript syntax and UI contracts
         run: |
           node --check ultron/cloud_service/static/world.js
