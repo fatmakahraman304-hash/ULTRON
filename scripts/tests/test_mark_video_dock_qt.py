@@ -64,6 +64,28 @@ class QtDockTests(unittest.TestCase):
         self.win.original_parent.close()
         self.app.processEvents()
 
+    def test_real_qt_multimedia_player_can_target_original_graphics_video_item(self):
+        """Use actual MARK Qt multimedia classes, not fake video interfaces."""
+        from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
+        from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem
+        from PyQt6.QtWidgets import QGraphicsScene, QGraphicsView
+        scene = QGraphicsScene()
+        video = QGraphicsVideoItem()
+        scene.addItem(video)
+        player = QMediaPlayer()
+        audio = QAudioOutput()
+        audio.setMuted(True)
+        player.setVideoOutput(video)
+        player.setAudioOutput(audio)
+        graphics = QGraphicsView(scene, self.view)
+        graphics.resize(250, 140)
+        self.assertIs(player.videoOutput(), video)
+        self.assertTrue(audio.isMuted())
+        # No QVideoWidget, no OS-level separate video window.
+        player.stop()
+        player.setVideoOutput(None)
+        graphics.close()
+
     def test_existing_mark_video_is_child_of_main_view(self):
         self.assertIs(self.win._video_cont.parentWidget(), self.view)
         self.assertFalse(self.dock.active)
