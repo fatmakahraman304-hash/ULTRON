@@ -42,3 +42,6 @@ jobs:
       - name: TypeScript and Vite build
         working-directory: ultron/frontend
         run: npm run build
+      - name: Earth Watch geographic regression tests
+        working-directory: ultron/frontend
+        run: npm run test:earth
