@@ -23,7 +23,17 @@
     return String(value == null ? "" : value).trim().slice(0, limit);
   }
   function briefingEntries(payload) {
-    return (Array.isArray(payload && payload.items) ? payload.items : [])
+    const manual = (Array.isArray(payload && payload.plans) ? payload.plans : [])
+      .slice(0, 8)
+      .filter(p => p && p.source === "owner_created_plan")
+      .map(p => ({
+        title: clean(p.title, 140),
+        category: "PLAN",
+        detail: clean(p.date, 10) + (p.time ? " " + clean(p.time, 5) : ""),
+        source: "ULTRON kişisel planı",
+      }))
+      .filter(p => p.title);
+    const stored = (Array.isArray(payload && payload.items) ? payload.items : [])
       .slice(0, 12)
       .map(x => ({
         title: clean(x && x.key, 100),
@@ -32,6 +42,7 @@
         source: x && x.source === "owner_saved_memory" ? "ULTRON hafızası" : "Kaynak doğrulanmadı",
       }))
       .filter(x => x.title && x.detail);
+    return [...manual, ...stored].slice(0, 12);
   }
   function capabilityEntries(payload) {
     return (Array.isArray(payload && payload.capabilities) ? payload.capabilities : [])
