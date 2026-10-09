@@ -16,6 +16,7 @@ function fakeDocument() {
       this.className = "";
     }
     append(...items) { this.children.push(...items); }
+    appendChild(item) { this.children.push(item); return item; }
     replaceChildren(...items) { this.children = items; }
     addEventListener(name, fn) { this.listeners[name] = fn; }
   }
