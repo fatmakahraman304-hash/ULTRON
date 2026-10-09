@@ -8,6 +8,8 @@ from PyQt6.QtCore import QObject, Qt, QCoreApplication, QTimer, QUrl, pyqtSignal
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
 from PyQt6.QtWebEngineWidgets import QWebEngineView
+from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtWidgets import QApplication
 from PyQt6.QtWidgets import QStackedWidget, QToolBar, QFileDialog
 from .paths import ROOT
 
@@ -31,6 +33,12 @@ class NativeBridge(QObject):
         self._command_busy=False
         self._presence_busy=False
         self._remote_task_ids=[]
+        from .development_bridge import local_commit
+        self._running_development_sha=local_commit()  # captured at process start, not after checkout changes
+        self._dev_busy=False
+        self.dev_timer=QTimer(self)
+        self.dev_timer.timeout.connect(self.devRefresh)
+        self.dev_timer.start(65000)
         self.cloud_timer=QTimer(self)
         self.cloud_timer.timeout.connect(self.cloud_messages)
         self.cloud_timer.start(3000)
@@ -52,6 +60,71 @@ class NativeBridge(QObject):
         self.plugins()
         self.cloud_messages()
         self.cloud_presence()
+        self.devRefresh()
+
+    @pyqtSlot(str, str)
+    def devRequest(self, prompt, target="both"):
+        """Create persistent owner-scoped task; NEVER open VS Code or run code."""
+        from .development_bridge import configured
+        if not configured():
+            self.emit(kind="dev_error", text="ULTRON Cloud bağlantısı yapılandırılmamış.")
+            return
+        def worker():
+            try:
+                from .development_bridge import submit
+                item=submit(prompt, target)
+                self.emit(kind="dev_request_created", data=item)
+                self.emit(kind="dev_notice",
+                          text="Geliştirme isteği kaydedildi. ChatGPT'ye göndermeniz gerekiyor; kod henüz değişmedi.")
+                self.devRefresh()
+            except Exception as exc:
+                self.emit(kind="dev_error", text=str(exc)[:240])
+        threading.Thread(target=worker,daemon=True).start()
+
+    @pyqtSlot()
+    def devRefresh(self):
+        if self._dev_busy:
+            return
+        self._dev_busy=True
+        def worker():
+            try:
+                from .development_bridge import (list_requests, report_local_checkout)
+                items=list_requests()
+                # A DESKTOP installed version must correspond to the code this
+                # *running process started with*, not merely a git pull made now.
+                for item in items[:20]:
+                    if item.get("status")=="desktop_pending" and self._running_development_sha:
+                        report_local_checkout(str(item["id"]),self._running_development_sha)
+                self.emit(kind="dev_requests",data=items)
+            except Exception as exc:
+                self.emit(kind="dev_error",text=str(exc)[:240])
+            finally:
+                self._dev_busy=False
+        threading.Thread(target=worker,daemon=True).start()
+
+    @pyqtSlot(str)
+    def devVerify(self, request_id):
+        def worker():
+            try:
+                from .development_bridge import verify_request
+                item=verify_request(str(request_id))
+                self.emit(kind="dev_verified",data=item)
+                self.devRefresh()
+            except Exception as exc:
+                self.emit(kind="dev_error",text="Doğrulama bekliyor: "+str(exc)[:180])
+        threading.Thread(target=worker,daemon=True).start()
+
+    @pyqtSlot(str)
+    def openChatGPT(self, handoff):
+        """The user explicitly clicks handoff: copy text and open chatgpt.com."""
+        if not isinstance(handoff,str) or not 0 < len(handoff) <= 12000:
+            return
+        QApplication.clipboard().setText(handoff)
+        opened=QDesktopServices.openUrl(QUrl("https://chatgpt.com/"))
+        self.emit(kind="dev_notice",text=(
+            "Geliştirme isteği kopyalandı. ChatGPT'ye yapıştırıp gönder."
+            if opened else "Geliştirme isteği kopyalandı; ChatGPT'yi tarayıcıda aç."
+        ))
 
     def plugins(self):
         getter=getattr(self.ui,'get_plugins',None)
