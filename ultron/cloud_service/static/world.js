@@ -237,6 +237,24 @@ async function startGlobe(host){
  function frame(){if(disposed)return;raf=requestAnimationFrame(frame);if(document.hidden||currentMode!=='3d')return;renderer.render(scene,camera)}frame();
  return {focus(lat,lon){sphere.rotation.set(-lat*Math.PI/180,(lon*Math.PI/180),0);},dispose(){disposed=true;cancelAnimationFrame(raf);ro.disconnect();renderer.dispose();host.replaceChildren()}};
 }
+window.addEventListener('message',event=>{
+ // The WORLD iframe accepts only same-origin commands sent by its owner PWA.
+ if(event.origin!==location.origin||event.source!==window.parent)return;
+ const cmd=event.data;
+ if(!cmd||cmd.type!=='ultron_world'||typeof cmd.action!=='string')return;
+ if(cmd.action==='focus'){
+   const lat=Number(cmd.lat),lon=Number(cmd.lon);
+   if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat < -85||lat > 85||lon < -180||lon > 180)return;
+   setLocation(lat,lon,Math.min(19,Math.max(4,Number(cmd.zoom)||13)));
+ }
+ if(cmd.action==='mode'&&['2d','3d'].includes(cmd.value)){
+   $(cmd.value==='2d'?'mode2d':'mode3d')?.click();
+ }
+ if(cmd.action==='layer'&&['flights','quakes','weather'].includes(cmd.value)){
+   const wanted={'flights':flightsEnabled,'quakes':quakesEnabled,'weather':weatherEnabled}[cmd.value];
+   if(!wanted)$(cmd.value)?.click();
+ }
+});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentMode==='2d')map?.invalidateSize()});
 setInterval(()=>{if(!document.hidden&&currentMode==='2d'&&flightsEnabled)loadFlights().catch(()=>{})},45000);
 setInterval(()=>{if(!document.hidden&&weatherEnabled)loadWeather().catch(()=>{})},600000);

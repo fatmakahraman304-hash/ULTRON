@@ -10,6 +10,16 @@ const pwa=fs.readFileSync(path.join(base,'static','index.html'),'utf8');
 const backend=fs.readFileSync(path.join(base,'world_api.py'),'utf8');
 const app=fs.readFileSync(path.join(base,'app.py'),'utf8');
 
+test('PWA speech and typed WORLD controls accept only allowlisted same-origin iframe commands',()=>{
+ assert.match(pwa,/function worldVoiceIntent\(text\)/);
+ assert.match(pwa,/worldVoiceIntent\(heard\)/);
+ assert.match(pwa,/worldVoiceIntent\(text\)/);
+ assert.match(pwa,/worldCommandQueue\.length>=4/);
+ assert.match(js,/event\.origin!==location\.origin\|\|event\.source!==window\.parent/);
+ assert.match(js,/cmd\.type!=='ultron_world'/);
+ assert.match(js,/Number\.isFinite\(lat\)/);
+ assert.match(js,/\\['flights','quakes','weather'\\]\.includes\(cmd\.value\)/);
+});
 test('iPhone PWA actually embeds WORLD module as the fourth tab',()=>{
  assert.match(pwa,/<section id="worldView" class="view">/);
  assert.match(pwa,/<button data-view="world">DÜNYA<\/button>/);
@@ -85,7 +95,7 @@ test('user location requested on tap only, never silently sent',()=>{
 });
 test('PWA caches world shell but does not cache external map tiles',()=>{
  const sw=fs.readFileSync(path.join(base,'static','sw.js'),'utf8');
- assert.match(sw,/ultron-shell-v39/);
+ assert.match(sw,/ultron-shell-v40/);
  assert.match(sw,/\/static\/world\.html/);
  assert.match(sw,/\/static\/world\.js/);
  assert.match(sw,/if\(url\.origin!==location\.origin\)return/);

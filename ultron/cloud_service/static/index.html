@@ -1205,6 +1205,7 @@ async function openLiveSocket(){
     }
     if(d.type==='input_transcript'&&d.text){
       const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
+      worldVoiceIntent(heard);
       if(cameraStream&&/(şuna bak|buna bak|ne görüyorsun|kamerada|gösterdiğim)/i.test(heard))captureCameraFrame(heard,false);
     }
     if(d.type==='output_transcript'&&d.text&&!suppressOutput){
@@ -1384,6 +1385,37 @@ async function loadMemories(){
     x.append(b,v,s);$('#memories').appendChild(x);
   });
 }
+const worldCommandQueue=[];
+let worldFrameLoaded=false;
+$('#worldFrame')?.addEventListener('load',()=>{
+ worldFrameLoaded=true;
+ const frame=$('#worldFrame');
+ while(worldCommandQueue.length)frame?.contentWindow?.postMessage(worldCommandQueue.shift(),location.origin);
+});
+function sendWorldCommand(command){
+ const frame=$('#worldFrame');if(!frame)return;
+ if(worldFrameLoaded){frame.contentWindow?.postMessage(command,location.origin);return}
+ if(worldCommandQueue.length>=4)worldCommandQueue.shift();
+ worldCommandQueue.push(command);
+}
+function worldVoiceIntent(text){
+ const t=String(text||'').toLocaleLowerCase('tr-TR').replace(/[’']/g,'').replace(/\s+/g,' ').trim();
+ const hasGeo=/(?:dünya|dunya|harita|uçak|ucak|deprem|hava durumu|weather|world|kıbrıs|kibris|gazimağusa|gazimagusa|lefkoşa|lefkosa)/.test(t);
+ const show=/(?:aç|ac|göster|goster|izle|git|odaklan|geç|gec|bak|yaklaş|yaklas|aktif)/.test(t);
+ if(!hasGeo||!show)return false;
+ showView('world');
+ const place=/(?:gazimağusa|gazimagusa|mağusa|magusa)/.test(t)?{lat:35.125,lon:33.94}:
+   /(?:lefkoşa|lefkosa|nicosia)/.test(t)?{lat:35.174,lon:33.365}:
+   /(?:kıbrıs|kibris)/.test(t)?{lat:35.13,lon:33.43}:
+   /(?:istanbul)/.test(t)?{lat:41.009,lon:28.978}:null;
+ if(place)sendWorldCommand({type:'ultron_world',action:'focus',...place,zoom:14});
+ if(/(?:3d|üç boyut|uc boyut)/.test(t))sendWorldCommand({type:'ultron_world',action:'mode',value:'3d'});
+ else if(/(?:2d|normal harita|sokak haritası|sokak haritasi)/.test(t))sendWorldCommand({type:'ultron_world',action:'mode',value:'2d'});
+ if(/(?:uçak|ucak)/.test(t))sendWorldCommand({type:'ultron_world',action:'layer',value:'flights'});
+ if(/(?:deprem)/.test(t))sendWorldCommand({type:'ultron_world',action:'layer',value:'quakes'});
+ if(/(?:hava durumu|weather)/.test(t))sendWorldCommand({type:'ultron_world',action:'layer',value:'weather'});
+ return true;
+}
 function showView(name){
   setAttachMenu(false);currentView=name;
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -1462,6 +1494,8 @@ async function send(fromVoice=false){
   const text=$('#message').value.trim();if(!text)return;
   $('#message').value='';clearDraft();
   rememberPendingVoice('user',text);addMessage('user',text);
+  const worldHandled=worldVoiceIntent(text);
+  if(worldHandled){toast('ULTRON WORLD açıldı.');return}
   const directHandled=runDirectPhoneCommand(text);
   if(directHandled){
     toast('Komut uygulanıyor…');scrollChatToBottom(false);return;
