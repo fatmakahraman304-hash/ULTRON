@@ -129,9 +129,12 @@ actor CloudSession {
     /// keeping an active voice WebSocket or background process alive.
     func latestDesktopTaskStatus() async throws -> String {
         try await ensureLogin()
-        var request = URLRequest(
-            url: ULTRONConfig.baseURL.appending(path: "/api/device-commands/recent?limit=1")
-        )
+        var components = URLComponents(
+            url: ULTRONConfig.baseURL.appending(path: "/api/device-commands/recent"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "limit", value: "1")]
+        var request = URLRequest(url: components.url!)
         request.timeoutInterval = 20
         request.setValue("ultron-native-ios", forHTTPHeaderField: "X-ULTRON-DEVICE")
         let (data, response) = try await session.data(for: request)
