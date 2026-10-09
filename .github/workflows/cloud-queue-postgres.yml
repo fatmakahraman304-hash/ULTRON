@@ -6,6 +6,9 @@ on:
       - feat/ultron-cloud-shared-memory
     paths:
       - "ultron/cloud_service/**"
+      - "ultron/backend/app/agent/persona_guard.py"
+      - "ultron/backend/app/agent/agent.py"
+      - "ultron/backend/tests/test_persona_warmth.py"
       - ".github/workflows/cloud-queue-postgres.yml"
   workflow_dispatch:
 
@@ -22,6 +25,10 @@ jobs:
           python-version: "3.12"
       - name: Test consistent personality and memory boundaries
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_persona.py' -v
+      - name: Desktop respectful personality regression
+        env:
+          PYTHONPATH: ultron/backend
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_persona_warmth.py' -v
   postgres-fencing:
     runs-on: ubuntu-latest
     timeout-minutes: 8
