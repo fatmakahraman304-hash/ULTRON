@@ -39,6 +39,32 @@ class TestConversationPersona(unittest.TestCase):
         p = build_system_instruction(user_message="Acil, hastayım")
         self.assertIn("No jokes or sarcasm", p)
 
+
+    def test_explicit_personal_brief_is_grounded(self):
+        p = build_system_instruction(
+            user_message="Bugün ne yapmalıyım?",
+            memory="Her salı İngilizce çalışırım",
+            read_only=True
+        )
+        self.assertIn("PERSONAL BRIEFING", p)
+        self.assertIn("do not invent appointments", p)
+        self.assertIn("real tool confirms success", p)
+        self.assertIn("Her salı İngilizce çalışırım", p)
+
+    def test_unrequested_briefing_is_not_assumed(self):
+        p = build_system_instruction(user_message="Merhaba")
+        self.assertNotIn("PERSONAL BRIEFING", p)
+
+    def test_owner_can_request_no_humour(self):
+        p = build_system_instruction(user_message="Şaka yapma, ciddi konuş.")
+        self.assertIn("Owner requests serious tone", p)
+        self.assertIn("do not claim to store a permanent preference", p)
+
+    def test_privacy_and_connected_device_limits(self):
+        p = build_system_instruction()
+        self.assertIn("explicit user permission", p)
+        self.assertIn("physical limits", p)
+
     def test_integration_contract(self):
         app = (HERE / "app.py").read_text(encoding="utf-8")
         local = (HERE / "local_brain_bridge.py").read_text(encoding="utf-8")
