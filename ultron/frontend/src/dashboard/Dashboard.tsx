@@ -324,8 +324,11 @@ export default function Dashboard(){
   u.native.videoRequest('play',source);
   return 'MARK videosu ULTRON CORE içinde açılıyor.';
  };
- const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');if(model==='native'){if(u.native)u.native.send(text);return;}u.add('user',text);
-  const markReply=markVideoIntent(text);if(markReply){u.add('assistant',markReply);return;}
+ const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
+  const markReply=markVideoIntent(text);
+  if(markReply){u.add('user',text);u.add('assistant',markReply);return;}
+  if(model==='native'){if(u.native)u.native.send(text);return;}
+  u.add('user',text);
   try{const stageReply=await stageIntent(text);if(stageReply){u.add('assistant',stageReply);return;}}catch(e){notify((e as Error).message);return;}
   setBusy(true);setLocalState('THINKING');const ctl=new AbortController();abort.current=ctl;
   try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{})},ctl.signal);u.add('assistant',r.text||JSON.stringify(r));setLocalState('IDLE');}catch(e){notify((e as Error).message);}finally{setBusy(false);abort.current=null;}};

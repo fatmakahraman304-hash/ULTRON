@@ -3451,7 +3451,10 @@ class MainWindow(QMainWindow):
             if player is not None:
                 player.pause() if paused else player.play()
         if self._video_sync:
-            self._video_sync.stop() if paused else (self._video_sync.start() if self._video_split else None)
+            if paused:
+                self._video_sync.stop()
+            elif self._video_split:
+                self._video_sync.start()
 
     def _sync_mic_for_video(self) -> None:
         """Close the microphone while the video is making sound.
