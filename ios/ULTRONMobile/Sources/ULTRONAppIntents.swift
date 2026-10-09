@@ -27,7 +27,8 @@ struct StopULTRONListeningIntent: AppIntent {
 struct SendULTRONDesktopTaskIntent: AppIntent {
     static var title: LocalizedStringResource = "ULTRON Bilgisayara Görev Gönder"
     static var description = IntentDescription("Siri veya Kestirmeler ile masaüstü ULTRON'a görev kuyruğa alır; riskli işlemler onaya tabidir.")
-    static var supportedModes: IntentModes = .background
+    // iOS 18-compatible: App Intent defaults to running without opening the app.
+    static var openAppWhenRun = false
 
     @Parameter(title: "Bilgisayara gönderilecek görev")
     var task: String
