@@ -207,3 +207,8 @@ Somut sonraki doğrulama: iPhone Safari ULTRON → DÜNYA; sesle “Gazimağusa'
 3. Check Render /health deployed commit, then physical iPhone Gemini Live and local Qwen conversations using jokes, personal memory and an emergency statement.
 4. On Windows pull feat/ultron-cloud-shared-memory, START.bat; check microphone/approval gates still work. This connector cannot write to C:.
 5. Explore user-controlled tone/humour preferences, opt-in briefings and preference sync to desktop agent; never claim true consciousness.
+
+## 2026-10-10 — Next after verified CI
+- CI proof: https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/37992572797 succeeded (persona + actual PostgreSQL). Scene Build Check #37992487672 also succeeded.
+- Outstanding: check Render release SHA, owner iPhone free-Qwen/Gemini mode behaviour and device voice; sync local Windows branch and start with START.bat; do not call the remote-only GitHub changes locally installed.
+- Improve user-configurable style, humour, life reminders and secure opt-in calendar integrations with tests. Maintain permissions and user override.
