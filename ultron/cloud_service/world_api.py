@@ -171,6 +171,25 @@ async def earthquakes(request: web.Request) -> web.Response:
     return web.json_response({"source": "USGS", "events": events, "count": len(events)})
 
 
+async def air_quality(request: web.Request) -> web.Response:
+    lat, lon = point(request)
+    key = f"air:{round(lat,2)}:{round(lon,2)}"
+    data = await _upstream(
+        "https://air-quality-api.open-meteo.com/v1/air-quality?latitude="
+        + str(lat) + "&longitude=" + str(lon)
+        + "&current=us_aqi,pm2_5,pm10,ozone,dust,uv_index&timezone=auto",
+        key=key, ttl=900,
+    )
+    if not isinstance(data.get("current"), dict):
+        raise web.HTTPBadGateway(text='{"error":"air_quality_data_missing"}',
+                                 content_type="application/json")
+    return web.json_response({
+        "source": "Open-Meteo Air Quality",
+        "lat": lat, "lon": lon, "current": data["current"],
+        "updated": data["current"].get("time"),
+    })
+
+
 async def search(request: web.Request) -> web.Response:
     from urllib.parse import urlencode
     query = (request.query.get("q") or "").strip()
@@ -204,3 +223,4 @@ def add_world_routes(app: web.Application) -> None:
     app.router.add_get("/api/world/flights", flights)
     app.router.add_get("/api/world/earthquakes", earthquakes)
     app.router.add_get("/api/world/search", search)
+    app.router.add_get("/api/world/air-quality", air_quality)
