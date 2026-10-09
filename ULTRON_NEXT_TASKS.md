@@ -3,7 +3,7 @@
 **Repo:** `fatmakahraman304-hash/ULTRON`  
 **Branch:** `feat/ultron-cloud-shared-memory`  
 **Doğrulanmış kod HEAD:** `34b80e43abe023e58a8f65c87688aa104d6d55e7` (ardından doc-only commit gelebilir).  
-**CI:** `ULTRON Scene Build Check` run `37894840971` — PASS.
+**CI:** `ULTRON Scene Build Check` run `37914696238` — PASS.
 
 ## Hemen yapılacak
 1. `git status` ve `python scripts/ultron_dev_resume.py` ile yeni oturumun durumunu oku.
@@ -54,3 +54,13 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 6. Test/CI sonucunu ve dört devam dosyasını aynı SHA ile güncelle; sıradaki işi kodlamaya geç.
 
 **Dağıtım uyumu:** Yeni Cloud sunucusu eski agent_task istemcisinden `delivery_attempt` gelmediğinde güvenli biçimde callback'i reddeder. Masaüstü branch'inin de güncellendiğini ve server migration tamamlandığını doğrula.
+
+
+## 2026-10-09 — Güncel kesin sonraki iş (Döngü 7 sonrası)
+- **Güncel doğrulanmış kod SHA:** `d96638e1ecaad7d0b800e20fb22580ade555e777`.
+- **CI:** `ULTRON Scene Build Check` `37914696238` PASS (5 Earth, 10 masaüstü lease/client, 14 Cloud contract, 3 resume, frontend build).
+1. Render `/health` üzerinden sunucunun deploy commit'ini kontrol et; Cloud migration ile desktop branch aynı protokol neslinde değilse canlı görev testi iddia etme.
+2. Windows üzerinde yeni branch'i al, `START.bat` smoke testi, gerçek Gemini Live ve telefon görevini dene. `CloudDeliveryRejected` geçersiz claim'i kesiyor mu, normal 5s lease refresh çalışıyor mu? Kullanıcı cihazında gözlemlenmeden PASS kaydetme.
+3. **En yüksek P1 kalan risk:** Onay mekanizmasını ihlal etmeyen ve yalnız izinli yerel eylemlerde çalışan durable action-level idempotency/checkpoint journal tasarla. Duplicate task sonrası aynı geri döndürülemez tool çağrısını tekrar çalıştırmama semantiği ve crash recovery testleri ekle. Cloud fencing'in already-executed tools'u geri alamadığını belirt.
+4. Çoklu worker yeniden bağlanma ve deadline/lease stres testi; mümkünse disposable PostgreSQL 16 senaryosunu çoğalt. Memory/performance etkisini ölç.
+5. `ULTRON_ROADMAP.md`, `ULTRON_PROGRESS.md`, `ULTRON_NEXT_TASKS.md` ve `ULTRON_TEST_RESULTS.md` dosyalarını her doğrulama sonrası eşleştir.
