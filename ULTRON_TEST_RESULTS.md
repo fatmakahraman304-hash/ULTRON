@@ -1,20 +1,30 @@
-# ULTRON — Test / Doğrulama Kayıtları
+# ULTRON — Gerçek Test Kayıtları
 
-Bu belge yalnızca **gerçekten çalıştırılmış** kontrolleri kaydeder.
+## 2026-10-09
+**Başlangıç HEAD:** `0638b116c30d221f4167a4df35381a5697237668`.  
+**Son kod/CI referansı:** `a010726149f7a1352933a2e45af51f9b1a985662`.
 
-## Başlangıç (2026-10-09)
-- Referans HEAD: `0638b116c30d221f4167a4df35381a5697237668`.
-- `ULTRON Scene Build Check`: **PASS** (GitHub Actions, başlangıç HEAD).
-- `Frontend Build Check`: ayrıca workflow mevcut, son HEAD için Scene workflow frontend build'i de kapsıyor.
-- Windows `START.bat`, gerçek mikrofon, Ollama, canlı ISS ve RTX 2050 FPS ölçümü: **Bu oturumda henüz çalıştırılmadı**.
-- Tüm Python test süiti: **Bu oturumda henüz çalıştırılmadı**.
-- Earth Watch davranış regresyon testi: **Başlangıçta mevcut değil**.
+### GitHub Actions: PASS
+- Workflow: `ULTRON Scene Build Check`
+- Run: `37893780863`
+- GitHub commit: `a010726149f7a1352933a2e45af51f9b1a985662`
+- Görülen başarılı adımlar:
+  - Python 3.12 değişen kaynakların `py_compile` kontrolü.
+  - `test_earth_watch_config.py` saf backend state regresyonları.
+  - `test_ultron_dev_resume.py` read-only devam raporu regresyonları.
+  - `python scripts/ultron_dev_resume.py --json`.
+  - `npm ci`, `tsc --noEmit`, Vite üretim derlemesi.
+  - `npm run test:earth`: geospatial, input wrapping, equinox/solstice ve UTC güneş testleri.
+- Önceki kod HEAD `7f89ba130485536fa6e655ef942a782a39b44632`: `ULTRON Scene Build Check` PASS.
 
-## Bu oturumdaki testler
-Henüz yeni paket için tamamlanmış test sonucu yok. Kod değiştikçe komut, workflow run ve SHA ile birlikte doldurulacak.
+### Çalıştırılmamış / dış ortam bağımlı
+- Windows 11 cihazında `START.bat` ve gerçek masaüstü UI etkileşim smoke testi: **NOT RUN**.
+- RTX 2050 üzerinde FPS/VRAM benchmark: **NOT RUN**.
+- Gerçek mikrofon, hoparlör, wake-word ve Gemini Live/Cloud uçtan uca: **NOT RUN**.
+- Gerçek ISS API erişimi: **NOT RUN** (hata durumunda UI fallback kodlandı).
+- Tüm Python pytest suite: **NOT RUN**.
+- Render deployment SHA doğrulaması: **NOT CHECKED**.
+- Testler derleme ve saf mantık sözleşmesini doğrular; gerçek cihazdaki başarının yerine geçmez.
 
-## Çalıştırma sözleşmesi
-- `python -m py_compile ultron/backend/server.py actions/ultron_stage.py`
-- `cd ultron/frontend && npm ci && npm run build`
-- Earth/math regresyon testleri (eklenecek).
-- Başarısız sonuç varsa `PASS` olarak kaydedilmez.
+## Sonraki turda
+Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PASS gösterme.
