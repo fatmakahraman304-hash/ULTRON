@@ -18,19 +18,24 @@ from types import SimpleNamespace
 SOURCE = Path(__file__).resolve().with_name("app.py")
 
 
-class HTTPBadRequest(Exception):
+class FakeHTTPError(Exception):
+    def __init__(self, *args, **kwargs):
+        super().__init__(kwargs.get("text") or (args[0] if args else ""))
+
+
+class HTTPBadRequest(FakeHTTPError):
     pass
 
 
-class HTTPForbidden(Exception):
+class HTTPForbidden(FakeHTTPError):
     pass
 
 
-class HTTPNotFound(Exception):
+class HTTPNotFound(FakeHTTPError):
     pass
 
 
-class HTTPConflict(Exception):
+class HTTPConflict(FakeHTTPError):
     pass
 
 
