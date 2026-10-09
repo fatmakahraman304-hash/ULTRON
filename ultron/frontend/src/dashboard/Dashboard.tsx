@@ -380,7 +380,7 @@ export default function Dashboard(){
     {!u.devRequests.length&&<p>Kayıt yok veya Cloud bekleniyor.</p>}
     {u.devRequests.slice(0,15).map(task=><div key={task.id} style={{padding:12,border:'1px solid #543',borderRadius:10,marginBottom:9}}>
       <b>{task.prompt.slice(0,200)}</b><p style={{fontSize:12}}>{task.status==='completed'?'DOĞRULANDI • KURULDU':task.status==='desktop_pending'?'GITHUB/RENDER HAZIR • WINDOWS KURULUMU BEKLENİYOR':task.status==='awaiting_chatgpt'?'CHATGPT SOHBETİNE GÖNDERİLMEDİ':task.status==='tests_failed'?'TEST BAŞARISIZ':task.status==='tests_pending'?'KOD BULUNDU • TESTLER BEKLENİYOR':'RENDER/CI BEKLENİYOR'}</p><small>ULTRON-DEV-{task.id}</small>
-      <div className="control-buttons"><button onClick={()=>u.native?.openChatGPT?.(task.handoff)}>CHATGPT’YE KOPYALA + AÇ</button><button onClick={()=>u.native?.devVerify?.(task.id)}>CI + RENDER DOĞRULA</button></div>
+      <div className="control-buttons"><button onClick={()=>u.native?.openChatGPT?.(task.handoff)}>CHATGPT’YE KOPYALA + AÇ</button><button onClick={()=>u.native?.devVerify?.(task.id)}>CI + RENDER DOĞRULA</button>{task.status==='desktop_pending'&&task.verified_cloud&&task.verified_tests&&<button onClick={()=>u.native?.devInstall?.(task.id)}>GÜVENLİ WINDOWS GÜNCELLEMESİNİ KUR</button>}</div>
     </div>)}
   </>}
   {modal==='Eklentiler'&&<><h3>Yerel eklenti kayıtları</h3><pre>{u.plugins?JSON.stringify(u.plugins,null,2):'Native eklenti kaydı N/A'}</pre><h3>Backend becerileri</h3></>}
