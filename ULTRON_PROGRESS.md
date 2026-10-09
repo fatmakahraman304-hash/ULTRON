@@ -1,17 +1,42 @@
-# ULTRON — Geliştirme Günlüğü
+# ULTRON — Kalıcı Geliştirme Günlüğü
 
-Bu dosya kalıcı görev devamlılığı içindir. Bir oturum dışında otomatik çalışma yapıldığı anlamına gelmez.
+Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. Kendiliğinden arka plan çalışan bir süreç değildir.
 
-## 2026-10-09 — Oturum başlangıcı
-- Repo: `fatmakahraman304-hash/ULTRON`
-- Branch: `feat/ultron-cloud-shared-memory`
-- Başlangıç HEAD: `0638b116c30d221f4167a4df35381a5697237668`
-- İncelendi: repository kökü, mevcut workflows, `ultron/backend/server.py`, Earth Watch renderer, frontend package/tsconfig ve Python test dizinleri.
-- Kanıtlanan durum: Başlangıç HEAD için `ULTRON Scene Build Check` GitHub Actions başarıyla tamamlanmış; bu, Windows donanımı üzerinde uçtan uca davranışın sınandığı anlamına gelmez.
-- Saptanan riskler: Earth Watch ayar değişiminde WebGL view yeniden kurulması ve orbit/zoom kaybı; pointer-down sırasında yanlış Earth koordinat seçimi; Earth Watch'a özel regresyon testi eksikliği.
-- İlk geliştirme: Earth Watch etkileşim kararlılığı + coğrafi doğruluk testleri + CI doğrulaması.
-- **Durum:** devam ediyor; son doğrulama ve commit bilgisi `ULTRON_TEST_RESULTS.md` ile birlikte güncellenecek.
+## 2026-10-09 — Otonom geliştirme oturumu
 
-## Güvenlik sınırları
-- Approval Gate, Cloud voice/queue ve dosya/terminal yetki katmanı korunur.
-- Dış servis kullanılabilirliği, local GPU performansı ve canlı cihaz testleri ayrı raporlanır.
+**Repo:** `fatmakahraman304-hash/ULTRON`  
+**Branch:** `feat/ultron-cloud-shared-memory`  
+**Başlangıç HEAD:** `0638b116c30d221f4167a4df35381a5697237668`
+
+### Döngü 1 — Earth Watch etkileşim
+- `CenterStage.tsx` içinde kamera position/target ve Dünya orientation durumunu layer değişikliklerinde koruma.
+- Focus hedefine yumuşak geçiş; drag hareketini gerçek nokta tıklamasından ayırma.
+- `earthMath.ts` ile deterministik coğrafi koordinat matematiği.
+- `earthMath.test.mjs` ve `npm run test:earth` ile regresyonlar.
+
+### Döngü 2 — Backend state doğrulama
+- Yeni `ultron/backend/earth_watch.py`: JSON veri normalizasyonu, doğru bool yorumlama, nonfinite koruması, longitude wrapping, renk/label/id/marker sınırları.
+- `server.py` Earth Watch komutları ve diskten yükleme bu katmanı kullanıyor.
+- Focus durumunda otomatik dönüş durur; GLOBAL seçimi dönüşü yeniden açar.
+- Yeni `test_earth_watch_config.py`, CI'da bağımsız stdlib testleri.
+
+### Döngü 3 — Gerçek dünya aydınlatma + ISS güvenilirliği
+- Yaklaşık UTC Güneş pozisyonu ve dinamik ışıklandırma; manuel `UTC SUN` düğmesi ve sesli kontrol.
+- Ekinoks/gündönümü/UTC farkı için testler.
+- ISS kaynağı doğrulanmadan konum pini gösterilmiyor; request timeout, tek aktif request ve cleanup uygulanıyor.
+- Bu, ISS kaynağının her ortamda erişilebilir olduğu anlamına gelmez.
+
+### Döngü 4 — Geliştirme oturumları arası devam
+- Root `AGENTS.md` Codex çalışma kuralları; riskli işlemlerde onayı korur.
+- `scripts/ultron_dev_resume.py`: dört devam belgesini, branch/HEAD/git durumunu ve sıradaki işleri read-only raporlar.
+- `scripts/tests/test_ultron_dev_resume.py` ve CI doğrulaması.
+- Dört devam belgesi oluşturuldu, bu oturum sonunda gerçek kayıtlarla güncellendi.
+
+### Doğrulama
+- Son tam kod/CI referansı: `a010726149f7a1352933a2e45af51f9b1a985662`.
+- `ULTRON Scene Build Check` run `37893780863`: PASS. Python syntax, backend Earth tests, resume tests/command, TypeScript/Vite ve Earth math tests geçti.
+- Tam Python test suite, Windows `START.bat`, gerçek RTX 2050 FPS, mikrofon ve gerçek ISS bağlantısı: **bu oturumda çalıştırılmadı**.
+- Cloud/Render otomatik deploy edildiği iddia edilmemiştir.
+
+## Sonraki kesin iş
+`ULTRON_NEXT_TASKS.md` içindeki Windows smoke doğrulaması ve Cloud queue idempotence regresyonları.
