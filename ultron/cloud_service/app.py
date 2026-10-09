@@ -834,9 +834,20 @@ async def _memory_context(pool: asyncpg.Pool, user_id: str) -> str:
         "SELECT category,key,value FROM memories WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 100",
         user_id,
     )
-    if not rows:
-        return "No saved ULTRON memory yet."
-    return "\n".join(f"- [{r['category']}] {r['key']}: {r['value']}" for r in rows)
+    # Only the owner's explicitly created, still-open plans are available to
+    # the assistant. Notes are intentionally excluded from model context.
+    plan_rows = await pool.fetch(
+        "SELECT title,scheduled_date,scheduled_time FROM owner_plans "
+        "WHERE user_id=$1 AND is_done=FALSE "
+        "ORDER BY scheduled_date ASC, scheduled_time ASC NULLS LAST,id ASC LIMIT 8",
+        user_id,
+    )
+    lines = [f"- [{r['category']}] {r['key']}: {r['value']}" for r in rows]
+    for plan in plan_rows:
+        clock = plan["scheduled_time"]
+        at = (" " + clock.strftime("%H:%M")) if clock else ""
+        lines.append(f"- [OWNER PLAN - no notification] {plan['scheduled_date'].isoformat()}{at}: {plan['title']}")
+    return "\n".join(lines) if lines else "No saved ULTRON memory or personal plans yet."
 
 
 async def _recent_context(pool: asyncpg.Pool, user_id: str, limit: int = 24) -> str:
