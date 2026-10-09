@@ -405,6 +405,23 @@ final class BackgroundVoiceController: ObservableObject {
             let query = (obj["query"] as? String) ?? ""
             PhoneActionRouter.shared.handle(action: action, query: query)
 
+        case "ios_action":
+            if let command = obj["command"] as? [String: Any] {
+                PhoneActionRouter.shared.prepareIOSBridgeCommand(command)
+            }
+
+        case "ios_shortcut":
+            PhoneActionRouter.shared.prepareNamedShortcut(
+                name: (obj["shortcut_name"] as? String) ?? "",
+                input: (obj["input"] as? String) ?? ""
+            )
+
+        case "laptop_task":
+            // Queued is not the same as successful local execution.
+            if let id = obj["id"] as? Int {
+                status = "Laptop görevi #\(id) kuyruğa alındı"
+            }
+
         case "error":
             status = (obj["message"] as? String) ?? "Cloud Live hatası"
 
