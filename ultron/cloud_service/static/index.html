@@ -335,6 +335,15 @@
     .phone-direct-grid button{min-height:42px;font-size:11px;font-weight:900;letter-spacing:.04em}
     .phone-direct-note{display:block;margin-top:10px;color:var(--muted);line-height:1.4}
 
+    /* Consent sheet for model-suggested iPhone settings. */
+    .phone-approval{position:fixed;z-index:80;inset:0;display:flex;align-items:flex-end;justify-content:center;padding:16px 12px calc(24px + env(safe-area-inset-bottom));background:rgba(0,0,0,.68);backdrop-filter:blur(8px)}
+    .phone-approval-card{width:min(100%,520px);padding:20px;border-color:rgba(255,48,71,.82);box-shadow:0 0 36px rgba(255,48,71,.18)}
+    .phone-approval-card h2{margin:0 0 10px;font-size:16px;letter-spacing:.08em}
+    .phone-approval-card p{margin:0 0 8px;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+    .phone-approval-note{color:var(--muted);font-size:12px!important;margin-bottom:16px!important}
+    .phone-approval-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .phone-approval-actions button{min-height:50px}
+    .task-summary{margin:11px 0 12px;padding:12px 14px;border:1px solid rgba(255,48,71,.28);border-radius:13px;background:rgba(5,7,10,.78);font-size:12px;color:#d0d7e2}
   </style>
 </head>
 <body>
@@ -440,6 +449,7 @@
         <small class="shortcut-foot">Test, ULTRON Bridge’e parlaklık %35 komutu gönderir. Kestirme henüz kurulmadıysa sadece Kestirmeler açılır.</small>
       </div>
       <div class="section-title" style="margin-top:16px"><h2>SON GÖREVLER</h2><small id="historyCount">0 kayıt</small></div>
+      <div id="remoteTaskSummary" class="task-summary" role="status" aria-live="polite">Laptop görevleri kontrol ediliyor…</div>
       <div id="remoteHistory" class="history"></div>
     </section>
 
@@ -454,15 +464,28 @@
     </section>
   </main>
 </div>
+<div id="phoneActionApproval" class="phone-approval hidden" role="dialog" aria-modal="true" aria-labelledby="phoneApprovalTitle">
+  <section class="phone-approval-card panel">
+    <h2 id="phoneApprovalTitle">IPHONE • İŞLEM ONAYI</h2>
+    <p id="phoneApprovalText"></p>
+    <p id="phoneApprovalDetail" class="phone-approval-note"></p>
+    <p class="phone-approval-note">Bu işlem yalnız onayından sonra Apple Kestirmeler'de açılır. Apple ayrıca izin isteyebilir.</p>
+    <div class="phone-approval-actions">
+      <button id="denyPhoneAction" type="button" class="secondary">VAZGEÇ</button>
+      <button id="approvePhoneAction" type="button">KESTİRMELERİ AÇ</button>
+    </div>
+  </section>
+</div>
 
 
 <nav id="tabs" class="tabs hidden">
   <button class="active" data-view="chat">SOHBET <span id="chatBadge" class="tab-badge">0</span></button>
-  <button data-view="remote">UZAKTAN</button>
+  <button data-view="remote">UZAKTAN <span class="tab-badge" id="remoteBadge">0</span></button>
   <button data-view="memory">HAFIZA</button>
 </nav>
 <div id="toast" class="toast"></div>
 
+<script src="/static/mobile-action-guard.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 
@@ -488,6 +511,38 @@ const laptopTaskStates=new Map();
 const laptopTaskProgressCounts=new Map();
 let laptopTaskWatchPrimed=false;
 let desktopPresencePrimed=false,desktopWasOnline=false,desktopVoiceLeader=false;
+let pendingIOSAction=null;
+function closeIOSApproval(){
+  pendingIOSAction=null;
+  $('#phoneActionApproval').classList.add('hidden');
+  $('#phoneApprovalText').textContent='';
+  $('#phoneApprovalDetail').textContent='';
+}
+function queueIOSApproval(event){
+  const approved=window.ULTRONPhoneActionGuard?.fromLiveEvent(event);
+  if(!approved){toast('Desteklenmeyen veya güvenilir olmayan iPhone Kestirmesi engellendi.');return}
+  if(pendingIOSAction){toast('Önce bekleyen iPhone işlemini onayla veya iptal et.');return}
+  pendingIOSAction=approved;
+  $('#phoneApprovalText').textContent=approved.label;
+  const t=approved.command.target.trim(),v=approved.command.value.trim();
+  $('#phoneApprovalDetail').textContent='Eylem: '+approved.command.action+
+    (t?' • Hedef: '+t.slice(0,100):'')+
+    (v?' • Değer: '+v.slice(0,100):'');
+  $('#phoneActionApproval').classList.remove('hidden');
+  $('#denyPhoneAction').focus();
+  $('#stageVoiceText').textContent='iPhone komutu kullanıcı onayı bekliyor';
+  toast('iPhone işlemi onay bekliyor. Kestirmeler otomatik açılmadı.');
+}
+$('#denyPhoneAction').onclick=()=>{closeIOSApproval();toast('iPhone işlemi iptal edildi.')};
+$('#approvePhoneAction').onclick=()=>{
+  if(!pendingIOSAction)return;
+  const url=window.ULTRONPhoneActionGuard?.shortcutURL(pendingIOSAction.command);
+  if(!url){closeIOSApproval();toast('Geçersiz iPhone işlemi reddedildi.');return}
+  closeIOSApproval();
+  toast('İsteğinle ULTRON Bridge açılıyor; sonucu iOS belirler.');
+  location.href=url;
+};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pendingIOSAction)closeIOSApproval()});
 function setAttachMenu(open){
   attachMenuOpen=!!open;$('#attachMenu').classList.toggle('show',attachMenuOpen);$('#plusBtn').classList.toggle('open',attachMenuOpen);$('#plusBtn').setAttribute('aria-expanded',attachMenuOpen?'true':'false');
 }
@@ -1056,30 +1111,9 @@ async function openLiveSocket(){
       $('#stageVoiceText').textContent='Laptop görevi iptal edildi';
       setTimeout(()=>watchLaptopTasks().catch(()=>{}),250);
     }
-    if(d.type==='ios_action'){
-      const command=d.command&&typeof d.command==='object'?d.command:{};
-      const payload=JSON.stringify(command);
-      const url='shortcuts://run-shortcut?name='+encodeURIComponent('ULTRON Bridge')+'&input=text&text='+encodeURIComponent(payload);
-      const label={
-        open_app:'Uygulama açılıyor',
-        set_focus:'Odak modu gönderildi',
-        set_volume:'Ses seviyesi gönderildi',
-        set_brightness:'Parlaklık komutu gönderildi',
-        bluetooth:'Bluetooth komutu gönderildi',
-        wifi:'Wi‑Fi komutu gönderildi',
-        compose_message:'Mesaj komutu gönderildi'
-      }[String(command.action||'')]||'iPhone otomasyonu gönderildi';
-      toast(label);
-      $('#stageVoiceText').textContent=label;
-      location.href=url;
-    }
-    if(d.type==='ios_shortcut'){
-      const name=String(d.shortcut_name||'ULTRON Bridge').trim()||'ULTRON Bridge';
-      const input=String(d.input||'').trim();
-      const url='shortcuts://run-shortcut?name='+encodeURIComponent(name)+'&input=text&text='+encodeURIComponent(input);
-      toast('Apple Shortcut çalıştırılıyor: '+name);
-      $('#stageVoiceText').textContent='iPhone otomasyonu gönderildi';
-      location.href=url;
+    if(d.type==='ios_action'||d.type==='ios_shortcut'){
+      // Siri/Cloud suggestions may not auto-run arbitrary settings shortcuts.
+      queueIOSApproval(d);
     }
     if(d.type==='phone_action'){
       const action=String(d.action||''),query=String(d.query||'').trim();
@@ -1614,12 +1648,27 @@ async function watchLaptopTasks(){
       laptopTaskProgressCounts.set(id,progress.length);
     }
     laptopTaskWatchPrimed=true;
+    updateRemoteTaskIndicator(rows);
     if(currentView==='remote')renderRemoteRows(rows);
   }catch{}
+}
+function updateRemoteTaskIndicator(rows){
+  const tasks=rows.filter(x=>x.command==='agent_task');
+  const queued=tasks.filter(x=>x.status==='queued').length;
+  const running=tasks.filter(x=>x.status==='delivered').length;
+  const errors=tasks.filter(x=>x.status==='failed').length;
+  const active=queued+running;
+  const badge=$('#remoteBadge');
+  if(badge){badge.textContent=String(Math.min(active,99));badge.classList.toggle('show',active>0)}
+  const summary=$('#remoteTaskSummary');
+  if(summary)summary.textContent=active
+    ? ('AKTİF: '+running+' çalışıyor, '+queued+' kuyrukta'+(errors?' • '+errors+' hata':''))
+    : (errors?'Aktif görev yok • '+errors+' başarısız görev var':'Aktif laptop görevi yok');
 }
 function renderRemoteRows(rows){
   const root=$('#remoteHistory');if(!root)return;root.innerHTML='';
   $('#historyCount').textContent=rows.length+' kayıt';
+  updateRemoteTaskIndicator(rows);
   rows.forEach(item=>{
     const el=document.createElement('div');el.className='history-item';
     const h=document.createElement('header'),b=document.createElement('b'),s=document.createElement('span');
