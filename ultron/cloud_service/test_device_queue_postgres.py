@@ -1,5 +1,6 @@
 """Disposable PostgreSQL integration for delivery-attempt fencing (never production DB)."""
 import asyncio
+import json
 import os
 import unittest
 from pathlib import Path
@@ -70,8 +71,10 @@ class DeviceQueuePostgresTests(unittest.IsolatedAsyncioTestCase):
             await self.handlers["save_device_command_checkpoint"](self.req(cid,{
                 "delivery_attempt":1,"step_index":90,"state":{"stale":True}}))
         row=await self.pool.fetchrow("SELECT checkpoint,progress FROM device_commands WHERE id=$1",cid)
-        self.assertEqual(row["checkpoint"],{})
-        self.assertFalse(any(v.get("message")=="stale" for v in row["progress"]))
+        checkpoint = json.loads(row["checkpoint"]) if isinstance(row["checkpoint"],str) else row["checkpoint"]
+        progress = json.loads(row["progress"]) if isinstance(row["progress"],str) else row["progress"]
+        self.assertEqual(checkpoint,{})
+        self.assertFalse(any(v.get("message")=="stale" for v in progress))
         ok=await self.handlers["save_device_command_checkpoint"](self.req(cid,{
             "delivery_attempt":2,"step_index":2,"state":{"safe":True}}))
         self.assertEqual(ok["command"]["checkpoint"]["state"],{"safe":True})
