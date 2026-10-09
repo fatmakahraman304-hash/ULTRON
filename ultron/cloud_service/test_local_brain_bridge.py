@@ -44,7 +44,7 @@ class LocalFirstBridgeTests(unittest.TestCase):
         self.assertIn('GEMINI • İSTEĞE BAĞLI',PWA)
         self.assertIn("const d=brainMode==='local'",PWA)
         self.assertIn("await localBrainAnswer(text)",PWA)
-        self.assertIn("Gemini Live sesli konuşmasını kullanır",PWA)
+        self.assertIn("Gemini Live sesli konuşması için ayrıca mikrofona dokun",PWA)
         self.assertIn("otomatik Gemini kullanmadım",PWA)
         self.assertIn("localVoiceController?.toggle()",PWA)
         self.assertIn("if(brainMode!=='gemini')",PWA)
