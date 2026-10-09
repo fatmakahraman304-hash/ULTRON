@@ -181,3 +181,9 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - GitHub Actions Cloud Queue PostgreSQL Integration #37992833637 on SHA 433617f77b669fbe30526705faccbe6532ccd545 SUCCESS: persona-policy (Cloud 8 + Windows 4 tests), real PostgreSQL queue/memory/development-request integrations all passed.
 - ULTRON Scene Build Check #37992774370 SUCCESS at Windows agent postprocessor SHA 93f921f266a37bf01f565b9c8c32880854f3f372.
 - No Windows local checkout, microphone/audio, physical phone or current Render deploy verified.
+
+
+## 2026-10-10 — PWA owner panels test provenance
+- Previous Cloud Queue PostgreSQL Integration run #37995893863 SUCCESS, including four offline personal briefing tests. Scene check run #37996651819 SUCCESS for mobile HTML integration commit f11fa3105215b24407e29835bd305d303422bb21.
+- New UI six Node regression tests and explicit scene CI step added. Cache version bumped from v43 to v44. Scene runs #37996726191 and #37996824797 failed at an older voice-test assertion (hardcoded cache version, then incorrectly escaped regex); the fixed test was committed at c1c641f67cf7a8627609b02df2996072a88489d6 and requires fresh CI verification.
+- Real physical iOS interaction, screenshot proof, latest Render deployment, and Windows installation have not been tested within this development run.

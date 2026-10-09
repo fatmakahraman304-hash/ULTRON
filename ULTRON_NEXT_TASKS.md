@@ -234,3 +234,11 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 10. **Physical device control:** use only authorized supported IoT/Home Assistant HTTP devices, require confirmation for changes and report disconnected/missing devices honestly.
 
 **Implemented this pass:** shared persona now adds explicit opt-in grounded daily-brief rules, per-request disable-jokes instruction, and no implicit personal learning or cross-device access claims. Four offline tests added in test_conversation_persona.py (12 tests total). Check Cloud Queue PostgreSQL Integration CI for these commits; physical devices and Render deploy remain unverified.
+
+
+## 2026-10-10 — After owner briefing UI
+1. Verify scene-check CI at c1c641f67cf7a8627609b02df2996072a88489d6, especially personal panel Node tests and older local voice tests.
+2. Inspect Render service srv-db20lmei0phs73crgujg until live deployment matches current branch. Render autoDeploy=yes: do not trigger duplicate deploy.
+3. On user's iPhone log into PWA, open HAFIZA, explicitly tap ÖZETİ GÖSTER and DURUMU KONTROL ET. Verify owner-scoped memory, no extra permissions, errors and empty state.
+4. Install latest branch on Windows only with clean worktree and user-controlled update, then run START.bat. Test actual desktop and optional Qwen voice.
+5. Next functionality: consent-based calendar/email connections with strict read scopes and no speculative appointments, editable learning preferences, verified device support and safe releases.

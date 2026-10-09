@@ -191,3 +191,10 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - New pure Python personal_briefing.py reads only user-saved memory rows, deduplicates entries, bounds all outputs, and labels every item owner_saved_memory; it never invents deadlines, reminders, appointments, email access or executed actions.
 - app.py now offers authenticated GET /api/personal-briefing with user-scoped memory query; no automatic polling or data gathering.
 - Four new tests in test_personal_briefing.py wired into the standalone persona-policy CI job. CI / physical iPhone / Windows / Render current deployment should be checked separately; do not claim they are verified without passing results.
+
+
+## 2026-10-10 — iPhone personal overview implementation
+- Confirmed previous briefing API CI #37995893863 SUCCESS and Render successfully deployed briefing test SHA ba3c46df.
+- Added /static/personal-panel.js with on-demand personal-memory and ten-capability panels, linked into mobile HAFIZA tab; loaded scripts via PWA cache v44.
+- Node test contracts added: test_personal_panel.cjs (6), wired to scene-check.yml. CI initially red because test_local_voice.cjs pinned cache v43; patched version regex and new asset assertion in c1c641f67cf7a8627609b02df2996072a88489d6.
+- This is code + automated contract validation, not yet physical iPhone Safari screenshot testing or confirmation of latest Render HEAD.

@@ -166,3 +166,10 @@ Bu belge `MARK-ULTRON-MERGED` kaynak ağacına dayanır. **Test edilmemiş özel
 - GitHub Actions Cloud Queue PostgreSQL Integration #37992833637 on SHA 433617f77b669fbe30526705faccbe6532ccd545 SUCCESS: persona-policy (Cloud 8 + Windows 4 tests), real PostgreSQL queue/memory/development-request integrations all passed.
 - ULTRON Scene Build Check #37992774370 SUCCESS at Windows agent postprocessor SHA 93f921f266a37bf01f565b9c8c32880854f3f372.
 - No Windows local checkout, microphone/audio, physical phone or current Render deploy verified.
+
+
+## 2026-10-10 — Owner personal-briefing mobile interface
+- iPhone HAFIZA tab now exposes opt-in button for /api/personal-briefing and separate opt-in button for /api/capability-readiness (ten realistic JARVIS gap statuses).
+- New static/personal-panel.js uses textContent-only rendering, no background fetches, no automatic account access or memory edits. PWA v44 precaches the script.
+- Six Node UI tests in test_personal_panel.cjs cover no automatic network fetch, output provenance, status labels, safe DOM, error recovery and HTML wiring; scene CI runs them.
+- Priorities remain verified iPhone hardware UX, consent-based calendar/email provider linking, and voice testing without disabling approval gates.
