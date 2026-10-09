@@ -1,39 +1,36 @@
 # ULTRON — Teknik Yol Haritası
 
-Bu belge `MARK-ULTRON-MERGED` gerçek kaynak ağacı üzerinden hazırlanmıştır. Kalıcı yön, kısa döngüler ve doğrulanabilir sonuçlar hedeflenir. **Bir yol haritası maddesi, test edilmeden tamamlanmış sayılmaz.**
+Bu belge `MARK-ULTRON-MERGED` kaynak ağacına dayanır. **Test edilmemiş özellik tamamlanmış sayılmaz.**
 
-## Korunacak çalışan mimari
-- Yerel Python 3.12/aiohttp backend, React/TypeScript + Three.js arayüz, Ollama, SQLite ve Gemini Live entegrasyonu.
-- Telefon → Cloud komut kuyruğu → masaüstü agent → yerel tool → Cloud sonucu → telefon zinciri.
-- Scene Lab, Earth Watch, 3D video, snapshot, mission sequence, trigger ve GLB Asset Library.
-- Kullanıcı onayı gerektiren işlemlerde Approval Gate, sandbox ve audit mekanizmaları.
+## Korunacak mevcut sistemler
+- Python 3.12/aiohttp backend; React/TypeScript + Three.js UI; Ollama ve SQLite.
+- Telefon Gemini Live → Cloud device queue → desktop agent → yerel tool → Cloud result → telefon.
+- Scene Lab, Earth Watch, 3D video, GLB Asset Library, Mission Sequences, Trigger Engine, Snapshot Vault.
+- Approval Gate, sandbox, izin denetimi ve audit logları.
 
-## Gerçek incelemede belirlenen öncelikler
+## Doğrulanmış ilk geliştirme dalgası (2026-10-09)
+- [x] P0 Earth Watch: Kamera orbit/zoom konumu ayar değişiminde korunuyor; sürükleme yanlışlıkla koordinat tıklaması olarak işlenmiyor.
+- [x] P0 Geospatial tests: `earthMath.ts` ile koordinat round-trip, Greenwich, boylam wrapping, UTC subsolar nokta, ekinoks ve gündönümü testleri.
+- [x] P1 Backend state validation: `earth_watch.py` persisted ayarları, bool string, finite sayılar, enlem/boylam, renk ve pinleri normalize ediyor.
+- [x] P1 ISS safety: Geçerli yanıt gelmeden sahte ISS pini yok; timeout, non-overlapping poll ve cleanup var.
+- [x] P1 UTC light: Yaklaşık NOAA tabanlı UTC Sun synchronisation, UI ve sesli araç kontrolü.
+- [x] P1 Development continuity: `AGENTS.md`, dört kalıcı belge, `scripts/ultron_dev_resume.py` ve regresyon testleri.
+- CI referansı: `a010726149f7a1352933a2e45af51f9b1a985662` — `ULTRON Scene Build Check` PASS, run `37893780863`.
 
-| Seviye | Alan | Somut eksik / risk | Bitti sayılma ölçütü |
-| --- | --- | --- | --- |
-| P0 | Earth Watch etkileşim | Bir ayar değiştiğinde Three.js renderer yeniden kuruluyor; mevcut kamera zoom/orbit durumu kaybolabilir. Pointer down, sürükleme başlangıcını koordinat tıklaması sanabilir. | Mod kontrolleri arasında kamera korunur; sürükleme yanlış pin seçmez; frontend CI yeşil. |
-| P0 | Test güvenilirliği | Scene CI Python derlemesi ve frontend build yapıyor; Earth Watch davranışı için özel test yok. | Deterministik coğrafi geometri testleri ve kodun gerçek modülünü kullanan regresyon testi CI'a girer. |
-| P1 | Stage/Earth state sağlamlığı | UI üzerinden gelen bool/koordinat/marker inputlarının bir kısmı doğrudan işleniyor. | Bozuk değerler güvenli biçimde normalize edilir; server testleri yazılır. |
-| P1 | Earth Watch görsel kalite | Online Dünya/Cloud texture bağımlılığı; fallback harita şematiktir. | Lisansı açık yerel varlık stratejisi ve offline doğrulama; dış veri başarısızlığı UI'yi çökertmez. |
-| P1 | Otonom agent güvenilirliği | Uzun görevlerde lease/timeout/sorunsuz tekrar deneme regresyonları önemlidir. | Kuyruk ve agent result path için tekrar yürütme/idempotence testleri ve ölçüm. |
-| P2 | Ses | ULTRON wake-word, barge-in ve mikrofon hata iyileştirmeleri. | Ses sahipliği ve güvenli stop/start sınırı, donanım varsa end-to-end. |
-| P2 | AI router + hafıza | Yerel/bulut hata ve model yokluğu durumunda dayanıklı yönlendirme. | Gerçek yok-modeller senaryoları ve permission/audit regresyonları. |
-| P2 | Scene Editor | Performans, kalıcılık ve export bütünlüğü. | Import/save/load/render round-trip testleri ve FPS/VRAM sınırları. |
-| P3 | Otomasyon uzmanları | Alt görev yaşam döngüsü ve durable checkpoint. | Yetkili tool sınırlaması, tekrar eden işi engelleme ve ölçülen ilerleme. |
+## Sonraki öncelikler
+| Öncelik | Alan | Kabul ölçütü |
+| --- | --- | --- |
+| P0 | Windows gerçek test | `START.bat`, üç Earth Watch mod kontrolü, zoom/orbit persistence, ISS çevrimdışı fallback, gerçek mikrofon ve 3D GPU akışı doğrulanır. |
+| P1 | Earth offline kalite | İnternetsiz gerçekçi/kullanım hakkı açık texture varlığı; fallback geometrisi; GPU yaşam döngüsü ölçümü. |
+| P1 | Cloud queue idempotence | Lease/retry/ack/result için gerçek tekrar yürütme ve yarış testleri; çalışan voice ownership bozulmaz. |
+| P1 | Güvenlik kontratı | Approval Gate, audit ve riskli tool işlemleri için güvenli regresyonlar. |
+| P2 | Ses ve AI router | Wake-word, barge-in, STT/TTS hata dayanımı; yok model için fallback ve timeout testleri. |
+| P2 | Scene Studio | Büyük sahne FPS/VRAM benchmark; GLB proje/export round-trip. |
+| P3 | Agent sürekliliği | Alt görev state ve safe checkpoint; güvenli hata sonrası devam; sessiz background çalışma iddiası yok. |
 
-## İncelenen yollar
-- `ultron/backend/server.py`
-- `ultron/frontend/src/dashboard/CenterStage.tsx`
-- `ultron/frontend/src/dashboard/runtime.ts`
-- `actions/ultron_stage.py`
-- `ultron/backend/tests/`
-- `.github/workflows/scene-check.yml` ve `frontend-check.yml`
-
-## Geliştirme standartları
-1. Mevcut implementasyonu araştır; eksik bilgiyi varsayımla kapatma.
-2. Dar, geri alınabilir ve teste bağlanmış değişiklik grupları yap.
-3. Build + ilgili test + CI sonucunu ayrı ayrı raporla.
-4. Repo dışında dosya değiştirme, secret açığa çıkarma, güvenlik onayını devre dışı bırakma.
-5. Güvenilir doğrulama olmadan `PASS` yazma; plan ve ilerleme belgelerini güncelle.
-6. Araç/oturum kesilirse `ULTRON_NEXT_TASKS.md` belgesinden devam et.
+## İş akışı
+1. `AGENTS.md` ve dört devam belgesini oku.
+2. `python scripts/ultron_dev_resume.py` ile HEAD/branch/kirlilik/sonraki iş durumunu gör.
+3. Kod değişikliği, gerçek test, CI sonucu, açıklayıcı commit, dört belge güncellemesi.
+4. Repo dışına yazma, secret ifşa etme, izinsiz destructive işlem ya da Approval Gate bypass yapma.
+5. Bir oturum bitince `ULTRON_NEXT_TASKS.md` içinde tekrar üretilebilir kesin sonraki adımı bırak.
