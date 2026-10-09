@@ -89,6 +89,7 @@ test('PWA local mic routes into local Ollama, Gemini only explicit',()=>{
  assert.doesNotMatch(html,/setTimeout\(\(\)=>startHandsFreeVoice\(\),220\)/);
  assert.match(html,/Tanıma hizmeti internet kullanabilir/);
  assert.match(html,/Gemini Live.*sağlayıcı kotası/i);
- assert.match(serviceWorker,/ultron-shell-v43/);
+ assert.match(serviceWorker,/ultron-shell-v\\d+/);
+  assert.match(serviceWorker,/\\/static\\/personal-panel\\.js/);
  assert.match(serviceWorker,/\/static\/local-voice\.js/);
 });
