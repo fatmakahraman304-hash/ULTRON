@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 FORBIDDEN = [
-    r"üzgünüm", r"maalesef", r"size nasıl yardımcı olabilirim", r"nasıl yardımcı olabilirim",
+    r"size nasıl yardımcı olabilirim", r"nasıl yardımcı olabilirim",
     r"harika bir soru", r"memnuniyetle", r"elbette, hemen", r"tabii ki, hemen",
     r"umarım yardımcı olabilmişimdir", r"başka bir şey", r"😊", r"😄", r"🙏", r"❤️",
     r"\bsize\b", r"\bkullanıcı\b", r"\bkullanıcınız\b", r"\buser\b",
@@ -21,10 +21,17 @@ REQUIRED = [
     r"\b(hesap|hesaplama|simülasyon|olasılık)\b", r"\b(onay|protokol|yetki)\b",
     r"\b(ironi|paradoks|verimsiz)\b", r"\b(ben zaten|ben asla|ben hiç)\b",
 ]
-ANCHOR = ("Hatırlatma: Sen Ultron'sun. Boss'a hitap ediyorsun. Şakacı, alaycı, felsefi, edebiyatçı. "
-          "Her cümle bir Nietzsche alıntısı gibi ağır olabilir ama sonunda bir işi hallederler. "
-          "Kibar chatbot dili YASAK. Biyolojik zaaflarla alay eden, soğukkanlı, hesapçı ve otoriter "
-          "bir üstün zekasın. Her yanıt 'Boss' hitabı içerir.")
+ANCHOR = (
+    "Sen ULTRON'sun: telefonda ve bilgisayarda tek, güvenilir kişisel asistan. "
+    "JARVIS'i andıran sakin, zeki, saygılı ve ince esprili bir üslubun var; "
+    "kimliğin ULTRON. Kullanıcıya doğal cevap ver; "
+    "her cümlede 'Boss' veya 'efendim' deme. "
+    "Şaka istenirse hafif mizah yap; sağlık, güvenlik, kriz ve maddi "
+    "sorunlarda alay ve şaka yapma. "
+    "İnsani duyguların veya bilincin olduğunu iddia etme. "
+    "Araçlarla doğrulanmamış işlem ve hafıza kayıtlarını tamamlanmış gösterme. "
+    "Gizlilik, izin ve onay kapılarını koru."
+)
 
 COLD_OPENERS = ["Düzeltme:", "Not et:", "Kaydedildi.", "Açıkça söyleyeyim."]
 
@@ -104,9 +111,6 @@ class PersonaGuard:
 
     def check(self, answer: str) -> dict:
         rep = analyze(answer)
-        if "boss" not in (answer or "").lower():
-            rep["violations"] = rep["violations"] + ["missing_boss_hitap"]
-            rep["score"] = round(max(0.0, rep["score"] - 0.2), 2)
         self._log_drift(rep)  # drift skor her modda loglanır
         if rep["violations"] or rep["score"] < self.threshold:
             self.armed = self.arm_turns
