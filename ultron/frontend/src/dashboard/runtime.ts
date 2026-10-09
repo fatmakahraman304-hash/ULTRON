@@ -45,16 +45,18 @@ export const defaultStage:StageState={
  video:{template:'ultron_intro',duration:6,title:'ULTRON',ready:false,mime:'',bytes:0}
 };
 export const coreState=(value:string):CoreState=>({PLANNING:'THINKING',EXECUTING:'WORKING',VERIFYING:'WORKING',DONE:'IDLE',WAITING_APPROVAL:'IDLE'}[value]??(['IDLE','LISTENING','THINKING','SPEAKING','WORKING','ERROR'].includes(value)?value:'IDLE')) as CoreState;
-export type Native={send:(text:string)=>void;action:(name:string)=>void;videoRequest?:(action:string,source:string)=>void;hologramAction?:(name:string)=>void;ready:()=>void;message:{connect:(fn:(data:string)=>void)=>void;disconnect?:(fn:(data:string)=>void)=>void}};
+export type Native={send:(text:string)=>void;action:(name:string)=>void;videoRequest?:(action:string,source:string)=>void;devRequest?:(prompt:string,target:string)=>void;devRefresh?:()=>void;devVerify?:(id:string)=>void;openChatGPT?:(handoff:string)=>void;hologramAction?:(name:string)=>void;ready:()=>void;message:{connect:(fn:(data:string)=>void)=>void;disconnect?:(fn:(data:string)=>void)=>void}};
 declare global {interface Window {qt?:{webChannelTransport:unknown};QWebChannel?:new(transport:unknown,callback:(channel:{objects:{mark:Native}})=>void)=>unknown;}}
 export async function request(path:string,body?:unknown,signal?:AbortSignal){
  const res=await fetch(path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:signal??AbortSignal.timeout(200000)});
  const data=await res.json();if(!res.ok||data.ok===false)throw Error(data.error||`HTTP ${res.status}`);return data;
 }
+export type DevRequest={id:string;prompt:string;target:'phone'|'desktop'|'both';status:string;handoff:string;commit_sha?:string;verified_cloud?:boolean;verified_tests?:boolean};
 export type Message={role:'user'|'assistant';text:string;id:number;time:number;cloudId?:number};
 export function useUltron(){
  const [connected,setConnected]=useState(false),[system,setSystem]=useState<SystemSnapshot|null>(null),[ai,setAi]=useState<AIStatus|null>(null);
  const [state,setState]=useState<CoreState>('IDLE'),[nativeState,setNativeState]=useState<CoreState>('IDLE'),[amplitude,setAmplitude]=useState(0),[muted,setMuted]=useState(true),[native,setNative]=useState<Native|null>(null);
+ const [devRequests,setDevRequests]=useState<DevRequest[]>([]);
  const [messages,setMessages]=useState<Message[]>([]),[pending,setPending]=useState<TaskProposal|null>(null),[patch,setPatch]=useState<PatchProposal|null>(null),[notice,setNotice]=useState(''),[notifications,setNotifications]=useState<any[]>([]);
  const [health,setHealth]=useState<any>(null),[tools,setTools]=useState<any[]>([]),[memory,setMemory]=useState<any>(null),[plugins,setPlugins]=useState<any[]|null>(null),[history,setHistory]=useState<SystemSnapshot[]>([]),[taskState,setTaskState]=useState<CoreState>('IDLE'),[devicePresence,setDevicePresence]=useState<any[]>([]),[stage,setStage]=useState<StageState>(defaultStage);
  const cloudKnown=useRef<Set<number>>(new Set());
@@ -102,9 +104,13 @@ export function useUltron(){
   return()=>{stopped=true;ctl.abort();clearTimeout(retry);if(ws){ws.onclose=null;ws.close();}};
  },[]);
  useEffect(()=>{if(!window.qt)return;let active=true,bridge:Native|undefined;const receive=(raw:string)=>{if(!active)return;let e:any;try{e=JSON.parse(raw);}catch{return;}if(e.kind==='video_notice'){setNotice(String(e.text||'MARK video işlemi tamamlandı.'));}
+   if(e.kind==='dev_requests')setDevRequests(Array.isArray(e.data)?e.data:[]);
+   if(e.kind==='dev_request_created'&&e.data){setDevRequests(prev=>[e.data,...prev.filter(t=>t.id!==e.data.id)]);setNotice('Geliştirme isteği kaydedildi. GELİŞTİR ekranından ChatGPT’ye gönder.');}
+   if(e.kind==='dev_verified'&&e.data){setDevRequests(prev=>prev.map(t=>t.id===e.data.id?e.data:t));if(e.data.status==='completed'){setNotice('Tamam efendim, doğrulanmış güncelleme tamamlandı.');add('assistant','Tamam efendim, güncelleme tamamlandı.');}else setNotice('Güncelleme durumu: '+String(e.data.status));}
+   if(e.kind==='dev_notice'||e.kind==='dev_error')setNotice(String(e.text||''));
    if(e.kind==='state'){setNativeState(coreState(e.state));setMuted(e.muted);setAmplitude(Number(e.amplitude)||0);}if(e.kind==='file')setNotice(e.name+' ses motoruna eklendi.');if(e.kind==='plugins')setPlugins(e.data);if(e.kind==='cloud_messages')mergeCloud(e.data??[]);if(e.kind==='device_presence')setDevicePresence(e.data??[]);if(e.kind==='remote_notice')setNotice(e.text);if(e.kind==='log')add(e.role,e.text);if(e.kind==='error'){setNotice(e.text);setNativeState('ERROR');}};
   const script=document.createElement('script');script.src='qrc:///qtwebchannel/qwebchannel.js';script.onload=()=>{if(window.QWebChannel)new window.QWebChannel(window.qt!.webChannelTransport,c=>{if(!active)return;bridge=c.objects.mark;setNative(bridge);bridge.message.connect(receive);bridge.ready();});};document.head.appendChild(script);
   return()=>{active=false;bridge?.message.disconnect?.(receive);script.remove();};
  },[]);
- return {health,tools,memory,plugins,history,taskState,devicePresence,stage,setStage,connected,system,ai,state,nativeState,amplitude,muted,native,messages,setMessages,add,pending,setPending,patch,setPatch,notice,setNotice,notifications};
+ return {devRequests,health,tools,memory,plugins,history,taskState,devicePresence,stage,setStage,connected,system,ai,state,nativeState,amplitude,muted,native,messages,setMessages,add,pending,setPending,patch,setPatch,notice,setNotice,notifications};
 }
