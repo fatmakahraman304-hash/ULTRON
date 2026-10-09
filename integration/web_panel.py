@@ -124,6 +124,28 @@ class NativeBridge(QObject):
         threading.Thread(target=worker,daemon=True).start()
 
     @pyqtSlot(str)
+    def devInstall(self, request_id):
+        """Only a deliberate local button press; never from a background poll."""
+        def worker():
+            try:
+                from .development_bridge import list_requests
+                from .safe_self_update import safe_prepare_update, UpdateBlocked
+                item=next((x for x in list_requests()
+                           if str(x.get("id"))==str(request_id)), None)
+                if not item or item.get("status")!="desktop_pending" or \
+                        not item.get("verified_tests") or not item.get("verified_cloud"):
+                    self.emit(kind="dev_error",text="Bu sürüm henüz test edilip doğrulanmadı; yükleme engellendi.")
+                    return
+                result=safe_prepare_update(str(item.get("commit_sha") or ""))
+                self.emit(kind="dev_notice",text=result["message"])
+                self.emit(kind="dev_install_result",data=result)
+                # Never claim the active process has changed. After a genuine
+                # fresh START.bat the new running_sha is reported separately.
+            except Exception as exc:
+                self.emit(kind="dev_error",text="Güvenli kurulum yapılmadı: "+str(exc)[:210])
+        threading.Thread(target=worker,daemon=True).start()
+
+    @pyqtSlot(str)
     def openChatGPT(self, handoff):
         """The user explicitly clicks handoff: copy text and open chatgpt.com."""
         if not isinstance(handoff,str) or not 0 < len(handoff) <= 12000:
