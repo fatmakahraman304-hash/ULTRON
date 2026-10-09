@@ -151,11 +151,13 @@ class CloudClient:
         self,
         command_id: int,
         *,
+        delivery_attempt: int,
         stage: str,
         message: str = "",
         percent: int | None = None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
+            "delivery_attempt": int(delivery_attempt),
             "stage": str(stage)[:80],
             "message": str(message)[:2000],
         }
@@ -171,6 +173,7 @@ class CloudClient:
         self,
         command_id: int,
         *,
+        delivery_attempt: int,
         step_index: int,
         state: dict[str, Any] | None = None,
         note: str = "",
@@ -179,6 +182,7 @@ class CloudClient:
             "POST",
             f"/api/device-commands/{int(command_id)}/checkpoint",
             json_body={
+                "delivery_attempt": int(delivery_attempt),
                 "step_index": max(0, int(step_index)),
                 "state": state or {},
                 "note": str(note)[:2000],
@@ -189,6 +193,7 @@ class CloudClient:
         self,
         command_id: int,
         *,
+        delivery_attempt: int,
         ok: bool,
         message: str = "",
         extra: dict[str, Any] | None = None,
@@ -205,5 +210,6 @@ class CloudClient:
         return await self._request(
             "POST",
             f"/api/device-commands/{int(command_id)}/complete",
-            json_body={"status": "completed" if ok else "failed", "result": result},
+            json_body={"status": "completed" if ok else "failed", "result": result,
+                       "delivery_attempt": int(delivery_attempt)},
         )
