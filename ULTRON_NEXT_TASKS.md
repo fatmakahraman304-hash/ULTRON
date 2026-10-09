@@ -158,3 +158,17 @@ Somut sonraki doğrulama: iPhone Safari ULTRON → DÜNYA; sesle “Gazimağusa'
 2. Resize the Windows ULTRON window, switch display scaling/DPI: native QGraphicsVideoItem should refit inside CenterStage with aspect ratio and should never cover the activity/file panels.
 3. Test YouTube URL/description resolution with yt-dlp and separate audio; initially muted. Enable sound and check mic echo protection, pause/resume synchrony, close and end/error returns to CORE. CI tests do not assert these real Windows codec/network conditions.
 4. Do not represent native Qt video dock as shipped via Render or as an iPhone-PWA playback feature. This path is for local Windows MARK-ULTRON instance. If device video window remains blank, collect runtime logs and codec availability for a targeted fix.
+
+
+## 2026-10-09 — ULTRON Fast Brain ücretsiz yerel modül (CI PASS)
+- ultron/backend/app/core/fast_brain.py: FAST/GENERAL/CODING/VISION sınıflaması. Sadece gerçekten kurulu Ollama modelleri seçilir; ücretsiz Qwen3.5:4b varsa günlük sohbet, yoksa qwen3:4b. qwen3:8b daha kapsamlı sorulara, qwen2.5-coder:7b kod isteklerine, llava:7b görsele. Model otomatik indirilmez.
+- ultron/backend/app/core/model_router.py: önce model çalıştırıp ikinci aşamada ekstra paralel 2-model race + judge çağıran gecikme kaldırıldı (Fast Brain interaktif yolunda). Manuel local evaluation korunuyor. Orijinal Approval Gate ve izin/araç akışı korunur; tek model yanıtı veya yalnız hata üzerine fallback.
+- ultron/backend/app/core/brain.py: Qwen3/3.5 için think:false, kısa yanıt num_predict, sınırlı bağlam ve 10m sıcak model ayarı. Basit selamlaşmalarda ağır araç şeması atlanır; gerçek görevlerde araç erişimi korunur.
+- ultron/backend/config/settings.json: fast_brain etkin ve tercih listeleri; mevcut kurulu modellerle ücretsiz çalışır. scripts/ultron_fast_brain_doctor.py yerel /api/tags ve opsiyonel gerçek yanıt zamanı --benchmark; kılavuz ultron/FAST_BRAIN_README_TR.md.
+- Gerçek GitHub CI: code SHA 2d0eb712347cf98e100ea89b05c51751bc7c75d1, run https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/37940137389 SUCCESS; 15 test_fast_brain.py PASS, Python compile, TypeScript/Vite ve mevcut regresyonlar PASS.
+- Fiziksel Lenovo/Ollama/GPU hızı ve mikrofon gecikmesi NOT RUN. MARK Gemini Live & iPhone Cloud Live hiç değiştirilmedi; bu modül provider ücretsiz plan/sınırlarını otomatik değiştirmez. Model qwen3.5:4b indirme kullanıcı tercihi olup birkaç GB disk/indirme ve cihazda olası CPU offload gerektirir.
+
+### FAST BRAIN kesin sonraki Windows kontrolleri
+1. Doğru Git dalında 'git status', 'git pull origin feat/ultron-cloud-shared-memory'; START.bat restart. Proje kökünden .venv/Scripts/python.exe scripts/ultron_fast_brain_doctor.py --benchmark ile gerçekten kurulu modellerin gecikmelerini ölç; kod testlerini gerçek laptop hız testi sayma.
+2. İsteğe bağlı kullanıcı onayıyla 'ollama pull qwen3.5:4b', gerekirse resmî Ollama sürüm güncellemesi; benchmark before/after, RTX2050 4GB VRAM ve 24GB RAM taşma riskini değerlendir.
+3. Offline local voice Whisper -> Fast Brain -> Piper ve mevcut Gemini Live sesli çağrılarını fiziksel Windows cihazında ayrı ayrı dene; Gemini ücret/limit durumu değişmedi. Approval Gate ve Cloud görev araçlarını regress etme.
