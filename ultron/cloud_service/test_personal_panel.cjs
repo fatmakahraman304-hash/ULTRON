@@ -37,6 +37,17 @@ test("briefing entries retain only explicitly provided saved records", () => {
   assert.equal(values.length, 1);
   assert.equal(values[0].source, "ULTRON hafızası");
 });
+test("user-created dated plans appear in brief without claiming external sync", () => {
+  const entries = personal.briefingEntries({
+    items: [{key:"İngilizce",category:"GOAL",value:"B2",source:"owner_saved_memory"}],
+    plans: [{title:"Yarın ders",date:"2026-10-11",time:"15:30",source:"owner_created_plan"}],
+  });
+  assert.equal(entries.length,2);
+  assert.equal(entries[0].category,"PLAN");
+  assert.equal(entries[0].detail,"2026-10-11 15:30");
+  assert.equal(entries[0].source,"ULTRON kişisel planı");
+  assert.equal(entries[1].source,"ULTRON hafızası");
+});
 test("capabilities are not all presented as available", () => {
   const values = personal.capabilityEntries({capabilities: [
     {name:"Fiziksel hologram",status:"blocked_hardware",detail:"Özel cihaz gerekli"},
