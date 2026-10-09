@@ -187,6 +187,13 @@ def video_player(parameters: dict = None, response=None, player=None,
             return "Stopped it before it opened."
         return "Closed the video."
 
+    # ---- pause and resume -------------------------------------------------
+    if action in ('pause', 'resume'):
+        if not player.video_is_playing():
+            return 'Nothing is playing.'
+        player.set_video_paused(action == 'pause')
+        return 'Paused the video.' if action == 'pause' else 'Resumed the video.'
+
     # ---- sound ------------------------------------------------------------
     if action in ("mute", "unmute", "sound_on", "sound_off"):
         if not player.video_is_playing():
@@ -199,6 +206,8 @@ def video_player(parameters: dict = None, response=None, player=None,
     if not source:
         return "What should I play?"
 
+    # Cancel older in-flight YouTube lookup when the user opens another clip.
+    token = _begin_open()
     local = _local_path(source)
     if local:
         player.show_video(local, Path(local).name, muted=True)
@@ -220,7 +229,7 @@ def video_player(parameters: dict = None, response=None, player=None,
     # So the seconds stay, and what changes is where the user spends them:
     # listening to ULTRON say it is coming, instead of watching nothing happen.
     # The same shape whatsapp_call uses, and for the same reason.
-    threading.Thread(target=_play_youtube, args=(player, source, _begin_open()),
+    threading.Thread(target=_play_youtube, args=(player, source, token),
                      daemon=True, name="video-open").start()
     # Deliberately a status line rather than a finished English sentence: the
     # model writes the words, in the user's own language.
@@ -298,9 +307,9 @@ TOOL = {
         "properties": {
             "action": {
                 "type": "STRING",
-                "description": ("'play' (default), 'stop' to close it, 'unmute' "
+                "description": ("'play' (default), 'stop' to close it, 'pause'/'resume' for playback, 'unmute' "
                                 "to turn the sound on, 'mute' to silence it."),
-                "enum": ["play", "stop", "mute", "unmute"],
+                "enum": ["play", "stop", "mute", "unmute", "pause", "resume"],
             },
             "source": {
                 "type": "STRING",

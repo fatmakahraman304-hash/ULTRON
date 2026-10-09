@@ -2964,6 +2964,7 @@ class MainWindow(QMainWindow):
     _wake_btns_sig   = pyqtSignal()          # wake state resolved off-thread
     _video_close_sig = pyqtSignal()
     _video_mute_sig  = pyqtSignal(bool)
+    _video_pause_sig = pyqtSignal(bool)
     _clipboard_sig  = pyqtSignal(str)        # clipboard text changed (thread-safe)
     _confirm_sig    = pyqtSignal(str, str)   # (title, detail) — irreversible-action gate
     _confirm_hide_sig = pyqtSignal()
@@ -3082,6 +3083,7 @@ class MainWindow(QMainWindow):
         # called from plugin threads, and reading a widget's state from one is
         # not something to rely on; an attribute is.
         self._video_on = False
+        self._video_paused = False
         self._video_cont = QWidget()
         self._video_cont.setStyleSheet(f"background: {C.BG};")
         _vid_v = QVBoxLayout(self._video_cont)
@@ -3114,6 +3116,10 @@ class MainWindow(QMainWindow):
         self._video_mute_btn = _vid_btn("🔇  SOUND OFF")
         self._video_mute_btn.clicked.connect(self._toggle_video_mute)
         _vid_hdr.addWidget(self._video_mute_btn)
+        self._video_pause_btn = _vid_btn("⏸  PAUSE")
+        self._video_pause_btn.clicked.connect(
+            lambda: self._video_pause_sig.emit(not self._video_paused))
+        _vid_hdr.addWidget(self._video_pause_btn)
 
         _vid_x = _vid_btn("✕  CLOSE")
         _vid_x.clicked.connect(self.stop_video)
@@ -3249,6 +3255,7 @@ class MainWindow(QMainWindow):
         self._video_open_sig.connect(self._on_video_open)
         self._video_close_sig.connect(self._on_video_close)
         self._video_mute_sig.connect(self._on_video_mute)
+        self._video_pause_sig.connect(self._on_video_pause)
         self._clipboard_sig.connect(self._show_clipboard_panel)
         self._wake_dl_sig.connect(self._on_wake_install_done)
         self._quiz_sig.connect(self._show_quiz)
@@ -3374,8 +3381,12 @@ class MainWindow(QMainWindow):
         self._video_player.setSource(url)
         if self._video_split:
             self._video_sound.setSource(QUrl(audio_source))
-        self._hud_cam_stack.setCurrentIndex(2)
+        # MARK: stack index 2. ULTRON: same widget reparented into WebEngine.
+        if self._hud_cam_stack.indexOf(self._video_cont) >= 0:
+            self._hud_cam_stack.setCurrentWidget(self._video_cont)
         self._video_on = True
+        self._video_paused = False
+        self._video_pause_btn.setText("⏸  PAUSE")
         # Re-run now that the video counts as playing: _set_video_muted ran
         # before this line and saw no video, so its mic check was a no-op.
         self._sync_mic_for_video()
@@ -3411,6 +3422,8 @@ class MainWindow(QMainWindow):
                 p.setSource(QUrl())
         self._video_split = False
         self._video_on = False
+        self._video_paused = False
+        self._video_pause_btn.setText('⏸  PAUSE')
         self._hud_cam_stack.setCurrentIndex(0)
         self._sync_mic_for_video()      # gives the microphone back
 
@@ -3429,6 +3442,17 @@ class MainWindow(QMainWindow):
     def _on_video_mute(self, muted: bool) -> None:
         self._set_video_muted(muted)
 
+    def _on_video_pause(self, paused: bool) -> None:
+        if not self._video_on:
+            return
+        self._video_paused = bool(paused)
+        self._video_pause_btn.setText('▶  RESUME' if paused else '⏸  PAUSE')
+        for player in (self._video_player, self._video_sound if self._video_split else None):
+            if player is not None:
+                player.pause() if paused else player.play()
+        if self._video_sync:
+            self._video_sync.stop() if paused else (self._video_sync.start() if self._video_split else None)
+
     def _sync_mic_for_video(self) -> None:
         """Close the microphone while the video is making sound.
 
@@ -3444,8 +3468,8 @@ class MainWindow(QMainWindow):
         muted, and pressing the mute key during a video hands the decision back
         to them for good.
         """
-        sound_on = bool(self._video_on and self._video_sound_out
-                        and not self._video_sound_out.isMuted())
+        output = self._video_sound_out if self._video_split else self._video_audio
+        sound_on = bool(self._video_on and output and not output.isMuted())
         if sound_on and not self._muted:
             self._video_auto_muted = True
             self._set_muted(True, "The video's sound is on — silence it, close "
@@ -5884,6 +5908,10 @@ class UltronUI:
     def stop_video(self) -> None:
         """Thread-safe: close the video and give the HUD back to the avatar."""
         self._win._video_close_sig.emit()
+
+    def set_video_paused(self, paused: bool) -> None:
+        """Thread-safe native MARK video pause/resume."""
+        self._win._video_pause_sig.emit(bool(paused))
 
     def set_video_muted(self, muted: bool) -> None:
         """Thread-safe: silence or unsilence whatever is playing."""

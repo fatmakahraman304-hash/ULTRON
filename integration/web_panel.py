@@ -360,6 +360,32 @@ class NativeBridge(QObject):
         else:
             self.emit(kind='error',text='Gemini Live henüz hazır değil. Yerel model seçebilirsiniz.')
 
+    @pyqtSlot(str, str)
+    def videoRequest(self, action, source):
+        """Route explicit desktop media commands through MARK's old player."""
+        action = str(action or "").strip().lower()
+        if action not in {"play", "open_file", "stop", "mute", "unmute", "pause", "resume"}:
+            self.emit(kind="video_notice", text="Bilinmeyen video işlemi.")
+            return
+        source = str(source or "").strip()[:2048]
+        if action == "open_file" or (action == "play" and not source):
+            source, _filter = QFileDialog.getOpenFileName(
+                self.ui._win, "ULTRON / MARK video seç", "",
+                "Video ve animasyon (*.mp4 *.mkv *.mov *.avi *.webm *.m4v);;Tüm Dosyalar (*)"
+            )
+            if not source:
+                self.emit(kind="video_notice", text="Video seçimi iptal edildi.")
+                return
+            action = "play"
+        try:
+            from actions.video_player import video_player
+            result = video_player({"action": action, "source": source},
+                                  player=self.ui)
+            self.emit(kind="video_notice", text=str(result))
+        except Exception as exc:
+            self.emit(kind="error", text="MARK video motoru hata verdi: " +
+                      type(exc).__name__)
+
     @pyqtSlot(str)
     def action(self, name):
         win=self.ui._win
@@ -439,20 +465,17 @@ def attach(ui):
             widget.setParent(view)
             widget.hide()
     from PyQt6.QtWidgets import QDialog,QVBoxLayout
+    from .video_dock import MarkVideoDock
     dialogs=[]
     camera_dialog=QDialog(win);camera_dialog.setWindowTitle('ULTRON · Kamera');camera_dialog.resize(800,500)
     camera_layout=QVBoxLayout(camera_dialog);camera_layout.addWidget(win._cam_live_lbl)
     win._cam_stream_sig.connect(lambda active:camera_dialog.show() if active else camera_dialog.hide())
     camera_dialog.finished.connect(lambda _:win.stop_camera_stream())
     dialogs.append(camera_dialog)
-    video=getattr(win,'_video_cont',None)
-    if video is not None:
-        video_dialog=QDialog(win);video_dialog.setWindowTitle('ULTRON · Video');video_dialog.resize(960,600)
-        QVBoxLayout(video_dialog).addWidget(video)
-        win._video_open_sig.connect(lambda *args:video_dialog.show())
-        win._video_close_sig.connect(video_dialog.hide)
-        video_dialog.finished.connect(lambda _:win.stop_video())
-        dialogs.append(video_dialog)
+    # The original MARK player stays in the ULTRON center-stage viewport.
+    # No separate native Windows video dialog; no second media engine.
+    if getattr(win, '_video_cont', None) is not None:
+        ui._video_dock = MarkVideoDock(view, page, win)
     overlay=getattr(win,'_overlay',None)
     if overlay is not None:
         overlay.setParent(view)

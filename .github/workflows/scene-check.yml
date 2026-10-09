@@ -33,12 +33,17 @@ jobs:
           python -m py_compile ultron/backend/earth_watch.py
           python -m py_compile actions/ultron_stage.py
           python -m py_compile integration/web_panel.py
+          python -m py_compile integration/video_dock.py
+          python -m py_compile actions/video_player.py
+          python -m py_compile ui.py
           python -m py_compile ultron/cloud_service/app.py
           python -m py_compile ultron/cloud_service/world_api.py
           python -m py_compile ultron/backend/cloud_client.py
           python -m py_compile ultron/backend/cloud_delivery.py
           python -m py_compile ultron/backend/cloud_dispatch_journal.py
           python -m py_compile mark_app.py
+      - name: Original MARK embedded video dock regression tests
+        run: python -m unittest discover -s scripts/tests -p 'test_mark_video_dock.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
