@@ -27,9 +27,12 @@ jobs:
       - name: Compile changed Python
         run: |
           python -m py_compile ultron/backend/server.py
+          python -m py_compile ultron/backend/earth_watch.py
           python -m py_compile actions/ultron_stage.py
           python -m py_compile integration/web_panel.py
           python -m py_compile ultron/cloud_service/app.py
+      - name: Earth Watch backend state regression tests
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
