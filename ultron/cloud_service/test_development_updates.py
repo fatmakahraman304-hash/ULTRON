@@ -81,6 +81,9 @@ class DevelopmentWorkflowTests(unittest.TestCase):
 
     def test_auth_required_and_persistence_without_client_success_field(self):
         self.assertIn("register_development_routes(app)", APP)
+        self.assertIn("request_ultron_development", APP)
+        self.assertIn("development_request_saved", APP)
+        self.assertIn("ULTRON_self_development_must_use_ChatGPT_handoff", APP)
         self.assertIn("CREATE TABLE IF NOT EXISTS dev_requests", SCHEMA)
         self.assertIn("CREATE INDEX IF NOT EXISTS idx_dev_requests_owner_time", SCHEMA)
         self.assertIn("WHERE id=$1 AND user_id=$2", SRC)

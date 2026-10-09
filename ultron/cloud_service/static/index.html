@@ -555,7 +555,7 @@ const laptopTaskStates=new Map();
 const laptopTaskProgressCounts=new Map();
 let laptopTaskWatchPrimed=false;
 let desktopPresencePrimed=false,desktopWasOnline=false,desktopVoiceLeader=false;
-let pendingIOSAction=null;
+let pendingIOSAction=null,voiceDevToolSaved=false;
 function closeIOSApproval(){
   pendingIOSAction=null;
   $('#phoneActionApproval').classList.add('hidden');
@@ -1234,10 +1234,17 @@ async function openLiveSocket(){
       };
       if(labels[action])toast(labels[action]);
     }
+    if(d.type==='development_request_saved'){
+      voiceDevToolSaved=true;
+      window.ULTRONDevRequests?.refresh().catch(()=>{});
+      showView('develop');
+      toast('Geliştirme isteği kaydedildi. ChatGPT’ye aktarma onayı gerekiyor.');
+    }
     if(d.type==='input_transcript'&&d.text){
       const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
       worldVoiceIntent(heard);
-      window.ULTRONDevRequests?.fromSpeech(heard).catch(()=>{});
+      // Streaming Gemini transcripts may be partial. Record development only
+      // on the full turn_complete input or on the explicit Gemini tool call.
       if(cameraStream&&/(şuna bak|buna bak|ne görüyorsun|kamerada|gösterdiğim)/i.test(heard))captureCameraFrame(heard,false);
     }
     if(d.type==='output_transcript'&&d.text&&!suppressOutput){
@@ -1259,6 +1266,8 @@ async function openLiveSocket(){
       resetRemoteResultSpeech();
       stopPlayback();resetVoiceGateSegment();
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
+      if(!voiceDevToolSaved&&input){window.ULTRONDevRequests?.fromSpeech(input).catch(()=>{})}
+      voiceDevToolSaved=false;
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
       if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
       messageSignature='';setWakeUi(false);liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';

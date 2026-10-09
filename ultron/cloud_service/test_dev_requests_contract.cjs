@@ -54,7 +54,9 @@ test('iPhone shows development panel for typed and voice input',()=>{
  assert.match(html,/id="devPrompt"/);
  assert.match(html,/id="devTarget"/);
  assert.match(html,/\/static\/dev-requests\.js/);
- assert.match(html,/ULTRONDevRequests\?\.fromSpeech\(heard\)/);
+ assert.match(html,/ULTRONDevRequests\?\.fromSpeech\(input\)/);
+ assert.match(html,/voiceDevToolSaved/);
+ assert.match(html,/d\.type==='development_request_saved'/);
  assert.match(html,/ULTRONDevRequests\?\.fromText\(text\)/);
  assert.match(html,/ULTRONDevRequests\?\.init\(\)/);
  assert.match(sw,/ultron-shell-v41/);
