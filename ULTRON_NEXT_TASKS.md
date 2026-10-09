@@ -135,3 +135,10 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 3. Harici traffic/satellite/Street View/RainViewer/MET provider lisanslarına uyarak ve erişim anahtarı varsa ayrı sürümde gelişmiş bina 3D tiles; mevcut dış bağlantıları yerleşik native özellik PASS yazma.
 4. Keyfi Pygame animasyonunu güvenli MIME/size sınırı ve izinli içerikle CORE'da oynatmaya dönüştüren sonraki modül; mevcut 3 hazır animasyonla karıştırma.
 5. Sağlayıcı 429/502 için circuit breaker/backoff/normalization testleri, uygun harita CDN bağımlılığı ve gerçek iPhone WebGL testi.
+
+### ULTRON WORLD sesli ve yazılı telefon komutları — 2026-10-09
+- PWA index.html worldVoiceIntent: kullanıcı tarafından konuşulan/yazılan Dünya, 2D/3D, Gazimağusa, Lefkoşa, Kıbrıs, İstanbul, uçaklar/deprem/hava durumu görüntüle komutlarını DÜNYA sekmesine iletir. Harita iframe'i yalnız aynı origin ve kendi parent kaynağının postMessage komutlarını; tip, koordinat, mod ve katman allowlist guard'ını geçirse işler. Lazy-load sırasında en fazla dört komut bekletilir. Sesli sohbet motoru/Gemini reply Cloud oturumuyla devam eder.
+- Cache PWA v40. Sesli komut güvenliği ve WORLD sözleşme testleri Scene Build Check 37928165355 SUCCESS; Cloud PostgreSQL 37928165548 SUCCESS. Kod SHA b473a4bfd28835aefae0472fb07a15442e7e383f. Önceki 37928109729 Scene FAIL sebebi test regex'i; düzeltme sonrası PASS. Üretim WORLD real-provider smoke 37928109603 SUCCESS (bu smoke bir önceki sesli komut kodunun commit'inde tetiklendi; sesli komut cihaz testi değildir).
+- NOT RUN: fiziksel iPhone Safari PWA sesli komut → iframe görsel etkileşim, WebGL/CDN texture, Windows Qt CORE. Render AutoDeploy canlı HEAD ayrıca doğrulanmalı.
+
+Somut sonraki doğrulama: iPhone Safari ULTRON → DÜNYA; sesle “Gazimağusa'yı haritada göster”, “3D Dünya'yı aç”, “yakındaki uçakları göster”; iframe yüklenene kadar komut kuyruğunu, OSM zoom/MapLibre yerine Leaflet içerik yüklendiğini, kaynak hatalarında gerçek durumu kontrol et. Windows desktop git pull/START.bat ve CORE preset animasyonun ayrı Bird Flap penceresi açmadan görünmesini test et.
