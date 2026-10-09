@@ -167,3 +167,10 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - .github/workflows/cloud-queue-postgres.yml: added independent persona-policy job to run on every Cloud source change. CI completion still must be verified.
 - Prior Cloud CI run 37992292068: failed in Initialize containers, skipped all Python tests. No outcome attributed to the ULTRON code.
 - Windows, physical iPhone, local Ollama, live Gemini and new Render deployment tests: NOT RUN.
+
+## 2026-10-10 — Actual passing CI proof
+- Code commit 2e424e9c6da7eb2efecff50b8737f18532e36a67: Scene Build Check #37992487672 SUCCESS.
+- Workflow fix commit 015ed652a03fd67caaf1118ff6707cc55e3b6f30: Cloud Queue PostgreSQL Integration #37992572797 SUCCESS.
+- Persona-policy: 8/8 Python unittest PASS; postgres-fencing job ran the 8 persona tests and real PostgreSQL delivery fencing, local-brain and ChatGPT development request integrations successfully.
+- Older CI failures from 37992371192: Docker Hub anonymous pull rate-limit, plus an earlier tone test mismatch for the Turkish inflection 'param'; both corrected and independently verified above.
+- No actual laptop Windows voice, physical phone/3D, personal memory interaction or live Render deploy validation was executed.
