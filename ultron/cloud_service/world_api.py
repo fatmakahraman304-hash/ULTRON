@@ -185,9 +185,30 @@ async def flights(request: web.Request) -> web.Response:
     distance = int(coordinate(request.query.get("dist"), 10, 250, 90))
     key = f"flights:{round(lat,1)}:{round(lon,1)}:{distance}"
     url = f"https://api.adsb.lol/v2/lat/{lat}/lon/{lon}/dist/{distance}"
-    data = await _upstream(url, key=key, ttl=30)
+    fallback = _CACHE.get("normalized:"+key)
+    if fallback and fallback[0] > time.monotonic():
+        return web.json_response(fallback[1])
+    source = "adsb.lol"
+    try:
+        data = await _upstream(url, key=key, ttl=30)
+    except web.HTTPBadGateway:
+        # adsb.fi v3 is an independently operated public source, with a
+        # documented v3 geo API. Respect its max 1 query/second/IP policy.
+        logging.getLogger("ultron.world").warning(
+            "flights_fallback provider=adsb.fi reason=adsb.lol-unavailable"
+        )
+        fallback_url = (
+            "https://opendata.adsb.fi/api/v3/lat/"
+            + str(lat) + "/lon/" + str(lon) + "/dist/" + str(distance)
+        )
+        data = await _upstream(fallback_url, key="adsbfi:"+key, ttl=30)
+        source = "adsb.fi"
+    reported = data.get("ac", data.get("aircraft"))
+    if not isinstance(reported, list):
+        raise web.HTTPBadGateway(text='{"error":"aircraft_data_missing"}',
+                                 content_type="application/json")
     aircraft = []
-    for ac in (data.get("ac") or [])[:120]:
+    for ac in reported[:120]:
         if not isinstance(ac, dict):
             continue
         try:
@@ -204,11 +225,14 @@ async def flights(request: web.Request) -> web.Response:
             "heading": ac.get("track") if isinstance(ac.get("track"), (float, int)) else None,
             "hex": str(ac.get("hex") or "")[:12],
         })
-    return web.json_response({
-        "source": "adsb.lol", "coverage": "reported_aircraft_only",
+    normalized = {
+        "source": source, "coverage": "reported_aircraft_only",
         "count": len(aircraft), "lat": lat, "lon": lon, "aircraft": aircraft,
         "retrieved_at": int(time.time()),
-    })
+    }
+    if source == "adsb.fi":
+        _CACHE["normalized:"+key] = (time.monotonic() + 30, normalized)
+    return web.json_response(normalized)
 
 
 async def earthquakes(request: web.Request) -> web.Response:
