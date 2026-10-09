@@ -206,3 +206,9 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - /api/personal-briefing shows pending owner plans; _memory_context includes only plan titles, dates and times, deliberately omitting private notes.
 - iPhone HAFIZA create/list/done/undo/delete UI, confirmation-gated delete, separate refresh; PWA static asset cache v45.
 - Added offline, real PostgreSQL tenant-isolation and Node UI regressions, wired into both GitHub Actions workflows; final CI and Render must be verified separately before announcing success.
+
+
+## 2026-10-10 — Life planner reschedule/edit increment
+- Implemented plan PUT endpoint with shared strict field validation and user_id-bound SQL. Existing done/delete paths unchanged; missing or other-owner plan returns 404.
+- iPhone owner's existing plan now offers DÜZENLE, DEĞİŞİKLİKLERİ KAYDET and DÜZENLEMEYİ İPTAL ET, preserving entries on failed network save. PWA cache v46.
+- Extended Python offline and disposable PostgreSQL lifecycle tests and Node UI regression contracts. CI / Render current commit confirmation required; actual devices not tested.

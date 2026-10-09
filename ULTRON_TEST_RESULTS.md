@@ -195,3 +195,9 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Node UI tests cover explicit actions only, safe textContent, confirmation-gated deletion, completion, form validation and PWA asset reference.
 - Intermediate Cloud PostgreSQL run 37998043718 success, run 37998144238 success. Intermediate scene check 37998033939 success after async handler correction.
 - Final GitHub Actions and latest Render release must be confirmed after the last code commit. No physical iPhone or Windows desktop tests were executed in this session.
+
+
+## 2026-10-10 — Owner plan edit contracts (CI pending final SHA)
+- Python offline route and validation assertions now include owner-scoped PUT route.
+- Disposable PostgreSQL test covers edit, reschedule, notes persistence, retained id, rejection of cross-owner writes and malformed dates, no notification sent.
+- Node tests cover opt-in editing, cancel without writes, failure preserving draft, and existing completion/deletion. GitHub CI outcome and Render deployment must be checked after commit, no local device claim.

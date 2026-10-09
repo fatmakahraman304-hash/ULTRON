@@ -7,7 +7,7 @@ from pathlib import Path
 try:
     import asyncpg
     from aiohttp import web
-    from personal_plans import create_plan, list_plans, set_plan_done, delete_plan
+    from personal_plans import create_plan, list_plans, update_plan, set_plan_done, delete_plan
 except ImportError:
     asyncpg = None
     web = None
@@ -55,12 +55,25 @@ class ManualPlanPostgresTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(json.loads((await list_plans(
             Request(self.pool, owner="ci-plan-2"))).text)["plans"]), 0)
         for handler, method, body in [
+            (update_plan, "PUT", {"title": "Başka kişinin planı", "date": "2026-10-20"}),
             (set_plan_done, "PATCH", {"is_done": True}),
             (delete_plan, "DELETE", {}),
         ]:
             with self.assertRaises(web.HTTPNotFound):
                 await handler(Request(self.pool, owner="ci-plan-2", id=pid,
                                       method=method, body=body))
+        edited = await update_plan(Request(self.pool, id=pid, method="PUT", body={
+            "title": "Ders ertelendi", "date": "2026-10-23", "time": "18:45", "note": "Yeni oda"
+        }))
+        new = json.loads(edited.text)
+        self.assertEqual(new["plan"]["id"], pid)
+        self.assertEqual(new["plan"]["scheduled_date"], "2026-10-23")
+        self.assertEqual(new["plan"]["scheduled_time"], "18:45")
+        self.assertEqual(new["plan"]["note"], "Yeni oda")
+        self.assertFalse(new["notification_sent"])
+        verify = json.loads((await list_plans(Request(self.pool))).text)["plans"][0]
+        self.assertEqual(verify["title"], "Ders ertelendi")
+        self.assertEqual(verify["note"], "Yeni oda")
         done = await set_plan_done(Request(self.pool, id=pid, method="PATCH",
                                           body={"is_done": True}))
         self.assertTrue(json.loads(done.text)["plan"]["is_done"])
@@ -78,6 +91,9 @@ class ManualPlanPostgresTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(web.HTTPForbidden):
             await create_plan(Request(self.pool, body=data, method="POST",
                                       headers={"Sec-Fetch-Site": "cross-site"}))
+        with self.assertRaises(web.HTTPForbidden):
+            await update_plan(Request(self.pool, id=1, body=data, method="PUT",
+                                      headers={"Sec-Fetch-Site": "cross-site"}))
         with self.assertRaises(web.HTTPUnsupportedMediaType):
             await create_plan(Request(self.pool, body=data, method="POST",
                                       content_type="text/plain"))
@@ -94,6 +110,11 @@ class ManualPlanPostgresTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(resp.status, 400)
         resp = await create_plan(Request(self.pool, body={"title": "Plan", "date": "2026-11-05"}, method="POST"))
         pid = json.loads(resp.text)["plan"]["id"]
+        bad_edit = await update_plan(Request(self.pool, method="PUT", id=pid,
+            body={"title": "Çöpe", "date": "2026-02-30"}))
+        self.assertEqual(bad_edit.status, 400)
+        self.assertEqual(await self.pool.fetchval(
+            "SELECT title FROM owner_plans WHERE id=$1", pid), "Plan")
         bad = await set_plan_done(Request(self.pool, method="PATCH", id=pid, body={"is_done": "true"}))
         self.assertEqual(bad.status, 400)
         with self.assertRaises(web.HTTPBadRequest):

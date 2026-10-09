@@ -179,3 +179,8 @@ Bu belge `MARK-ULTRON-MERGED` kaynak ağacına dayanır. **Test edilmemiş özel
 - Implemented: signed-in owner-created dated plans in PostgreSQL with create/list/mark done/undo/delete and strict title, time/date and note validation, owner-scoped SQL.
 - iPhone HAFIZA tab has the plan editor; on-demand daily brief shows open plans and saved memory. Local/cloud assistant context receives plan titles and date/time, not private notes.
 - NOT complete: Apple/Google Calendar OAuth syncing, scheduled background notifications, timezone controls, rescheduling, repeating events, physical iOS proof. Manual plans are not third-party calendar integration.
+
+
+## 2026-10-10 — ULTRON Life v1 plan editor
+- Add authenticated owner-only PUT /api/owner-plans/{id} to edit title/date/time/notes atomically, preserving plan id and completion. Avoid any external calendar sync or fake notification claims. iPhone HAFIZA includes explicit EDIT / SAVE / CANCEL, with draft preserved after network errors.
+- CI acceptance: real PostgreSQL cross-owner edit forbidden and persistent update; Node UI confirms no write until click, cancel discards unsaved draft and errors retain it. No physical iPhone or Windows test inferred.

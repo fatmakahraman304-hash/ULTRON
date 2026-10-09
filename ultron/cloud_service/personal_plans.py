@@ -97,6 +97,29 @@ async def create_plan(request):
     return web.json_response({"plan": plan_dict(row), "notification_sent": False}, status=201)
 
 
+async def update_plan(request):
+    """Only the signed-in browser owner may edit an existing plan.
+
+    The full validated replacement is atomic and retains its existing id
+    and completion state. Provider calendar / notification writes never occur.
+    """
+    _require_browser(request)
+    pid = _plan_id(request)
+    try:
+        title, day, clock, note = validate_plan(await request.json())
+    except (ValueError, TypeError):
+        return web.json_response({"error": "invalid_plan_fields"}, status=400)
+    row = await request.app["db"].fetchrow(
+        "UPDATE owner_plans SET title=$3,scheduled_date=$4,scheduled_time=$5,"
+        "note=$6,updated_at=NOW() WHERE id=$1 AND user_id=$2 "
+        "RETURNING id,title,scheduled_date,scheduled_time,note,is_done",
+        pid, request["user_id"], title, day, clock, note,
+    )
+    if row is None:
+        raise web.HTTPNotFound(text='{"error":"not_found"}', content_type="application/json")
+    return web.json_response({"plan": plan_dict(row), "notification_sent": False})
+
+
 async def set_plan_done(request):
     _require_browser(request)
     pid = _plan_id(request)
@@ -132,5 +155,6 @@ async def delete_plan(request):
 def register_routes(app):
     app.router.add_get("/api/owner-plans", list_plans)
     app.router.add_post("/api/owner-plans", create_plan)
+    app.router.add_put("/api/owner-plans/{id}", update_plan)
     app.router.add_patch("/api/owner-plans/{id}", set_plan_done)
     app.router.add_delete("/api/owner-plans/{id}", delete_plan)

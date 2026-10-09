@@ -251,3 +251,10 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 4. Add owner-selected timezone, edit/reschedule and optional consent-based notification channel with actual delivery acknowledgement.
 5. Integrate third-party Calendar/Email only with scoped OAuth and explicit account connection and protect tokens; distinguish external providers from ULTRON's plan notebook.
 6. Continue remaining ten JARVIS gaps with physical-device and safe self-update verification.
+
+
+## After ULTRON Life plan rescheduling
+1. Verify Cloud Queue PostgreSQL Integration and Scene Build Check for commit adding PUT/edit UI. If red, inspect failed GitHub logs and fix before continuing.
+2. Verify Render autoDeploy latest code SHA live without manually triggering an unnecessary deploy.
+3. On real iPhone: HAFIZA > KİŞİSEL TAKVİM > PLANLARI GÖSTER > DÜZENLE; change date and time; KAYDET; refresh and verify persisted. Check cancel, failed save, done state and cross-user isolation.
+4. Next opt-in capabilities: user-selected timezone, optional verified calendar .ics export or provider OAuth, repeat plans; do not promise phone push alerts until actual provider and permissions configured.
