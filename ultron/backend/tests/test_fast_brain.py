@@ -6,7 +6,7 @@ The native audio/MARK Gemini Live pipeline remains unchanged.
 import unittest
 from unittest.mock import patch
 
-from app.core.fast_brain import FastBrainPolicy, classify_text, last_user_intent
+from app.core.fast_brain import FastBrainPolicy, classify_text, last_user_intent, simple_chitchat
 from app.core.model_router import ModelRouter, TaskType
 from app.core.brain import Brain
 
@@ -55,6 +55,12 @@ class TestClassification(unittest.TestCase):
         self.assertEqual(classify_text("React API hatası düzelt"),"CODING")
         self.assertEqual(classify_text("Detaylı araştır ve kapsamlı analiz yap"),"GENERAL")
         self.assertEqual(classify_text("Bu ekran görüntüsünü analiz et"),"VISION")
+    def test_only_pure_greetings_can_skip_tool_schemas(self):
+        for phrase in ('Merhaba', 'Nasılsın?', 'Bana bir şaka anlat', 'Selam!'):
+            self.assertTrue(simple_chitchat(phrase),phrase)
+        for task in ('Merhaba dosyayı aç', 'Bilgisayarımın durumunu kontrol et', 'Sesi yükselt', 'Nasılsın, tarayıcıyı aç'):
+            self.assertFalse(simple_chitchat(task),task)
+
     def test_history_uses_real_latest_user_not_tool_output(self):
         history=[{"role":"system","content":"SYS"},{"role":"user","content":"Python kodu yaz"},
                  {"role":"assistant","content":"working"},{"role":"tool","content":"ok"}]

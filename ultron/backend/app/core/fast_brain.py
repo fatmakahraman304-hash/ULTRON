@@ -41,6 +41,18 @@ def classify_text(text: str) -> str:
     return "FAST"
 
 
+_SIMPLE_CHAT = re.compile(
+    r"^(?:selam(?:lar)?|merhaba|günaydın|iyi (?:akşamlar|geceler)|"
+    r"nasılsın|naber|teşekkür(?:ler)?|sağ ol|görüşürüz|"
+    r"bana (?:kısa )?bir şaka anlat)[!?.\s]*$",re.IGNORECASE,
+)
+
+
+def simple_chitchat(text: str) -> bool:
+    """Pure greetings only; everything actionable retains normal tool access."""
+    return bool(_SIMPLE_CHAT.fullmatch(str(text or "").strip()))
+
+
 def last_user_intent(messages: list[dict]) -> str:
     for m in reversed(messages or []):
         if m.get("role") == "user" and isinstance(m.get("content"), str):

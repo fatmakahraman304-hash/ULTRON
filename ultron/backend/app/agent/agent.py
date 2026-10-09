@@ -257,7 +257,12 @@ class Agent:
             try:
                 if self.router is not None:
                     from app.core.model_router import TaskType as _TT
-                    response=self.router.chat(_TT.GENERAL,messages,tools=self.registry.ollama_tools(include_dangerous=True))
+                    from app.core.fast_brain import simple_chitchat
+                    greeting = bool(
+                        self.router.fast_policy.enabled and simple_chitchat(text)
+                    )
+                    tools = None if greeting else self.registry.ollama_tools(include_dangerous=True)
+                    response=self.router.chat(_TT.GENERAL,messages,tools=tools)
                 else:
                     response=self.brain.chat(messages,tools=self.registry.ollama_tools(include_dangerous=True))
             except Exception as e:
