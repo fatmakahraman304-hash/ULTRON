@@ -169,8 +169,8 @@ async function loadFlights(){
    ]){const p=document.createElement('p');p.textContent=name+': '+safeText(value);box.append(p)}
    m.bindPopup(box);flightsLayer.addLayer(m);
   }
-  $('updated').textContent=d.count+' raporlanan uçak • adsb.lol';
-  status(d.count+' uçak raporlandı. Kapsama eksik olabilir.');
+  $('updated').textContent=d.count+' raporlanan uçak • '+String(d.source||'ADS-B');
+  status(d.count+' uçak raporlandı • '+String(d.source||'ADS-B')+'. Kapsama eksik olabilir.');
  }catch(e){flightsLayer?.clearLayers();status('Uçak verisi kullanılamıyor; sahte uçak gösterilmiyor',true)}
 }
 async function loadQuakes(){

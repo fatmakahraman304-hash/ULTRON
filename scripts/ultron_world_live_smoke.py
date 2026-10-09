@@ -92,7 +92,7 @@ def main():
     )
     flight = checked_json(
         "aircraft", "/api/world/flights?lat=35.13&lon=33.43&dist=90",
-        "adsb.lol", "aircraft",
+        ("adsb.lol", "adsb.fi"), "aircraft",
     )
     search = checked_json(
         "geocoding", "/api/world/search?q=Famagusta",

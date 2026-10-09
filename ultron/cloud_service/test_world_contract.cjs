@@ -35,6 +35,12 @@ test('cloud-only real providers: weather, ADSB flights, earthquake and Photon',(
  assert.match(backend,/_CACHE_LIMIT = 180/);
  assert.match(backend,/async def _upstream/);
 });
+test('aircraft has an independently operated fallback with source attribution',()=>{
+ assert.match(backend,/opendata\.adsb\.fi\/api\/v3\/lat/);
+ assert.match(backend,/reported = data\.get\("ac", data\.get\("aircraft"\)\)/);
+ assert.match(js,/String\(d\.source\|\|'ADS-B'\)/);
+ assert.match(web,/href="https:\/\/adsb\.fi\//);
+});
 test('unavailable aircraft and quakes clear stale markers instead of inventing data',()=>{
  assert.match(js,/flightsLayer\?\.clearLayers\(\)/);
  assert.match(js,/quakesLayer\?\.clearLayers\(\)/);
