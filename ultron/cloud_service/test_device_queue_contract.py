@@ -223,6 +223,67 @@ class CloudQueueContractTests(unittest.IsolatedAsyncioTestCase):
             await self.handlers["claim_device_commands"](FakeRequest(db, {"target": "phone"}, "device"))
         self.assertEqual(db.advisory_calls, 0)
 
+
+    async def test_old_worker_cannot_complete_after_reclaim(self):
+        db = FakeDB(status="delivered", retry_count=1, max_retries=2)
+        db.delivery_attempt = 2
+        with self.assertRaises(HTTPConflict):
+            await self.handlers["complete_device_command"](FakeRequest(db, {
+                "delivery_attempt": 1, "status": "completed",
+                "result": {"message": "old worker result"}
+            }))
+        self.assertEqual(db.status, "delivered")
+        current = await self.handlers["complete_device_command"](FakeRequest(db, {
+            "delivery_attempt": 2, "status": "completed",
+            "result": {"message": "new worker result"}
+        }))
+        self.assertEqual(current["command"]["status"], "completed")
+        self.assertEqual(db.result["message"], "new worker result")
+
+    async def test_missing_delivery_attempt_is_rejected_for_agent_tasks(self):
+        db = FakeDB()
+        with self.assertRaises(HTTPConflict):
+            await self.handlers["complete_device_command"](FakeRequest(db, {
+                "status": "completed", "delivery_attempt": None,
+                "result": {"message": "missing lease proof"}
+            }))
+        self.assertEqual(db.status, "delivered")
+
+    async def test_old_worker_cannot_win_racing_completion(self):
+        db = FakeDB()
+        db.delivery_attempt = 3
+        requests = [
+            FakeRequest(db, {"delivery_attempt": 2, "status": "completed", "result": {"message": "stale"}}),
+            FakeRequest(db, {"delivery_attempt": 3, "status": "completed", "result": {"message": "current"}}),
+        ]
+        result = await asyncio.gather(
+            *(self.handlers["complete_device_command"](r) for r in requests), return_exceptions=True
+        )
+        self.assertEqual(sum(not isinstance(v, Exception) for v in result), 1)
+        self.assertTrue(any(isinstance(v, HTTPConflict) for v in result))
+        self.assertEqual(db.result["message"], "current")
+
+    def test_progress_checkpoint_and_lease_sql_use_fencing(self):
+        tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+        for name in ("append_device_command_progress", "save_device_command_checkpoint"):
+            fn = next(n for n in tree.body if isinstance(n, ast.AsyncFunctionDef) and n.name == name)
+            sql = "\n".join(node.value for node in ast.walk(fn)
+                            if isinstance(node, ast.Constant) and isinstance(node.value, str))
+            self.assertIn("delivery_attempt", sql)
+            self.assertIn("status='delivered'", sql)
+            self.assertIn("command='agent_task'", sql)
+        schema = SOURCE.with_name("schema.sql").read_text(encoding="utf-8")
+        self.assertIn("ADD COLUMN IF NOT EXISTS delivery_attempt", schema)
+
+    async def test_nonagent_control_retains_legacy_completion(self):
+        db = FakeDB()
+        db.command = "wake"
+        out = await self.handlers["complete_device_command"](FakeRequest(db, {
+            "status": "completed", "delivery_attempt": None,
+            "result": {"message": "awake"}
+        }))
+        self.assertEqual(out["command"]["status"], "completed")
+
     def test_sql_uses_atomic_compare_and_set(self):
         ns = load_handlers()
         # Capture SQL text from the actual handler's AST, not a copied fixture.
