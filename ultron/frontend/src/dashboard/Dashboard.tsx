@@ -7,7 +7,7 @@ import CenterStage from './CenterStage';
 import './dashboard.css';
 const HologramLab=lazy(()=>import('../hologram/HologramLab'));
 export default function Dashboard(){
- const u=useUltron(),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[scale,setScale]=useState(1),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general');
+ const u=useUltron(),[devDraft,setDevDraft]=useState(''),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[scale,setScale]=useState(1),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general');
  const messages=useRef<HTMLDivElement>(null),abort=useRef<AbortController|null>(null),errorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
  useEffect(()=>{const resize=()=>setScale(Math.min(innerWidth/1920,innerHeight/1080));resize();window.addEventListener('resize',resize);const timer=setInterval(()=>setClock(new Date()),1000);return()=>{window.removeEventListener('resize',resize);clearInterval(timer);clearTimeout(errorTimer.current);abort.current?.abort();};},[]);
  useEffect(()=>{messages.current?.scrollTo({top:messages.current.scrollHeight});},[u.messages]);
@@ -324,7 +324,18 @@ export default function Dashboard(){
   u.native.videoRequest('play',source);
   return 'MARK videosu ULTRON CORE içinde açılıyor.';
  };
+ const devIntent=(text:string)=>{
+  const t=text.toLocaleLowerCase('tr-TR').replace(/\s+/g,' ').trim();
+  return /(?:ultron|kendini|kod|arayüz|uygulama|sistem)/.test(t)&&/(?:geliştir|güncelle|düzelt|özellik ekle|yeni özellik|kod(?:u|larını)? değiştir)/.test(t);
+ };
+ const devTarget=(text:string):'phone'|'desktop'|'both'=>{
+  const t=text.toLocaleLowerCase('tr-TR');
+  if(/(?:sadece|yalnız) (?:mobil|telefon|iphone)/.test(t))return 'phone';
+  if(/(?:sadece|yalnız) (?:windows|laptop|masaüstü|bilgisayar)/.test(t))return 'desktop';
+  return 'both';
+ };
  const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
+  if(devIntent(text)&&u.native?.devRequest){u.add('user',text);u.native.devRequest(text,devTarget(text));u.add('assistant','Geliştirme isteğin Cloud’a kaydediliyor. ChatGPT’ye aktarma ve GitHub/Render doğrulaması gerekecek. Henüz kodu değiştirmedim.');setModal('Geliştir');return;}
   const markReply=markVideoIntent(text);
   if(markReply){u.add('user',text);u.add('assistant',markReply);return;}
   if(model==='native'){if(u.native)u.native.send(text);return;}
@@ -348,7 +359,7 @@ export default function Dashboard(){
  <header className="main-header metal-frame"><Brand/><nav>
  <button className={!modal?'selected':''} onClick={()=>setModal('')}><Home/>Ana Ekran</button>
  <button onClick={()=>open('Ayarlar')}><Settings/>Ayarlar</button><button onClick={()=>open('Kontroller')}><Gamepad2/>Kontroller</button>
- <button onClick={holo}><Box/>Hologram Çalışma Alanı</button><button onClick={()=>open('Dosyalar')}><Folder/>Dosyalar</button><button onClick={()=>open('Araçlar')}><Wrench/>Araçlar</button><button onClick={()=>open('Eklentiler')}><Puzzle/>Eklentiler</button>
+ <button onClick={holo}><Box/>Hologram Çalışma Alanı</button><button onClick={()=>open('Dosyalar')}><Folder/>Dosyalar</button><button onClick={()=>open('Araçlar')}><Wrench/>Araçlar</button><button onClick={()=>open('Eklentiler')}><Puzzle/>Eklentiler</button><button onClick={()=>{open('Geliştir');u.native?.devRefresh?.()}}><Code/>KENDİNİ GELİŞTİR</button>
  </nav><time>{clock.toLocaleTimeString('tr-TR')}<small>{clock.toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}<br/>{clock.toLocaleDateString('tr-TR',{weekday:'long'})}</small></time><button className="power" aria-label="ULTRON'u kapat" disabled={!u.native} onClick={()=>u.native?.action('shutdown')}><Power/></button></header>
  <main className="main-grid"><SystemRail system={u.system} history={u.history} health={u.health} connected={u.connected}/>
  <section className="reactor-panel metal-frame"><CenterStage stage={u.stage} state={state} amplitude={u.amplitude} notify={notify} openNativeVideo={u.native?.videoRequest?()=>u.native?.videoRequest?.('open_file',''):undefined}/>{u.stage.mode==='core_idle'&&<><div className="subsystems left">{chipsLeft.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div><div className="subsystems right">{chipsRight.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div></>}{!u.connected&&<div className="offline" role="status">ULTRON BACKEND OFFLINE</div>}</section>
@@ -360,7 +371,19 @@ export default function Dashboard(){
  {['Ayarlar','Kod Asistanı'].includes(modal)&&<><ModelPanel ai={u.ai} model={model} setModel={setModel} native={u.native}/><label>Yanıt modu<select aria-label="Yanıt modu" value={mode} onChange={e=>setMode(e.target.value)}><option value="general">Genel</option><option value="coding">Kod</option><option value="fast">Hızlı</option><option value="agent">Araç kullanan agent</option></select></label><button onClick={()=>open('Hafıza')}>Hafıza</button><button onClick={()=>open('Bildirimler')}>Bildirimler</button></>}
  {modal==='Kontroller'&&<><div className="control-buttons"><button disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?'Mikrofonu aç':'Mikrofonu kapat'}</button><button disabled={!u.native} onClick={()=>u.native?.action('audio')}>Ses aygıtları</button><button disabled={!u.native} onClick={()=>u.native?.action('camera')}>Kamera</button><button disabled={!u.native} onClick={()=>u.native?.action('controls')}>Wake / bas konuş kontrolleri</button></div><h3>Telefon Kontrolü</h3><p className="muted">{(()=>{const phone=u.devicePresence.find((d:any)=>d.device==='phone');return phone?.online?'Telefon ULTRON: ONLINE'+(phone?.state?.view?' • '+phone.state.view.toUpperCase():''):'Telefon ULTRON: OFFLINE';})()}</p><div className="control-buttons"><button disabled={!u.native} onClick={()=>u.native?.action('phone:ping')}>Bağlantı sinyali</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:vibrate')}>Telefonu titreştir</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:refresh')}>Telefon ULTRON'u yenile</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:focus_chat')}>Sohbeti aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:open_memory')}>Hafızayı aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:open_remote')}>Uzaktan kontrolü aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:scroll_top')}>Sayfanın başına git</button></div><p className="muted">Bu panel telefonun ULTRON web arayüzünü yönetir. iOS sisteminin kendi izinleri ayrı kalır.</p></>}
  {modal==='Araçlar'&&<><div className="tool-grid">{['Browser','Dosyalar','Terminal','Vizyon','Görevler','Hafıza','Ayarlar','Kod Asistanı'].map(n=><button key={n} onClick={()=>open(n)}>{n}</button>)}</div><h3>Center Stage</h3><div className="control-buttons"><button onClick={()=>void request('/api/stage/command',{operation:'hologram_create',kind:'energy'})}>Enerji hologramı</button><button onClick={()=>void request('/api/stage/command',{operation:'hologram_create',kind:'globe'})}>Dünya hologramı</button><button onClick={()=>void request('/api/stage/command',{operation:'video_create',template:'ultron_intro',duration:6,title:'ULTRON'})}>ULTRON intro render</button><button onClick={()=>void request('/api/stage/command',{operation:'reset'})}>Core'a dön</button><button onClick={()=>setHologram(true)}>Gelişmiş Hologram Lab</button></div></>}
- {modal==='Eklentiler'&&<><h3>Yerel eklenti kayıtları</h3><pre>{u.plugins?JSON.stringify(u.plugins,null,2):'Native eklenti kaydı N/A'}</pre><h3>Backend becerileri</h3></>}
+ {modal==='Geliştir'&&<>
+    <h3>ULTRON • CHATGPT GELİŞTİRME KÖPRÜSÜ</h3>
+    <p>ULTRON, bu ChatGPT sohbetini kendiliğinden yönetemez. İsteği Cloud’a kaydeder; görevi ChatGPT’ye senin onayınla kopyalayıp açar. GitHub CI, Render ve Windows sürümü doğrulanmadan “tamamlandı” demez.</p>
+    <textarea aria-label="ULTRON geliştirme isteği" placeholder="ULTRON, yeni özellik ekle ve test et…" value={devDraft} onChange={e=>setDevDraft(e.target.value)} style={{width:'100%',minHeight:90,background:'#0a1118',color:'#fff',border:'1px solid #633',padding:10,borderRadius:9}}/>
+    <div className="control-buttons"><button disabled={!u.native?.devRequest||devDraft.trim().length<12} onClick={()=>{u.native?.devRequest?.(devDraft,'both');setDevDraft('')}}>GELİŞTİRME İSTEĞİ KAYDET</button><button onClick={()=>u.native?.devRefresh?.()}>İSTEKLERİ YENİLE</button></div>
+    <h3>GÜNCELLEME KAYITLARI</h3>
+    {!u.devRequests.length&&<p>Kayıt yok veya Cloud bekleniyor.</p>}
+    {u.devRequests.slice(0,15).map(task=><div key={task.id} style={{padding:12,border:'1px solid #543',borderRadius:10,marginBottom:9}}>
+      <b>{task.prompt.slice(0,200)}</b><p style={{fontSize:12}}>{task.status==='completed'?'DOĞRULANDI • KURULDU':task.status==='desktop_pending'?'GITHUB/RENDER HAZIR • WINDOWS KURULUMU BEKLENİYOR':task.status==='awaiting_chatgpt'?'CHATGPT SOHBETİNE GÖNDERİLMEDİ':task.status==='tests_failed'?'TEST BAŞARISIZ':task.status==='tests_pending'?'KOD BULUNDU • TESTLER BEKLENİYOR':'RENDER/CI BEKLENİYOR'}</p><small>ULTRON-DEV-{task.id}</small>
+      <div className="control-buttons"><button onClick={()=>u.native?.openChatGPT?.(task.handoff)}>CHATGPT’YE KOPYALA + AÇ</button><button onClick={()=>u.native?.devVerify?.(task.id)}>CI + RENDER DOĞRULA</button></div>
+    </div>)}
+  </>}
+  {modal==='Eklentiler'&&<><h3>Yerel eklenti kayıtları</h3><pre>{u.plugins?JSON.stringify(u.plugins,null,2):'Native eklenti kaydı N/A'}</pre><h3>Backend becerileri</h3></>}
  {modal==='Sistem Monitörü'&&<pre>{JSON.stringify(u.system??{status:'N/A'},null,2)}</pre>}
  {modal==='Bildirimler'&&<pre>{u.notifications.length?JSON.stringify(u.notifications,null,2):'Bildirim yok.'}</pre>}
  {['Dosyalar','Terminal','Browser','Vizyon','Görevler','Otomasyon','Hafıza','Ayarlar'].includes(modal)&&<ToolPanel key={modal} tab={modal} native={u.native} notify={notify} ask={send}/>}
