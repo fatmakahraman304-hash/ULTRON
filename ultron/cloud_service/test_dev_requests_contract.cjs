@@ -59,7 +59,7 @@ test('iPhone shows development panel for typed and voice input',()=>{
  assert.match(html,/d\.type==='development_request_saved'/);
  assert.match(html,/ULTRONDevRequests\?\.fromText\(text\)/);
  assert.match(html,/ULTRONDevRequests\?\.init\(\)/);
- assert.match(sw,/ultron-shell-v41/);
+ assert.match(sw,/ultron-shell-v42/);
  assert.match(sw,/\/static\/dev-requests\.js/);
 });
 test('the cloud database does not give client direct completion privileges',()=>{

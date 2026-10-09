@@ -43,6 +43,8 @@ jobs:
           python -m py_compile actions/video_player.py
           python -m py_compile ui.py
           python -m py_compile ultron/cloud_service/app.py
+          python -m py_compile ultron/cloud_service/local_brain_bridge.py
+          python -m py_compile integration/local_cloud_brain.py
           python -m py_compile ultron/cloud_service/world_api.py
           python -m py_compile ultron/cloud_service/development_updates.py
           python -m py_compile ultron/backend/cloud_client.py
@@ -65,6 +67,10 @@ jobs:
         env:
           PYTHONPATH: ultron/backend
         run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
+      - name: Paired phone local Ollama tests (no Gemini calls)
+        run: |
+          python -m unittest discover -s scripts/tests -p 'test_local_cloud_brain.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_local_brain_bridge.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
