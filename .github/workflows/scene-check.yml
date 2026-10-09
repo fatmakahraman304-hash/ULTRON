@@ -65,6 +65,8 @@ jobs:
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_dispatch_journal.py' -v
       - name: Self-development release proof guard regressions
         run: python -m unittest discover -s ultron/cloud_service -p 'test_development_updates.py' -v
+      - name: Development GitHub CI Render and desktop proof state-machine tests
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_dev_release_proof.py' -v
       - name: Cloud task queue race regression tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_device_queue_contract.py' -v
       - name: Codex continuation report regression tests
