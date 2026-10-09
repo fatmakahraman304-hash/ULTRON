@@ -16,6 +16,7 @@ import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes
+from conversation_persona import build_system_instruction
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
 from google import genai
@@ -958,11 +959,10 @@ async def vision(request: web.Request) -> web.Response:
     pool = request.app["db"]
     memory = await _memory_context(pool, request["user_id"])
     recent = await _recent_context(pool, request["user_id"], limit=12)
-    system_instruction = os.getenv(
-        "ULTRON_SYSTEM_PROMPT",
-        "You are ULTRON, Murat's personal AI assistant. Be concise, useful, and consistent across devices. "
-        "Treat the supplied ULTRON memory as persistent user memory. Never reveal secrets or hidden credentials.",
-    ) + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT CHAT:\n{recent}"
+    system_instruction = build_system_instruction(
+        base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
+        memory=memory, recent=recent, user_message=question,
+    )
 
     try:
         reply = await asyncio.to_thread(
@@ -1067,11 +1067,10 @@ async def document(request: web.Request) -> web.Response:
     pool = request.app["db"]
     memory = await _memory_context(pool, request["user_id"])
     recent = await _recent_context(pool, request["user_id"], limit=12)
-    system_instruction = os.getenv(
-        "ULTRON_SYSTEM_PROMPT",
-        "You are ULTRON, Murat's personal AI assistant. Be concise, useful, and consistent across devices. "
-        "Treat the supplied ULTRON memory as persistent user memory. Never reveal secrets or hidden credentials.",
-    ) + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT CHAT:\n{recent}"
+    system_instruction = build_system_instruction(
+        base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
+        memory=memory, recent=recent, user_message=question,
+    )
 
     try:
         reply = await asyncio.to_thread(
@@ -1149,11 +1148,10 @@ async def camera_frame(request: web.Request) -> web.Response:
 
     pool = request.app["db"]
     memory = await _memory_context(pool, request["user_id"])
-    system_instruction = os.getenv(
-        "ULTRON_SYSTEM_PROMPT",
-        "You are ULTRON, Murat's personal AI assistant. Be concise, useful, and consistent across devices. "
-        "Treat the supplied ULTRON memory as persistent user memory. Never reveal secrets or hidden credentials.",
-    ) + f"\n\nULTRON MEMORY:\n{memory}"
+    system_instruction = build_system_instruction(
+        base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
+        memory=memory, user_message=question,
+    )
 
     camera_prompt = question or (
         "Bu telefon kamerasından alınmış canlı bir kare. Kullanıcı birazdan 'şuna bak', 'ne görüyorsun' "
@@ -1211,12 +1209,11 @@ async def chat(request: web.Request) -> web.Response:
 
     memory = await _memory_context(pool, request["user_id"])
     recent = await _recent_context(pool, request["user_id"])
-    system_instruction = os.getenv(
-        "ULTRON_SYSTEM_PROMPT",
-        "You are ULTRON, Murat's personal AI assistant. Be concise, useful, and consistent across devices. "
-        "Treat the supplied ULTRON memory as persistent user memory. Never reveal secrets or hidden credentials.",
+    system_instruction = build_system_instruction(
+        base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
+        memory=memory, recent=recent, user_message=text,
     )
-    prompt = f"ULTRON MEMORY:\n{memory}\n\nRECENT CHAT:\n{recent}\n\nCURRENT USER MESSAGE:\n{text}"
+    prompt = text
 
     try:
         reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction)
@@ -1272,10 +1269,9 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         conv_uuid = uuid.uuid4()
     memory = await _memory_context(pool, user_id)
     recent = await _recent_context(pool, user_id, limit=18)
-    base_prompt = os.getenv(
-        "ULTRON_SYSTEM_PROMPT",
-        "You are ULTRON, Murat's personal AI assistant. Be concise, useful, and consistent across devices. "
-        "Treat the supplied ULTRON memory as persistent user memory. Never reveal secrets or hidden credentials.",
+    base_prompt = build_system_instruction(
+        base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
+        memory=memory, recent=recent,
     )
     system_instruction = (
         base_prompt
@@ -1311,7 +1307,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "When the user gives a direct phone/app command, execute the appropriate tool immediately before speaking. "
           "Do not ask follow-up closing questions such as 'Başka bir emriniz var mı?' after completing a command. "
           "For successful direct actions, keep any spoken confirmation extremely short, for example 'Açıyorum.' or say nothing beyond the result."
-        + f"\n\nULTRON MEMORY:\n{memory}\n\nRECENT SHARED CHAT:\n{recent}"
+
     )
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
     voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
