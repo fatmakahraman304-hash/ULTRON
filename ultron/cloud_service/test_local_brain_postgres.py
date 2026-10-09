@@ -65,9 +65,9 @@ class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
         command_id=body["command_id"]
         self.assertEqual(body["provider"],"local")
         job=await self.pool.fetchrow("SELECT payload,status FROM device_commands WHERE id=$1",command_id)
-        self.assertEqual(job["payload"]["mode"],"local_brain")
+        self.assertEqual(json.loads(job["payload"])["mode"],"local_brain")
         self.assertEqual(job["status"],"queued")
-        self.assertIn("Turkish",job["payload"]["system"])
+        self.assertIn("Turkish",json.loads(job["payload"])["system"])
         # Untrusted other owner cannot read any response.
         hidden=await get_local_chat(Request(self.pool,owner="ci-local-other",id=command_id))
         self.assertEqual(hidden.status,404)
@@ -90,7 +90,9 @@ class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
     async def test_bad_payload_and_session_directions(self):
         wrong=Request(self.pool,body={"message":"Merhaba"})
         wrong["auth_kind"]="device"
-        self.assertEqual((await post_local_chat(wrong)).status,403)
+        from aiohttp import web
+        with self.assertRaises(web.HTTPForbidden):
+            await post_local_chat(wrong)
         await self.online()
         for message in ("","a"*3001):
             result=await post_local_chat(Request(self.pool,body={"message":message}))
