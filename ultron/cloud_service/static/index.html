@@ -506,6 +506,21 @@
         <p id="briefingStatus" class="remote-note" role="status" aria-live="polite">Yalnızca sen dokunduğunda kayıtlı ULTRON hafızan okunur. Takvim ve e-posta otomatik bağlanmaz.</p>
         <div id="briefingItems" class="memory-list" aria-label="Kayıtlı kişisel hedefler"></div>
       </div>
+      <div class="memory-form panel" id="ownerPlansPanel">
+        <div class="section-title"><h2>KİŞİSEL TAKVİM VE PLANLAR</h2><button class="secondary" type="button" id="refreshOwnerPlans">PLANLARI GÖSTER</button></div>
+        <p class="remote-note">ULTRON'un kendi plan defteri. Google/Apple Takvim bağlantısı veya otomatik telefon bildirimi değildir.</p>
+        <label for="planTitle" class="settings-label">Plan başlığı</label>
+        <input id="planTitle" type="text" maxlength="140" placeholder="Örn. İngilizce çalışma" autocomplete="off" />
+        <div class="row" style="margin-top:9px">
+          <div class="grow"><label for="planDate" class="settings-label">Tarih</label><input id="planDate" type="date" style="width:100%" /></div>
+          <div class="grow"><label for="planTime" class="settings-label">Saat (isteğe bağlı)</label><input id="planTime" type="time" style="width:100%" /></div>
+        </div>
+        <label for="planNote" class="settings-label" style="margin-top:9px">Not (isteğe bağlı)</label>
+        <textarea id="planNote" maxlength="500" rows="2" placeholder="Kısa açıklama"></textarea>
+        <button type="button" id="saveOwnerPlan" style="width:100%;margin-top:9px">PLANI KAYDET</button>
+        <p class="remote-note" id="ownerPlansStatus" role="status" aria-live="polite">Tarih ve başlıkla bir plan oluştur. Görev tamamlanınca işaretleyebilir veya silebilirsin.</p>
+        <div id="ownerPlansList" class="memory-list" aria-label="Kişisel plan kayıtları"></div>
+      </div>
       <div class="memory-form panel" id="personalReadiness">
         <div class="section-title"><h2>10 JARVIS YETENEĞİ</h2><button type="button" class="secondary" id="refreshReadiness">DURUMU KONTROL ET</button></div>
         <p id="readinessStatus" class="remote-note" role="status" aria-live="polite">Hangi özellik için hangi izin, bağlantı veya donanım gerektiğini gör.</p>
@@ -548,6 +563,7 @@
 <script src="/static/dev-requests.js"></script>
 <script src="/static/local-voice.js"></script>
 <script src="/static/personal-panel.js"></script>
+<script src="/static/owner-plans.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 
@@ -1504,6 +1520,7 @@ async function boot(){
 }
 window.ULTRONDevRequests?.init();
 window.ULTRONPersonalPanel?.create({fetchJson: path => api(path), document}).init();
+window.ULTRONOwnerPlans?.create({fetchJson: (path, options) => api(path, options), document}).init();
 $('#loginBtn').onclick=async()=>{
   try{
     await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});
