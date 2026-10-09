@@ -16,6 +16,7 @@ EARTH_DEFAULTS = {
     "clouds": True,
     "atmosphere": True,
     "stars": True,
+    "sun_sync": True,
     "grid": False,
     "night": False,
     "live_iss": False,
@@ -25,7 +26,7 @@ EARTH_DEFAULTS = {
     "markers": [],
 }
 EARTH_BOOLEAN_KEYS = (
-    "auto_rotate", "clouds", "atmosphere", "stars", "grid", "night", "live_iss",
+    "auto_rotate", "clouds", "atmosphere", "stars", "sun_sync", "grid", "night", "live_iss",
 )
 _COLOR_PATTERN = re.compile(r"^#[0-9a-fA-F]{6}$")
 _ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,48}$")
