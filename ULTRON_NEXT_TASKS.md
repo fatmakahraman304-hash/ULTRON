@@ -172,3 +172,18 @@ Somut sonraki doğrulama: iPhone Safari ULTRON → DÜNYA; sesle “Gazimağusa'
 1. Doğru Git dalında 'git status', 'git pull origin feat/ultron-cloud-shared-memory'; START.bat restart. Proje kökünden .venv/Scripts/python.exe scripts/ultron_fast_brain_doctor.py --benchmark ile gerçekten kurulu modellerin gecikmelerini ölç; kod testlerini gerçek laptop hız testi sayma.
 2. İsteğe bağlı kullanıcı onayıyla 'ollama pull qwen3.5:4b', gerekirse resmî Ollama sürüm güncellemesi; benchmark before/after, RTX2050 4GB VRAM ve 24GB RAM taşma riskini değerlendir.
 3. Offline local voice Whisper -> Fast Brain -> Piper ve mevcut Gemini Live sesli çağrılarını fiziksel Windows cihazında ayrı ayrı dene; Gemini ücret/limit durumu değişmedi. Approval Gate ve Cloud görev araçlarını regress etme.
+
+
+## 2026-10-09 — Hybrid Free-First Brain (Qwen primary, Gemini optional)
+- iPhone web PWA chat defaults to YEREL QWEN ÜCRETSİZ; separate GEMINI İSTEĞE BAĞLI selector. POST /api/local-chat, GET /api/local-chat/{id} polls real completion. Offline laptop responds 409 rather than silently using Gemini. Gemini Live microphone remains a separately disclosed opt-in service.
+- Cloud local_brain_bridge.py: authenticated web-only and owner-scoped chat queue with limited concurrent jobs, context from shared Cloud memory, exactly-once PostgreSQL assistant persistence via local_chat_requests. Render never runs Ollama nor exposes a user-supplied Ollama URL.
+- Windows MARK bridge: integration/local_cloud_brain.py chooses only installed Qwen/llava models via FastBrainPolicy, Ollama fixed localhost 127.0.0.1:11434, no Gemini and no desktop tool execution in read-only chat mode; mark_app.py handles mode=local_brain agent_task using lease renewal and checked completion.
+- Native iOS CloudSession.askULTRON Siri defaults to local laptop Ollama; ContentView Siri metin beyni selection can explicitly choose Gemini; bounded task polls, no silent Gemini fallback. Continuous native voice is still Gemini Live, not free offline local audio.
+- GitHub code SHA 98b5902ab5cc793aa3d16c4a3ac55f993bc15ceb: Scene Build Check 37942388982 SUCCESS, Real Cloud Queue PostgreSQL Integration 37942388970 SUCCESS. iOS code SHA ed82517cf03264d29e04bc5b2fcc414382ba91ac: Native iOS Build 37942797049 SUCCESS (simulator and unsigned iPhone; static contracts). Render 98b5902a deployed live. No real iPhone/Windows visual/audio or local Ollama hardware round-trip benchmarks.
+- Windows requires user git pull and START.bat restart; Ollama must run with an installed model. Laptop offline -> free phone chat unavailable. Paid/limited Gemini deliberately remains optional. Camera, PDF, and Live audio paths still use Gemini. Existing approval and desktop automation unchanged.
+
+### Next hardware verification: free-first hybrid
+1. Windows laptop: verify clean branch and pull feat/ultron-cloud-shared-memory, restart START.bat. Check ollama list shows qwen3:4b; optional qwen3.5:4b requires separate voluntary download.
+2. iPhone Safari ULTRON: choose YEREL QWEN, send Merhaba, test actual round trip. Disconnect laptop and confirm truthful offline error rather than Gemini fallback. Select Gemini manually to compare.
+3. Native signed iOS Siri Ask ULTRON on-device test, inspect local/Gemini selection and App Intents lifetime. Continuous Gemini Live remains separate.
+4. Windows local latency benchmark: python scripts/ultron_fast_brain_doctor.py --benchmark. Do not assert fixed ms speed from unit CI tests.
