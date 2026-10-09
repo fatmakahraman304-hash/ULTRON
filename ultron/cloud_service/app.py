@@ -498,7 +498,14 @@ async def complete_device_command(request: web.Request) -> web.Response:
         # The row existed at the initial lookup, but another worker/HTTP
         # request won the transition. Keep the original result intact.
         raise web.HTTPConflict(text=json.dumps({"error": "command_not_active"}), content_type="application/json")
-    return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+    output = dict(row)
+    for key in ("result", "progress"):
+        if isinstance(output.get(key), str):
+            try:
+                output[key] = json.loads(output[key])
+            except (ValueError, TypeError):
+                output[key] = {} if key == "result" else []
+    return web.json_response({"ok": True, "command": output}, dumps=_json_dumps)
 
 
 async def cancel_device_command(request: web.Request) -> web.Response:
@@ -662,7 +669,7 @@ async def save_device_command_checkpoint(request: web.Request) -> web.Response:
                 'stage','checkpoint',
                 'message',COALESCE(NULLIF($2,''),'Görev kontrol noktası kaydedildi.'),
                 'percent',NULL,
-                'step_index',$3,
+                'step_index',$3::integer,
                 'at',EXTRACT(EPOCH FROM NOW())
               ))
         WHERE id=$4 AND user_id=$5 AND target='desktop'
@@ -682,7 +689,14 @@ async def save_device_command_checkpoint(request: web.Request) -> web.Response:
             text=json.dumps({"error": "command_not_found"}),
             content_type="application/json",
         )
-    return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+    output = dict(row)
+    for key in ("checkpoint", "progress"):
+        if isinstance(output.get(key), str):
+            try:
+                output[key] = json.loads(output[key])
+            except (ValueError, TypeError):
+                output[key] = {} if key == "checkpoint" else []
+    return web.json_response({"ok": True, "command": output}, dumps=_json_dumps)
 
 
 async def recent_device_commands(request: web.Request) -> web.Response:
