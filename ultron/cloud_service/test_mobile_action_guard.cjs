@@ -2,6 +2,7 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const vm = require("node:vm");
 const path = require("node:path");
 const guard = require("./static/mobile-action-guard.js");
 const command = { version: 1, source: "ultron", action: "set_brightness", target: "", value: "35" };
@@ -65,4 +66,11 @@ test("remote tab includes queue status badge and task summary", () => {
   assert.match(html,/x\.status==='delivered'/);
   assert.match(html,/id="remoteTaskSummary"/);
   assert.match(html,/id="remoteBadge"/);
+});
+
+test("ULTRON mobile inline JavaScript parses without syntax errors", () => {
+  const html=fs.readFileSync(path.join(__dirname,"static","index.html"),"utf8");
+  const match=html.match(/<script>\s*([\s\S]*?)<\/script>/);
+  assert.ok(match,"Expected ULTRON inline application script");
+  assert.doesNotThrow(()=>new vm.Script(match[1],{filename:"ultron-mobile-inline.js"}));
 });
