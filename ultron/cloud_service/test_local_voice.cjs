@@ -51,7 +51,7 @@ test('permission denied and no-speech are honest failures',()=>{
  const app=voice.create({host:{SpeechRecognition:Recognition},onError:m=>errors.push(m)});
  app.start();
  Recognition.last.onerror({error:'not-allowed'});
- assert.match(errors[0],/izin reddedildi/);
+ assert.match(errors[0],/izni reddedildi/);
  assert.equal(app.state,'idle');
  app.start();
  Recognition.last.onerror({error:'no-speech'});
