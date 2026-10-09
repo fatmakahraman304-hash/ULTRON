@@ -22,8 +22,38 @@ struct StopULTRONListeningIntent: AppIntent {
     }
 }
 
+/// Foreground app/microphone not required: Siri sends one authenticated HTTP
+/// command to Cloud, with the desktop retaining its own permission gate.
+struct SendULTRONDesktopTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "ULTRON Bilgisayara Görev Gönder"
+    static var description = IntentDescription("Siri veya Kestirmeler ile masaüstü ULTRON'a görev kuyruğa alır; riskli işlemler onaya tabidir.")
+    static var supportedModes: IntentModes = .background
+
+    @Parameter(title: "Bilgisayara gönderilecek görev")
+    var task: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Bilgisayara \(\.$task) gönder")
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let id = try await CloudSession.shared.enqueueDesktopTask(task)
+        return .result(dialog: IntentDialog("Görev \(id) bilgisayardaki ULTRON kuyruğuna alındı. Henüz tamamlanmadı."))
+    }
+}
+
 struct ULTRONAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: SendULTRONDesktopTaskIntent(),
+            phrases: [
+                "\(.applicationName) bilgisayara görev gönder",
+                "\(.applicationName) ile bilgisayara komut gönder"
+            ],
+            shortTitle: "Bilgisayara Gönder",
+            systemImageName: "laptopcomputer"
+        )
+
         AppShortcut(
             intent: StartULTRONListeningIntent(),
             phrases: [
