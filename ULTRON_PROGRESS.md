@@ -198,3 +198,11 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Added /static/personal-panel.js with on-demand personal-memory and ten-capability panels, linked into mobile HAFIZA tab; loaded scripts via PWA cache v44.
 - Node test contracts added: test_personal_panel.cjs (6), wired to scene-check.yml. CI initially red because test_local_voice.cjs pinned cache v43; patched version regex and new asset assertion in c1c641f67cf7a8627609b02df2996072a88489d6.
 - This is code + automated contract validation, not yet physical iPhone Safari screenshot testing or confirmation of latest Render HEAD.
+
+
+## 2026-10-10 — Personal dated plans and Cloud API
+- Added personal_plans.py owner-browser-authenticated GET/POST/PATCH/DELETE /api/owner-plans with validation, owner-scoped parameterized queries and cross-site request checks.
+- Added owner_plans table and index. Every write needs a direct user action; no automatic alerts or external account changes.
+- /api/personal-briefing shows pending owner plans; _memory_context includes only plan titles, dates and times, deliberately omitting private notes.
+- iPhone HAFIZA create/list/done/undo/delete UI, confirmation-gated delete, separate refresh; PWA static asset cache v45.
+- Added offline, real PostgreSQL tenant-isolation and Node UI regressions, wired into both GitHub Actions workflows; final CI and Render must be verified separately before announcing success.

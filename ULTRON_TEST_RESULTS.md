@@ -187,3 +187,11 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Previous Cloud Queue PostgreSQL Integration run #37995893863 SUCCESS, including four offline personal briefing tests. Scene check run #37996651819 SUCCESS for mobile HTML integration commit f11fa3105215b24407e29835bd305d303422bb21.
 - New UI six Node regression tests and explicit scene CI step added. Cache version bumped from v43 to v44. Scene runs #37996726191 and #37996824797 failed at an older voice-test assertion (hardcoded cache version, then incorrectly escaped regex); the fixed test was committed at c1c641f67cf7a8627609b02df2996072a88489d6 and requires fresh CI verification.
 - Real physical iOS interaction, screenshot proof, latest Render deployment, and Windows installation have not been tested within this development run.
+
+
+## 2026-10-10 — Manual plans test record
+- Python unit contracts cover ISO dates/times, input bounds, NUL, source labeling, briefing, prompt privacy and route ownership.
+- Disposable PostgreSQL tests cover create/list/done/undo/delete, cross-owner 404 denial, browser-only write, cross-site block and invalid payloads.
+- Node UI tests cover explicit actions only, safe textContent, confirmation-gated deletion, completion, form validation and PWA asset reference.
+- Intermediate Cloud PostgreSQL run 37998043718 success, run 37998144238 success. Intermediate scene check 37998033939 success after async handler correction.
+- Final GitHub Actions and latest Render release must be confirmed after the last code commit. No physical iPhone or Windows desktop tests were executed in this session.

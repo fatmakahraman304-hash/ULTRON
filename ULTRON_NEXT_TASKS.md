@@ -242,3 +242,12 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. On user's iPhone log into PWA, open HAFIZA, explicitly tap ÖZETİ GÖSTER and DURUMU KONTROL ET. Verify owner-scoped memory, no extra permissions, errors and empty state.
 4. Install latest branch on Windows only with clean worktree and user-controlled update, then run START.bat. Test actual desktop and optional Qwen voice.
 5. Next functionality: consent-based calendar/email connections with strict read scopes and no speculative appointments, editable learning preferences, verified device support and safe releases.
+
+
+## 2026-10-10 — Next steps for life assistant
+1. Verify final Cloud Queue PostgreSQL Integration + Scene Build Check CI green and Render service deployment SHA matches branch HEAD.
+2. Test manually on iPhone Safari: create, list, complete/undo, confirm-delete; reopen tab and check persisted changes.
+3. Confirm daily briefing displays owner-created plans. Query Qwen and opt-in Gemini, ensuring no fabricated appointments or reminders.
+4. Add owner-selected timezone, edit/reschedule and optional consent-based notification channel with actual delivery acknowledgement.
+5. Integrate third-party Calendar/Email only with scoped OAuth and explicit account connection and protect tokens; distinguish external providers from ULTRON's plan notebook.
+6. Continue remaining ten JARVIS gaps with physical-device and safe self-update verification.
