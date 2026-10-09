@@ -1,0 +1,42 @@
+name: Cloud Queue PostgreSQL Integration
+
+on:
+  push:
+    branches:
+      - feat/ultron-cloud-shared-memory
+    paths:
+      - "ultron/cloud_service/**"
+      - ".github/workflows/cloud-queue-postgres.yml"
+  workflow_dispatch:
+
+jobs:
+  postgres-fencing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ultron_test
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: ultron_queue_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ultron_test -d ultron_queue_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install disposable DB driver
+        run: python -m pip install "asyncpg>=0.29,<1"
+      - name: Real PostgreSQL delivery fencing integration
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_device_queue_postgres.py' -v
