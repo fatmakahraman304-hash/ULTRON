@@ -200,3 +200,10 @@ Somut sonraki doğrulama: iPhone Safari ULTRON → DÜNYA; sesle “Gazimağusa'
 2. Manually select GEMINI, tap mic and confirm original Live native audio works. Return to Qwen; Gemini must never be an unapproved fallback.
 3. Windows: run Ollama, paired ULTRON Cloud worker and scripts/ultron_fast_brain_doctor.py --benchmark; measure actual response. Existing MARK voice Gemini Live is a separate audio path.
 4. If browser STT is unsupported or requires third-party processing, consider opt-in audio capture relayed securely to Windows Whisper with retention/size/security testing; do not claim done.
+
+## 2026-10-10 — Next concrete ULTRON steps
+1. Confirm new standalone persona-policy CI job on b982019a0afe61cb4d1a39740e3fb9eccb9b3c8c. If red, inspect job steps/log and fix.
+2. Retry Cloud Postgres runner integration when service initialization recovers; do not call its failure a regression without logs.
+3. Check Render /health deployed commit, then physical iPhone Gemini Live and local Qwen conversations using jokes, personal memory and an emergency statement.
+4. On Windows pull feat/ultron-cloud-shared-memory, START.bat; check microphone/approval gates still work. This connector cannot write to C:.
+5. Explore user-controlled tone/humour preferences, opt-in briefings and preference sync to desktop agent; never claim true consciousness.
