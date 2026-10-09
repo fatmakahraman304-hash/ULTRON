@@ -100,3 +100,26 @@ CREATE TABLE IF NOT EXISTS speaker_profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+
+-- Owner-authorized development requests. A mobile user cannot declare CI
+-- success or a desktop installation by changing request JSON.
+CREATE TABLE IF NOT EXISTS dev_requests (
+  id UUID PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  prompt TEXT NOT NULL CHECK (length(prompt) BETWEEN 12 AND 2000),
+  target TEXT NOT NULL CHECK (target IN ('phone','desktop','both')),
+  source_device TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'awaiting_chatgpt' CHECK (
+    status IN ('awaiting_chatgpt','tests_pending','tests_failed',
+               'release_pending','desktop_pending','completed')
+  ),
+  commit_sha TEXT NOT NULL DEFAULT '',
+  desktop_sha TEXT NOT NULL DEFAULT '',
+  verified_tests BOOLEAN NOT NULL DEFAULT FALSE,
+  verified_cloud BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_dev_requests_owner_time
+  ON dev_requests(user_id,created_at DESC);

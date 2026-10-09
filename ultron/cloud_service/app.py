@@ -15,6 +15,7 @@ from typing import Any
 import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
+from development_updates import register as register_development_routes
 from google import genai
 from google.genai import types
 
@@ -2097,6 +2098,7 @@ def build_app() -> web.Application:
     app.router.add_get("/", index)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
     add_world_routes(app)
+    register_development_routes(app)
     app.router.add_get("/health", health)
     app.router.add_post("/api/login", login)
     app.router.add_post("/api/logout", logout)

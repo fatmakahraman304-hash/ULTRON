@@ -38,6 +38,7 @@ jobs:
           python -m py_compile ui.py
           python -m py_compile ultron/cloud_service/app.py
           python -m py_compile ultron/cloud_service/world_api.py
+          python -m py_compile ultron/cloud_service/development_updates.py
           python -m py_compile ultron/backend/cloud_client.py
           python -m py_compile ultron/backend/cloud_delivery.py
           python -m py_compile ultron/backend/cloud_dispatch_journal.py
@@ -58,6 +59,8 @@ jobs:
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_delivery_guard.py' -v
       - name: Durable desktop Cloud dispatch regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_dispatch_journal.py' -v
+      - name: Self-development release proof guard regressions
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_development_updates.py' -v
       - name: Cloud task queue race regression tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_device_queue_contract.py' -v
       - name: Codex continuation report regression tests
