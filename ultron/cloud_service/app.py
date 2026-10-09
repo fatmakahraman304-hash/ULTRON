@@ -14,6 +14,7 @@ from typing import Any
 
 import asyncpg
 from aiohttp import web
+from world_api import add_world_routes
 from google import genai
 from google.genai import types
 
@@ -77,7 +78,7 @@ def verify_session_cookie(value: str) -> str | None:
 
 @web.middleware
 async def auth_middleware(request: web.Request, handler):
-    if request.path in {"/", "/health", "/api/login"} or request.path.startswith("/static/"):
+    if request.path in {"/", "/health", "/api/login"} or request.path.startswith("/static/") or (request.method == "GET" and request.path.startswith("/api/world/")):
         return await handler(request)
 
     device_token = os.getenv("ULTRON_DEVICE_TOKEN", "").strip()
@@ -2095,6 +2096,7 @@ def build_app() -> web.Application:
     app = web.Application(middlewares=[auth_middleware], client_max_size=18 * 1024 * 1024)
     app.router.add_get("/", index)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
+    add_world_routes(app)
     app.router.add_get("/health", health)
     app.router.add_post("/api/login", login)
     app.router.add_post("/api/logout", logout)

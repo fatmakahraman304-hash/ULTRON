@@ -60,6 +60,10 @@ jobs:
         run: |
           node --check ultron/cloud_service/static/mobile-action-guard.js
           node --test ultron/cloud_service/test_mobile_action_guard.cjs
+      - name: ULTRON WORLD JavaScript syntax and UI contracts
+        run: |
+          node --check ultron/cloud_service/static/world.js
+          node --test ultron/cloud_service/test_world_contract.cjs
       - name: Install frontend
         working-directory: ultron/frontend
         run: npm ci
