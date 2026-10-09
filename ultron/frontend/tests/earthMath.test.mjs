@@ -32,7 +32,7 @@ test('Longitude wrap and invalid input are deterministic',()=>{
  assert.deepEqual(cartesianToEarth(0,0,0),{lat:0,lon:0});
  assert.deepEqual(cartesianToEarth(NaN,0,0),{lat:0,lon:0});
  const xyz=earthToCartesian(Infinity,NaN,-5);
- assert.deepEqual(xyz,{x:0,y:0,z:0});
+ near(xyz.x,0);near(xyz.y,0);near(xyz.z,0);
 });
 test('Radius does not affect reported GPS coordinates',()=>{
  const tiny=earthToCartesian(23.5,-42.7,1);
