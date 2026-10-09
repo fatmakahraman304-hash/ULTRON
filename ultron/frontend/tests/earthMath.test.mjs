@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {earthToCartesian,cartesianToEarth,normalizeLongitude,clampLatitude} from '../src/dashboard/earthMath.ts';
+import {earthToCartesian,cartesianToEarth,normalizeLongitude,clampLatitude,solarPositionUTC} from '../src/dashboard/earthMath.ts';
 
 const near=(actual,expected,tolerance=1e-6)=>assert.ok(Math.abs(actual-expected)<tolerance,`expected ${actual} ≈ ${expected}`);
 
@@ -39,4 +39,21 @@ test('Radius does not affect reported GPS coordinates',()=>{
  const large=earthToCartesian(23.5,-42.7,300);
  near(cartesianToEarth(tiny.x,tiny.y,tiny.z).lat,cartesianToEarth(large.x,large.y,large.z).lat);
  near(cartesianToEarth(tiny.x,tiny.y,tiny.z).lon,cartesianToEarth(large.x,large.y,large.z).lon);
+});
+
+test('Approximate UTC subsolar latitude tracks equinoxes and solstices',()=>{
+ const march=solarPositionUTC(new Date('2026-03-20T12:00:00Z'));
+ near(march.lat,0,1.5);
+ near(march.lon,0,4);
+ const june=solarPositionUTC(new Date('2026-06-21T12:00:00Z'));
+ near(june.lat,23.44,1.5);
+ const december=solarPositionUTC(new Date('2026-12-21T12:00:00Z'));
+ near(december.lat,-23.44,1.5);
+});
+test('Sun-facing longitude shifts about 180° between noon and midnight UTC',()=>{
+ const noon=solarPositionUTC(new Date('2026-03-20T12:00:00Z'));
+ const midnight=solarPositionUTC(new Date('2026-03-20T00:00:00Z'));
+ const difference=Math.abs(normalizeLongitude(midnight.lon-noon.lon));
+ near(difference,180,4);
+ assert.deepEqual(solarPositionUTC(new Date('invalid')),{lat:0,lon:0});
 });
