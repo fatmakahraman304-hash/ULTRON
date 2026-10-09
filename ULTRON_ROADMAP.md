@@ -154,3 +154,8 @@ Bu belge `MARK-ULTRON-MERGED` kaynak ağacına dayanır. **Test edilmemiş özel
 - Browser speech recognition may be unsupported in iOS Home Screen PWA and may use the browser vendor's network service. This is not guaranteed fully offline STT, no native iOS Siri entitlement, and does not establish guaranteed speech latency.
 - Original Windows Fast Brain via installed Ollama models already exists; Windows MARK live-voice engine still Gemini separately and was NOT switched automatically to local Whisper/Piper.
 - Code SHA f33bc81f9bdfdb4d5644c7beeaa7c061f8e63cbf: Scene Build Check #37989333207 SUCCESS, PostgreSQL #37989333208 SUCCESS and Render this code SHA observed live. Physical iPhone Safari microphone and Windows actual GPU latency NOT RUN. Further documentation: ultron/HYBRID_BRAIN_TR.md.
+
+## 2026-10-10 — Personal ULTRON conversation parity
+- Implemented shared conversation_persona.py for local Qwen and Cloud Gemini (text/image/PDF/camera/Live), with adaptive light humour versus serious tone, consistent name and consent-aware claims.
+- Memory and history injected as untrusted bounded context; phone Qwen is explicitly read-only and never claims saved memory or local actions.
+- Follow-up: real phone/Windows speech quality, configurable owner address/humour, personal daily brief only with opt-in, proof of live Render deployment.
