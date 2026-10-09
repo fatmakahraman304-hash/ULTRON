@@ -64,6 +64,16 @@ class PlanValidationTests(unittest.TestCase):
         self.assertFalse(result["calendar_connected"])
         self.assertFalse(result["reminders_created"])
 
+    def test_model_context_excludes_private_notes(self):
+        app = (HERE / "app.py").read_text(encoding="utf-8")
+        from_pos = app.index("async def _memory_context(")
+        until_pos = app.index("async def _recent_context(")
+        helper = app[from_pos:until_pos]
+        self.assertIn("SELECT title,scheduled_date,scheduled_time FROM owner_plans", helper)
+        self.assertIn("WHERE user_id=$1 AND is_done=FALSE", helper)
+        self.assertIn("OWNER PLAN - no notification", helper)
+        self.assertNotIn("SELECT title,note", helper)
+
     def test_routes_use_scoped_user_and_browser_write(self):
         app = (HERE / "app.py").read_text(encoding="utf-8")
         code = (HERE / "personal_plans.py").read_text(encoding="utf-8")
