@@ -24,6 +24,7 @@ export default function Dashboard(){
   const durationMatch=t.match(/(\d+(?:[.,]\d+)?)\s*saniye/),duration=durationMatch?Math.max(2,Math.min(15,Number(durationMatch[1].replace(',','.')))):6;
   const current=u.stage.hologram;
 
+  if(/(?:animasyon|animation).*(?:oynat|göster|goster|aç|ac|yap|oluştur|olustur)|(?:oynat|göster|goster).*(?:animasyon|animation)/.test(t)&&!/(?:videoya|kaydet|indir)/.test(t)){const kind=/(?:kuş|kus|bird|civciv)/.test(t)?'bird':/(?:yörünge|yorunge|orbit|dön|don)/.test(t)?'orbit':/(?:nabız|nabiz|pulse)/.test(t)?'pulse':'bird';await action('animation_show',{kind,title:'ULTRON MINI ANIMATION'});return 'Küçük animasyon ULTRON CORE içinde oynatılıyor.';}
   if(/(?:core.?a dön|çekirdeğe dön|orta alanı sıfırla|sahneyi sıfırla)/.test(t)){await action('reset');return 'Center Stage çekirdeğe döndü.';}
   if(/(?:bunu|hologramı|hologrami).*(?:videoya çevir|video yap)/.test(t)){await action('video_from_stage',{duration,title:current.label});return 'Hologram video renderına geçti.';}
   if(/(?:video|animasyon|intro).*(?:yap|oluştur|olustur|render|hazırla|hazirla)/.test(t)){

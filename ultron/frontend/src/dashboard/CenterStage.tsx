@@ -6,6 +6,7 @@ import {TransformControls} from 'three/examples/jsm/controls/TransformControls.j
 import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter.js';
 import {Download,Globe2,LocateFixed,Maximize2,Play,RotateCcw,Satellite,Sparkles,Video} from 'lucide-react';
 import UltronCore from './core/UltronCore';
+import CoreAnimation from './core/CoreAnimation';
 import {request,type CoreState,type EarthState,type HologramConfig,type SceneObject,type SceneState,type StageState} from './runtime';
 import {cartesianToEarth,earthToCartesian,solarPositionUTC} from './earthMath';
 
@@ -624,6 +625,7 @@ export default function CenterStage({stage,state,amplitude,notify}:Props){
  const presets=useMemo(()=>['energy','globe','network','drone','vehicle','logo','sphere'],[]);
  return <div className={'center-stage mode-'+stage.mode}>
   {stage.mode==='core_idle'&&<><UltronCore state={state} amplitude={amplitude}/><div className="core-title">ULTRON<small>NEURAL CORE</small></div><button className="earth-watch-launch" onClick={()=>command('earth_open')}><Globe2/> EARTH WATCH</button></>}
+  {stage.mode==='animation_preview'&&<><UltronCore state={state} amplitude={amplitude}/><CoreAnimation kind={stage.animation?.kind||'bird'} title={stage.animation?.title||'ULTRON ANIMASYON'} onClose={()=>{void command('reset')}}/></>}
   {stage.mode==='hologram_lab'&&<><HologramStage config={stage.hologram} customModel={customModel}/><div className="stage-controls">
    <div className="stage-presets">{presets.map(k=><button key={k} className={stage.hologram.kind===k&&!customModel?'active':''} onClick={()=>{setCustomModel(null);setCustomModelName('');void patch({kind:k});}}>{k.toUpperCase()}</button>)}</div>
    <label>RENK<input type="color" value={stage.hologram.color.startsWith('#')?stage.hologram.color:'#ff3047'} onChange={e=>patch({color:e.target.value})}/></label>

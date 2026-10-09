@@ -92,6 +92,7 @@ class Hub:
             "save_kind": "",
             "record_nonce": 0,
             "record_duration": 8.0,
+            "animation": {"kind": "bird", "title": "ULTRON MINI ANIMATION"},
             "hologram": {
                 "kind": "energy", "color": "#ff3047", "glow": 1.0,
                 "speed": 1.0, "rings": 4, "particles": 900, "scale": 1.0,
@@ -1145,6 +1146,13 @@ async def api_stage_command(req: web.Request) -> web.Response:
     if op in {"reset", "core", "core_idle"}:
         state.update({"mode": "core_idle", "title": "ULTRON",
                       "subtitle": "NEURAL CORE", "progress": 0, "job_id": None})
+    elif op == "animation_show":
+        kind = str(body.get("kind") or "bird").strip().lower()
+        if kind not in {"bird", "orbit", "pulse"}:
+            return web.json_response({"ok":False,"error":"unsupported_animation_kind"},status=400)
+        title = str(body.get("title") or "ULTRON MINI ANIMATION").strip()[:72]
+        state["animation"] = {"kind":kind,"title":title}
+        state.update({"mode":"animation_preview","title":"CORE ANIMATION","subtitle":title,"progress":100})
     elif op in {"earth_open", "earth_watch", "world_watch"}:
         state["earth"] = normalize_earth_state(state.get("earth"))
         state.update({"mode": "earth_watch", "title": "EARTH WATCH",
