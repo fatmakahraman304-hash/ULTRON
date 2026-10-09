@@ -130,6 +130,9 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn("self._video_item.setSize(QSizeF(w, h))", ui)
         self.assertIn("output = self._video_sound_out if self._video_split else self._video_audio", ui)
         self.assertIn("self._video_pause_sig.connect(self._on_video_pause)", ui)
+        self.assertIn("self._video_player.mediaStatusChanged.connect(self._on_video_media_status)", ui)
+        self.assertIn("status == QMediaPlayer.MediaStatus.EndOfMedia", ui)
+        self.assertIn("self.stop_video()  # emit the signal:", ui)
 
     def test_frontend_binds_native_typed_commands(self):
         dash = (ROOT / "ultron/frontend/src/dashboard/Dashboard.tsx").read_text(encoding="utf-8")

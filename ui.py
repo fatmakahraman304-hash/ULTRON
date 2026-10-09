@@ -3159,6 +3159,7 @@ class MainWindow(QMainWindow):
             self._video_item.nativeSizeChanged.connect(self._fit_video)
             self._video_player.setAudioOutput(self._video_audio)
             self._video_player.errorOccurred.connect(self._on_video_error)
+            self._video_player.mediaStatusChanged.connect(self._on_video_media_status)
 
             # A SECOND player, for sound that arrives separately.
             #
@@ -3511,6 +3512,13 @@ class MainWindow(QMainWindow):
         if out:
             self._set_video_muted(not out.isMuted())
 
+    def _on_video_media_status(self, status) -> None:
+        # Returning to CORE on a completed clip avoids a permanently blank
+        # overlay. The close signal also hides the WebEngine native video dock.
+        if (self._video_on and HAVE_VIDEO and
+                status == QMediaPlayer.MediaStatus.EndOfMedia):
+            self.stop_video()
+
     def _on_video_error(self, *_a) -> None:
         err = ""
         try:
@@ -3518,7 +3526,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         self.write_log(f"SYS: The video could not be played{(' — ' + err) if err else ''}.")
-        self._on_video_close()
+        self.stop_video()  # emit the signal: also hide the embedded Qt video widget
 
     def stop_video(self) -> None:
         self._video_close_sig.emit()
