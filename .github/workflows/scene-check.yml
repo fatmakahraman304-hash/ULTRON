@@ -56,6 +56,10 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: ultron/frontend/package-lock.json
+      - name: iPhone PWA shortcut consent and task indicator tests
+        run: |
+          node --check ultron/cloud_service/static/mobile-action-guard.js
+          node --test ultron/cloud_service/test_mobile_action_guard.cjs
       - name: Install frontend
         working-directory: ultron/frontend
         run: npm ci
