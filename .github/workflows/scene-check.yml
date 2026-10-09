@@ -55,6 +55,8 @@ jobs:
           sudo apt-get install -y -qq libegl1 libopengl0 libxcb-cursor0 libpulse0
           python -m pip install --disable-pip-version-check 'PyQt6>=6.6,<7'
           python -m unittest discover -s scripts/tests -p 'test_mark_video_dock_qt.py' -v
+      - name: Trusted code fast-forward safety tests
+        run: python -m unittest discover -s scripts/tests -p 'test_safe_self_update.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
