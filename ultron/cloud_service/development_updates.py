@@ -74,6 +74,30 @@ def _http_error(error: str, status: int = 400):
     return web.json_response({"error": error}, status=status)
 
 
+async def insert_development_request(pool, *, user_id: str,
+                                     device_id: str, prompt: str,
+                                     target: str) -> dict:
+    """Shared voice/typed handler; enforce owner scope and per-hour limit."""
+    prompt = str(prompt or "").strip()
+    target = str(target or "").strip().lower()
+    if not 12 <= len(prompt) <= 2000:
+        raise ValueError("prompt_length_12_to_2000")
+    if target not in TARGETS:
+        raise ValueError("invalid_target")
+    recent = await pool.fetchval(
+        "SELECT COUNT(*) FROM dev_requests WHERE user_id=$1 "
+        "AND created_at > NOW() - INTERVAL '1 hour'", user_id,
+    )
+    if int(recent or 0) >= 12:
+        raise ValueError("rate_limit_12_per_hour")
+    row = await pool.fetchrow(
+        "INSERT INTO dev_requests(id,user_id,prompt,target,source_device) "
+        "VALUES($1,$2,$3,$4,$5) RETURNING *",
+        uuid.uuid4(), user_id, prompt, target, device_id,
+    )
+    return _item(row)
+
+
 async def create_request(request: web.Request) -> web.Response:
     try:
         body = await request.json()
@@ -81,25 +105,16 @@ async def create_request(request: web.Request) -> web.Response:
         return _http_error("invalid_json")
     if not isinstance(body, dict):
         return _http_error("invalid_payload")
-    prompt = str(body.get("prompt") or "").strip()
-    target = str(body.get("target") or "both").strip().lower()
-    if not 12 <= len(prompt) <= 2000:
-        return _http_error("prompt_length_12_to_2000")
-    if target not in TARGETS:
-        return _http_error("invalid_target")
-    # Bounded requests per user; never turns unsupervised model text into code.
-    recent = await request.app["db"].fetchval(
-        "SELECT COUNT(*) FROM dev_requests WHERE user_id=$1 "
-        "AND created_at > NOW() - INTERVAL '1 hour'", request["user_id"]
-    )
-    if int(recent or 0) >= 12:
-        return _http_error("rate_limit_12_per_hour", 429)
-    row = await request.app["db"].fetchrow(
-        "INSERT INTO dev_requests(id,user_id,prompt,target,source_device) "
-        "VALUES($1,$2,$3,$4,$5) RETURNING *",
-        uuid.uuid4(), request["user_id"], prompt, target, request["device_id"],
-    )
-    return web.json_response({"ok": True, "request": _item(row)}, dumps=_json_dumps, status=201)
+    try:
+        item = await insert_development_request(
+            request.app["db"],
+            user_id=request["user_id"], device_id=request["device_id"],
+            prompt=body.get("prompt"), target=body.get("target", "both"),
+        )
+    except ValueError as exc:
+        reason = str(exc)
+        return _http_error(reason, 429 if reason == "rate_limit_12_per_hour" else 400)
+    return web.json_response({"ok": True, "request": item}, dumps=_json_dumps, status=201)
 
 
 def _json_dumps(value):
