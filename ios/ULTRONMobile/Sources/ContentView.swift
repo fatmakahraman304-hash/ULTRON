@@ -4,6 +4,9 @@ struct ContentView: View {
     @EnvironmentObject var voice: BackgroundVoiceController
     @StateObject private var router = PhoneActionRouter.shared
     @State private var password = ""
+    @State private var desktopTask = ""
+    @State private var sendingTask = false
+    @State private var desktopTaskStatus = ""
 
     var body: some View {
         ZStack {
@@ -29,6 +32,7 @@ struct ContentView: View {
                     }
 
                     controlCard
+                    desktopTaskCard
                     limitsCard
                 }
                 .padding(20)
@@ -145,7 +149,7 @@ struct ContentView: View {
 
             HStack {
                 Button("DEVAM ET") {
-                    router.resumePendingActionIfPossible()
+                    router.resumePendingActionIfPossible(userInitiated: true)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
@@ -185,6 +189,52 @@ struct ContentView: View {
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
+        }
+        .ultronCard()
+    }
+
+    private var desktopTaskCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("BİLGİSAYARDAKİ ULTRON", systemImage: "laptopcomputer")
+                .font(.caption.weight(.black))
+                .foregroundStyle(.red)
+
+            Text("Siri'den 'ULTRON bilgisayara görev gönder' diyebilir veya yazabilirsin. Laptop çevrimdışıysa Cloud kuyruğunda bekler.")
+                .font(.footnote)
+                .foregroundStyle(.white.opacity(0.65))
+
+            TextField("Laptopta yapılacak görevi yaz", text: $desktopTask, axis: .vertical)
+                .lineLimit(2...4)
+                .padding(12)
+                .background(.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+
+            Button {
+                let message = desktopTask
+                sendingTask = true
+                Task {
+                    do {
+                        let id = try await CloudSession.shared.enqueueDesktopTask(message)
+                        desktopTaskStatus = "Görev #\(id) Cloud kuyruğuna alındı. Henüz tamamlanmadı."
+                        desktopTask = ""
+                    } catch {
+                        desktopTaskStatus = "Görev gönderilemedi: \(error.localizedDescription)"
+                    }
+                    sendingTask = false
+                }
+            } label: {
+                Label(sendingTask ? "GÖNDERİLİYOR…" : "BİLGİSAYARA GÖNDER", systemImage: "paperplane.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .disabled(sendingTask || desktopTask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+            if !desktopTaskStatus.isEmpty {
+                Text(desktopTaskStatus)
+                    .font(.footnote)
+                    .foregroundStyle(.white.opacity(0.8))
+            }
         }
         .ultronCard()
     }
