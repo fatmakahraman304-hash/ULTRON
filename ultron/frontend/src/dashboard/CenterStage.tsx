@@ -43,12 +43,17 @@ function earthLabel(text:string,color='#ff334d'){
 }
 function EarthWatch({config,onCommand}:{config:EarthState;onCommand:(operation:string,extra?:Record<string,unknown>)=>Promise<unknown>|void}){
  const host=useRef<HTMLDivElement>(null),[picked,setPicked]=useState<{lat:number;lon:number}|null>(null),[issOk,setIssOk]=useState(false);
+ // Renderer rebuilds for layer changes; preserve the user's actual zoom/orbit and Earth orientation.
+ const savedView=useRef<{position:number[];target:number[];orientation:number[];focus:string}|null>(null);
  const key=JSON.stringify(config);
  useEffect(()=>{const el=host.current;if(!el)return;let dead=false,raf=0,issTimer:ReturnType<typeof setInterval>|undefined;
+  const focusKey=String(config.focus_lat)+':'+String(config.focus_lon);
+  const previousView=savedView.current;
   const scene=new THREE.Scene();scene.background=new THREE.Color(config.night?0x000207:0x01050b);
   const camera=new THREE.PerspectiveCamera(42,1,.1,100);camera.position.set(0,.25,7.4);
   const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(config.night?0x000207:0x01050b,1);el.appendChild(renderer.domElement);
   const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.055;controls.enablePan=false;controls.minDistance=3.05;controls.maxDistance=15;
+  if(previousView){camera.position.fromArray(previousView.position);controls.target.fromArray(previousView.target);controls.update();}
   const root=new THREE.Group();scene.add(root);
   const map=fallbackEarthTexture(),earthMat=new THREE.MeshStandardMaterial({map,roughness:.78,metalness:.02,color:config.night?0x7080a0:0xffffff});
   const earth=new THREE.Mesh(new THREE.SphereGeometry(2.25,96,64),earthMat);root.add(earth);
@@ -62,13 +67,36 @@ function EarthWatch({config,onCommand}:{config:EarthState;onCommand:(operation:s
   const addMarker=(lat:number,lon:number,label:string,color:string,radius=2.3)=>{const group=new THREE.Group(),p=earthVector(lat,lon,radius),n=p.clone().normalize();group.position.copy(p);group.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),n);const pin=new THREE.Mesh(new THREE.ConeGeometry(.055,.24,10),new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.55}));pin.position.y=.12;group.add(pin);const ring=new THREE.Mesh(new THREE.RingGeometry(.075,.105,28),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.9,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;group.add(ring);const sprite=earthLabel(label,color);sprite.position.copy(n.clone().multiplyScalar(.28));group.add(sprite);root.add(group);return group;};
   for(const marker of config.markers||[])addMarker(marker.lat,marker.lon,marker.label,marker.color||'#ff334d');
   if(config.focus_label&&config.focus_label!=='GLOBAL')addMarker(config.focus_lat,config.focus_lon,config.focus_label,'#35ffe4',2.315);
-  const focus=earthVector(config.focus_lat,config.focus_lon,1).normalize(),front=new THREE.Vector3(0,0,1);root.quaternion.setFromUnitVectors(focus,front);
+  const focus=earthVector(config.focus_lat,config.focus_lon,1).normalize(),front=new THREE.Vector3(0,0,1);
+  const focusRotation=new THREE.Quaternion().setFromUnitVectors(focus,front);
+  if(previousView)root.quaternion.fromArray(previousView.orientation);else root.quaternion.copy(focusRotation);
+  let flyingTo=Boolean(previousView&&previousView.focus!==focusKey);
   let issGroup:THREE.Group|undefined;
   if(config.live_iss){issGroup=addMarker(0,0,'ISS LIVE','#ffd43b',2.48);const updateIss=async()=>{try{const res=await fetch('https://api.wheretheiss.at/v1/satellites/25544',{cache:'no-store'});if(!res.ok)throw Error(String(res.status));const data=await res.json();if(dead||!issGroup)return;const p=earthVector(Number(data.latitude)||0,Number(data.longitude)||0,2.48);issGroup.position.copy(p);issGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),p.clone().normalize());setIssOk(true);}catch{if(!dead)setIssOk(false);}};void updateIss();issTimer=setInterval(()=>void updateIss(),5000);}
-  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();const pick=(e:PointerEvent)=>{const rect=renderer.domElement.getBoundingClientRect();mouse.x=((e.clientX-rect.left)/rect.width)*2-1;mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;ray.setFromCamera(mouse,camera);const hit=ray.intersectObject(earth,false)[0];if(!hit)return;const local=root.worldToLocal(hit.point.clone());const ll=vectorEarth(local);setPicked({lat:+ll.lat.toFixed(4),lon:+ll.lon.toFixed(4)});};renderer.domElement.addEventListener('pointerdown',pick);
+  const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let pointerStart:{x:number;y:number}|null=null;
+  const pointerDown=(e:PointerEvent)=>{pointerStart=e.button===0?{x:e.clientX,y:e.clientY}:null;};
+  const pointerUp=(e:PointerEvent)=>{const start=pointerStart;pointerStart=null;if(!start||e.button!==0||Math.hypot(e.clientX-start.x,e.clientY-start.y)>6)return;
+   const rect=renderer.domElement.getBoundingClientRect();mouse.x=((e.clientX-rect.left)/rect.width)*2-1;mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+   ray.setFromCamera(mouse,camera);const hit=ray.intersectObject(earth,false)[0];if(!hit)return;
+   const local=root.worldToLocal(hit.point.clone());const ll=vectorEarth(local);setPicked({lat:+ll.lat.toFixed(4),lon:+ll.lon.toFixed(4)});
+  };
+  const pointerCancel=()=>{pointerStart=null;};
+  renderer.domElement.addEventListener('pointerdown',pointerDown);
+  renderer.domElement.addEventListener('pointerup',pointerUp);
+  renderer.domElement.addEventListener('pointercancel',pointerCancel);
+  renderer.domElement.addEventListener('pointerleave',pointerCancel);
   let last=performance.now();const resize=()=>{const w=Math.max(1,el.clientWidth),h=Math.max(1,el.clientHeight);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();};resize();const ro=new ResizeObserver(resize);ro.observe(el);
-  const loop=(now:number)=>{if(dead)return;const dt=Math.min(.05,(now-last)/1000);last=now;if(config.auto_rotate)root.rotation.y+=dt*Number(config.rotation_speed||.08);const clouds=root.children.find(x=>x.userData.clouds);if(clouds)clouds.rotation.y+=dt*.012;controls.update();renderer.render(scene,camera);raf=requestAnimationFrame(loop);};raf=requestAnimationFrame(loop);
-  return()=>{dead=true;cancelAnimationFrame(raf);if(issTimer)clearInterval(issTimer);ro.disconnect();renderer.domElement.removeEventListener('pointerdown',pick);controls.dispose();scene.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const mats=(m as any).material?(Array.isArray((m as any).material)?(m as any).material:[(m as any).material]):[];for(const mat of mats){if(mat.map)mat.map.dispose();mat.dispose?.();}});renderer.dispose();renderer.domElement.remove();};
+  const loop=(now:number)=>{if(dead)return;const dt=Math.min(.05,(now-last)/1000);last=now;
+   if(flyingTo){root.quaternion.slerp(focusRotation,1-Math.exp(-dt*4));if(root.quaternion.angleTo(focusRotation)<.003){root.quaternion.copy(focusRotation);flyingTo=false;}}
+   else if(config.auto_rotate)root.rotateY(dt*Number(config.rotation_speed??.08));
+   const clouds=root.children.find(x=>x.userData.clouds);if(clouds)clouds.rotation.y+=dt*.012;
+   controls.update();renderer.render(scene,camera);raf=requestAnimationFrame(loop);
+  };raf=requestAnimationFrame(loop);
+  return()=>{savedView.current={position:camera.position.toArray(),target:controls.target.toArray(),orientation:root.quaternion.toArray(),focus:focusKey};
+   dead=true;cancelAnimationFrame(raf);if(issTimer)clearInterval(issTimer);ro.disconnect();
+   renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointerup',pointerUp);
+   renderer.domElement.removeEventListener('pointercancel',pointerCancel);renderer.domElement.removeEventListener('pointerleave',pointerCancel);
+   controls.dispose();scene.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const mats=(m as any).material?(Array.isArray((m as any).material)?(m as any).material:[(m as any).material]):[];for(const mat of mats){if(mat.map)mat.map.dispose();mat.dispose?.();}});renderer.dispose();renderer.domElement.remove();};
  },[key]);
  return <div className="earth-watch-shell"><div className="earth-watch-webgl" ref={host}/><div className="earth-watch-brand"><Globe2/><div><b>EARTH WATCH</b><small>{config.focus_label||'GLOBAL'} · 3D GLOBAL VIEW</small></div></div><div className="earth-watch-controls"><button className={config.auto_rotate?'active':''} onClick={()=>onCommand('earth_control',{auto_rotate:!config.auto_rotate})}>{config.auto_rotate?'ROTATION ON':'ROTATION OFF'}</button><button className={config.clouds?'active':''} onClick={()=>onCommand('earth_control',{clouds:!config.clouds})}>CLOUDS</button><button className={config.atmosphere?'active':''} onClick={()=>onCommand('earth_control',{atmosphere:!config.atmosphere})}>ATMOSPHERE</button><button className={config.grid?'active':''} onClick={()=>onCommand('earth_control',{grid:!config.grid})}>LAT/LON GRID</button><button className={config.night?'active':''} onClick={()=>onCommand('earth_control',{night:!config.night})}>NIGHT</button><button className={config.live_iss?'active':''} onClick={()=>onCommand('earth_control',{live_iss:!config.live_iss})}><Satellite/> ISS {config.live_iss?(issOk?'LIVE':'WAIT'):'OFF'}</button><button onClick={()=>onCommand('earth_focus',{lat:20,lon:0,place:'GLOBAL'})}>GLOBAL</button><button onClick={()=>onCommand('earth_focus',{lat:39,lon:35,place:'TÜRKİYE'})}>TÜRKİYE</button><button onClick={()=>onCommand('earth_focus',{lat:35.13,lon:33.43,place:'KIBRIS'})}>KIBRIS</button><button onClick={()=>onCommand('reset')}><RotateCcw/> CORE</button></div>{picked&&<div className="earth-watch-pick"><LocateFixed/><span>{picked.lat.toFixed(4)}°, {picked.lon.toFixed(4)}°</span><button onClick={()=>onCommand('earth_focus',{lat:picked.lat,lon:picked.lon,place:'SELECTED'})}>FOCUS</button><button onClick={()=>onCommand('earth_marker_add',{lat:picked.lat,lon:picked.lon,label:'PIN',color:'#ff334d'})}>PIN HERE</button></div>}</div>;
 }
