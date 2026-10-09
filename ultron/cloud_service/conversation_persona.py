@@ -19,7 +19,7 @@ PERSONA = (
 
 _SERIOUS = re.compile(
     r"\b(?:acil|tehlike|hastayım|hasta|ölüm|panik|korkuyorum|"
-    r"üzgünüm|borç|banka|para|şifre|güvenlik|"
+    r"üzgünüm|borç\w*|banka\w*|para\w*|şifre\w*|güvenlik|"
     r"emergency|hospital|debt|password|privacy)\b", re.I
 )
 _PLAYFUL = re.compile(r"\b(?:şaka|espri|komik|güldür|joke|funny)\b", re.I)
