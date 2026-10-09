@@ -6,7 +6,7 @@ background monitoring. Source records are returned for owner review.
 from __future__ import annotations
 
 
-def build_briefing(rows, *, max_items: int = 8) -> dict:
+def build_briefing(rows, *, plan_rows=(), max_items: int = 8) -> dict:
     """Return transparent memory-backed planning notes, without an LLM or side effects."""
     limit = max(1, min(int(max_items), 12))
     saved = []
@@ -22,8 +22,24 @@ def build_briefing(rows, *, max_items: int = 8) -> dict:
                       "source": "owner_saved_memory"})
         if len(saved) >= limit:
             break
+    # Explicit manual entries are separate from an external calendar provider.
+    manual_plans = []
+    for plan in list(plan_rows)[:8]:
+        record = dict(plan)
+        if not record.get("title") or record.get("is_done"):
+            continue
+        day = record.get("scheduled_date")
+        clock = record.get("scheduled_time")
+        manual_plans.append({
+            "id": int(record["id"]),
+            "title": str(record["title"])[:140],
+            "date": day.isoformat() if hasattr(day, "isoformat") else str(day)[:10],
+            "time": clock.strftime("%H:%M") if clock else None,
+            "source": "owner_created_plan",
+        })
     return {
         "type": "read_only_owner_briefing",
+        "plans": manual_plans,
         "items": saved,
         "suggestions": (
             ["Kayıtlı hedeflerini gözden geçirip bugün için bir öncelik seç."]
@@ -35,7 +51,7 @@ def build_briefing(rows, *, max_items: int = 8) -> dict:
         "reminders_created": False,
         "actions_executed": False,
         "notice": (
-            "Bu özet yalnızca açıkça kaydedilmiş ULTRON hafızasını gösterir. "
-            "Takvim, e-posta, güncel randevu veya cihaz işlemi erişimi içermez."
+            "Bu özet yalnızca açıkça kaydedilmiş ULTRON hafızasını ve senin oluşturduğun planları gösterir. "
+            "Apple/Google Takvim, e-posta veya otomatik bildirim bağlantısı içermez."
         ),
     }
