@@ -1153,6 +1153,12 @@ async def api_stage_command(req: web.Request) -> web.Response:
         title = str(body.get("title") or "ULTRON MINI ANIMATION").strip()[:72]
         state["animation"] = {"kind":kind,"title":title}
         state.update({"mode":"animation_preview","title":"CORE ANIMATION","subtitle":title,"progress":100})
+    elif op == "world_map":
+        earth = normalize_earth_state(state.get("earth"))
+        if "lat" in body: earth["focus_lat"] = earth_number(body.get("lat"), earth["focus_lat"], -85, 85)
+        if "lon" in body: earth["focus_lon"] = earth_longitude(body.get("lon"), earth["focus_lon"])
+        state["earth"] = earth
+        state.update({"mode":"world_map","title":"ULTRON WORLD","subtitle":"2D MAP / LIVE GEO","progress":100})
     elif op in {"earth_open", "earth_watch", "world_watch"}:
         state["earth"] = normalize_earth_state(state.get("earth"))
         state.update({"mode": "earth_watch", "title": "EARTH WATCH",

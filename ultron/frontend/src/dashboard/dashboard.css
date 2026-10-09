@@ -281,3 +281,10 @@
 .ultron-inline-animation footer b{font:12px Consolas,monospace;color:#fff}.ultron-inline-animation footer span{display:flex;align-items:center;gap:5px;font:8px Consolas,monospace;color:#8aa2b5}
 @media(max-width:700px){.ultron-inline-animation{width:min(92%,390px);height:min(55%,280px);min-width:0}.ultron-inline-animation footer span{display:none}}
 @media(prefers-reduced-motion:reduce){.ultron-inline-animation-canvas *{animation-duration:5s!important}}
+
+/* ULTRON WORLD: embedded interactive map constrained to Center Stage. */
+.world-desktop-stage{position:absolute;inset:0;background:#03070d;overflow:hidden}
+.world-desktop-stage iframe{width:100%;height:100%;border:0;display:block;background:#03070d}
+.world-desktop-toolbar{position:absolute;z-index:100;left:15px;bottom:12px;display:flex;gap:7px;pointer-events:auto}
+.world-desktop-toolbar button{font:10px Consolas,monospace;background:#050c12eb;border:1px solid #376077;color:#c9ebf6;display:flex;gap:7px;align-items:center;padding:9px}
+.world-desktop-toolbar svg{width:15px;height:15px}

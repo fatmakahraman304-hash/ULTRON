@@ -78,7 +78,7 @@ TOOL = {
     "name": "ultron_stage",
     "description": (
         "Control the main visual Center Stage in the ULTRON desktop UI, including Earth Watch: a normal shaded 3D Earth viewer with atmosphere, clouds, stars, real latitude/longitude markers, focus controls and optional live ISS tracking. Use it "
-        "whenever the user asks for a small bird/orbit/pulse animation inside the CORE (call animation_show, kind bird/orbit/pulse; do not launch Pygame windows), to create/show/control a hologram, create a short "
+        "For normal 2D street map or live weather/aircraft/earthquake/world exploration use world_map; for globe use earth_open. Whenever the user asks for a small bird/orbit/pulse animation inside the CORE (call animation_show, kind bird/orbit/pulse; do not launch Pygame windows), to create/show/control a hologram, create a short "
         "animation video, record the live 3D Scene Lab canvas as a video, convert the current hologram into a video, play/pause "
         "that rendered video, save the current hologram/video, reset the center area, show a screen preview, or "
         "show task progress. This tool changes the actual center UI; do not only "
@@ -94,7 +94,7 @@ TOOL = {
             "operation": {
                 "type": "STRING",
                 "enum": [
-                    "status", "reset", "animation_show", "earth_open", "earth_control", "earth_focus",
+                    "status", "reset", "animation_show", "world_map", "earth_open", "earth_control", "earth_focus",
                     "earth_marker_add", "earth_marker_remove", "earth_marker_clear",
                     "hologram_create", "hologram_update",
                     "hologram_save", "scene_open", "scene_add", "scene_batch", "scene_load", "scene_update",

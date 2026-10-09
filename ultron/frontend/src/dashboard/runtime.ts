@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {SystemSnapshot,AIStatus,TaskProposal,PatchProposal} from '../lib/types';
 export type CoreState='IDLE'|'LISTENING'|'THINKING'|'SPEAKING'|'WORKING'|'ERROR';
-export type StageMode='core_idle'|'hologram_lab'|'scene_lab'|'earth_watch'|'video_rendering'|'video_preview'|'task_progress'|'screen_preview'|'animation_preview';
+export type StageMode='core_idle'|'hologram_lab'|'scene_lab'|'earth_watch'|'video_rendering'|'video_preview'|'task_progress'|'screen_preview'|'animation_preview'|'world_map';
 export type HologramConfig={
  kind:string;color:string;glow:number;speed:number;rings:number;particles:number;
  scale:number;opacity:number;wireframe:boolean;pulse:boolean;label:string;

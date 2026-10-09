@@ -34,6 +34,7 @@ jobs:
           python -m py_compile actions/ultron_stage.py
           python -m py_compile integration/web_panel.py
           python -m py_compile ultron/cloud_service/app.py
+          python -m py_compile ultron/cloud_service/world_api.py
           python -m py_compile ultron/backend/cloud_client.py
           python -m py_compile ultron/backend/cloud_delivery.py
           python -m py_compile ultron/backend/cloud_dispatch_journal.py

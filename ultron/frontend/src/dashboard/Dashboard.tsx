@@ -36,6 +36,7 @@ export default function Dashboard(){
   if(/(?:videoyu|video).*(?:kaydet|indir)/.test(t)){await action('video_save');return 'Video kaydetme penceresi açıldı.';}
   if(/(?:hologramı|hologrami|tasarımı|tasarimi).*(?:kaydet|indir)/.test(t)){await action('hologram_save');return 'Hologram projesi kaydediliyor.';}
 
+  if(/(?:2d|normal|sokak|uydu|detaylı|detayli).*?(?:harita|dünya|dunya)|(?:harita|dünya|dunya).*?(?:2d|normal|sokak|uydu|mahalle|bina)|(?:haritayı|haritayi|harita).*?(?:aç|ac|göster|goster)/.test(t)){await action('world_map');return 'ULTRON WORLD 2D haritası ve gerçek zamanlı veriler CORE üzerinde açıldı.';}
   if(/(?:3d\s*dünya|3d\s*dunya|earth watch|global monitor|normal\s*3d\s*dünya|normal\s*3d\s*dunya|dünyayı\s*(?:aç|ac|göster|goster|izle)|dunya(?:yı|yi)\s*(?:aç|ac|göster|goster|izle))/.test(t)){await action('earth_open');return 'EARTH WATCH açıldı.';}
   const earthMode=u.stage.mode==='earth_watch';
   if(earthMode){
