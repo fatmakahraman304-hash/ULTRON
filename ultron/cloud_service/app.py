@@ -15,6 +15,7 @@ from typing import Any
 import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
+from local_brain_bridge import register_local_brain_routes
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
 from google import genai
@@ -2142,6 +2143,7 @@ def build_app() -> web.Application:
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
     add_world_routes(app)
     register_development_routes(app)
+    register_local_brain_routes(app,_memory_context,_recent_context)
     app.router.add_get("/health", health)
     app.router.add_post("/api/login", login)
     app.router.add_post("/api/logout", logout)

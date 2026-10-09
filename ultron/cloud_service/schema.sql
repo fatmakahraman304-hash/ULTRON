@@ -123,3 +123,13 @@ CREATE TABLE IF NOT EXISTS dev_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_dev_requests_owner_time
   ON dev_requests(user_id,created_at DESC);
+
+
+-- One record per locally routed conversation turn; no duplicate assistant messages.
+CREATE TABLE IF NOT EXISTS local_chat_requests (
+  command_id BIGINT PRIMARY KEY REFERENCES device_commands(id),
+  user_id TEXT NOT NULL,
+  conversation_id UUID NOT NULL,
+  reply_saved BOOLEAN NOT NULL DEFAULT FALSE
+);
+CREATE INDEX IF NOT EXISTS idx_local_chat_requests_user ON local_chat_requests(user_id, command_id DESC);
