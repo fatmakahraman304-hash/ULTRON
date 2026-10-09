@@ -7,6 +7,7 @@ import {GLTFExporter} from 'three/examples/jsm/exporters/GLTFExporter.js';
 import {Download,Globe2,LocateFixed,Maximize2,Play,RotateCcw,Satellite,Sparkles,Video} from 'lucide-react';
 import UltronCore from './core/UltronCore';
 import {request,type CoreState,type EarthState,type HologramConfig,type SceneObject,type SceneState,type StageState} from './runtime';
+import {cartesianToEarth,earthToCartesian} from './earthMath';
 
 type Props={stage:StageState;state:CoreState;amplitude:number;notify:(text:string)=>void};
 
@@ -15,14 +16,9 @@ function colorOf(value:string){
 }
 
 function earthVector(lat:number,lon:number,r=2.25){
- const phi=(90-lat)*Math.PI/180,theta=(lon+180)*Math.PI/180;
- return new THREE.Vector3(-r*Math.sin(phi)*Math.cos(theta),r*Math.cos(phi),r*Math.sin(phi)*Math.sin(theta));
+ const p=earthToCartesian(lat,lon,r);return new THREE.Vector3(p.x,p.y,p.z);
 }
-function vectorEarth(v:THREE.Vector3){
- const p=v.clone().normalize(),lat=90-Math.acos(THREE.MathUtils.clamp(p.y,-1,1))*180/Math.PI;
- let lon=Math.atan2(p.z,-p.x)*180/Math.PI-180;while(lon<-180)lon+=360;while(lon>180)lon-=360;
- return {lat,lon};
-}
+function vectorEarth(v:THREE.Vector3){return cartesianToEarth(v.x,v.y,v.z);}
 function fallbackEarthTexture(){
  const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;const ctx=canvas.getContext('2d')!;
  const ocean=ctx.createLinearGradient(0,0,0,canvas.height);ocean.addColorStop(0,'#164c78');ocean.addColorStop(.48,'#0b416e');ocean.addColorStop(1,'#062e52');ctx.fillStyle=ocean;ctx.fillRect(0,0,canvas.width,canvas.height);
