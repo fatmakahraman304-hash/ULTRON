@@ -230,6 +230,18 @@ struct ContentView: View {
             .tint(.red)
             .disabled(sendingTask || desktopTask.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
+            Button("SON GÖREVİN DURUMUNU ÖĞREN") {
+                Task {
+                    do {
+                        desktopTaskStatus = try await CloudSession.shared.latestDesktopTaskStatus()
+                    } catch {
+                        desktopTaskStatus = "Durum alınamadı: \(error.localizedDescription)"
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            .tint(.red)
+
             if !desktopTaskStatus.isEmpty {
                 Text(desktopTaskStatus)
                     .font(.footnote)

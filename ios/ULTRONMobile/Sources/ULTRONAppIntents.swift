@@ -63,8 +63,29 @@ struct AskULTRONIntent: AppIntent {
     }
 }
 
+struct CheckULTRONDesktopTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "ULTRON Bilgisayar Görev Durumu"
+    static var description = IntentDescription("Son bilgisayar görevinin Cloud durumunu Siri'den öğren.")
+    static var openAppWhenRun = false
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let status = try await CloudSession.shared.latestDesktopTaskStatus()
+        return .result(dialog: IntentDialog("\(status)"))
+    }
+}
+
 struct ULTRONAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: CheckULTRONDesktopTaskIntent(),
+            phrases: [
+                "\(.applicationName) bilgisayar görev durumunu söyle",
+                "\(.applicationName) son görev ne durumda"
+            ],
+            shortTitle: "Görev Durumu",
+            systemImageName: "checkmark.circle"
+        )
+
         AppShortcut(
             intent: AskULTRONIntent(),
             phrases: [

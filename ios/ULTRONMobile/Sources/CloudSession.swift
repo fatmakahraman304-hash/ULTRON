@@ -125,6 +125,42 @@ actor CloudSession {
         return reply
     }
 
+    /// The user can ask Siri for the last Cloud desktop task status without
+    /// keeping an active voice WebSocket or background process alive.
+    func latestDesktopTaskStatus() async throws -> String {
+        try await ensureLogin()
+        var request = URLRequest(
+            url: ULTRONConfig.baseURL.appending(path: "/api/device-commands/recent?limit=1")
+        )
+        request.timeoutInterval = 20
+        request.setValue("ultron-native-ios", forHTTPHeaderField: "X-ULTRON-DEVICE")
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              http.statusCode == 200,
+              let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let commands = body["commands"] as? [[String: Any]] else {
+            throw DesktopTaskError.invalidResponse
+        }
+        guard let last = commands.first else {
+            return "Bilgisayara gönderilmiş bir ULTRON görevi bulunamadı."
+        }
+        let id = last["id"] as? Int ?? 0
+        let status = last["status"] as? String ?? "unknown"
+        let label: String
+        switch status {
+        case "queued": label = "kuyrukta"
+        case "delivered": label = "masaüstüne teslim edildi; tamamlanmadı"
+        case "completed": label = "masaüstü tamamlandı olarak bildirdi"
+        case "failed": label = "başarısız"
+        case "cancelled": label = "iptal edildi"
+        case "expired": label = "süresi doldu"
+        default: label = "durumu bilinmiyor"
+        }
+        let result = last["result"] as? [String: Any]
+        let detail = String(((result?["message"] as? String) ?? "").prefix(250))
+        return "Görev \(id): \(label)." + (detail.isEmpty ? "" : " \(detail)")
+    }
+
     func webSocketTask(sessionID: String) -> URLSessionWebSocketTask {
         var components = URLComponents(url: ULTRONConfig.liveWebSocketURL, resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "session_id", value: sessionID)]
