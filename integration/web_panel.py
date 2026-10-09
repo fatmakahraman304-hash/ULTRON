@@ -94,7 +94,16 @@ class NativeBridge(QObject):
                 # *running process started with*, not merely a git pull made now.
                 for item in items[:20]:
                     if item.get("status")=="desktop_pending" and self._running_development_sha:
-                        report_local_checkout(str(item["id"]),self._running_development_sha)
+                        if report_local_checkout(str(item["id"]),self._running_development_sha):
+                            try:
+                                from .development_bridge import verify_request
+                                verified=verify_request(str(item["id"]))
+                                item.update(verified)
+                                if verified.get("status") == "completed":
+                                    self.emit(kind="dev_verified",data=verified)
+                            except Exception:
+                                # A server/GitHub outage is not proof of success.
+                                pass
                 self.emit(kind="dev_requests",data=items)
             except Exception as exc:
                 self.emit(kind="dev_error",text=str(exc)[:240])
