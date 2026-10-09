@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from capability_readiness import readiness
 from personal_briefing import build_briefing
+from personal_plans import register_routes as register_personal_plan_routes
 
 import asyncio
 import base64
@@ -2144,7 +2145,13 @@ async def personal_briefing_api(request: web.Request) -> web.Response:
         "SELECT category,key,value FROM memories WHERE user_id=$1 "
         "ORDER BY updated_at DESC LIMIT 40", request["user_id"],
     )
-    return web.json_response(build_briefing(rows))
+    plans = await request.app["db"].fetch(
+        "SELECT id,title,scheduled_date,scheduled_time,is_done "
+        "FROM owner_plans WHERE user_id=$1 AND is_done=FALSE "
+        "ORDER BY scheduled_date ASC, scheduled_time ASC NULLS LAST, id ASC LIMIT 8",
+        request["user_id"],
+    )
+    return web.json_response(build_briefing(rows, plan_rows=plans))
 
 
 async def capability_readiness_api(request: web.Request) -> web.Response:
@@ -2166,6 +2173,7 @@ def build_app() -> web.Application:
     add_world_routes(app)
     register_development_routes(app)
     register_local_brain_routes(app,_memory_context,_recent_context)
+    register_personal_plan_routes(app)
     app.router.add_get("/health", health)
     app.router.add_post("/api/login", login)
     app.router.add_post("/api/logout", logout)
