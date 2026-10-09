@@ -217,3 +217,20 @@ Somut sonraki doğrulama: iPhone Safari ULTRON → DÜNYA; sesle “Gazimağusa'
 - Latest passing Cloud+desktop persona/real DB CI: https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/37992833637
 - Next: verify Render /health active deployed SHA and actual Live voice/local Qwen on user devices. Sync Windows folder from feat/ultron-cloud-shared-memory; only GitHub was modified here.
 - Add opt-in personal briefing, calendar/email integrations, adjustable wit and preference memory with explicit consent; keep Approval Gate active.
+
+
+## 2026-10-10 — Owner request: complete 10 JARVIS-gap categories (realistic plan)
+Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that all 10 are implemented. Never represent sentience, unlimited iOS entitlements, physical holograms, powered-off PC control, or universal physical device access as available.
+
+1. **Emotion / humour:** shared conversation policy now includes user-requested serious mode and warm personal style. More adaptive style preferences must be saved only after explicit consent and verified end-to-end.
+2. **Personal life memory:** cloud/local shared history is available. Opt-in daily briefing is guided by real saved memory; next build source-authorized Calendar/Email integrations, data minimization, edit/delete controls and device tests.
+3. **Learning:** user-approved preferences, task outcomes and corrections only; no silent surveillance, account crawling or unapproved collection. Add reviewable learned-facts dashboard.
+4. **Powered-off laptop:** Cloud can hold requests but Windows-specific work cannot execute until an authenticated Windows worker comes online. Consider only user-owned, separately powered always-on worker; never promise power-on/control without suitable hardware or Wake-on-LAN network configuration and testing.
+5. **iPhone Siri:** installable PWA with explicit Shortcut Bridge approval; native Swift source exists. Full Siri/background access requires signed installed iOS app, entitlements and Apple constraints. TestFlight has not been published.
+6. **Hologram:** 3D Scene Lab on monitor is implemented. Genuine free-air volumetric hologram requires external display hardware not present.
+7. **Human-like continuous voice:** Whisper/Piper local and optional Gemini Live already exist; test real Windows devices, speech interruption, latency, voice quality and phone/browser capability gaps. No perfect latency or unrestricted always-on phone microphone promise.
+8. **Self-updating:** development request queue, GitHub CI and safe desktop update preparation exist. Require explicit owner permission, verified commit, clean worktree, tests, rollback and restart before announcing installed success. Never self-approve.
+9. **Daily life apps:** add OAuth least-privilege, per-action authorization, calendar/email adapters, provider-reported delivery receipts, opt-in briefings, and integration tests before claiming complete management.
+10. **Physical device control:** use only authorized supported IoT/Home Assistant HTTP devices, require confirmation for changes and report disconnected/missing devices honestly.
+
+**Implemented this pass:** shared persona now adds explicit opt-in grounded daily-brief rules, per-request disable-jokes instruction, and no implicit personal learning or cross-device access claims. Four offline tests added in test_conversation_persona.py (12 tests total). Check Cloud Queue PostgreSQL Integration CI for these commits; physical devices and Render deploy remain unverified.
