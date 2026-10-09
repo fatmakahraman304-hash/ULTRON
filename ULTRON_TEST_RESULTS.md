@@ -68,3 +68,9 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - `npm run build`: **PASS** (Vite 3.28s); `npm run test:earth`: CI step **PASS**.
 - **NOT RUN:** gerçek Windows üzerinde `START.bat`, Gemini Live sesli agent ve telefon görev uçtan uca testi; Render deploy SHA ve kullanıcı hesabı; gerçek enjekte edilmiş ağ kopmasıyla side-effect kontrolü.
 - **Gerçek kapsam:** Cloud HTTP status handling ve lease monitor unit/regression testleri; `mark_app.py` import/syntax ve CI bağlantısı. Gerçek harici tool side-effect exactly-once **kanıtlanmadı**.
+
+
+### 2026-10-09 — Durable desktop dispatch fence (CI PENDING)
+- Yeni `cloud_dispatch_journal.py` ve `test_cloud_dispatch_journal.py`, `mark_app.py` entegrasyonu ve Scene CI adımı eklendi.
+- GitHub CI yürütmesi ve gerçek Windows/Cloud/Gemini Live henüz doğrulanmadı. Kaynak değişikliği tek başına PASS değildir.
+- Doğrulanması gereken: ilk claim, yeniden claim, restart, corrupt DB fail-close, concurrency, plaintext gizliliği, pre-dispatch wiring ve Approval Gate etkilenmemesi.

@@ -61,6 +61,7 @@ from integration.cloud_memory_sync import (
 )
 from cloud_client import CloudClient, CloudDeliveryRejected
 from cloud_delivery import RemoteLeaseGuard
+from cloud_dispatch_journal import JournalUnavailable, RemoteDispatchJournal
 
 # The file-backed tools (open_app, web_search, browser_control, …) are no longer
 # imported or declared here — they self-describe via a TOOL dict in their own
@@ -2226,6 +2227,30 @@ class UltronLive:
             )
             if lease_guard.lost.is_set():
                 log_lease(f"refusing stale delivery before Gemini dispatch: {lease_guard.reason}")
+                return
+            # Crash-conservative local fence: persist before Gemini can call any
+            # tools. A Cloud retry with the same command ID may have side effects
+            # from an earlier attempt, so it must be reviewed rather than replayed.
+            journal = RemoteDispatchJournal(BASE_DIR / "data" / "cloud_remote_dispatch.sqlite3")
+            try:
+                reserved = await asyncio.to_thread(
+                    journal.reserve,
+                    service_url=client.base_url,
+                    device_id=client.device_id,
+                    command_id=command_id,
+                    delivery_attempt=delivery_attempt,
+                    payload=payload,
+                )
+            except JournalUnavailable as exc:
+                log_lease(str(exc))
+                await finish(False, "Güvenli yerel görev kaydı kullanılamıyor; işlem başlatılmadı. Manuel kontrol gerekli.", retryable=False)
+                return
+            if not reserved:
+                log_lease("duplicate Cloud command blocked by durable dispatch journal")
+                await finish(False, "Bu telefon görevi daha önce masaüstüne gönderilmiş olabilir. Olası tekrar eylemi önlemek için otomatik yeniden çalıştırılmadı; sonucu kontrol edip gerekiyorsa yeni görev oluşturun.", retryable=False)
+                return
+            if lease_guard.lost.is_set():
+                log_lease(f"refusing stale reserved delivery: {lease_guard.reason}")
                 return
             await self.session.send_client_content(
                 turns={"role": "user", "parts": [{"text": remote_prompt}]},

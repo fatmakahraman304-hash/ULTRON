@@ -64,3 +64,10 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 3. **En yüksek P1 kalan risk:** Onay mekanizmasını ihlal etmeyen ve yalnız izinli yerel eylemlerde çalışan durable action-level idempotency/checkpoint journal tasarla. Duplicate task sonrası aynı geri döndürülemez tool çağrısını tekrar çalıştırmama semantiği ve crash recovery testleri ekle. Cloud fencing'in already-executed tools'u geri alamadığını belirt.
 4. Çoklu worker yeniden bağlanma ve deadline/lease stres testi; mümkünse disposable PostgreSQL 16 senaryosunu çoğalt. Memory/performance etkisini ölç.
 5. `ULTRON_ROADMAP.md`, `ULTRON_PROGRESS.md`, `ULTRON_NEXT_TASKS.md` ve `ULTRON_TEST_RESULTS.md` dosyalarını her doğrulama sonrası eşleştir.
+
+
+## Döngü 8 sonrası kesin adımlar (CI bekliyor)
+1. Yeni durable SQLite dispatch fence için GitHub Actions run/SHA'yı doğrula; başarısızsa düzelt.
+2. Gerçek Windows 11 üzerinde telefon → Cloud → desktop agent_task, yeniden deneme ve süreç kapanma/kurtarma senaryolarını gözle; canlı eylem ve onay testini PASS saymadan kaydet.
+3. Komut-seviyesi fence'den sonra *per-tool* permission-aware journal: tool çağrı kimliği, onay öncesi/sonrası durum ve crash 'uncertain' kararı; reset/manual audit akışı tasarla. Tam exactly-once vaadi verme.
+4. Render `/health` deploy.commit, Windows START.bat, Gemini Live, Earth Watch ve RTX GPU hâlâ cihaz testine bağımlı.
