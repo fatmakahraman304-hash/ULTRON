@@ -2,6 +2,7 @@
 import json
 import time
 from dataclasses import dataclass, field
+from app.core.fast_brain import FastBrainPolicy, classify_text, last_user_intent
 
 
 class TaskType:
@@ -41,10 +42,13 @@ class ModelRouter:
         self._sleep = sleep or time.sleep
         self._health: dict[str, ModelHealth] = {}
         self._local_multi_model = None
+        self.fast_policy = FastBrainPolicy(self.settings.get('llm', {}).get('fast_brain', {}))
 
     def resolve(self, task: str, available_models=None) -> str:
         models = list(available_models) if available_models is not None else list(self.get_models() or [])
         primary = self.brain.model
+        if self.fast_policy.enabled:
+            return self.fast_policy.choose(task=task, installed=models, primary=primary).model
         if not models:
             return primary
         if primary not in models:
@@ -103,7 +107,13 @@ class ModelRouter:
             "mode": "local_heuristic",
         }
 
+    def _interactive_task(self, task, *, messages=None, prompt=None):
+        if not self.fast_policy.enabled or task != TaskType.GENERAL:
+            return task
+        return last_user_intent(messages) if messages is not None else classify_text(prompt or '')
+
     def chat(self, task, messages, tools=None, max_retries=1):
+        task = self._interactive_task(task, messages=messages)
         models = list(self.get_models() or [])
         last_exc = None
         for i, model in enumerate(self._attempts(task, models, max_retries)):
@@ -114,7 +124,7 @@ class ModelRouter:
                 result = self.brain.chat(messages, tools=tools, model=model)
                 self._record(model, True, (time.time() - started) * 1000)
                 msg = result.get("message", {}) if isinstance(result, dict) else {}
-                if self.local_multi_enabled() and not msg.get("tool_calls"):
+                if self.local_multi_enabled() and not self.fast_policy.avoid_extra_judging(task) and not msg.get("tool_calls"):
                     chosen, _ = self.race_local_and_judge(messages=messages, task=task)
                     if chosen and chosen.content:
                         return {"message": {"role": "assistant", "content": chosen.content}}
@@ -125,7 +135,8 @@ class ModelRouter:
         raise last_exc
 
     def ask(self, task, prompt, system=""):
-        if self.local_multi_enabled():
+        task = self._interactive_task(task, prompt=prompt)
+        if self.local_multi_enabled() and not self.fast_policy.avoid_extra_judging(task):
             chosen, _ = self.race_local_and_judge(
                 messages=([{"role": "system", "content": system}] if system else []) +
                          [{"role": "user", "content": prompt}],

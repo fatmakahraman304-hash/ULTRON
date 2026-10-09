@@ -1,6 +1,7 @@
 import json
 import urllib.request
 import urllib.error
+from app.core.fast_brain import FastBrainPolicy
 
 class Brain:
     """Local Ollama chat adapter with native tool-calling support."""
@@ -10,6 +11,7 @@ class Brain:
         self.model = cfg.get("model", "qwen2.5-coder:7b")
         self.base_url = cfg.get("base_url", "http://127.0.0.1:11434")
         self.timeout = int(cfg.get("timeout_seconds", 180))
+        self.fast_policy = FastBrainPolicy(cfg.get("fast_brain", {}))
         from app.security import sovereign_privacy as sov
         sov.configure(settings)
         if bool(settings.get("sovereign_mode", False)) and not sov.is_local(self.base_url):
@@ -47,19 +49,18 @@ class Brain:
         if history:
             messages.extend(history)
         messages.append({"role": "user", "content": prompt})
-        data = self._post("/api/chat", {
-            "model": model or self.model,
-            "messages": messages,
-            "stream": False
-        })
+        selected = model or self.model
+        payload = {"model": selected, "messages": messages, "stream": False}
+        if self.fast_policy.enabled:
+            payload.update(self.fast_policy.runtime_options(selected))
+        data = self._post("/api/chat", payload)
         return data.get("message", {}).get("content", "").strip()
 
     def chat(self, messages, tools=None, model=None):
-        payload = {
-            "model": model or self.model,
-            "messages": messages,
-            "stream": False,
-        }
+        selected = model or self.model
+        payload = {"model": selected, "messages": messages, "stream": False}
+        if self.fast_policy.enabled:
+            payload.update(self.fast_policy.runtime_options(selected, tools=bool(tools)))
         if tools:
             payload["tools"] = tools
         return self._post("/api/chat", payload)

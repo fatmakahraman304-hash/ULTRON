@@ -30,6 +30,9 @@ jobs:
       - name: Compile changed Python
         run: |
           python -m py_compile ultron/backend/server.py
+          python -m py_compile ultron/backend/app/core/fast_brain.py
+          python -m py_compile ultron/backend/app/core/model_router.py
+          python -m py_compile ultron/backend/app/core/brain.py
           python -m py_compile ultron/backend/earth_watch.py
           python -m py_compile actions/ultron_stage.py
           python -m py_compile integration/web_panel.py
@@ -57,6 +60,10 @@ jobs:
           python -m unittest discover -s scripts/tests -p 'test_mark_video_dock_qt.py' -v
       - name: Trusted code fast-forward safety tests
         run: python -m unittest discover -s scripts/tests -p 'test_safe_self_update.py' -v
+      - name: ULTRON Fast Brain single-pass and Ollama wire regression tests
+        env:
+          PYTHONPATH: ultron/backend
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
