@@ -1,5 +1,17 @@
 import Foundation
 
+enum DesktopTaskError: LocalizedError {
+    case invalidText, invalidResponse, notQueued
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidText: return "Görev 1–4000 karakter olmalı."
+        case .invalidResponse: return "Cloud yanıtı doğrulanamadı."
+        case .notQueued: return "Görev Cloud kuyruğuna alınamadı."
+        }
+    }
+}
+
 actor CloudSession {
     static let shared = CloudSession()
 
@@ -44,6 +56,39 @@ actor CloudSession {
             throw URLError(.userAuthenticationRequired)
         }
         try await login(password: password)
+    }
+
+    /// Siri/App Shortcuts dispatch does not depend on a running microphone.
+    /// The Cloud web session may enqueue a desktop task; risky laptop actions
+    /// still require the local Approval Gate.
+    func enqueueDesktopTask(_ text: String) async throws -> Int {
+        let task = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !task.isEmpty, task.count <= 4_000 else {
+            throw DesktopTaskError.invalidText
+        }
+        try await ensureLogin()
+        var request = URLRequest(url: ULTRONConfig.baseURL.appending(path: "/api/device-commands"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("ultron-native-ios", forHTTPHeaderField: "X-ULTRON-DEVICE")
+        request.httpBody = try JSONSerialization.data(withJSONObject: [
+            "target": "desktop", "command": "agent_task",
+            "payload": ["text": task, "origin": "ios-shortcut"]
+        ])
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw DesktopTaskError.invalidResponse
+        }
+        if http.statusCode == 401 { throw URLError(.userAuthenticationRequired) }
+        guard (200..<300).contains(http.statusCode),
+              let body = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              body["ok"] as? Bool == true,
+              let command = body["command"] as? [String: Any],
+              let id = command["id"] as? Int, id > 0 else {
+            throw DesktopTaskError.notQueued
+        }
+        return id
     }
 
     func webSocketTask(sessionID: String) -> URLSessionWebSocketTask {
