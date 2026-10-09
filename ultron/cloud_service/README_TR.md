@@ -57,3 +57,14 @@ python app.py
 ```
 
 Servis `0.0.0.0:$PORT` üzerinde dinler.
+
+## Ücretsiz iPhone PWA (2026-10-09)
+
+iPhone Safari'de `https://ultron-yubh.onrender.com` → Paylaş → Ana Ekrana Ekle ile kablosuz ve ücretsiz yüklenir. Gerçek native iOS/TestFlight kurulumu değildir; Siri App Intent ve uygulama arka planındaki mikrofon/notification haklarını sınırsız sağlamaz.
+
+Yeni PWA özellikleri:
+- Sesli Gemini Live konuşması korunur. `ios_action` ve `ios_shortcut` gelen Kestirmeler isteği yalnız `ULTRON Bridge` adlı kestirme ve desteklenen eylemle hazırlanır, ekranda **IPHONE İŞLEM ONAYI** çıkar; **KESTİRMELERİ AÇ** seçilmeden otomatik başlatılmaz.
+- `UZAKTAN` sekmesinde aktif Cloud agent görev sayısı, kuyrukta/çalışıyor/hata özeti görünür. Telefon uygulaması canlı açıkken Cloud durumunu kontrol eder; PWA gizliyken sistem anlık ve kesin bildirim garantisi yoktur.
+- `static/mobile-action-guard.js` komut formatı/izinli eylem doğrulaması yapar. `static/sw.js` guard dosyasını offline cache'e dahil eder; önbellek `v37` sürümüne güncellenmiştir.
+
+Test: `node --test ultron/cloud_service/test_mobile_action_guard.cjs` (repo kökünden). Native iPhone kullanımı, Cloud backend deployment veya gerçek telefon/kilit ekranı bundan dolayı kanıtlanmış değildir.
