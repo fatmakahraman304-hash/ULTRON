@@ -1,0 +1,33 @@
+name: ULTRON WORLD Live Read-only Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/ultron-cloud-shared-memory
+    paths:
+      - 'ultron/cloud_service/world_api.py'
+      - 'ultron/cloud_service/static/world.html'
+      - 'ultron/cloud_service/static/world.js'
+      - 'ultron/cloud_service/app.py'
+      - 'scripts/ultron_world_live_smoke.py'
+      - '.github/workflows/world-live-smoke.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ultron-world-live-smoke
+  cancel-in-progress: true
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Cloud WORLD production read-only smoke, never mock provider data
+        run: python scripts/ultron_world_live_smoke.py
