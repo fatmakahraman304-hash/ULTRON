@@ -90,3 +90,9 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - XcodeGen: **PASS**; iOS Simulator compile: **BUILD SUCCEEDED**; unsigned iPhone compile: **BUILD SUCCEEDED**; unsigned IPA 178K ve Xcode project zip artifacts: **upload PASS**.
 - Önceki hata açık kaydı: iOS 18 deployment'da kullanılamayan `IntentModes` (iOS 26+) compile ERROR; `openAppWhenRun = false` iOS18-uyumlu yöntemle düzeltildi ve PASS alındı.
 - Bu statik kontrat testleri runtime Siri, locked-screen/Apple Shortcuts ve gerçek cihaz onaylarının doğru çalıştığını kanıtlamaz; gerçek iPhone/Windows/Render/prod deployment **NOT RUN**. İmzasız IPA cihaza doğrudan kurulamaz.
+
+
+### 2026-10-09 — TestFlight workflow (implementation only, NOT PUBLISHED)
+- `.github/workflows/ios-testflight.yml`: opt-in manual-only protected environment; Apple certificate import, provisioning profile download, signed iPhone archive/export, TestFlight upload; ULTRON SVG source to AppIcon render.
+- `ios/ULTRONMobile/tests/test_testflight_release_contract.py`: 4 static checks; `Native iOS Build` CI result pending.
+- Apple Developer membership, certificates, App Store Connect app record/API key, TestFlight publication/invitation, real device install: **NOT RUN**.

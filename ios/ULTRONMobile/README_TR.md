@@ -89,3 +89,7 @@ ULTRON; sesi arka planda sürdürebilir, mesaj/arama hedefini hazırlayabilir, d
 - Siri arka plan tetikleyicisi sistemin izin verdiği kısa App Intent işlemidir. Mikrofonun sürekli çalışması, sistemin Force Quit veya askıya alma durumları ve üçüncü taraf uygulama ekranları için sınırsız erişim vaat edilmez.
 - Native iOS build doğrulaması: kod commit 0b4751a5d7c5f6ceb4642af4eb413f6fb0ca16b9 için GitHub Actions run 37917812910 SUCCESS. Beş statik güvenlik/regresyon testi, iOS Simulator ve imzasız iPhone derlemesi, paketleme/artifact upload başarılı. Statik testler gerçek iPhone çalışmasını doğrulamaz.
 - Gerçek iPhone'a kurulum için Mac/Xcode, Apple signing ve Cloud login gereklidir. İşletim sistemi ve cihaz izinlerini otomatik aşmaz.
+
+## TestFlight ile kablosuz kurulum (2026-10-09)
+
+**Windows laptop + iPhone, USB kablo gerekmiyor.** GitHub'da yeni `.github/workflows/ios-testflight.yml` *sadece manuel tetiklemeyle* Apple Developer hesabının imzalı IPA'sını hazırlayıp TestFlight'a göndermek üzere eklendi. Apple Developer Program üyeliği, App Store Connect API key, App Store distribution .p12 ve provisioning profile olmadan çalışmaz; bu gizli bilgiler yalnızca GitHub `testflight` environment secrets içinde tutulur. Workflow varsayılan dala alınıp manuel çalıştırılabilmelidir. **Kurulum ve kayıt adımları:** [TESTFLIGHT_KABLOSUZ_TR.md](TESTFLIGHT_KABLOSUZ_TR.md). Bu yol canlı Apple hesabında henüz denenmedi; önce üyelik ve sertifikalar hazır olmalı.

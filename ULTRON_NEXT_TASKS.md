@@ -92,3 +92,10 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 2. ULTRON Bridge kestirmesini Kestirmeler'de yapılandır, supported action izinlerini doğrula; telefon sistem ayarı kullanıcı DEVAM ET dokunuşu olmadan değişmemeli.
 3. Gerçek telefon→Cloud→Windows ULTRON `agent_task` oluştur, Cloud ID, lease, masaüstü Approval Gate, durum sorgusu ve yeniden deneme korumasını gözle. Render `/health` deploy SHA'yı doğrulamadan production ready deme.
 4. Sistem izniyle APNs görev sonucu bildirimleri, Shortcuts ek eylemleri ve kullanıcının açık izniyle iOS entegrasyonunu geliştirmeyi sürdür. Üçüncü taraf uygulamanın gizli ekran kontrolünü veya 7/24 mikrofonu vaat etme.
+
+
+## TestFlight (kablosuz) — sonraki adımlar
+1. Apple Developer Program aktif üyelik, tekil Bundle ID, App Store Connect app record, App Store API (Issuer+Key+p8), Apple Distribution private-key içeren p12 ve App Store provisioning profile sağlanmasını **kullanıcı kendi hesabından** yapmalı. Secret veya parola sohbet/repo/commit içinde paylaşılmamalı.
+2. `.github/workflows/ios-testflight.yml` dosyasını inceleyip default `main` dalına PR/merge yap (UI Run workflow default branch gerektiriyor); GitHub `testflight` environment koruması, 5 vars + 3 secrets ayarla.
+3. Kullanıcı workflow'u manuel başlatsın, signed archive/export ve TestFlight upload sonuçlarını CI loglarıyla doğrula. Yayın yaptık iddiasında bulunma; Apple beta processing, metadata, encryption questions, AppIcon ve TestFlight internal invitation ihtiyaçlarını kontrol et.
+4. iPhone TestFlight daveti ile kablosuz kurulum, Cloud password, Siri App Intents, kilit ekranı, arka plan, desktop queue/Approval Gate uca kadar test et.
