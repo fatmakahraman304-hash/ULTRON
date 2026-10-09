@@ -18,7 +18,7 @@ test('PWA speech and typed WORLD controls accept only allowlisted same-origin if
  assert.match(js,/event\.origin!==location\.origin\|\|event\.source!==window\.parent/);
  assert.match(js,/cmd\.type!=='ultron_world'/);
  assert.match(js,/Number\.isFinite\(lat\)/);
- assert.match(js,/\\['flights','quakes','weather'\\]\.includes\(cmd\.value\)/);
+ assert.ok(js.includes("['flights','quakes','weather'].includes(cmd.value)"));
 });
 test('iPhone PWA actually embeds WORLD module as the fourth tab',()=>{
  assert.match(pwa,/<section id="worldView" class="view">/);
