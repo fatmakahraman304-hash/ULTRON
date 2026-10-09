@@ -49,6 +49,13 @@ test('fixed source adapters have bounded coordinates and no arbitrary user URLs'
  assert.match(backend,/read\(2_000_001\)/);
  assert.doesNotMatch(backend,/_upstream\(request\.query/);
 });
+test('weather has real rate-limit fallback and labels its provider truthfully',()=>{
+ assert.match(backend,/api\.met\.no\/weatherapi\/locationforecast\/2\.0\/compact/);
+ assert.match(backend,/forecast_not_observation/);
+ assert.match(js,/d\.forecast_not_observation/);
+ assert.match(js,/String\(d\.source\|\|'Sağlayıcı bilinmiyor'\)/);
+ assert.match(web,/MET Norway/);
+});
 test('UV, sunrise, air quality, wind, radar and ship sources must be identified',()=>{
  assert.match(js,/const days=d\.daily\|\|\{\}/);
  assert.match(js,/days\.sunrise/);

@@ -134,11 +134,11 @@ async function loadWeather(){
   if(!weatherEnabled||at.lat!==center.lat||at.lon!==center.lon)return;
   const c=d.current;
   const lines=[
-   'Sıcaklık: '+c.temperature_2m+' °C',
-   'Hissedilen: '+c.apparent_temperature+' °C',
-   'Rüzgâr: '+c.wind_speed_10m+' km/sa • yön '+c.wind_direction_10m+'°',
-   'Yağış: '+c.precipitation+' mm • nem %'+c.relative_humidity_2m,
-   'Bulut: %'+c.cloud_cover+' • basınç '+c.surface_pressure+' hPa',
+   'Sıcaklık: '+safeText(c.temperature_2m)+' °C',
+   'Hissedilen: '+safeText(c.apparent_temperature)+' °C',
+   'Rüzgâr: '+safeText(c.wind_speed_10m)+' km/sa • yön '+safeText(c.wind_direction_10m)+'°',
+   'Yağış: '+safeText(c.precipitation)+' mm'+(d.forecast_not_observation?' (gelecek 1 saat tahmini)':'')+' • nem %'+safeText(c.relative_humidity_2m),
+   'Bulut: %'+safeText(c.cloud_cover)+' • basınç '+safeText(c.surface_pressure)+' hPa',
   ];
   $('weatherCard').replaceChildren();
   const title=document.createElement('b');title.textContent='☁ CANLI HAVA • '+String(d.updated||'');$('weatherCard').append(title);
@@ -147,7 +147,7 @@ async function loadWeather(){
   if(Array.isArray(days.sunrise)&&days.sunrise[0]){const div=document.createElement('div');div.textContent='Gün doğumu: '+String(days.sunrise[0]).slice(11)+' • Gün batımı: '+String(days.sunset?.[0]||'').slice(11)+' • UV max: '+safeText(days.uv_index_max?.[0]);$('weatherCard').append(div)}
   const hourly=(d.hourly?.precipitation_probability||[]).slice(0,6);
   if(hourly.length){const div=document.createElement('div');div.textContent='Gelecek saatlerde yağış olasılığı: '+hourly.map(v=>'%'+v).join(' • ');$('weatherCard').append(div)}
-  lastWeather='Hava: '+c.temperature_2m+' °C';status(lastWeather+' • Open-Meteo');
+  lastWeather='Hava: '+safeText(c.temperature_2m)+' °C';status(lastWeather+' • '+String(d.source||'Sağlayıcı bilinmiyor')+(d.forecast_not_observation?' • saatlik tahmin':''));
  }catch(e){status('Hava verisine ulaşılamadı; eski tahmin gösterilmiyor',true)}
 }
 const safeText=(v)=>v===null||v===undefined?'Bilinmiyor':String(v);

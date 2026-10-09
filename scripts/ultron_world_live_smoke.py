@@ -34,7 +34,7 @@ def checked_json(name: str, path: str, expected: str, required: str):
         print(f"WARN {name}: HTTP {status}; live provider unavailable")
         return False
     payload = json.loads(raw)
-    if payload.get("source") != expected or not isinstance(payload.get(required), (dict, list)):
+    if payload.get("source") not in (expected if isinstance(expected, tuple) else (expected,)) or not isinstance(payload.get(required), (dict, list)):
         raise AssertionError(f"{name}: unexpected or missing real source structure")
     print(f"PASS {name}: {payload['source']}, verified live response structure")
     return True
@@ -61,7 +61,7 @@ def main():
 
     weather = checked_json(
         "weather", "/api/world/weather?lat=35.13&lon=33.43",
-        "Open-Meteo", "current",
+        ("Open-Meteo", "MET Norway"), "current",
     )
     if not weather:
         direct_url = (
