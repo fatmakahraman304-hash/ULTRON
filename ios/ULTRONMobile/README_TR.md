@@ -67,3 +67,13 @@ Native uygulama web sürümünden çok daha güçlüdür ama iOS sandbox sınır
 - Arka plandaki bir üçüncü taraf uygulama başka bir uygulamayı her durumda sessizce öne getiremez.
 
 ULTRON; sesi arka planda sürdürebilir, mesaj/arama hedefini hazırlayabilir, desteklenen deep link/App Intent/Shortcuts işlemlerini çalıştırabilir ve izin verilen otomasyonları cihazlar arasında devam ettirebilir.
+
+## 0.3 — Siri'den bilgisayar görevi ve iPhone Kestirmeler köprüsü
+
+- App Intent: Siri/Kestirmeler içindeki **ULTRON Bilgisayara Görev Gönder**, Cloud'a kimlik doğrulamalı agent_task kaydı açar. Örnek: **Hey Siri, ULTRON bilgisayara görev gönder**. Siri görev metnini sorabilir.
+- Native ekrandaki **BİLGİSAYARA GÖNDER** bölümü aynı köprüyü kullanır. Kuyruk ID'si görevin işlendiği anlamına GELMEZ.
+- Cloud parolası ilk kez uygulama içinden girilir, Keychain'de saklanır. Siri komutu login yoksa güvenle hata verir.
+- Native iOS, Cloud Live üzerinden gelen ios_action ve ios_shortcut olaylarını yalnızca **ULTRON Bridge** adlı Kestirmeye yönlendirebilir. Manuel **DEVAM ET** düğmesi ve iOS izinleri gereklidir; modelin istediği keyfi kestirme otomatik çalışmaz.
+- Kestirmeler uygulamasında ULTRON Bridge adında kestirme oluştur. Gelen text girdisini JSON/Sözlük olarak çöz. Güvenilir action, target, value alanlarını denetleyerek sistemin izin verdiği eylemleri bağla.
+- iOS farklı uygulamaların ekranına sınırsız erişim, genel açık mikrofon veya zorla kapatıldıktan sonra sonsuz arka plan çalışmayı garanti etmez.
+- Simulator/unsigned Xcode build CI doğrulanmalı; gerçek Siri/iPhone/Cloud-laptop çalışması ayrıca gerçek cihaz gerektirir.

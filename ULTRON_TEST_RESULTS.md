@@ -77,3 +77,7 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 
 - **CI logları:** 11 durable dispatch journal testi PASS (first/duplicate/restart/changed-payload/different command/scope, no plaintext, invalid/corrupt fail-closed, concurrent reserve, pre-dispatch wiring). Diğer saf Python test grupları: 10 lease, 14 Cloud contract, 5 Earth backend, 3 resume = toplam 43 PASS. Python compile ve frontend TypeScript/Vite production build PASS; Earth math test step PASS.
 - **Bilinen sınır:** `RemoteDispatchJournal` aynı yerel sqlite'ı paylaşan masaüstü komutları için at-most-once Gemini dispatch sağlar. Tool-level exactly-once, Cloud-prod deploy/Windows/telefon gerçek cihaz doğrulaması değildir; crash sonucu belirsiz görevleri manuel kontrol gerektirir.
+
+
+### 2026-10-09 — Native iPhone Siri task / iOS Bridge (CI PENDING)
+- Native XcodeGen/iOS Simulator/unsigned device derleme sonucu henüz doğrulanmadı; gerçek iPhone Siri, kilit ekranı, Cloud-login, Kestirmeler ve Windows laptop uçtan uca **NOT RUN**.

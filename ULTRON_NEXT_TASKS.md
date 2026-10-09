@@ -77,3 +77,10 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 - Tek bir `agent_task` komut ID'sinin Cloud tarafından ikinci attempt ile verilmesini kontrollü test ortamında doğrula. İkinci otomatik Gemini dispatch olmamalı; telefon manuel kontrol mesajı görmeli.
 - `data/cloud_remote_dispatch.sqlite3` yerel, kalıcı ve `.gitignore` kapsamındadır. Dosyayı temizlemek önceki güvenlik kayıtlarını kaybettirir; otomatik temizleme önerilmez.
 - Render, canlı Cloud deploy ve gerçek Windows/telefon/RTX/mikrofon smoke testleri **NOT RUN**.
+
+
+## Native iPhone Siri (v0.3) doğrulama ve devam
+1. `Native iOS Build` workflow'u exact HEAD için XcodeGen, Simulator ve unsigned device build çıktısına bak; FAIL varsa derleme hatasını gider.
+2. Mac/Xcode'da imzalı iPhone kurulum; Cloud parolasını gir; Siri'den `ULTRON bilgisayara görev gönder` ile kuyruğa ID ekle; Windows masaüstü agent Cloud claim ve Approval Gate'i gözle.
+3. ULTRON Bridge kestirmesini Kestirmeler'de elle hazırla. Kullanıcı **DEVAM ET** demeden `ios_action` sistem ayarları çalışmamalı. Ekran kilidi/suspend davranışı ve izin reddini ayrı test et.
+4. Cloud görev durumunu sorgulama ve izinli APNs bildirimlerini geliştirmeye devam et; tam telefon sandbox erişimi vaat etme.
