@@ -1,0 +1,134 @@
+# Deliberately manual-only. This workflow never publishes on pushes/PRs.
+# Apple credentials must be configured in GitHub's protected testflight environment.
+name: ULTRON iPhone TestFlight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ultron-testflight
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Sign and upload iPhone beta
+    runs-on: macos-latest
+    timeout-minutes: 40
+    environment: testflight
+    env:
+      APPSTORE_TEAM_ID: ${{ vars.APPSTORE_TEAM_ID }}
+      APPSTORE_BUNDLE_ID: ${{ vars.APPSTORE_BUNDLE_ID }}
+      APPSTORE_PROFILE_NAME: ${{ vars.APPSTORE_PROFILE_NAME }}
+      APPSTORE_ISSUER_ID: ${{ vars.APPSTORE_ISSUER_ID }}
+      APPSTORE_API_KEY_ID: ${{ vars.APPSTORE_API_KEY_ID }}
+      APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+      APPSTORE_CERTIFICATES_FILE_BASE64: ${{ secrets.APPSTORE_CERTIFICATES_FILE_BASE64 }}
+      APPSTORE_CERTIFICATES_PASSWORD: ${{ secrets.APPSTORE_CERTIFICATES_PASSWORD }}
+    steps:
+      - name: Checkout ULTRON
+        uses: actions/checkout@v4
+
+      - name: Verify required Apple configuration (never print secrets)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in APPSTORE_TEAM_ID APPSTORE_BUNDLE_ID APPSTORE_PROFILE_NAME APPSTORE_ISSUER_ID APPSTORE_API_KEY_ID APPSTORE_API_PRIVATE_KEY APPSTORE_CERTIFICATES_FILE_BASE64 APPSTORE_CERTIFICATES_PASSWORD; do
+            if [[ -z "$(printenv "$key")" ]]; then
+              echo "::error::Missing GitHub testflight environment configuration: $key"
+              exit 1
+            fi
+          done
+          echo "Apple release configuration is present; no credentials displayed."
+
+      - name: Run native bridge regression tests
+        run: python3 -m unittest discover -s ios/ULTRONMobile/tests -p 'test_*.py' -v
+
+      - name: Install XcodeGen and generate project
+        working-directory: ios/ULTRONMobile
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -version
+
+      - name: Import Apple Distribution signing identity
+        uses: apple-actions/import-codesign-certs@v7
+        with:
+          p12-file-base64: ${{ secrets.APPSTORE_CERTIFICATES_FILE_BASE64 }}
+          p12-password: ${{ secrets.APPSTORE_CERTIFICATES_PASSWORD }}
+
+      - name: Download App Store provisioning profile
+        uses: apple-actions/download-provisioning-profiles@v6
+        with:
+          bundle-id: ${{ vars.APPSTORE_BUNDLE_ID }}
+          profile-type: IOS_APP_STORE
+          issuer-id: ${{ vars.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ vars.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+
+      - name: Archive signed ULTRON iPhone application
+        working-directory: ios/ULTRONMobile
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project ULTRONMobile.xcodeproj \
+            -scheme ULTRONMobile \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/ULTRONMobile.xcarchive" \
+            "DEVELOPMENT_TEAM=$APPSTORE_TEAM_ID" \
+            "PRODUCT_BUNDLE_IDENTIFIER=$APPSTORE_BUNDLE_ID" \
+            "PROVISIONING_PROFILE_SPECIFIER=$APPSTORE_PROFILE_NAME" \
+            "CURRENT_PROJECT_VERSION=${{ github.run_number }}" \
+            CODE_SIGN_STYLE=Manual \
+            archive
+
+      - name: Write restricted App Store export settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import plistlib
+          from pathlib import Path
+          path = Path(os.environ["RUNNER_TEMP"]) / "ULTRONExportOptions.plist"
+          data = {
+              "method": "app-store-connect",
+              "destination": "export",
+              "signingStyle": "manual",
+              "teamID": os.environ["APPSTORE_TEAM_ID"],
+              "manageAppVersionAndBuildNumber": False,
+              "provisioningProfiles": {
+                  os.environ["APPSTORE_BUNDLE_ID"]: os.environ["APPSTORE_PROFILE_NAME"],
+              },
+          }
+          with path.open("wb") as stream:
+              plistlib.dump(data, stream)
+          PY
+
+      - name: Export signed IPA for TestFlight
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$RUNNER_TEMP/ULTRONMobile.xcarchive" \
+            -exportPath "$RUNNER_TEMP/ultron-testflight" \
+            -exportOptionsPlist "$RUNNER_TEMP/ULTRONExportOptions.plist"
+          test -s "$RUNNER_TEMP/ultron-testflight/ULTRONMobile.ipa"
+
+      - name: Upload signed beta to App Store Connect TestFlight
+        uses: apple-actions/upload-testflight-build@v5
+        with:
+          app-path: ${{ runner.temp }}/ultron-testflight/ULTRONMobile.ipa
+          issuer-id: ${{ vars.APPSTORE_ISSUER_ID }}
+          api-key-id: ${{ vars.APPSTORE_API_KEY_ID }}
+          api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+          wait-for-processing: 'true'
+
+      # Do not upload signing materials, keychains, profiles or the signed IPA
+      # to public GitHub Actions artifacts. Only Apple receives this beta.
