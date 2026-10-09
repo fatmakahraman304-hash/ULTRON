@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 8
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: ultron_test
           POSTGRES_PASSWORD: local_ci_only
