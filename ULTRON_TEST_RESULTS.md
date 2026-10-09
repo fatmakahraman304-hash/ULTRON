@@ -81,3 +81,12 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 
 ### 2026-10-09 — Native iPhone Siri task / iOS Bridge (CI PENDING)
 - Native XcodeGen/iOS Simulator/unsigned device derleme sonucu henüz doğrulanmadı; gerçek iPhone Siri, kilit ekranı, Cloud-login, Kestirmeler ve Windows laptop uçtan uca **NOT RUN**.
+
+
+### Native iPhone v0.3 — CI PASS (2026-10-09)
+- Kod commit: `0b4751a5d7c5f6ceb4642af4eb413f6fb0ca16b9`.
+- Native iOS Build: [GitHub Actions 37917812910](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/37917812910), **SUCCESS**.
+- Yeni Siri/Shortcuts native sözleşme testleri: **5 PASS** (authenticated desktop queue, explicit user tap/allowlist, handled WS events, bounded Siri HTTP/status route, Keychain storage).
+- XcodeGen: **PASS**; iOS Simulator compile: **BUILD SUCCEEDED**; unsigned iPhone compile: **BUILD SUCCEEDED**; unsigned IPA 178K ve Xcode project zip artifacts: **upload PASS**.
+- Önceki hata açık kaydı: iOS 18 deployment'da kullanılamayan `IntentModes` (iOS 26+) compile ERROR; `openAppWhenRun = false` iOS18-uyumlu yöntemle düzeltildi ve PASS alındı.
+- Bu statik kontrat testleri runtime Siri, locked-screen/Apple Shortcuts ve gerçek cihaz onaylarının doğru çalıştığını kanıtlamaz; gerçek iPhone/Windows/Render/prod deployment **NOT RUN**. İmzasız IPA cihaza doğrudan kurulamaz.

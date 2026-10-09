@@ -84,3 +84,11 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 2. Mac/Xcode'da imzalı iPhone kurulum; Cloud parolasını gir; Siri'den `ULTRON bilgisayara görev gönder` ile kuyruğa ID ekle; Windows masaüstü agent Cloud claim ve Approval Gate'i gözle.
 3. ULTRON Bridge kestirmesini Kestirmeler'de elle hazırla. Kullanıcı **DEVAM ET** demeden `ios_action` sistem ayarları çalışmamalı. Ekran kilidi/suspend davranışı ve izin reddini ayrı test et.
 4. Cloud görev durumunu sorgulama ve izinli APNs bildirimlerini geliştirmeye devam et; tam telefon sandbox erişimi vaat etme.
+
+
+## 2026-10-09 — Native v0.3 doğrulama sonrası kesin devam
+- Kod SHA `0b4751a5d7c5f6ceb4642af4eb413f6fb0ca16b9`; `Native iOS Build` run `37917812910` SUCCESS. 5 statik güvenlik testi, Simulator/unsigned iPhone build, unsigned IPA/Xcode artifact paketleme/upload PASS.
+1. Mac/Xcode ve uygun Apple signing ile native iPhone'a yükle; Cloud password/Keychain oturumu aç, Siri Ask/Send/Status komutlarını gerçek kilit ekranı ve arka plan koşullarında test et, logla.
+2. ULTRON Bridge kestirmesini Kestirmeler'de yapılandır, supported action izinlerini doğrula; telefon sistem ayarı kullanıcı DEVAM ET dokunuşu olmadan değişmemeli.
+3. Gerçek telefon→Cloud→Windows ULTRON `agent_task` oluştur, Cloud ID, lease, masaüstü Approval Gate, durum sorgusu ve yeniden deneme korumasını gözle. Render `/health` deploy SHA'yı doğrulamadan production ready deme.
+4. Sistem izniyle APNs görev sonucu bildirimleri, Shortcuts ek eylemleri ve kullanıcının açık izniyle iOS entegrasyonunu geliştirmeyi sürdür. Üçüncü taraf uygulamanın gizli ekran kontrolünü veya 7/24 mikrofonu vaat etme.

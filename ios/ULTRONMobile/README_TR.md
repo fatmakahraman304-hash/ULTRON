@@ -77,3 +77,15 @@ ULTRON; sesi arka planda sürdürebilir, mesaj/arama hedefini hazırlayabilir, d
 - Kestirmeler uygulamasında ULTRON Bridge adında kestirme oluştur. Gelen text girdisini JSON/Sözlük olarak çöz. Güvenilir action, target, value alanlarını denetleyerek sistemin izin verdiği eylemleri bağla.
 - iOS farklı uygulamaların ekranına sınırsız erişim, genel açık mikrofon veya zorla kapatıldıktan sonra sonsuz arka plan çalışmayı garanti etmez.
 - Simulator/unsigned Xcode build CI doğrulanmalı; gerçek Siri/iPhone/Cloud-laptop çalışması ayrıca gerçek cihaz gerektirir.
+
+## Siri komutları — native v0.3 (09.10.2026)
+
+- **Hey Siri, ULTRON soru sor**: ULTRON'un ortak Cloud sohbet/hafızasından metin cevabı döndürür (iOS App Intent, mikrofon oturumu bağımsız).
+- **Hey Siri, ULTRON bilgisayara görev gönder**: Senden görev metni ister; onu Windows ULTRON'un onay mekanizmasını koruyarak Cloud kuyruğuna bırakır.
+- **Hey Siri, ULTRON son görev ne durumda**: Cloud kuyruğundaki son masaüstü görevinin kaydedilmiş durumunu söyler. Kuyruğa alındı veya masaüstüne teslim edildi bildirimleri, işin tamamlandığı anlamına gelmez.
+- Native ULTRON içinde aynı görevi yazıyla gönderme ve son durumunu öğrenme düğmeleri vardır.
+- Cloud Live üzerinden gelen iPhone sistem komutları yalnızca adı ULTRON Bridge olan kullanıcı tarafından hazırlanmış Kestirmeler akışına gider. İşlem, iPhone ekranında DEVAM ET onayı verilmedikçe başlamaz.
+- Bekleyen komutun metni artık UserDefaults yerine cihazın kendi Keychain'inde AfterFirstUnlockThisDeviceOnly erişim kuralıyla tutulur; eski kayıt taşınır.
+- Siri arka plan tetikleyicisi sistemin izin verdiği kısa App Intent işlemidir. Mikrofonun sürekli çalışması, sistemin Force Quit veya askıya alma durumları ve üçüncü taraf uygulama ekranları için sınırsız erişim vaat edilmez.
+- Native iOS build doğrulaması: kod commit 0b4751a5d7c5f6ceb4642af4eb413f6fb0ca16b9 için GitHub Actions run 37917812910 SUCCESS. Beş statik güvenlik/regresyon testi, iOS Simulator ve imzasız iPhone derlemesi, paketleme/artifact upload başarılı. Statik testler gerçek iPhone çalışmasını doğrulamaz.
+- Gerçek iPhone'a kurulum için Mac/Xcode, Apple signing ve Cloud login gereklidir. İşletim sistemi ve cihaz izinlerini otomatik aşmaz.
