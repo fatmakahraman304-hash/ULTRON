@@ -174,3 +174,10 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Persona-policy: 8/8 Python unittest PASS; postgres-fencing job ran the 8 persona tests and real PostgreSQL delivery fencing, local-brain and ChatGPT development request integrations successfully.
 - Older CI failures from 37992371192: Docker Hub anonymous pull rate-limit, plus an earlier tone test mismatch for the Turkish inflection 'param'; both corrected and independently verified above.
 - No actual laptop Windows voice, physical phone/3D, personal memory interaction or live Render deploy validation was executed.
+
+## 2026-10-10 — Windows assistant persona refinement / verified
+- Desktop Agent persona_guard.py now uses respectful ULTRON guidance rather than mocking the owner; no longer penalizes ordinary replies for lacking 'Boss'. agent.py no longer forces 'Boss' after reframing and removes the harsh rewrite cue.
+- Added ultron/backend/tests/test_persona_warmth.py: 4 stdlib tests covering kind anchor, ordinary direct response, genuine apology and desktop postprocessor.
+- GitHub Actions Cloud Queue PostgreSQL Integration #37992833637 on SHA 433617f77b669fbe30526705faccbe6532ccd545 SUCCESS: persona-policy (Cloud 8 + Windows 4 tests), real PostgreSQL queue/memory/development-request integrations all passed.
+- ULTRON Scene Build Check #37992774370 SUCCESS at Windows agent postprocessor SHA 93f921f266a37bf01f565b9c8c32880854f3f372.
+- No Windows local checkout, microphone/audio, physical phone or current Render deploy verified.
