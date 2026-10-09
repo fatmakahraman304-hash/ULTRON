@@ -14,6 +14,8 @@ concurrency:
 
 jobs:
   publish:
+    # Signing secrets may be used only from the reviewed default branch.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     name: Sign and upload iPhone beta
     runs-on: macos-latest
     timeout-minutes: 40
