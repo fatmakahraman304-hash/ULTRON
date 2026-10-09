@@ -44,6 +44,12 @@ jobs:
           python -m py_compile mark_app.py
       - name: Original MARK embedded video dock regression tests
         run: python -m unittest discover -s scripts/tests -p 'test_mark_video_dock.py' -v
+      - name: Actual headless Qt MARK video dock geometry and signals
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m pip install --disable-pip-version-check 'PyQt6>=6.6,<7'
+          python -m unittest discover -s scripts/tests -p 'test_mark_video_dock_qt.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
