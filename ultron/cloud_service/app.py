@@ -284,6 +284,13 @@ async def claim_device_commands(request: web.Request) -> web.Response:
 
     async with request.app["db"].acquire() as conn:
         async with conn.transaction():
+            # Serialize claims per user/target. Without a transaction-scoped
+            # advisory lock two overlapping HTTP polls can each see no active
+            # agent task and deliver two different queued tasks at once.
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtext($1::text || ':' || $2::text))",
+                str(request["user_id"]), target,
+            )
             # Never execute a forgotten remote command days later. Old queued
             # work is made visible as expired instead of silently lingering.
             await conn.execute(
@@ -413,11 +420,16 @@ async def complete_device_command(request: web.Request) -> web.Response:
     expected_target = "desktop" if auth_kind == "device" else "phone"
 
     current = await request.app["db"].fetchrow(
-        "SELECT retry_count,max_retries FROM device_commands WHERE id=$1 AND user_id=$2 AND target=$3",
+        "SELECT status,retry_count,max_retries FROM device_commands WHERE id=$1 AND user_id=$2 AND target=$3",
         command_id, request["user_id"], expected_target,
     )
     if not current:
         raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
+    if current["status"] != "delivered":
+        # A stale/duplicate worker must never overwrite a completed, expired,
+        # cancelled or not-yet-claimed command. The SQL update below repeats
+        # this guard atomically for concurrent requests.
+        raise web.HTTPConflict(text=json.dumps({"error": "command_not_active"}), content_type="application/json")
 
     should_retry = (
         expected_target == "desktop"
@@ -444,6 +456,7 @@ async def complete_device_command(request: web.Request) -> web.Response:
                     'at',EXTRACT(EPOCH FROM NOW())
                   ))
             WHERE id=$3 AND user_id=$4 AND target=$5
+              AND status='delivered' AND retry_count < max_retries
             RETURNING id,target,command,status,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
             """,
             json.dumps(result), retry_after_seconds, command_id, request["user_id"], expected_target,
@@ -463,12 +476,15 @@ async def complete_device_command(request: web.Request) -> web.Response:
                     'at', EXTRACT(EPOCH FROM NOW())
                   ))
             WHERE id=$3 AND user_id=$4 AND target=$5
+              AND status='delivered'
             RETURNING id,target,command,status,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
             """,
             status, json.dumps(result), command_id, request["user_id"], expected_target,
         )
     if not row:
-        raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
+        # The row existed at the initial lookup, but another worker/HTTP
+        # request won the transition. Keep the original result intact.
+        raise web.HTTPConflict(text=json.dumps({"error": "command_not_active"}), content_type="application/json")
     return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
 
 
