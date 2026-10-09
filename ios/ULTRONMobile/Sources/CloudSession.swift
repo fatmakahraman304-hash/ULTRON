@@ -1,13 +1,16 @@
 import Foundation
 
 enum DesktopTaskError: LocalizedError {
-    case invalidText, invalidResponse, notQueued
+    case invalidText, invalidResponse, notQueued, localDesktopOffline, localUnavailable, localTimeout
 
     var errorDescription: String? {
         switch self {
         case .invalidText: return "Görev 1–4000 karakter olmalı."
         case .invalidResponse: return "Cloud yanıtı doğrulanamadı."
         case .notQueued: return "Görev Cloud kuyruğuna alınamadı."
+        case .localDesktopOffline: return "Ücretsiz yerel Qwen için Windows ULTRON ve Ollama açık olmalı. Gemini modunu elle seçebilirsin."
+        case .localUnavailable: return "Ücretsiz yerel beyin yanıt vermedi. Gemini otomatik açılmadı."
+        case .localTimeout: return "Yerel beyin yanıtı gecikti; laptopun bağlantısını kontrol et."
         }
     }
 }
@@ -91,38 +94,76 @@ actor CloudSession {
         return id
     }
 
-    /// Siri answers short general questions from the shared Cloud brain.
-    /// This is a bounded request; unlike Gemini Live it cannot dispatch
-    /// device tools. Use enqueueDesktopTask for requested laptop actions.
+    /// Siri text prefers FREE Qwen running on the paired Windows laptop.
+    /// Continuous Live audio is independent and remains Gemini Live.
     func askULTRON(_ question: String) async throws -> String {
         let message = question.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty, message.count <= 2_000 else {
             throw DesktopTaskError.invalidText
         }
         try await ensureLogin()
-        var request = URLRequest(url: ULTRONConfig.baseURL.appending(path: "/api/chat"))
+        let geminiSelected = UserDefaults.standard.string(
+            forKey: "ultron.siri.brain_mode"
+        ) == "gemini"
+        let path = geminiSelected ? "/api/chat" : "/api/local-chat"
+        var request = URLRequest(url: ULTRONConfig.baseURL.appending(path: path))
         request.httpMethod = "POST"
-        request.timeoutInterval = 45
+        request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("ultron-native-ios", forHTTPHeaderField: "X-ULTRON-DEVICE")
-        var body: [String: Any] = ["message": message]
+        var payload: [String: Any] = ["message": message]
         if let conversation = UserDefaults.standard.string(forKey: "ultron.siri.conversation_id"),
            !conversation.isEmpty {
-            body["conversation_id"] = conversation
+            payload["conversation_id"] = conversation
         }
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
         let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse,
-              http.statusCode == 200,
-              let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let reply = result["reply"] as? String,
-              !reply.isEmpty else {
+        guard let http = response as? HTTPURLResponse else {
+            throw DesktopTaskError.invalidResponse
+        }
+        if http.statusCode == 401 { throw URLError(.userAuthenticationRequired) }
+        if http.statusCode == 409 && !geminiSelected {
+            throw DesktopTaskError.localDesktopOffline
+        }
+        guard let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw DesktopTaskError.invalidResponse
         }
         if let conversation = result["conversation_id"] as? String {
             UserDefaults.standard.set(conversation, forKey: "ultron.siri.conversation_id")
         }
-        return reply
+        if geminiSelected {
+            guard http.statusCode == 200, let answer = result["reply"] as? String,
+                  !answer.isEmpty else { throw DesktopTaskError.invalidResponse }
+            return answer
+        }
+        guard http.statusCode == 202, let commandID = result["command_id"] as? Int,
+              commandID > 0 else { throw DesktopTaskError.localUnavailable }
+        // App Intents cannot wait indefinitely. No silent Gemini fallback.
+        for _ in 0..<25 {
+            try await Task.sleep(for: .seconds(1))
+            var poll = URLRequest(url: ULTRONConfig.baseURL.appending(
+                path: "/api/local-chat/\(commandID)"
+            ))
+            poll.timeoutInterval = 12
+            poll.setValue("ultron-native-ios", forHTTPHeaderField: "X-ULTRON-DEVICE")
+            let (replyData, replyResponse) = try await session.data(for: poll)
+            guard let httpReply = replyResponse as? HTTPURLResponse,
+                  httpReply.statusCode == 200,
+                  let state = try? JSONSerialization.jsonObject(with: replyData)
+                    as? [String: Any] else {
+                throw DesktopTaskError.localUnavailable
+            }
+            if state["status"] as? String == "completed" {
+                guard let answer = state["reply"] as? String, !answer.isEmpty else {
+                    throw DesktopTaskError.localUnavailable
+                }
+                return answer
+            }
+            if ["failed", "expired", "cancelled"].contains(state["status"] as? String ?? "") {
+                throw DesktopTaskError.localUnavailable
+            }
+        }
+        throw DesktopTaskError.localTimeout
     }
 
     /// The user can ask Siri for the last Cloud desktop task status without
