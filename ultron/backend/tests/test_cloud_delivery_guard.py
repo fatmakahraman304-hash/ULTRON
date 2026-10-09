@@ -1,11 +1,15 @@
 """Regression tests for Cloud lease fencing; no accounts/network required."""
 import asyncio
+import io
+import json
 import sys
 import unittest
+import urllib.error
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from cloud_client import CloudDeliveryRejected
+from cloud_client import CloudClient, CloudDeliveryRejected
 from cloud_delivery import RemoteLeaseGuard
 
 
@@ -75,6 +79,45 @@ class LeaseGuardTests(unittest.IsolatedAsyncioTestCase):
             with self.subTest(cid=cid,attempt=attempt):
                 with self.assertRaises(ValueError):
                     RemoteLeaseGuard(FakeClient([]),cid,attempt)
+
+
+
+class CloudHTTPErrorTests(unittest.TestCase):
+    def setUp(self):
+        self.client=CloudClient()
+        self.client.base_url="https://example.invalid"
+        self.client.device_token="test-only"
+        self.client.timeout_s=1
+
+    def tearDown(self):
+        self.client._executor.shutdown(wait=False, cancel_futures=True)
+
+    def simulated_http_error(self,status,path,body):
+        url=self.client.base_url+path
+        error=urllib.error.HTTPError(url,status,"simulated",{},io.BytesIO(body.encode()))
+        with patch("urllib.request.urlopen", side_effect=error):
+            return self.client._sync_request("POST",path,{"delivery_attempt":5})
+
+    def test_409_fences_superseded_delivery(self):
+        with self.assertRaises(CloudDeliveryRejected) as captured:
+            self.simulated_http_error(409,"/api/device-commands/8/progress",json.dumps({"error":"stale_delivery_attempt"}))
+        self.assertEqual(captured.exception.status_code,409)
+        self.assertIn("stale_delivery_attempt",str(captured.exception))
+
+    def test_404_fences_inactive_delivery(self):
+        with self.assertRaises(CloudDeliveryRejected) as captured:
+            self.simulated_http_error(404,"/api/device-commands/8/checkpoint",json.dumps({"error":"command_not_found"}))
+        self.assertEqual(captured.exception.status_code,404)
+
+    def test_unrelated_404_is_not_a_lease_fence(self):
+        with self.assertRaises(RuntimeError) as captured:
+            self.simulated_http_error(404,"/health",'{"detail":"missing endpoint"}')
+        self.assertNotIsInstance(captured.exception,CloudDeliveryRejected)
+
+    def test_503_is_transient_not_a_stale_attempt(self):
+        with self.assertRaises(RuntimeError) as captured:
+            self.simulated_http_error(503,"/api/device-commands/8/progress",'{"error":"unavailable"}')
+        self.assertNotIsInstance(captured.exception,CloudDeliveryRejected)
 
 
 if __name__=="__main__":
