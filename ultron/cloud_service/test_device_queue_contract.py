@@ -11,6 +11,7 @@ import ast
 import asyncio
 import json
 import re
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -59,7 +60,7 @@ def load_handlers():
         HTTPNotFound=HTTPNotFound, HTTPConflict=HTTPConflict,
         json_response=lambda body, **kwargs: body,
     )
-    ns = {"web": web, "json": json, "_json_dumps": json.dumps}
+    ns = {"web": web, "json": json, "time": time, "_json_dumps": json.dumps}
     exec(compile(module, str(SOURCE), "exec"), ns)
     return ns
 
@@ -108,6 +109,35 @@ class FakeDB:
         return {"id": 1, "target": "desktop", "command": "agent_task",
                 "status": self.status, "result": self.result,
                 "retry_count": self.retry_count, "max_retries": self.max_retries}
+
+
+class ProgressDB:
+    """Execute real progress/checkpoint handlers against fenced in-memory state."""
+    def __init__(self, attempt=2):
+        self.delivery_attempt = attempt
+        self.status = "delivered"
+        self.command = "agent_task"
+        self.progress = []
+        self.checkpoint = {}
+        self.renew_count = 0
+        self.queries = []
+
+    async def fetchrow(self, sql, *args):
+        self.queries.append((sql,args))
+        if self.status != "delivered" or self.command != "agent_task":
+            return None
+        if args[-1] != self.delivery_attempt:
+            return None
+        if "SET delivered_at=NOW()" in sql:
+            self.renew_count += 1
+            return {"id":1, "status":self.status,"delivered_at":None}
+        if "SET checkpoint=" in sql:
+            self.checkpoint = json.loads(args[0])
+            return {"id":1,"status":self.status,"checkpoint":self.checkpoint,"progress":list(self.progress)}
+        if "SET progress =" in sql:
+            self.progress.extend(json.loads(args[0]))
+            return {"id":1,"status":self.status,"progress":list(self.progress)}
+        raise AssertionError("Unexpected SQL from Cloud queue handler")
 
 
 class FakeTransaction:
@@ -283,6 +313,52 @@ class CloudQueueContractTests(unittest.IsolatedAsyncioTestCase):
             "result": {"message": "awake"}
         }))
         self.assertEqual(out["command"]["status"], "completed")
+
+
+    async def test_lease_and_progress_are_fenced_after_reclaim(self):
+        db = ProgressDB(attempt=2)
+        for stage in ("lease", "executing"):
+            with self.assertRaises(HTTPNotFound):
+                await self.handlers["append_device_command_progress"](FakeRequest(
+                    db, {"delivery_attempt":1,"stage":stage,"message":"stale"}
+                ))
+        self.assertEqual(db.renew_count,0)
+        self.assertEqual(db.progress,[])
+        lease = await self.handlers["append_device_command_progress"](FakeRequest(
+            db, {"delivery_attempt":2,"stage":"lease"}
+        ))
+        self.assertEqual(lease["command"]["status"],"delivered")
+        self.assertEqual(db.renew_count,1)
+        response = await self.handlers["append_device_command_progress"](FakeRequest(
+            db, {"delivery_attempt":2,"stage":"executing","message":"safe","percent":50}
+        ))
+        self.assertEqual(response["command"]["progress"][-1]["message"],"safe")
+
+    async def test_checkpoint_stale_worker_cannot_overwrite_current(self):
+        db = ProgressDB(attempt=3)
+        with self.assertRaises(HTTPNotFound):
+            await self.handlers["save_device_command_checkpoint"](FakeRequest(
+                db, {"delivery_attempt":2,"step_index":40,"note":"stale",
+                     "state":{"last_action":"delete"}}
+            ))
+        self.assertEqual(db.checkpoint,{})
+        response = await self.handlers["save_device_command_checkpoint"](FakeRequest(
+            db, {"delivery_attempt":3,"step_index":4,"note":"current",
+                 "state":{"last_action":"safe"}}
+        ))
+        self.assertEqual(response["command"]["checkpoint"]["step_index"],4)
+        self.assertEqual(db.checkpoint["note"],"current")
+
+    def test_desktop_client_follows_delivery_fencing(self):
+        client = SOURCE.parent.parent / "backend" / "cloud_client.py"
+        desktop = SOURCE.parent.parent.parent / "mark_app.py"
+        client_source = client.read_text(encoding="utf-8")
+        desktop_source = desktop.read_text(encoding="utf-8")
+        for method in ("report_task_progress","save_task_checkpoint","complete_task"):
+            self.assertIn("async def "+method,client_source)
+        self.assertGreaterEqual(client_source.count('"delivery_attempt": int(delivery_attempt)'),2)
+        self.assertIn("delivery_attempt = int(item.get(\"delivery_attempt\") or 0)",desktop_source)
+        self.assertIn("delivery_attempt=delivery_attempt",desktop_source)
 
     def test_sql_uses_atomic_compare_and_set(self):
         ns = load_handlers()
