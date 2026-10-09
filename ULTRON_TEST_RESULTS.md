@@ -2,7 +2,7 @@
 
 ## 2026-10-09
 **Başlangıç HEAD:** `0638b116c30d221f4167a4df35381a5697237668`.  
-**Son kod/CI referansı:** `34b80e43abe023e58a8f65c87688aa104d6d55e7`.
+**Son kod/CI referansı:** `d96638e1ecaad7d0b800e20fb22580ade555e777`.
 
 ### GitHub Actions: PASS
 - Workflow: `ULTRON Scene Build Check`
@@ -55,3 +55,16 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
   - Legacy one-shot wake completion remains accepted.
 - **Fixed failures honestly recorded:** early integration CI `37897241297` failed due to SQL `$3` type ambiguity plus raw JSONB response; `37897368506` failed due to test-side JSONB string parsing. Both corrected before final PASS.
 - **Limitations:** Real Render production deployment/phone/Windows/RTX microphone/Gemini Live end-to-end **NOT RUN**. Disposable real PostgreSQL is not a production deployment test. Cloud callback fencing does not prove exactly-once local tool side effects.
+
+
+### 2026-10-09 — Desktop Cloud ownership loss + stale worker guard: VERIFIED CI PASS
+- **Kod commit:** `d96638e1ecaad7d0b800e20fb22580ade555e777`.
+- **Workflow:** `ULTRON Scene Build Check`, run `37914696238` — **SUCCESS**.
+- Python `py_compile` (backend/Cloud/client/mark_app): **PASS**.
+- `test_earth_watch_config.py`: **5 PASS**.
+- `test_cloud_delivery_guard.py`: **10 PASS** (6 RemoteLeaseGuard davranışı + 4 CloudClient HTTP sınıflaması).
+- `test_device_queue_contract.py`: **14 PASS**.
+- `test_ultron_dev_resume.py`: **3 PASS**.
+- `npm run build`: **PASS** (Vite 3.28s); `npm run test:earth`: CI step **PASS**.
+- **NOT RUN:** gerçek Windows üzerinde `START.bat`, Gemini Live sesli agent ve telefon görev uçtan uca testi; Render deploy SHA ve kullanıcı hesabı; gerçek enjekte edilmiş ağ kopmasıyla side-effect kontrolü.
+- **Gerçek kapsam:** Cloud HTTP status handling ve lease monitor unit/regression testleri; `mark_app.py` import/syntax ve CI bağlantısı. Gerçek harici tool side-effect exactly-once **kanıtlanmadı**.
