@@ -24,6 +24,12 @@ import aiohttp
 from aiohttp import web
 import uuid
 
+from earth_watch import (
+    EARTH_BOOLEAN_KEYS, add_earth_marker, earth_boolean,
+    earth_longitude, earth_number, earth_text, normalize_earth_state,
+    remove_earth_marker,
+)
+
 from agent import Agent
 from app.code_intel.analyzer import CodeIntel
 from app.core.intent import VISION_PROMPT
@@ -137,7 +143,7 @@ class Hub:
                 if isinstance(_stage_saved.get("hologram"), dict):
                     self.stage_state["hologram"].update(_stage_saved["hologram"])
                 if isinstance(_stage_saved.get("earth"), dict):
-                    self.stage_state["earth"].update(_stage_saved["earth"])
+                    self.stage_state["earth"] = normalize_earth_state(_stage_saved["earth"])
                 if isinstance(_stage_saved.get("scene"), dict):
                     self.stage_state["scene"].update(_stage_saved["scene"])
                     _restored_scene = self.stage_state["scene"]
@@ -1140,39 +1146,44 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state.update({"mode": "core_idle", "title": "ULTRON",
                       "subtitle": "NEURAL CORE", "progress": 0, "job_id": None})
     elif op in {"earth_open", "earth_watch", "world_watch"}:
-        earth=dict(state.get("earth") or {})
-        earth.setdefault("auto_rotate",True);earth.setdefault("rotation_speed",.08)
-        earth.setdefault("clouds",True);earth.setdefault("atmosphere",True);earth.setdefault("stars",True)
-        earth.setdefault("grid",False);earth.setdefault("night",False);earth.setdefault("live_iss",False)
-        earth.setdefault("focus_lat",20.0);earth.setdefault("focus_lon",0.0);earth.setdefault("focus_label","GLOBAL")
-        earth.setdefault("markers",[])
-        state["earth"]=earth;state.update({"mode":"earth_watch","title":"EARTH WATCH","subtitle":"3D GLOBAL MONITOR","progress":100})
+        state["earth"] = normalize_earth_state(state.get("earth"))
+        state.update({"mode": "earth_watch", "title": "EARTH WATCH",
+                      "subtitle": "3D GLOBAL MONITOR", "progress": 100})
     elif op == "earth_control":
-        earth=dict(state.get("earth") or {})
-        for key in ("auto_rotate","clouds","atmosphere","stars","grid","night","live_iss"):
-            if key in body:earth[key]=bool(body.get(key))
-        if "rotation_speed" in body:earth["rotation_speed"]=_stage_number(body.get("rotation_speed"),earth.get("rotation_speed",.08),0,1.5)
-        state["earth"]=earth;state["mode"]="earth_watch"
+        earth = normalize_earth_state(state.get("earth"))
+        for key in EARTH_BOOLEAN_KEYS:
+            if key in body:
+                earth[key] = earth_boolean(body[key], earth[key])
+        if "rotation_speed" in body:
+            earth["rotation_speed"] = earth_number(body["rotation_speed"], earth["rotation_speed"], 0, 1.5)
+        state["earth"] = earth
+        state["mode"] = "earth_watch"
     elif op == "earth_focus":
-        earth=dict(state.get("earth") or {})
-        earth["focus_lat"]=_stage_number(body.get("lat",earth.get("focus_lat",20)),20,-90,90)
-        earth["focus_lon"]=_stage_number(body.get("lon",earth.get("focus_lon",0)),0,-180,180)
-        earth["focus_label"]=str(body.get("place") or body.get("label") or "TARGET")[:80]
-        state["earth"]=earth;state.update({"mode":"earth_watch","title":"EARTH WATCH","subtitle":f"{earth['focus_label']} / TARGET"})
+        earth = normalize_earth_state(state.get("earth"))
+        earth["focus_lat"] = earth_number(body.get("lat"), earth["focus_lat"], -90, 90)
+        earth["focus_lon"] = earth_longitude(body.get("lon"), earth["focus_lon"])
+        earth["focus_label"] = earth_text(body.get("place") or body.get("label"), "TARGET")
+        # Holding a selected region in view takes priority over automatic rotation.
+        earth["auto_rotate"] = earth["focus_label"].upper() == "GLOBAL"
+        state["earth"] = earth
+        state.update({"mode": "earth_watch", "title": "EARTH WATCH",
+                      "subtitle": f"{earth['focus_label']} / TARGET"})
     elif op == "earth_marker_add":
-        earth=dict(state.get("earth") or {});markers=list(earth.get("markers") or [])
-        marker={"id":uuid.uuid4().hex[:8],
-                "lat":_stage_number(body.get("lat",0),0,-90,90),
-                "lon":_stage_number(body.get("lon",0),0,-180,180),
-                "label":str(body.get("label") or "MARKER")[:80],
-                "color":str(body.get("color") or "#ff334d")[:24]}
-        markers.append(marker);earth["markers"]=markers[-64:];state["earth"]=earth;state["mode"]="earth_watch";state["earth_result"]=marker
+        earth = normalize_earth_state(state.get("earth"))
+        marker = add_earth_marker(earth, body, uuid.uuid4().hex[:8])
+        state["earth"] = earth
+        state["mode"] = "earth_watch"
+        state["earth_result"] = marker
     elif op == "earth_marker_remove":
-        earth=dict(state.get("earth") or {});marker_id=str(body.get("marker_id") or "")
-        earth["markers"]=[m for m in (earth.get("markers") or []) if str(m.get("id"))!=marker_id]
-        state["earth"]=earth;state["mode"]="earth_watch"
+        earth = normalize_earth_state(state.get("earth"))
+        remove_earth_marker(earth, str(body.get("marker_id") or ""))
+        state["earth"] = earth
+        state["mode"] = "earth_watch"
     elif op == "earth_marker_clear":
-        earth=dict(state.get("earth") or {});earth["markers"]=[];state["earth"]=earth;state["mode"]="earth_watch"
+        earth = normalize_earth_state(state.get("earth"))
+        earth["markers"] = []
+        state["earth"] = earth
+        state["mode"] = "earth_watch"
     elif op in {"hologram_create", "hologram", "hologram_show"}:
         holo = dict(state.get("hologram") or {})
         kind = str(body.get("kind") or holo.get("kind") or "energy").strip().lower()
