@@ -16,6 +16,18 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 
+class CloudDeliveryRejected(RuntimeError):
+    """Cloud says a claimed task's attempt is no longer active.
+
+    404/409 on a leased-task endpoint is terminal for *this worker*; retrying
+    the same delivery_attempt cannot regain ownership of a newer claim.
+    """
+
+    def __init__(self, status_code: int, message: str) -> None:
+        self.status_code = status_code
+        super().__init__(message)
+
+
 class CloudClient:
     def __init__(self) -> None:
         self.base_url = os.getenv("ULTRON_CLOUD_URL", "").strip().rstrip("/")
@@ -73,6 +85,8 @@ class CloudClient:
                 message = data.get("detail") or data.get("error") or f"HTTP {exc.code}"
             else:
                 message = f"HTTP {exc.code}"
+            if exc.code in (404, 409) and path.startswith("/api/device-commands/"):
+                raise CloudDeliveryRejected(exc.code, str(message)) from exc
             raise RuntimeError(str(message)) from exc
 
     async def _request(self, method: str, path: str, *, json_body: dict | None = None) -> dict[str, Any]:
