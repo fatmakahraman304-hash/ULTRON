@@ -184,3 +184,10 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - GitHub Actions Cloud Queue PostgreSQL Integration #37992833637 on SHA 433617f77b669fbe30526705faccbe6532ccd545 SUCCESS: persona-policy (Cloud 8 + Windows 4 tests), real PostgreSQL queue/memory/development-request integrations all passed.
 - ULTRON Scene Build Check #37992774370 SUCCESS at Windows agent postprocessor SHA 93f921f266a37bf01f565b9c8c32880854f3f372.
 - No Windows local checkout, microphone/audio, physical phone or current Render deploy verified.
+
+
+## 2026-10-10 — Personal owner briefing API
+- Previous capability-readiness implementation and five tests passed CI (Cloud Queue PostgreSQL Integration #37995713894 success; scene build #37995706268 success on adjacent code commit).
+- New pure Python personal_briefing.py reads only user-saved memory rows, deduplicates entries, bounds all outputs, and labels every item owner_saved_memory; it never invents deadlines, reminders, appointments, email access or executed actions.
+- app.py now offers authenticated GET /api/personal-briefing with user-scoped memory query; no automatic polling or data gathering.
+- Four new tests in test_personal_briefing.py wired into the standalone persona-policy CI job. CI / physical iPhone / Windows / Render current deployment should be checked separately; do not claim they are verified without passing results.
