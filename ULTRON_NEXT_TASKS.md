@@ -187,3 +187,16 @@ Somut sonraki doğrulama: iPhone Safari ULTRON → DÜNYA; sesle “Gazimağusa'
 2. iPhone Safari ULTRON: choose YEREL QWEN, send Merhaba, test actual round trip. Disconnect laptop and confirm truthful offline error rather than Gemini fallback. Select Gemini manually to compare.
 3. Native signed iOS Siri Ask ULTRON on-device test, inspect local/Gemini selection and App Intents lifetime. Continuous Gemini Live remains separate.
 4. Windows local latency benchmark: python scripts/ultron_fast_brain_doctor.py --benchmark. Do not assert fixed ms speed from unit CI tests.
+
+## 2026-10-09 • ULTRON Hybrid Brain — local Qwen primary, Gemini optional
+- Existing owner-authenticated iPhone Cloud /api/local-chat → paired Windows Ollama/Qwen remains free default text chat. Phone/Render do not themselves host Qwen; Windows laptop and Ollama must be online.
+- Added ultron/cloud_service/static/local-voice.js: explicit tap-to-talk in Turkish via browser SpeechRecognition (when available), free Windows Qwen via the existing queue, and browser speechSynthesis for Turkish response. No browser Gemini fallback or automatic background microphone.
+- PWA static/index.html: Qwen mic button now calls local recognition; Gemini Live mic starts only after explicit Gemini mode selection plus mic tap. App boot/pageshow/visibility will not silently initiate Gemini anymore. Service worker v43.
+- Browser speech recognition may be unsupported in iOS Home Screen PWA and may use the browser vendor's network service. This is not guaranteed fully offline STT, no native iOS Siri entitlement, and does not establish guaranteed speech latency.
+- Original Windows Fast Brain via installed Ollama models already exists; Windows MARK live-voice engine still Gemini separately and was NOT switched automatically to local Whisper/Piper.
+- Code SHA f33bc81f9bdfdb4d5644c7beeaa7c061f8e63cbf: Scene Build Check #37989333207 SUCCESS, PostgreSQL #37989333208 SUCCESS and Render this code SHA observed live. Physical iPhone Safari microphone and Windows actual GPU latency NOT RUN. Further documentation: ultron/HYBRID_BRAIN_TR.md.
+### Hybrid Brain next physical tests
+1. iPhone ULTRON: select YEREL QWEN, manually tap mic, grant browser mic permission if supported, verify transcript, Cloud/Windows local answer and Turkish TTS. Confirm no Gemini connection or automatic restart on opening page.
+2. Manually select GEMINI, tap mic and confirm original Live native audio works. Return to Qwen; Gemini must never be an unapproved fallback.
+3. Windows: run Ollama, paired ULTRON Cloud worker and scripts/ultron_fast_brain_doctor.py --benchmark; measure actual response. Existing MARK voice Gemini Live is a separate audio path.
+4. If browser STT is unsupported or requires third-party processing, consider opt-in audio capture relayed securely to Windows Whisper with retention/size/security testing; do not claim done.
