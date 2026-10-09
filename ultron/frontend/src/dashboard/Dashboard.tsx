@@ -293,7 +293,39 @@ export default function Dashboard(){
   }
   return '';
  };
+ const markVideoIntent=(text:string):string=>{
+  if(!u.native?.videoRequest)return '';
+  const lower=text.toLocaleLowerCase('tr-TR').trim();
+  // Specific CORE animation presets stay CORE animations; MARK handles actual media.
+  if(/(?:kuş|kus|civciv|nabız|nabiz|yörünge|yorunge|orbit|enerji).*(?:animasyon)/.test(lower))return '';
+  if(/(?:video|videoyu|klip|film).*(?:durdur|kapat|kaldır|kaldir)/.test(lower)){
+   u.native.videoRequest('stop','');return 'MARK videosu kapatılıyor.';
+  }
+  if(/(?:video|videoyu|klip).*(?:duraklat|pause)/.test(lower)){
+   u.native.videoRequest('pause','');return 'MARK videosu duraklatılıyor.';
+  }
+  if(/(?:video|videoyu|klip).*(?:devam|resume)/.test(lower)){
+   u.native.videoRequest('resume','');return 'MARK videosu devam ediyor.';
+  }
+  if(/(?:video|videoyu|klip).*(?:sesini aç|sesi aç|ses aç)/.test(lower)){
+   u.native.videoRequest('unmute','');return 'MARK video sesi açılıyor.';
+  }
+  if(/(?:video|videoyu|klip).*(?:sesini kapat|sesi kapat|sessize)/.test(lower)){
+   u.native.videoRequest('mute','');return 'MARK video sesi sessize alınıyor.';
+  }
+  const match=text.match(/(?:video(?:yu)?|klip|animasyon)\s+(?:oynat|aç|ac|göster|goster)\s*(.*)$/i)
+    ||text.match(/(?:oynat|aç|ac|göster|goster)\s+(?:video|animasyon|klip)\s*(.*)$/i);
+  if(!match)return '';
+  const source=match[1].trim().replace(/^[:\-–]\s*/,'');
+  if(!source){
+   u.native.videoRequest('open_file','');
+   return 'MARK video dosyası seçiliyor; video ULTRON CORE içinde açılacak.';
+  }
+  u.native.videoRequest('play',source);
+  return 'MARK videosu ULTRON CORE içinde açılıyor.';
+ };
  const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');if(model==='native'){if(u.native)u.native.send(text);return;}u.add('user',text);
+  const markReply=markVideoIntent(text);if(markReply){u.add('assistant',markReply);return;}
   try{const stageReply=await stageIntent(text);if(stageReply){u.add('assistant',stageReply);return;}}catch(e){notify((e as Error).message);return;}
   setBusy(true);setLocalState('THINKING');const ctl=new AbortController();abort.current=ctl;
   try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{})},ctl.signal);u.add('assistant',r.text||JSON.stringify(r));setLocalState('IDLE');}catch(e){notify((e as Error).message);}finally{setBusy(false);abort.current=null;}};
@@ -316,7 +348,7 @@ export default function Dashboard(){
  <button onClick={holo}><Box/>Hologram Çalışma Alanı</button><button onClick={()=>open('Dosyalar')}><Folder/>Dosyalar</button><button onClick={()=>open('Araçlar')}><Wrench/>Araçlar</button><button onClick={()=>open('Eklentiler')}><Puzzle/>Eklentiler</button>
  </nav><time>{clock.toLocaleTimeString('tr-TR')}<small>{clock.toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}<br/>{clock.toLocaleDateString('tr-TR',{weekday:'long'})}</small></time><button className="power" aria-label="ULTRON'u kapat" disabled={!u.native} onClick={()=>u.native?.action('shutdown')}><Power/></button></header>
  <main className="main-grid"><SystemRail system={u.system} history={u.history} health={u.health} connected={u.connected}/>
- <section className="reactor-panel metal-frame"><CenterStage stage={u.stage} state={state} amplitude={u.amplitude} notify={notify}/>{u.stage.mode==='core_idle'&&<><div className="subsystems left">{chipsLeft.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div><div className="subsystems right">{chipsRight.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div></>}{!u.connected&&<div className="offline" role="status">ULTRON BACKEND OFFLINE</div>}</section>
+ <section className="reactor-panel metal-frame"><CenterStage stage={u.stage} state={state} amplitude={u.amplitude} notify={notify} openNativeVideo={u.native?.videoRequest?()=>u.native?.videoRequest?.('open_file',''):undefined}/>{u.stage.mode==='core_idle'&&<><div className="subsystems left">{chipsLeft.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div><div className="subsystems right">{chipsRight.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div></>}{!u.connected&&<div className="offline" role="status">ULTRON BACKEND OFFLINE</div>}</section>
  <aside className="right-panels"><Panel title="KONUŞMA / AKTİVİTE" icon={<MessageSquare/>} className="chat-panel" extra={<button disabled={busy} onClick={()=>u.setMessages([])}><Trash2/>Temizle</button>}><div className="messages" ref={messages}>{!u.messages.length&&<p className="chat-empty">{u.connected?'ULTRON bağlantısı kuruldu. Bir komut yaz veya sor.':'Backend bağlantısı bekleniyor…'}</p>}{u.messages.map(m=><article className={'message '+m.role} key={m.id}><time>{new Date(m.time).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</time><p><b>{m.role==='user'?'You':'ULTRON'}:</b> {m.text}</p></article>)}{busy&&<p className="muted">Yanıt hazırlanıyor…</p>}</div><form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><input aria-label="Mesaj" value={input} onChange={e=>setInput(e.target.value)} placeholder="Bir komut yaz veya sor…"/><button aria-label="Gönder" disabled={disabledSend||!input.trim()}><Send/></button></form></Panel>
  <FileDrop notify={notify} ask={send} nativeFile={u.native?()=>u.native?.action('file'):undefined}/>
  <Panel title="KOMUT" icon={<Command/>} className="command-panel"><form onSubmit={e=>{e.preventDefault();void send(command);}}><button type="button" className="mic-circle" aria-label="Mikrofon" disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>}</button><input aria-label="Komut" value={command} onChange={e=>setCommand(e.target.value)} placeholder="Komut yaz…"/><button aria-label="Komutu gönder" disabled={disabledSend||!command.trim()}><Send/></button></form><button className="interrupt" onClick={stop}><Square/>KONUŞMAYI DURDUR <span>[ESC]</span></button><button className={'voice-status '+(u.native&&!u.muted?'active':'')} disabled={!u.native} onClick={()=>u.native?.action('mute')}><Mic/>{u.native?(u.muted?'MİKROFON KAPALI':state==='THINKING'?'İŞLENİYOR':'MİKROFON AKTİF'):'MİKROFON N/A'}</button></Panel></aside></main>
