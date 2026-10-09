@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-BACKEND = Path(__file__).resolve().parents[2]
+BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 from app.agent.persona_guard import ANCHOR, PersonaGuard, analyze
 
