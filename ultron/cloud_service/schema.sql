@@ -133,3 +133,19 @@ CREATE TABLE IF NOT EXISTS local_chat_requests (
   reply_saved BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE INDEX IF NOT EXISTS idx_local_chat_requests_user ON local_chat_requests(user_id, command_id DESC);
+
+
+-- Explicit owner-created manual plans. Not an external calendar sync or alarm queue.
+CREATE TABLE IF NOT EXISTS owner_plans (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 140),
+  scheduled_date DATE NOT NULL,
+  scheduled_time TIME,
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 500),
+  is_done BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_plans_user_date
+  ON owner_plans(user_id, scheduled_date, scheduled_time, id);
