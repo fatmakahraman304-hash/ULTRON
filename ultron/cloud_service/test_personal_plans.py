@@ -44,7 +44,7 @@ class PlanValidationTests(unittest.TestCase):
         for payload in [
             {}, [], {"title": "", "date": "2026-10-11"},
             {"title": "a" * 141, "date": "2026-10-11"},
-            {"title": "a\\u0000b", "date": "2026-10-11"},
+            {"title": "a" + chr(0) + "b", "date": "2026-10-11"},
             {"title": "Plan", "date": "2026-10-11", "note": "z" * 501},
             {"title": "Plan", "date": "2026-10-11", "note": {"fake": True}},
         ]:
