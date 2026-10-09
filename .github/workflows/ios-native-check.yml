@@ -19,6 +19,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Siri and Shortcuts permission contract regression tests
+        run: python3 -m unittest discover -s ios/ULTRONMobile/tests -p 'test_*.py' -v
+
       - name: Install XcodeGen
         run: brew install xcodegen
 
