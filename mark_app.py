@@ -59,7 +59,8 @@ from integration.cloud_memory_sync import (
     sync as sync_cloud_memory,
     heartbeat as cloud_presence_heartbeat,
 )
-from cloud_client import CloudClient
+from cloud_client import CloudClient, CloudDeliveryRejected
+from cloud_delivery import RemoteLeaseGuard
 
 # The file-backed tools (open_app, web_search, browser_control, …) are no longer
 # imported or declared here — they self-describe via a TOOL dict in their own
@@ -2095,25 +2096,11 @@ class UltronLive:
             payload = {}
 
         lease_task: asyncio.Task | None = None
+        lease_guard: RemoteLeaseGuard | None = None
+        dispatched_remote_task = False
 
-        async def renew_lease() -> None:
-            while True:
-                await asyncio.sleep(5.0)
-                try:
-                    await client.report_task_progress(
-                        command_id,
-                        delivery_attempt=delivery_attempt,
-                        stage="lease",
-                        message="",
-                    )
-                except asyncio.CancelledError:
-                    raise
-                except Exception as exc:
-                    print(
-                        f"[CloudRemote] lease refresh failed id={command_id}: "
-                        f"{type(exc).__name__}: {str(exc)[:180]}",
-                        flush=True,
-                    )
+        def log_lease(message: str) -> None:
+            print(f"[CloudRemote] id={command_id} {message}", flush=True)
 
         async def finish(
             ok: bool,
@@ -2173,15 +2160,22 @@ class UltronLive:
 
             # Keep the Cloud delivery lease alive independently of Gemini/tool
             # latency. If this process dies, Render releases the lane in ~20 s.
-            lease_task = asyncio.create_task(renew_lease())
+            lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt, log=log_lease)
+            lease_task = asyncio.create_task(lease_guard.run())
 
             # The Cloud queue can claim a task before Gemini Live has finished
             # connecting. Keep the claimed task in-process until the local agent
             # is actually ready instead of dropping it.
             for _ in range(200):
+                if lease_guard.lost.is_set():
+                    log_lease(f"refusing to dispatch stale delivery: {lease_guard.reason}")
+                    return
                 if self.session is not None and self._turn_done_event is not None:
                     break
                 await asyncio.sleep(0.1)
+            if lease_guard.lost.is_set():
+                log_lease(f"refusing to dispatch stale delivery: {lease_guard.reason}")
+                return
             if self.session is None or self._turn_done_event is None:
                 await finish(False, "Laptop yerel ajanı hazır değil.", retryable=True)
                 return
@@ -2205,6 +2199,9 @@ class UltronLive:
                 message="Telefon görevi laptop ULTRON tarafından alındı.",
                 percent=10,
             )
+            if lease_guard.lost.is_set():
+                log_lease(f"refusing stale delivery before Gemini dispatch: {lease_guard.reason}")
+                return
             self.ui.write_log(f"PHONE→LAPTOP: {task_text}")
 
             self._turn_done_event.clear()
@@ -2227,10 +2224,18 @@ class UltronLive:
                 "final result after the tools finish. Do not claim completion "
                 "unless the tool action actually succeeds."
             )
+            if lease_guard.lost.is_set():
+                log_lease(f"refusing stale delivery before Gemini dispatch: {lease_guard.reason}")
+                return
             await self.session.send_client_content(
                 turns={"role": "user", "parts": [{"text": remote_prompt}]},
                 turn_complete=True,
             )
+            dispatched_remote_task = True
+            if lease_guard.lost.is_set():
+                log_lease(f"delivery became stale during Gemini dispatch: {lease_guard.reason}")
+                self.interrupt()
+                return
             await client.report_task_progress(
                 command_id,
                 delivery_attempt=delivery_attempt,
@@ -2243,6 +2248,10 @@ class UltronLive:
             completed = False
             while time.monotonic() < deadline:
                 await asyncio.sleep(0.12)
+                if lease_guard.lost.is_set():
+                    log_lease(f"stopping stale Gemini turn (best-effort): {lease_guard.reason}")
+                    self.interrupt()
+                    return
                 if not self._cloud_remote_seen_response or self._cloud_remote_tool_busy:
                     continue
                 # If tools were used, only accept a turn-complete that arrived
@@ -2285,6 +2294,12 @@ class UltronLive:
                 result_text,
                 extra={"assistant_reply": result_text, "origin": "desktop-agent"},
             )
+        except CloudDeliveryRejected as exc:
+            # A newer claim already owns this command, or it is no longer
+            # active. Never report success/failure using the superseded token.
+            log_lease(f"discarding stale delivery callback: {exc}")
+            if dispatched_remote_task:
+                self.interrupt()
         except Exception as exc:
             await finish(
                 False,
@@ -2320,6 +2335,16 @@ class UltronLive:
 
         backoff = 0.8
         running: set[asyncio.Task] = set()
+        # Prevent two reclaimed/retried agent turns from interleaving the
+        # shared Gemini capture buffers and tool execution state.
+        agent_lock = asyncio.Lock()
+
+        async def _handle_claim(item: dict) -> None:
+            if str(item.get("command") or "").lower() == "agent_task":
+                async with agent_lock:
+                    await self._handle_cloud_remote_command(client, item)
+            else:
+                await self._handle_cloud_remote_command(client, item)
 
         def _worker_done(task: asyncio.Task) -> None:
             running.discard(task)
@@ -2346,9 +2371,7 @@ class UltronLive:
                         f"payload={str(item.get('payload', {}))[:240]}",
                         flush=True,
                     )
-                    worker = asyncio.create_task(
-                        self._handle_cloud_remote_command(client, item)
-                    )
+                    worker = asyncio.create_task(_handle_claim(item))
                     running.add(worker)
                     worker.add_done_callback(_worker_done)
             except Exception as exc:
