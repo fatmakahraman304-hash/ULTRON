@@ -364,6 +364,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 )
                 UPDATE device_commands d
                 SET status='delivered',
+                    delivery_attempt=delivery_attempt+1,
                     delivered_at=NOW(),
                     progress = CASE
                       WHEN d.command='agent_task' THEN COALESCE(d.progress, '[]'::jsonb) ||
@@ -377,7 +378,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                     END
                 FROM picked
                 WHERE d.id=picked.id
-                RETURNING d.id,d.target,d.command,d.payload,d.source_device,d.progress,d.checkpoint,d.retry_count,d.max_retries,d.created_at
+                RETURNING d.id,d.target,d.command,d.payload,d.source_device,d.progress,d.checkpoint,d.retry_count,d.max_retries,d.delivery_attempt,d.created_at
                 """,
                 request["user_id"], target,
             )
@@ -419,17 +420,27 @@ async def complete_device_command(request: web.Request) -> web.Response:
     auth_kind = request.get("auth_kind", "")
     expected_target = "desktop" if auth_kind == "device" else "phone"
 
+    attempt_raw = body.get("delivery_attempt")
+    try:
+        delivery_attempt = int(attempt_raw) if attempt_raw is not None else -1
+    except (TypeError, ValueError, OverflowError):
+        delivery_attempt = -1
+
     current = await request.app["db"].fetchrow(
-        "SELECT status,retry_count,max_retries FROM device_commands WHERE id=$1 AND user_id=$2 AND target=$3",
+        "SELECT status,command,delivery_attempt,retry_count,max_retries FROM device_commands WHERE id=$1 AND user_id=$2 AND target=$3",
         command_id, request["user_id"], expected_target,
     )
     if not current:
         raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
     if current["status"] != "delivered":
-        # A stale/duplicate worker must never overwrite a completed, expired,
-        # cancelled or not-yet-claimed command. The SQL update below repeats
-        # this guard atomically for concurrent requests.
         raise web.HTTPConflict(text=json.dumps({"error": "command_not_active"}), content_type="application/json")
+    # Only agent tasks may be reclaimed/retried. Bind each worker response
+    # to the precise claim generation it received, not merely command_id.
+    # Legacy one-shot controls retain their old completion contract.
+    if current["command"] == "agent_task" and (
+        delivery_attempt < 1 or delivery_attempt != int(current["delivery_attempt"] or 0)
+    ):
+        raise web.HTTPConflict(text=json.dumps({"error": "stale_delivery_attempt"}), content_type="application/json")
 
     should_retry = (
         expected_target == "desktop"
@@ -457,9 +468,10 @@ async def complete_device_command(request: web.Request) -> web.Response:
                   ))
             WHERE id=$3 AND user_id=$4 AND target=$5
               AND status='delivered' AND retry_count < max_retries
+              AND (command <> 'agent_task' OR delivery_attempt=$6)
             RETURNING id,target,command,status,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
             """,
-            json.dumps(result), retry_after_seconds, command_id, request["user_id"], expected_target,
+            json.dumps(result), retry_after_seconds, command_id, request["user_id"], expected_target, delivery_attempt,
         )
     else:
         row = await request.app["db"].fetchrow(
@@ -477,9 +489,10 @@ async def complete_device_command(request: web.Request) -> web.Response:
                   ))
             WHERE id=$3 AND user_id=$4 AND target=$5
               AND status='delivered'
+              AND (command <> 'agent_task' OR delivery_attempt=$6)
             RETURNING id,target,command,status,result,progress,retry_count,max_retries,run_after,created_at,delivered_at,completed_at
             """,
-            status, json.dumps(result), command_id, request["user_id"], expected_target,
+            status, json.dumps(result), command_id, request["user_id"], expected_target, delivery_attempt,
         )
     if not row:
         # The row existed at the initial lookup, but another worker/HTTP
@@ -534,6 +547,13 @@ async def append_device_command_progress(request: web.Request) -> web.Response:
         )
 
     body = await request.json()
+    try:
+        attempt = int(body.get("delivery_attempt"))
+        if attempt < 1:
+            raise ValueError()
+    except (TypeError, ValueError, OverflowError):
+        raise web.HTTPConflict(text=json.dumps({"error": "delivery_attempt_required"}), content_type="application/json")
+
     stage = str(body.get("stage", "")).strip()[:80]
     message = str(body.get("message", "")).strip()[:2000]
     percent = body.get("percent")
@@ -553,11 +573,13 @@ async def append_device_command_progress(request: web.Request) -> web.Response:
             UPDATE device_commands
             SET delivered_at=NOW()
             WHERE id=$1 AND user_id=$2 AND target='desktop'
-              AND status='delivered'
+              AND status='delivered' AND command='agent_task'
+              AND delivery_attempt=$3
             RETURNING id,status,delivered_at
             """,
             command_id,
             request["user_id"],
+            attempt,
         )
         if not row:
             raise web.HTTPNotFound(
@@ -578,12 +600,14 @@ async def append_device_command_progress(request: web.Request) -> web.Response:
         SET progress = COALESCE(progress, '[]'::jsonb) || $1::jsonb,
             delivered_at = CASE WHEN status='delivered' THEN NOW() ELSE delivered_at END
         WHERE id=$2 AND user_id=$3 AND target='desktop'
-          AND status IN ('delivered','completed','failed')
+          AND status='delivered' AND command='agent_task'
+          AND delivery_attempt=$4
         RETURNING id,status,progress
         """,
         json.dumps([entry], ensure_ascii=False),
         command_id,
         request["user_id"],
+        attempt,
     )
     if not row:
         raise web.HTTPNotFound(
@@ -609,6 +633,12 @@ async def save_device_command_checkpoint(request: web.Request) -> web.Response:
         )
 
     body = await request.json()
+    try:
+        attempt = int(body.get("delivery_attempt"))
+        if attempt < 1:
+            raise ValueError()
+    except (TypeError, ValueError, OverflowError):
+        raise web.HTTPConflict(text=json.dumps({"error": "delivery_attempt_required"}), content_type="application/json")
     try:
         step_index = max(0, min(99, int(body.get("step_index", 0) or 0)))
     except Exception:
@@ -636,7 +666,8 @@ async def save_device_command_checkpoint(request: web.Request) -> web.Response:
                 'at',EXTRACT(EPOCH FROM NOW())
               ))
         WHERE id=$4 AND user_id=$5 AND target='desktop'
-          AND status IN ('delivered','queued')
+          AND status='delivered' AND command='agent_task'
+          AND delivery_attempt=$6
         RETURNING id,status,checkpoint,progress
         """,
         json.dumps(checkpoint, ensure_ascii=False),
@@ -644,6 +675,7 @@ async def save_device_command_checkpoint(request: web.Request) -> web.Response:
         step_index,
         command_id,
         request["user_id"],
+        attempt,
     )
     if not row:
         raise web.HTTPNotFound(
