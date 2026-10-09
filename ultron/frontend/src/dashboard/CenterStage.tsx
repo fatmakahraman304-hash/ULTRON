@@ -65,15 +65,36 @@ function EarthWatch({config,onCommand}:{config:EarthState;onCommand:(operation:s
   let sunCalculationAt=0,solarVector=earthVector(0,0,1);
   if(config.stars){const count=1800,pos=new Float32Array(count*3);for(let i=0;i<count;i++){const p=new THREE.Vector3().randomDirection().multiplyScalar(14+Math.random()*24);pos.set(p.toArray(),i*3);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));scene.add(new THREE.Points(geo,new THREE.PointsMaterial({color:0xdceeff,size:.025,transparent:true,opacity:.8,depthWrite:false})));}
   if(config.grid){for(let lat=-60;lat<=60;lat+=30){const pts:THREE.Vector3[]=[];for(let lon=-180;lon<=180;lon+=4)pts.push(earthVector(lat,lon,2.267));root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x63d8ff,transparent:true,opacity:.18})));}for(let lon=-150;lon<=180;lon+=30){const pts:THREE.Vector3[]=[];for(let lat=-88;lat<=88;lat+=3)pts.push(earthVector(lat,lon,2.267));root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x63d8ff,transparent:true,opacity:.14})));}}
-  const addMarker=(lat:number,lon:number,label:string,color:string,radius=2.3)=>{const group=new THREE.Group(),p=earthVector(lat,lon,radius),n=p.clone().normalize();group.position.copy(p);group.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),n);const pin=new THREE.Mesh(new THREE.ConeGeometry(.055,.24,10),new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.55}));pin.position.y=.12;group.add(pin);const ring=new THREE.Mesh(new THREE.RingGeometry(.075,.105,28),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.9,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;group.add(ring);const sprite=earthLabel(label,color);sprite.position.copy(n.clone().multiplyScalar(.28));group.add(sprite);root.add(group);return group;};
+  const addMarker=(lat:number,lon:number,label:string,color:string,radius=2.3)=>{const group=new THREE.Group(),p=earthVector(lat,lon,radius),n=p.clone().normalize();group.position.copy(p);group.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),n);const pin=new THREE.Mesh(new THREE.ConeGeometry(.055,.24,10),new THREE.MeshStandardMaterial({color,emissive:color,emissiveIntensity:.55}));pin.position.y=.12;group.add(pin);const ring=new THREE.Mesh(new THREE.RingGeometry(.075,.105,28),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.9,side:THREE.DoubleSide,depthWrite:false}));ring.rotation.x=-Math.PI/2;group.add(ring);const sprite=earthLabel(label,color);sprite.position.set(0,.32,0);group.add(sprite);root.add(group);return group;};
   for(const marker of config.markers||[])addMarker(marker.lat,marker.lon,marker.label,marker.color||'#ff334d');
   if(config.focus_label&&config.focus_label!=='GLOBAL')addMarker(config.focus_lat,config.focus_lon,config.focus_label,'#35ffe4',2.315);
   const focus=earthVector(config.focus_lat,config.focus_lon,1).normalize(),front=new THREE.Vector3(0,0,1);
   const focusRotation=new THREE.Quaternion().setFromUnitVectors(focus,front);
   if(previousView)root.quaternion.fromArray(previousView.orientation);else root.quaternion.copy(focusRotation);
   let flyingTo=Boolean(previousView&&previousView.focus!==focusKey);
-  let issGroup:THREE.Group|undefined;
-  if(config.live_iss){issGroup=addMarker(0,0,'ISS LIVE','#ffd43b',2.48);const updateIss=async()=>{try{const res=await fetch('https://api.wheretheiss.at/v1/satellites/25544',{cache:'no-store'});if(!res.ok)throw Error(String(res.status));const data=await res.json();if(dead||!issGroup)return;const p=earthVector(Number(data.latitude)||0,Number(data.longitude)||0,2.48);issGroup.position.copy(p);issGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),p.clone().normalize());setIssOk(true);}catch{if(!dead)setIssOk(false);}};void updateIss();issTimer=setInterval(()=>void updateIss(),5000);}
+  let issGroup:THREE.Group|undefined,issRequest:AbortController|undefined,issBusy=false;
+  if(config.live_iss){
+   issGroup=addMarker(0,0,'ISS TRACKING','#ffd43b',2.48);
+   // Never draw a guessed ISS coordinate; hide the marker until a valid response arrives.
+   issGroup.visible=false;
+   const updateIss=async()=>{
+    if(dead||issBusy)return;issBusy=true;
+    const controller=new AbortController();issRequest=controller;
+    const timeout=setTimeout(()=>controller.abort(),8000);
+    try{
+     const res=await fetch('https://api.wheretheiss.at/v1/satellites/25544',{cache:'no-store',signal:controller.signal});
+     if(!res.ok)throw Error(String(res.status));
+     const data=await res.json(),lat=Number(data.latitude),lon=Number(data.longitude);
+     if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<-90||lat>90||lon<-180||lon>180)throw Error('invalid ISS coordinates');
+     if(dead||!issGroup)return;
+     const p=earthVector(lat,lon,2.48);issGroup.position.copy(p);
+     issGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),p.clone().normalize());
+     issGroup.visible=true;setIssOk(true);
+    }catch{if(!dead){if(issGroup)issGroup.visible=false;setIssOk(false);}}
+    finally{clearTimeout(timeout);issBusy=false;if(issRequest===controller)issRequest=undefined;}
+   };
+   void updateIss();issTimer=setInterval(()=>void updateIss(),5000);
+  }
   const ray=new THREE.Raycaster(),mouse=new THREE.Vector2();let pointerStart:{x:number;y:number}|null=null;
   const pointerDown=(e:PointerEvent)=>{pointerStart=e.button===0?{x:e.clientX,y:e.clientY}:null;};
   const pointerUp=(e:PointerEvent)=>{const start=pointerStart;pointerStart=null;if(!start||e.button!==0||Math.hypot(e.clientX-start.x,e.clientY-start.y)>6)return;
@@ -100,7 +121,7 @@ function EarthWatch({config,onCommand}:{config:EarthState;onCommand:(operation:s
    controls.update();renderer.render(scene,camera);raf=requestAnimationFrame(loop);
   };raf=requestAnimationFrame(loop);
   return()=>{savedView.current={position:camera.position.toArray(),target:controls.target.toArray(),orientation:root.quaternion.toArray(),focus:focusKey};
-   dead=true;cancelAnimationFrame(raf);if(issTimer)clearInterval(issTimer);ro.disconnect();
+   dead=true;cancelAnimationFrame(raf);if(issTimer)clearInterval(issTimer);issRequest?.abort();ro.disconnect();
    renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointerup',pointerUp);
    renderer.domElement.removeEventListener('pointercancel',pointerCancel);renderer.domElement.removeEventListener('pointerleave',pointerCancel);
    controls.dispose();scene.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const mats=(m as any).material?(Array.isArray((m as any).material)?(m as any).material:[(m as any).material]):[];for(const mat of mats){if(mat.map)mat.map.dispose();mat.dispose?.();}});renderer.dispose();renderer.domElement.remove();};
