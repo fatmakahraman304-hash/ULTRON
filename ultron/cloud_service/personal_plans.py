@@ -52,10 +52,10 @@ def plan_dict(row) -> dict:
 def _require_browser(request):
     if request.get("auth_kind") != "web":
         raise web.HTTPForbidden(text='{"error":"browser_session_required"}', content_type="application/json")
-    if request.method in ("POST", "PATCH", "DELETE"):
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
         if request.headers.get("Sec-Fetch-Site", "same-origin") not in ("same-origin", "none"):
             raise web.HTTPForbidden(text='{"error":"cross_origin_denied"}', content_type="application/json")
-        if request.method in ("POST", "PATCH") and request.content_type != "application/json":
+        if request.method in ("POST", "PUT", "PATCH") and request.content_type != "application/json":
             raise web.HTTPUnsupportedMediaType(text='{"error":"json_required"}', content_type="application/json")
 
 

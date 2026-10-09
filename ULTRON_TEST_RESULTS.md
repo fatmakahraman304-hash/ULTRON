@@ -201,3 +201,5 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Python offline route and validation assertions now include owner-scoped PUT route.
 - Disposable PostgreSQL test covers edit, reschedule, notes persistence, retained id, rejection of cross-owner writes and malformed dates, no notification sent.
 - Node tests cover opt-in editing, cancel without writes, failure preserving draft, and existing completion/deletion. GitHub CI outcome and Render deployment must be checked after commit, no local device claim.
+
+- Original edit-API integration run 37998999457 caught missing PUT inside Fetch-Metadata/JSON write guard (cross-site PUT incorrectly reached DB). Fix adds PUT to both checks, with regression assertion; rerun real PostgreSQL tenant/security CI before calling complete.

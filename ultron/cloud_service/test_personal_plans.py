@@ -83,6 +83,8 @@ class PlanValidationTests(unittest.TestCase):
         self.assertIn('request.get("auth_kind") != "web"', code)
         self.assertIn('"external_calendar_connected": False', code)
         self.assertIn('"notification_sent": False', code)
+        self.assertIn('request.method in ("POST", "PUT", "PATCH", "DELETE")', code)
+        self.assertIn('request.method in ("POST", "PUT", "PATCH")', code)
         self.assertIn('app.router.add_put("/api/owner-plans/{id}", update_plan)', code)
         self.assertIn("UPDATE owner_plans SET title=$3,scheduled_date=$4,scheduled_time=$5,", code)
 
