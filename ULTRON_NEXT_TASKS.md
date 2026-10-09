@@ -212,3 +212,8 @@ Somut sonraki doğrulama: iPhone Safari ULTRON → DÜNYA; sesle “Gazimağusa'
 - CI proof: https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/37992572797 succeeded (persona + actual PostgreSQL). Scene Build Check #37992487672 also succeeded.
 - Outstanding: check Render release SHA, owner iPhone free-Qwen/Gemini mode behaviour and device voice; sync local Windows branch and start with START.bat; do not call the remote-only GitHub changes locally installed.
 - Improve user-configurable style, humour, life reminders and secure opt-in calendar integrations with tests. Maintain permissions and user override.
+
+## 2026-10-10 — Post-persona CI follow-up
+- Latest passing Cloud+desktop persona/real DB CI: https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/37992833637
+- Next: verify Render /health active deployed SHA and actual Live voice/local Qwen on user devices. Sync Windows folder from feat/ultron-cloud-shared-memory; only GitHub was modified here.
+- Add opt-in personal briefing, calendar/email integrations, adjustable wit and preference memory with explicit consent; keep Approval Gate active.
