@@ -73,6 +73,10 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: ultron/frontend/package-lock.json
+      - name: Development ChatGPT handoff UI contracts
+        run: |
+          node --check ultron/cloud_service/static/dev-requests.js
+          node --test ultron/cloud_service/test_dev_requests_contract.cjs
       - name: iPhone PWA shortcut consent and task indicator tests
         run: |
           node --check ultron/cloud_service/static/mobile-action-guard.js
