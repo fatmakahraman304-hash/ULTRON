@@ -15,8 +15,16 @@ final class PhoneActionRouter: ObservableObject {
     @Published var pendingActionText = ""
 
     private let defaultsKey = "ultron.pendingPhoneAction"
+    private let secureAccount = "pending-phone-action"
 
     private init() {
+        // Migrate legacy plaintext pending commands into on-device Keychain.
+        if KeychainStore.read(account: secureAccount) == nil,
+           let oldData = UserDefaults.standard.data(forKey: defaultsKey),
+           let oldText = String(data: oldData, encoding: .utf8) {
+            _ = KeychainStore.save(oldText, account: secureAccount)
+        }
+        UserDefaults.standard.removeObject(forKey: defaultsKey)
         refreshPendingLabel()
     }
 
@@ -28,8 +36,7 @@ final class PhoneActionRouter: ObservableObject {
         let item = PendingPhoneAction(action: action, query: query, createdAt: Date())
 
         guard UIApplication.shared.applicationState == .active else {
-            savePending(item)
-            notifyPending(item)
+            if savePending(item) { notifyPending(item) }
             return
         }
 
@@ -69,8 +76,7 @@ final class PhoneActionRouter: ObservableObject {
 
     private func prepareBridgeInput(_ text: String) {
         let item = PendingPhoneAction(action: "shortcut_bridge", query: text, createdAt: Date())
-        savePending(item)
-        if UIApplication.shared.applicationState != .active {
+        if savePending(item), UIApplication.shared.applicationState != .active {
             notifyPending(item)
         }
     }
@@ -84,19 +90,26 @@ final class PhoneActionRouter: ObservableObject {
     }
 
     func clearPending() {
+        KeychainStore.delete(account: secureAccount)
         UserDefaults.standard.removeObject(forKey: defaultsKey)
         pendingActionText = ""
     }
 
-    private func savePending(_ item: PendingPhoneAction) {
-        guard let data = try? JSONEncoder().encode(item) else { return }
-        UserDefaults.standard.set(data, forKey: defaultsKey)
+    @discardableResult
+    private func savePending(_ item: PendingPhoneAction) -> Bool {
+        guard let data = try? JSONEncoder().encode(item),
+              let text = String(data: data, encoding: .utf8),
+              KeychainStore.save(text, account: secureAccount) else {
+            pendingActionText = "Güvenli Keychain kaydı başarısız; komut tutulmadı."
+            return false
+        }
         refreshPendingLabel()
+        return true
     }
 
     private func loadPending() -> PendingPhoneAction? {
-        guard let data = UserDefaults.standard.data(forKey: defaultsKey) else { return nil }
-        return try? JSONDecoder().decode(PendingPhoneAction.self, from: data)
+        guard let text = KeychainStore.read(account: secureAccount) else { return nil }
+        return try? JSONDecoder().decode(PendingPhoneAction.self, from: Data(text.utf8))
     }
 
     private func refreshPendingLabel() {

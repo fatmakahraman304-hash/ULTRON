@@ -32,6 +32,15 @@ class SiriBridgeContractTests(unittest.TestCase):
         self.assertIn('case "shortcut_bridge":', router)
         self.assertIn('URLQueryItem(name: "name", value: "ULTRON Bridge")', router)
 
+    def test_pending_action_payload_is_keychain_backed(self):
+        router = self.source("PhoneActionRouter.swift")
+        keychain = self.source("KeychainStore.swift")
+        self.assertIn("KeychainStore.save(text, account: secureAccount)", router)
+        self.assertIn("KeychainStore.read(account: secureAccount)", router)
+        self.assertIn("KeychainStore.delete(account: secureAccount)", router)
+        self.assertIn("kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly", keychain)
+        self.assertNotIn("UserDefaults.standard.set(data, forKey: defaultsKey)", router)
+
     def test_native_voice_events_are_actually_handled(self):
         voice = self.source("BackgroundVoiceController.swift")
         self.assertIn('case "ios_action":', voice)
