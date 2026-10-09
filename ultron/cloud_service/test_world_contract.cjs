@@ -95,7 +95,7 @@ test('user location requested on tap only, never silently sent',()=>{
 });
 test('PWA caches world shell but does not cache external map tiles',()=>{
  const sw=fs.readFileSync(path.join(base,'static','sw.js'),'utf8');
- assert.match(sw,/ultron-shell-v43/);
+ assert.match(sw,/ultron-shell-v[0-9]+/);
  assert.match(sw,/\/static\/world\.html/);
  assert.match(sw,/\/static\/world\.js/);
  assert.match(sw,/if\(url\.origin!==location\.origin\)return/);
