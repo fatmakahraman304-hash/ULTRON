@@ -35,6 +35,8 @@ jobs:
           python -m py_compile ultron/cloud_service/app.py
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
+      - name: Cloud task queue race regression tests
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_device_queue_contract.py' -v
       - name: Codex continuation report regression tests
         run: python -m unittest discover -s scripts/tests -p 'test_ultron_dev_resume.py' -v
       - name: Validate developer resume command
