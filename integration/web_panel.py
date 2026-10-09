@@ -2,6 +2,7 @@
 import json
 import os
 import threading
+import time
 import urllib.request
 from pathlib import Path
 from PyQt6.QtCore import QObject, Qt, QCoreApplication, QTimer, QUrl, pyqtSignal, pyqtSlot
@@ -36,6 +37,8 @@ class NativeBridge(QObject):
         from .development_bridge import local_commit
         self._running_development_sha=local_commit()  # captured at process start, not after checkout changes
         self._dev_busy=False
+        self._dev_auto_verified_at=0.0
+        self._dev_announced=set()
         self.dev_timer=QTimer(self)
         self.dev_timer.timeout.connect(self.devRefresh)
         self.dev_timer.start(65000)
@@ -61,6 +64,20 @@ class NativeBridge(QObject):
         self.cloud_messages()
         self.cloud_presence()
         self.devRefresh()
+
+    def _announce_development_complete(self, item):
+        """Only after Cloud verified exact GitHub+Render and running desktop sha."""
+        if item.get("status") != "completed" or str(item.get("id")) in self._dev_announced:
+            return
+        self._dev_announced.add(str(item.get("id")))
+        speaker=getattr(self.ui,"request_say",None)
+        if callable(speaker) and not self.ui.muted:
+            speaker(
+                "Verified system status, NOT a new user command; call NO tools. "
+                "The desired change passed GitHub CI, deployed to Render and "
+                "the running Windows version was confirmed. Say exactly once: "
+                "'Tamam efendim, istediğiniz güncelleme doğrulandı ve artık kullanılabilir.'"
+            )
 
     @pyqtSlot(str, str)
     def devRequest(self, prompt, target="both"):
@@ -101,9 +118,25 @@ class NativeBridge(QObject):
                                 item.update(verified)
                                 if verified.get("status") == "completed":
                                     self.emit(kind="dev_verified",data=verified)
+                                    self._announce_development_complete(verified)
                             except Exception:
                                 # A server/GitHub outage is not proof of success.
                                 pass
+                # Poll code/CI/Render at most once per ten minutes.
+                now=time.monotonic()
+                if items and now-self._dev_auto_verified_at>600:
+                    pending=next((x for x in items if x.get("status")!="completed"),None)
+                    if pending:
+                        self._dev_auto_verified_at=now
+                        try:
+                            from .development_bridge import verify_request
+                            checked=verify_request(str(pending["id"]))
+                            pending.update(checked)
+                            if checked.get("status") == "completed":
+                                self.emit(kind="dev_verified",data=checked)
+                                self._announce_development_complete(checked)
+                        except Exception:
+                            pass
                 self.emit(kind="dev_requests",data=items)
             except Exception as exc:
                 self.emit(kind="dev_error",text=str(exc)[:240])
@@ -118,6 +151,7 @@ class NativeBridge(QObject):
                 from .development_bridge import verify_request
                 item=verify_request(str(request_id))
                 self.emit(kind="dev_verified",data=item)
+                self._announce_development_complete(item)
                 self.devRefresh()
             except Exception as exc:
                 self.emit(kind="dev_error",text="Doğrulama bekliyor: "+str(exc)[:180])
