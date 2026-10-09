@@ -46,6 +46,9 @@ class LocalFirstBridgeTests(unittest.TestCase):
         self.assertIn("await localBrainAnswer(text)",PWA)
         self.assertIn("Gemini Live sesli konuşmasını kullanır",PWA)
         self.assertIn("otomatik Gemini kullanmadım",PWA)
+        self.assertIn("localVoiceController?.toggle()",PWA)
+        self.assertIn("if(brainMode!=='gemini')",PWA)
+        self.assertNotIn("setTimeout(()=>startHandsFreeVoice(),250)",PWA)
     def test_no_auto_download_and_no_optimistic_reply(self):
         self.assertNotIn("ollama pull",DESKTOP)
         self.assertIn("if not answer:",DESKTOP)

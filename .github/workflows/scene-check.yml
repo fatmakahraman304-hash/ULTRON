@@ -67,6 +67,10 @@ jobs:
         env:
           PYTHONPATH: ultron/backend
         run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
+      - name: Free PWA local mic + Gemini opt-in regression tests
+        run: |
+          node --check ultron/cloud_service/static/local-voice.js
+          node --test ultron/cloud_service/test_local_voice.cjs
       - name: Paired phone local Ollama tests (no Gemini calls)
         run: |
           python -m unittest discover -s scripts/tests -p 'test_local_cloud_brain.py' -v
