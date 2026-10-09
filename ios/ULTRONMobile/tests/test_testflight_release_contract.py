@@ -21,6 +21,7 @@ class TestFlightReleaseContractTests(unittest.TestCase):
         self.assertNotIn("\n  pull_request:", self.workflow)
         self.assertNotIn("\n  schedule:", self.workflow)
         self.assertIn("environment: testflight", self.workflow)
+        self.assertIn("github.ref == 'refs/heads/main'", self.workflow)
 
     def test_signing_credentials_are_environment_secrets(self):
         self.assertIn("secrets.APPSTORE_API_PRIVATE_KEY", self.workflow)
