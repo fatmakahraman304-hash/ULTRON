@@ -49,6 +49,21 @@ if(L){
 btn('flyToCyprus',()=>setLocation(35.13,33.43,10));
 btn('flyToTurkey',()=>setLocation(39.0,35.0,6));
 btn('refresh',()=>{refreshLayers().catch(()=>{})});
+btn('airQuality',async()=>{
+ $('airQuality').disabled=true;status('Gerçek hava kalitesi ölçümleri alınıyor…');
+ try{
+  const data=await asAPI('air-quality','?lat='+center.lat+'&lon='+center.lon);
+  const c=data.current||{};
+  const lines=['US AQI: '+safeText(c.us_aqi),'PM2.5: '+safeText(c.pm2_5)+' μg/m³','PM10: '+safeText(c.pm10)+' μg/m³','Ozon: '+safeText(c.ozone)+' μg/m³','UV: '+safeText(c.uv_index)];
+  const root=$('weatherCard');const label=document.createElement('b');label.textContent='☷ HAVA KALİTESİ • '+data.updated;root.append(label);
+  for(const item of lines){const div=document.createElement('div');div.textContent=item;root.append(div)}
+  status('Open-Meteo Air Quality • veri, konuma ve saatine bağlı');
+ }catch{status('Hava kalitesi verisi alınamadı; tahmini rakam gösterilmiyor',true)}
+ finally{$('airQuality').disabled=false}
+});
+btn('rainRadar',()=>external('https://www.rainviewer.com/weather-radar-map-live.html'));
+btn('windMap',()=>external('https://earth.nullschool.net/'));
+btn('ships',()=>external('https://www.marinetraffic.com/en/ais/home/centerx:'+center.lon+'/centery:'+center.lat+'/zoom:8'));
 btn('weather',()=>{
  weatherEnabled=!weatherEnabled;$('weather').classList.toggle('active',weatherEnabled);
  $('weatherCard').replaceChildren();
@@ -128,6 +143,8 @@ async function loadWeather(){
   $('weatherCard').replaceChildren();
   const title=document.createElement('b');title.textContent='☁ CANLI HAVA • '+String(d.updated||'');$('weatherCard').append(title);
   for(const line of lines){const div=document.createElement('div');div.textContent=line;$('weatherCard').append(div)}
+  const days=d.daily||{};
+  if(Array.isArray(days.sunrise)&&days.sunrise[0]){const div=document.createElement('div');div.textContent='Gün doğumu: '+String(days.sunrise[0]).slice(11)+' • Gün batımı: '+String(days.sunset?.[0]||'').slice(11)+' • UV max: '+safeText(days.uv_index_max?.[0]);$('weatherCard').append(div)}
   const hourly=(d.hourly?.precipitation_probability||[]).slice(0,6);
   if(hourly.length){const div=document.createElement('div');div.textContent='Gelecek saatlerde yağış olasılığı: '+hourly.map(v=>'%'+v).join(' • ');$('weatherCard').append(div)}
   lastWeather='Hava: '+c.temperature_2m+' °C';status(lastWeather+' • Open-Meteo');

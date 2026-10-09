@@ -29,8 +29,8 @@ test('real 3D display requires Three.js WebGL and user-driven rotation',()=>{
  assert.match(js,/getPointerCapture|setPointerCapture/);
 });
 test('cloud-only real providers: weather, ADSB flights, earthquake and Photon',()=>{
- for(const source of ['api.open-meteo.com','api.adsb.lol','earthquake.usgs.gov','photon.komoot.io'])assert.ok(backend.includes(source),source);
- for(const route of ['/api/world/weather','/api/world/flights','/api/world/earthquakes','/api/world/search'])assert.ok(backend.includes(route),route);
+ for(const source of ['api.open-meteo.com','api.adsb.lol','earthquake.usgs.gov','photon.komoot.io','air-quality-api.open-meteo.com'])assert.ok(backend.includes(source),source);
+ for(const route of ['/api/world/weather','/api/world/flights','/api/world/earthquakes','/api/world/search','/api/world/air-quality'])assert.ok(backend.includes(route),route);
  assert.match(app,/add_world_routes\(app\)/);
  assert.match(backend,/_CACHE_LIMIT = 180/);
  assert.match(backend,/async def _upstream/);
@@ -48,6 +48,15 @@ test('fixed source adapters have bounded coordinates and no arbitrary user URLs'
  assert.match(backend,/allow_redirects=False/);
  assert.match(backend,/read\(2_000_001\)/);
  assert.doesNotMatch(backend,/_upstream\(request\.query/);
+});
+test('UV, sunrise, air quality, wind, radar and ship sources must be identified',()=>{
+ assert.match(js,/daily\?\?\{\}/);
+ assert.match(js,/days\.sunrise/);
+ assert.match(web,/id="airQuality"/);
+ assert.match(js,/asAPI\('air-quality'/);
+ assert.match(js,/rainviewer\.com/);
+ assert.match(js,/earth\.nullschool\.net/);
+ assert.match(js,/marinetraffic\.com/);
 });
 test('other data layers are labeled external and do not impersonate native traffic or satellite',()=>{
  assert.match(web,/UYDU ↗/);
