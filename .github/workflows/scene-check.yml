@@ -105,6 +105,10 @@ jobs:
         run: |
           node --check ultron/cloud_service/static/mobile-action-guard.js
           node --test ultron/cloud_service/test_mobile_action_guard.cjs
+      - name: Owner briefing and honest ten-feature panel tests
+        run: |
+          node --check ultron/cloud_service/static/personal-panel.js
+          node --test ultron/cloud_service/test_personal_panel.cjs
       - name: ULTRON WORLD JavaScript syntax and UI contracts
         run: |
           node --check ultron/cloud_service/static/world.js
