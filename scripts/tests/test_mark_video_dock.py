@@ -57,6 +57,9 @@ class Player:
     def set_video_paused(self, paused):
         self.events.append(("pause", paused))
 
+    def select_video_and_play(self):
+        self.events.append(("file_chooser",))
+
 
 class MarkEngineTests(unittest.TestCase):
     def setUp(self):
@@ -80,6 +83,11 @@ class MarkEngineTests(unittest.TestCase):
         self.assertIn("Playing", result)
         self.assertEqual(self.p.events[0][0], "show")
         self.assertTrue(self.p.events[0][3])
+
+    def test_voice_without_source_opens_original_mark_media_chooser(self):
+        answer=self.tool.video_player({'action':'play'},player=self.p)
+        self.assertIn('selector',answer)
+        self.assertEqual(self.p.events,[('file_chooser',)])
 
     def test_pause_resume_mute_stop_on_same_original_player(self):
         self.p.playing = True
@@ -130,6 +138,7 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn("self._video_item.setSize(QSizeF(w, h))", ui)
         self.assertIn("output = self._video_sound_out if self._video_split else self._video_audio", ui)
         self.assertIn("self._video_pause_sig.connect(self._on_video_pause)", ui)
+        self.assertIn("self._video_file_select_sig.connect(self._select_video_file)", ui)
         self.assertIn("self._video_player.mediaStatusChanged.connect(self._on_video_media_status)", ui)
         self.assertIn("status == QMediaPlayer.MediaStatus.EndOfMedia", ui)
         self.assertIn("self.stop_video()  # emit the signal:", ui)

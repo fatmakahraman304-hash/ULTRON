@@ -2965,6 +2965,7 @@ class MainWindow(QMainWindow):
     _video_close_sig = pyqtSignal()
     _video_mute_sig  = pyqtSignal(bool)
     _video_pause_sig = pyqtSignal(bool)
+    _video_file_select_sig = pyqtSignal()
     _clipboard_sig  = pyqtSignal(str)        # clipboard text changed (thread-safe)
     _confirm_sig    = pyqtSignal(str, str)   # (title, detail) — irreversible-action gate
     _confirm_hide_sig = pyqtSignal()
@@ -3257,6 +3258,7 @@ class MainWindow(QMainWindow):
         self._video_close_sig.connect(self._on_video_close)
         self._video_mute_sig.connect(self._on_video_mute)
         self._video_pause_sig.connect(self._on_video_pause)
+        self._video_file_select_sig.connect(self._select_video_file)
         self._clipboard_sig.connect(self._show_clipboard_panel)
         self._wake_dl_sig.connect(self._on_wake_install_done)
         self._quiz_sig.connect(self._show_quiz)
@@ -3364,6 +3366,15 @@ class MainWindow(QMainWindow):
     # Everything below runs on the Qt thread. Plugins and the assistant reach it
     # through the signals above, the same way every other panel is driven, so a
     # background thread never touches a widget.
+    def _select_video_file(self) -> None:
+        """Choose a clip on the GUI thread for a source-less voice request."""
+        selected, _ = QFileDialog.getOpenFileName(
+            self, 'ULTRON / Video veya animasyon seç', '',
+            'Video (*.mp4 *.webm *.mov *.mkv *.avi *.m4v);;Tüm dosyalar (*)'
+        )
+        if selected:
+            self._video_open_sig.emit(selected, Path(selected).name, True, '')
+
     def _on_video_open(self, source: str, title: str, muted: bool,
                        audio_source: str = "") -> None:
         if not HAVE_VIDEO or not self._video_player:
@@ -5919,6 +5930,10 @@ class UltronUI:
     def stop_video(self) -> None:
         """Thread-safe: close the video and give the HUD back to the avatar."""
         self._win._video_close_sig.emit()
+
+    def select_video_and_play(self) -> None:
+        """Thread-safe: ask MARK's existing Qt GUI to choose and play video."""
+        self._win._video_file_select_sig.emit()
 
     def set_video_paused(self, paused: bool) -> None:
         """Thread-safe native MARK video pause/resume."""
