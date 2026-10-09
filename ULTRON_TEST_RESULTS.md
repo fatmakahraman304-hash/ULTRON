@@ -2,7 +2,7 @@
 
 ## 2026-10-09
 **Başlangıç HEAD:** `0638b116c30d221f4167a4df35381a5697237668`.  
-**Son kod/CI referansı:** `a010726149f7a1352933a2e45af51f9b1a985662`.
+**Son kod/CI referansı:** `34b80e43abe023e58a8f65c87688aa104d6d55e7`.
 
 ### GitHub Actions: PASS
 - Workflow: `ULTRON Scene Build Check`
@@ -28,3 +28,12 @@
 
 ## Sonraki turda
 Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PASS gösterme.
+
+### Cloud task queue regresyonu — PASS
+- Workflow: `ULTRON Scene Build Check`, run `37894840971`.
+- Kod HEAD: `34b80e43abe023e58a8f65c87688aa104d6d55e7`.
+- `python -m unittest discover -s ultron/cloud_service -p 'test_device_queue_contract.py' -v`: **6 tests PASS** (`Ran 6 tests in 0.135s, OK`).
+- Senaryolar: parallel claim, direction guard, late duplicate completion, inactive command statuses, retry limit, SQL atomic status checks.
+- Aynı run: Python syntax, Earth backend, resume tests, Node/npm install, TypeScript/Vite build, Earth math test: PASS.
+- Hatalı test harness ilk aşamalar: `37894708692` (source path) ve `37894774521` (fake aiohttp exception constructor) FAILED; düzeltildi.
+- **Kapsam sınırı:** AST-extracted gerçek handler fonksiyonları fake DB ile çalıştırıldı; gerçek PostgreSQL advisory lock semantiği, Render deploy, telefon-laptop runtime ve Windows smoke **NOT RUN**.
