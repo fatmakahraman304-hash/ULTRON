@@ -10,6 +10,8 @@ on:
       - "actions/**"
       - "core/**"
       - "integration/**"
+      - "scripts/**"
+      - "AGENTS.md"
       - "ultron/cloud_service/**"
       - ".github/workflows/scene-check.yml"
 
@@ -33,6 +35,10 @@ jobs:
           python -m py_compile ultron/cloud_service/app.py
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
+      - name: Codex continuation report regression tests
+        run: python -m unittest discover -s scripts/tests -p 'test_ultron_dev_resume.py' -v
+      - name: Validate developer resume command
+        run: python scripts/ultron_dev_resume.py --json
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
