@@ -2088,6 +2088,7 @@ class UltronLive:
     async def _handle_cloud_remote_command(self, client: CloudClient, item: dict) -> None:
         """Execute one Cloud command claimed for this desktop instance."""
         command_id = int(item.get("id") or 0)
+        delivery_attempt = int(item.get("delivery_attempt") or 0)
         command = str(item.get("command") or "").strip().lower()
         payload = item.get("payload") or {}
         if not isinstance(payload, dict):
@@ -2101,6 +2102,7 @@ class UltronLive:
                 try:
                     await client.report_task_progress(
                         command_id,
+                        delivery_attempt=delivery_attempt,
                         stage="lease",
                         message="",
                     )
@@ -2125,6 +2127,7 @@ class UltronLive:
             try:
                 await client.complete_task(
                     command_id,
+                    delivery_attempt=delivery_attempt,
                     ok=ok,
                     message=message,
                     extra=extra,
@@ -2197,6 +2200,7 @@ class UltronLive:
 
             await client.report_task_progress(
                 command_id,
+                delivery_attempt=delivery_attempt,
                 stage="received",
                 message="Telefon görevi laptop ULTRON tarafından alındı.",
                 percent=10,
@@ -2229,6 +2233,7 @@ class UltronLive:
             )
             await client.report_task_progress(
                 command_id,
+                delivery_attempt=delivery_attempt,
                 stage="executing",
                 message="Laptop yerel ajanı görevi çalıştırıyor.",
                 percent=40,
@@ -2270,6 +2275,7 @@ class UltronLive:
 
             await client.report_task_progress(
                 command_id,
+                delivery_attempt=delivery_attempt,
                 stage="completed",
                 message="Laptop yerel ajanı görevi işledi.",
                 percent=100,
