@@ -171,3 +171,9 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Integrated policy into local_brain_bridge.py and Cloud app.py for Gemini text, image, PDF, camera and Live audio. Local Qwen still requires Windows and cannot execute device tools.
 - Added standalone CI persona-policy job independent of Postgres. Prior Cloud queue runs failed during GitHub runner Postgres container initialization, before checkout or Python tests; not a code failure.
 - No real device or Render deployment validation completed at authoring time.
+
+## 2026-10-10 — Shared persona verification
+- GitHub Actions Cloud Queue PostgreSQL Integration run #37992572797 SUCCESS at commit 015ed652a03fd67caaf1118ff6707cc55e3b6f30. The separate persona-policy job passed all eight tests; the postgres-fencing job also passed its persona test and real PostgreSQL queue, local-brain memory/reply and dev-request integration steps.
+- Docker Hub rate limit was the cause of earlier CI setup failures; replaced postgres:16 with public.ecr.aws/docker/library/postgres:16 to restore integration tests.
+- ULTRON Scene Build Check run #37992487672 SUCCESS for persona fix commit 2e424e9c6da7eb2efecff50b8737f18532e36a67. No runtime files changed since that run, only workflow/docs.
+- Real iPhone/Windows/Gemini sessions and Render deployment remain NOT VERIFIED.
