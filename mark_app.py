@@ -2198,6 +2198,30 @@ class UltronLive:
                 await finish(False, "Laptop görevi boş geldi.")
                 return
 
+            # No-tools local brain: iPhone's free default chat uses installed
+            # Ollama/Qwen independently of the Gemini Live voice session.
+            # A separate bounded queue response returns text only; never send
+            # this input to desktop automation or an external API.
+            if payload.get("mode") == "local_brain":
+                lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt, log=log_lease)
+                lease_task = asyncio.create_task(lease_guard.run())
+                from integration.local_cloud_brain import local_chat
+                local = await asyncio.to_thread(
+                    local_chat, task_text, str(payload.get("system") or "")[:5400]
+                )
+                if lease_guard.lost.is_set():
+                    log_lease("Ollama result discarded: Cloud lease is no longer active")
+                    return
+                await finish(
+                    True, "Yerel Qwen sohbet yanıtı hazır.",
+                    extra={
+                        "assistant_reply": local["reply"],
+                        "model": local["model"],
+                        "provider": "local-ollama",
+                    }
+                )
+                return
+
             # Keep the Cloud delivery lease alive independently of Gemini/tool
             # latency. If this process dies, Render releases the lane in ~20 s.
             lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt, log=log_lease)
