@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from capability_readiness import readiness
+from personal_briefing import build_briefing
 
 import asyncio
 import base64
@@ -2135,6 +2136,17 @@ def _json_dumps(value: Any) -> str:
     return json.dumps(value, default=str, ensure_ascii=False)
 
 
+async def personal_briefing_api(request: web.Request) -> web.Response:
+    """An explicit authenticated GET, not a recurring background data collector."""
+    if request.get("auth_kind") not in ("web", "device"):
+        raise web.HTTPForbidden()
+    rows = await request.app["db"].fetch(
+        "SELECT category,key,value FROM memories WHERE user_id=$1 "
+        "ORDER BY updated_at DESC LIMIT 40", request["user_id"],
+    )
+    return web.json_response(build_briefing(rows))
+
+
 async def capability_readiness_api(request: web.Request) -> web.Response:
     """Read-only, authenticated assessment; heartbeat proves current desktop presence only."""
     if request.get("auth_kind") not in ("web", "device"):
@@ -2159,6 +2171,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/logout", logout)
     app.router.add_get("/api/session", session)
     app.router.add_get("/api/capability-readiness", capability_readiness_api)
+    app.router.add_get("/api/personal-briefing", personal_briefing_api)
     app.router.add_get("/api/messages", list_messages)
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat", chat)
