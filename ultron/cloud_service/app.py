@@ -1,5 +1,6 @@
-from capability_readiness import readiness
 from __future__ import annotations
+
+from capability_readiness import readiness
 
 import asyncio
 import base64
