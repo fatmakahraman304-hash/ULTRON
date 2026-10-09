@@ -91,6 +91,40 @@ actor CloudSession {
         return id
     }
 
+    /// Siri answers short general questions from the shared Cloud brain.
+    /// This is a bounded request; unlike Gemini Live it cannot dispatch
+    /// device tools. Use enqueueDesktopTask for requested laptop actions.
+    func askULTRON(_ question: String) async throws -> String {
+        let message = question.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !message.isEmpty, message.count <= 2_000 else {
+            throw DesktopTaskError.invalidText
+        }
+        try await ensureLogin()
+        var request = URLRequest(url: ULTRONConfig.baseURL.appending(path: "/api/chat"))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 45
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("ultron-native-ios", forHTTPHeaderField: "X-ULTRON-DEVICE")
+        var body: [String: Any] = ["message": message]
+        if let conversation = UserDefaults.standard.string(forKey: "ultron.siri.conversation_id"),
+           !conversation.isEmpty {
+            body["conversation_id"] = conversation
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              http.statusCode == 200,
+              let result = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let reply = result["reply"] as? String,
+              !reply.isEmpty else {
+            throw DesktopTaskError.invalidResponse
+        }
+        if let conversation = result["conversation_id"] as? String {
+            UserDefaults.standard.set(conversation, forKey: "ultron.siri.conversation_id")
+        }
+        return reply
+    }
+
     func webSocketTask(sessionID: String) -> URLSessionWebSocketTask {
         var components = URLComponents(url: ULTRONConfig.liveWebSocketURL, resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "session_id", value: sessionID)]
