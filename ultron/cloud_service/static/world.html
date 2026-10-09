@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#050608"/><meta name="description" content="ULTRON WORLD: interaktif 2D sokak haritası, 3D dünya, canlı uçak, hava durumu ve depremler."/>
+<title>ULTRON WORLD • Live GEO</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark;background:#030609;color:#eff4f8;--red:#fa3252;--cyan:#5ae1ff;--glass:#070b12ed}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}button,input{font:inherit}button{cursor:pointer;color:#edf5fc;background:#131925;border:1px solid #384657;border-radius:10px;padding:10px 12px;font-size:12px}button:hover,button.active{border-color:var(--red);color:#fff;background:#651525}button:focus-visible,input:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}button:disabled{opacity:.5;cursor:wait}
+.world{position:fixed;inset:0;background:#03070b}.world-map,.world-globe{position:absolute;inset:0}.world-globe{background:radial-gradient(ellipse at center,#0d2640,#020307 75%);overflow:hidden}.world-globe canvas{width:100%;height:100%;display:block;touch-action:none}.hidden{display:none!important}
+.nav{position:absolute;z-index:1010;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;pointer-events:none}.nav>*{pointer-events:auto}
+.logo{border:1px solid #c52346;background:#070b12ed;padding:9px 12px;letter-spacing:2px;font-size:12px;font-weight:900;box-shadow:0 0 18px #af123940;border-radius:12px}.logo small{display:block;font:9px Consolas,monospace;color:var(--cyan);letter-spacing:1px;margin-top:3px}
+.find{flex:1;min-width:140px;display:flex;gap:4px;border:1px solid #546073;background:#070b12eb;border-radius:12px;padding:4px}.find input{width:100%;min-width:0;padding:8px;background:transparent;border:0;color:#fff;outline:none;font-size:13px}.find button{padding:7px 11px;background:#941527}
+.modes{display:flex;gap:5px;background:#070b12ec;padding:4px;border:1px solid #344253;border-radius:12px}
+.side{position:absolute;z-index:1000;top:88px;left:12px;display:flex;flex-direction:column;gap:7px;width:180px;max-height:calc(100% - 180px);overflow:auto;scrollbar-width:thin}
+.side button{text-align:left;background:var(--glass);border:1px solid #425062}.side button.active{background:#641329;border-color:#ff4361}
+.card{background:#080e17f3;border:1px solid #416074;border-radius:14px;padding:12px;box-shadow:0 0 25px #0008;line-height:1.45}.card b{font-size:12px}.card p{font-size:11px;margin:7px 0;color:#becbd7}
+.detail{position:absolute;z-index:1010;top:88px;right:12px;width:min(290px,calc(100% - 220px));max-height:calc(100% - 178px);overflow-y:auto}.detail>h2{font-size:12px;letter-spacing:1px;margin:0 0 9px;color:var(--cyan)}.detail div{margin-top:7px;font-size:12px;overflow-wrap:anywhere}
+.pill{color:var(--cyan);font:10px Consolas,monospace}.err{color:#ffb8be!important}.ok{color:#92f8ce!important}
+.search-results{position:absolute;z-index:1030;left:12px;top:76px;width:min(460px,calc(100% - 24px));background:#070b12f9;border:1px solid #41546a;border-radius:12px;padding:6px;max-height:45vh;overflow-y:auto}.search-results button{display:block;width:100%;text-align:left;background:none;border:none;border-bottom:1px solid #1b2837;border-radius:0}
+.foot{position:absolute;left:12px;bottom:12px;z-index:1000;max-width:calc(100% - 24px);font:10px/1.5 Consolas,monospace;color:#e3edf6;background:#02060bd9;border:1px solid #365062;padding:6px 10px;border-radius:9px}.foot a{color:#92e7ff}
+.leaflet-container{background:#051019;font-family:inherit}.leaflet-control-attribution{background:#ffffffeb!important;color:#16212a!important}.leaflet-control-attribution a{color:#164cba!important}
+.flight-icon{font-size:21px;color:#fa3859;text-shadow:0 0 9px #fff,0 0 12px #f35;transform:translate(-50%,-50%);width:28px;text-align:center}
+@media(max-width:640px){.nav{gap:5px;top:max(6px,env(safe-area-inset-top))}.logo{font-size:9px;padding:8px;letter-spacing:1px}.logo small{font-size:8px}.find{order:2;flex:1 1 100%}.find input{font-size:12px}.modes button{padding:7px 9px}.side{top:119px;left:7px;width:130px;gap:5px;max-height:calc(100% - 185px)}.side button{font-size:10px;padding:8px 7px}.detail{top:119px;right:7px;width:calc(100% - 160px);padding:9px;max-height:calc(100% - 185px)}.detail div,.detail p{font-size:10px}.foot{font-size:8px;left:7px;bottom:max(6px,env(safe-area-inset-bottom));max-width:calc(100% - 14px)}.search-results{top:116px}.card b{font-size:11px}}
+</style></head><body><div class="world">
+<div id="map" class="world-map" aria-label="Etkileşimli OpenStreetMap sokak haritası"></div><div id="globe" class="world-globe hidden" aria-label="İnteraktif 3 boyutlu Dünya"></div>
+<header class="nav">
+<div class="logo">ULTRON WORLD<small>EARTH / LIVE GEO</small></div>
+<form id="searchForm" class="find" autocomplete="off"><input id="searchInput" type="search" required minlength="3" maxlength="100" placeholder="Şehir, sokak veya adres ara…"/><button>ARA</button></form>
+<div class="modes"><button id="mode2d" class="active" type="button">2D HARİTA</button><button id="mode3d" type="button">3D DÜNYA</button></div>
+</header>
+<div id="searchResults" class="search-results hidden" role="listbox"></div>
+<aside class="side" aria-label="Canlı katmanlar">
+<button id="flyToCyprus" type="button">◉ KIBRIS</button><button id="flyToTurkey" type="button">◉ TÜRKİYE</button><button id="findMe" type="button">⌖ KONUMUM</button>
+<button id="weather" type="button" class="active">☁ HAVA DURUMU</button>
+<button id="flights" type="button">✈ UÇAKLAR</button>
+<button id="quakes" type="button">◈ DEPREMLER</button>
+<button id="satellite" type="button">◧ UYDU ↗</button>
+<button id="streetview" type="button">◫ SOKAK GÖRÜNÜMÜ ↗</button>
+<button id="directions" type="button">➜ YOL TARİFİ ↗</button>
+<button id="traffic" type="button">≋ TRAFİK ↗</button>
+<button id="favorite" type="button">☆ FAVORİ KAYDET</button>
+<button id="myFavorites" type="button">★ FAVORİLER</button>
+<button id="refresh" type="button">↻ CANLI VERİYİ YENİLE</button>
+</aside>
+<aside id="details" class="detail card" aria-live="polite"><h2>DÜNYA / BİLGİ</h2><div id="detailText">Haritada bir yere dokun veya katman seç.</div><div id="weatherCard"></div><div id="layerStatus" class="pill"></div></aside>
+<div class="foot"><span id="position">35.1300° N • 33.4300° E</span> •
+<span id="updated">ULTRON WORLD</span> • Harita © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> | Uçuş: adsb.lol | Hava: Open-Meteo | Deprem: USGS.
+<span id="disclaimer">Konumlar ve kapsama gecikmeli veya eksik olabilir.</span></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module" src="/static/world.js"></script>
+</body></html>
