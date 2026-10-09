@@ -165,3 +165,9 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Browser speech recognition may be unsupported in iOS Home Screen PWA and may use the browser vendor's network service. This is not guaranteed fully offline STT, no native iOS Siri entitlement, and does not establish guaranteed speech latency.
 - Original Windows Fast Brain via installed Ollama models already exists; Windows MARK live-voice engine still Gemini separately and was NOT switched automatically to local Whisper/Piper.
 - Code SHA f33bc81f9bdfdb4d5644c7beeaa7c061f8e63cbf: Scene Build Check #37989333207 SUCCESS, PostgreSQL #37989333208 SUCCESS and Render this code SHA observed live. Physical iPhone Safari microphone and Windows actual GPU latency NOT RUN. Further documentation: ultron/HYBRID_BRAIN_TR.md.
+
+## 2026-10-10 — Warm ULTRON persona across devices
+- Created ultron/cloud_service/conversation_persona.py plus eight stdlib regression tests.
+- Integrated policy into local_brain_bridge.py and Cloud app.py for Gemini text, image, PDF, camera and Live audio. Local Qwen still requires Windows and cannot execute device tools.
+- Added standalone CI persona-policy job independent of Postgres. Prior Cloud queue runs failed during GitHub runner Postgres container initialization, before checkout or Python tests; not a code failure.
+- No real device or Render deployment validation completed at authoring time.
