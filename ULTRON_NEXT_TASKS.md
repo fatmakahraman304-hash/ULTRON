@@ -37,3 +37,20 @@ GitHub erişimi, izin veya güvenlik engeli çıkarsa burada gerçek başarısı
 - SHA: `34b80e43abe023e58a8f65c87688aa104d6d55e7`; Actions `37894840971` PASS.
 - Eşzamanlı claim advisory lock, inactive completion reddi, retry limit ve guard için 6 izolasyon testi.
 - Sonraki agent kesin adım: live/ephemeral Postgres ile claim/fencing integration tests; Render deploy/telefon testini kullanıcı ortamında ayrı doğrula.
+
+
+## 2026-10-09 — Cloud P1 delivery fencing tamamlanan aşama
+- En güncel doğrulanmış **kod SHA**: `9d577a993f78aa7393c83c22b52c83d5c7d7dfac`.
+- Scene/Cloud contract build: `37897505788` **PASS** (14 Cloud contract testi).
+- Disposable PostgreSQL integration: `37897505793` **PASS** (4 test).
+- Bütün eski worker callback'leri (completion, lease/progress, checkpoint) yalnızca o claim'e ait `delivery_attempt` ile kabul edilir. Control command geriye uyumludur.
+
+## Sonraki kesin görev
+1. Render uygulamasında `/health` üzerinden **deploy.commit** doğrula; branch commit ile birebir eşleşmeden yeni protokolün canlıda çalıştığını iddia etme.
+2. Son branch'i Windows 11'e `git pull --ff-only origin feat/ultron-cloud-shared-memory` ile al ve `START.bat` smoke testi yap.
+3. Telefon → Cloud → desktop gerçek `agent_task` gönder; delivery attempt >0, lease 20 saniye korunuyor mu, sonuç telefona geliyor mu? Telefon/laptop araçları çalışmıyorsa gerçek hatayı kaydet.
+4. Yerel irreversible eylemler için permission-aware idempotency journal tasarla ve test et: re-delivery, duplicate action ve approval gate güvenli kalmalı. DB fencing sadece Cloud callback'lerini sınırlar.
+5. Cloud queue load/reconnection ve DLQ/expired cleanup stres senaryoları; gerçek microhone/Gemini Live ve RTX GPU canlı testleri ayrı sürdür.
+6. Test/CI sonucunu ve dört devam dosyasını aynı SHA ile güncelle; sıradaki işi kodlamaya geç.
+
+**Dağıtım uyumu:** Yeni Cloud sunucusu eski agent_task istemcisinden `delivery_attempt` gelmediğinde güvenli biçimde callback'i reddeder. Masaüstü branch'inin de güncellendiğini ve server migration tamamlandığını doğrula.
