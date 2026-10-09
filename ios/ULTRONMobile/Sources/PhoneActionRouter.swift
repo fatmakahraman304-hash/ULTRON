@@ -36,11 +36,50 @@ final class PhoneActionRouter: ObservableObject {
         open(item)
     }
 
-    func resumePendingActionIfPossible() {
+    /// Cloud-suggested settings changes are queued until the user taps
+    /// DEVAM ET. Only one well-known Shortcut name can run.
+    func prepareIOSBridgeCommand(_ command: [String: Any]) {
+        let allowed: Set<String> = [
+            "set_focus", "set_volume", "set_brightness",
+            "bluetooth", "wifi", "compose_message"
+        ]
+        guard command["source"] as? String == "ultron",
+              command["version"] as? Int == 1,
+              let action = command["action"] as? String, allowed.contains(action),
+              let target = command["target"] as? String, target.count <= 300,
+              let value = command["value"] as? String, value.count <= 1_200,
+              let data = try? JSONSerialization.data(withJSONObject: [
+                "version": 1, "source": "ultron", "action": action,
+                "target": target, "value": value
+              ], options: [.sortedKeys]),
+              let input = String(data: data, encoding: .utf8) else {
+            pendingActionText = "İzin verilmeyen iPhone eylemi reddedildi."
+            return
+        }
+        prepareBridgeInput(input)
+    }
+
+    func prepareNamedShortcut(name: String, input: String) {
+        guard name == "ULTRON Bridge", input.count <= 3_000 else {
+            pendingActionText = "Yalnızca ULTRON Bridge kestirmesine izin veriliyor."
+            return
+        }
+        prepareBridgeInput(input)
+    }
+
+    private func prepareBridgeInput(_ text: String) {
+        let item = PendingPhoneAction(action: "shortcut_bridge", query: text, createdAt: Date())
+        savePending(item)
+        if UIApplication.shared.applicationState != .active {
+            notifyPending(item)
+        }
+    }
+
+    func resumePendingActionIfPossible(userInitiated: Bool = false) {
         guard UIApplication.shared.applicationState == .active,
               let item = loadPending() else { return }
 
-        clearPending()
+        if item.action == "shortcut_bridge" && !userInitiated { return }
         open(item)
     }
 
@@ -68,6 +107,8 @@ final class PhoneActionRouter: ObservableObject {
 
         let base: String
         switch item.action {
+        case "shortcut_bridge":
+            base = "ULTRON Bridge komutu onay bekliyor"
         case "open_app":
             base = "\(item.query.capitalized) açılmaya hazır"
         case "youtube_search":
@@ -100,6 +141,8 @@ final class PhoneActionRouter: ObservableObject {
 
     private func pendingDescription(_ item: PendingPhoneAction) -> String {
         switch item.action {
+        case "shortcut_bridge":
+            return "iPhone komutu hazır. ULTRON içinde DEVAM ET ile Kestirmeler'e geç."
         case "open_app":
             return "\(item.query.capitalized) açma komutu hazır. ULTRON'a dönünce devam edecek."
         case "youtube_search":
@@ -118,8 +161,10 @@ final class PhoneActionRouter: ObservableObject {
 
         UIApplication.shared.open(url, options: [:]) { [weak self] success in
             Task { @MainActor in
-                if !success {
-                    self?.pendingActionText = "iOS bu işlemi doğrudan açmadı."
+                if success {
+                    self?.clearPending()
+                } else {
+                    self?.pendingActionText = "iOS hedefi açamadı; komut saklandı."
                 }
             }
         }
@@ -131,6 +176,17 @@ final class PhoneActionRouter: ObservableObject {
 
         let raw: String?
         switch action {
+        case "shortcut_bridge":
+            var components = URLComponents()
+            components.scheme = "shortcuts"
+            components.host = "run-shortcut"
+            components.queryItems = [
+                URLQueryItem(name: "name", value: "ULTRON Bridge"),
+                URLQueryItem(name: "input", value: "text"),
+                URLQueryItem(name: "text", value: trimmed)
+            ]
+            return components.url
+
         case "open_app":
             raw = [
                 "youtube": "youtube://",
