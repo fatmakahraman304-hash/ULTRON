@@ -43,8 +43,38 @@ struct SendULTRONDesktopTaskIntent: AppIntent {
     }
 }
 
+/// General Siri question to the shared ULTRON cloud brain. Does not
+/// control local apps or tools and does not require a live mic session.
+struct AskULTRONIntent: AppIntent {
+    static var title: LocalizedStringResource = "ULTRON'a Sor"
+    static var description = IntentDescription("Siri ile ULTRON'a soru sor, ortak Cloud hafızasından cevap al.")
+    static var openAppWhenRun = false
+
+    @Parameter(title: "ULTRON'a sorulacak soru")
+    var question: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("ULTRON'a \(\.$question) sor")
+    }
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let reply = try await CloudSession.shared.askULTRON(question)
+        return .result(dialog: IntentDialog("\(String(reply.prefix(900)))"))
+    }
+}
+
 struct ULTRONAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
+        AppShortcut(
+            intent: AskULTRONIntent(),
+            phrases: [
+                "\(.applicationName) soru sor",
+                "\(.applicationName) ile konuş"
+            ],
+            shortTitle: "ULTRON'a Sor",
+            systemImageName: "brain"
+        )
+
         AppShortcut(
             intent: SendULTRONDesktopTaskIntent(),
             phrases: [
