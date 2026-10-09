@@ -1061,6 +1061,31 @@ class UltronLive:
         _all_decls = (TOOL_DECLARATIONS
                       + self._action_registry.get_tool_declarations()
                       + self._plugin_registry.get_tool_declarations())
+        # Development is a deliberately separate approval/handoff tool. Do
+        # NOT let an LLM launch VS Code or rewrite itself from a voice prompt.
+        _all_decls = list(_all_decls) + [{
+            "name": "request_ultron_development",
+            "description": (
+                "The owner asks ULTRON to change its own program, fix a bug, "
+                "add features to phone or laptop, or update its own source. "
+                "Create an authenticated Cloud development request. The user "
+                "must explicitly copy the generated task into their ChatGPT "
+                "conversation; consumer ChatGPT has NO automatic bot inbox. "
+                "GitHub CI, Render and the installed desktop version must be "
+                "checked before reporting completion. Never claim to have "
+                "updated source merely because a request was saved. "
+                "Do not launch VS Code or directly invoke dev_agent for ULTRON's own code."
+            ),
+            "parameters": {
+                "type": "OBJECT",
+                "properties": {
+                    "prompt": {"type":"STRING", "description":"User's change request in full, no secrets."},
+                    "target": {"type":"STRING", "enum":["phone","desktop","both"],
+                               "description":"phone means the FREE iPhone web PWA; both by default."}
+                },
+                "required":["prompt"]
+            }
+        }]
         _names = {(d.get("name") if isinstance(d, dict) else getattr(d, "name", ""))
                   for d in _all_decls}
         sys_prompt = _render_prompt(sys_prompt, {
@@ -1210,7 +1235,21 @@ class UltronLive:
         result = "Done."
 
         try:
-            if name == "recall_memory":
+            if name == "request_ultron_development":
+                from integration.development_bridge import submit
+                request_text = str(args.get("prompt") or "").strip()
+                target = str(args.get("target") or "both").strip().lower()
+                item = await asyncio.to_thread(submit, request_text, target)
+                result = (
+                    "Geliştirme isteği Cloud'da kaydedildi: ULTRON-DEV-"
+                    + str(item["id"]) + ". Henüz programı değiştirmedim. "
+                    "ULTRON GELİŞTİR ekranını açıp bu isteği ChatGPT'ye "
+                    "göndermeniz gerekiyor. Kod, GitHub CI, Render ve Windows "
+                    "sürümü doğrulanınca tamamlandığını bildirebilirim."
+                )
+                self.ui.write_log("SYS: " + result)
+
+            elif name == "recall_memory":
                 # Local file search: no network, no second model. Kept out of
                 # the executor deliberately — it is a dictionary scan over a few
                 # hundred short strings, and a thread hop would cost more than
