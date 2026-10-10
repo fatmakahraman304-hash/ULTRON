@@ -40,10 +40,15 @@ _SERIOUS = re.compile(
     r"emergency|hospital|debt|password|privacy)\b", re.I
 )
 _PLAYFUL = re.compile(r"\b(?:şaka|espri|komik|güldür|joke|funny)\b", re.I)
+_NO_HUMOUR = re.compile(
+    r"\b(?:şaka yapma|espri yapma|espri istemiyorum|mizah kapat|"
+    r"sarkazm kapat|ciddi konuş|no jokes?|stop joking|don't joke|"
+    r"do not joke|don't be funny)\b", re.I
+)
 
 def classify_tone(message: str) -> str:
     text = str(message or "").casefold()
-    if _SERIOUS.search(text):
+    if _SERIOUS.search(text) or _NO_HUMOUR.search(text):
         return "serious"
     return "playful" if _PLAYFUL.search(text) else "balanced"
 
@@ -63,6 +68,14 @@ _FOLLOWUP = re.compile(
     r"what about\b|and (?:it|that|then)\b|continue\b)",
     re.I
 )
+# The latest affirmative request wins. A phrase such as "kısa cevap
+# istemiyorum, detaylı anlat" is NOT a request for a short reply.
+_NEGATED_AFTER = re.compile(
+    r"^(?:değil|degil|istemiyorum|istemem|istemedim|olmasın|olmasin|"
+    r"verme|anlatma|yapma|olmasın|not|no)\b", re.I
+)
+_NEGATED_BEFORE = re.compile(r"\b(?:not|no|without)\s+$", re.I)
+
 _CORRECT = re.compile(
     r"^(?:hayır\b|yok öyle değil\b|yanlış anladın\b|"
     r"onu demedim\b|öyle değil\b|no,?\b|that's not what i meant\b)",
@@ -73,11 +86,16 @@ _CORRECT = re.compile(
 def classify_reply_mode(message: str) -> str:
     """One-turn preference for response length, independent of stored memory."""
     text = str(message or "").strip()
-    if _BRIEF.search(text):
-        return "brief"
-    if _DEEP.search(text):
-        return "detailed"
-    return "natural"
+    requests = []
+    for pattern, mode in ((_BRIEF, "brief"), (_DEEP, "detailed")):
+        for hit in pattern.finditer(text):
+            before = text[max(0, hit.start() - 16):hit.start()]
+            after = text[hit.end():hit.end() + 40].lstrip()
+            if _NEGATED_AFTER.match(after) or _NEGATED_BEFORE.search(before):
+                continue
+            requests.append((hit.start(), mode))
+    # Prefer the final *affirmative* instruction, not a negated earlier one.
+    return max(requests, default=(-1, "natural"))[1]
 
 
 def classify_dialogue_act(message: str) -> str:
@@ -168,12 +186,7 @@ def build_system_instruction(
             "sabah özeti", "daily briefing", "plan my day",
         )
     )
-    humour_off = any(
-        phrase in request for phrase in (
-            "şaka yapma", "mizah kapat", "sarkazm kapat", "ciddi konuş",
-            "no jokes", "stop joking",
-        )
-    )
+    humour_off = bool(_NO_HUMOUR.search(request))
     extra = ""
     if humour_off:
         extra += ("\nOwner requests serious tone: do not make jokes or sarcastic remarks. "

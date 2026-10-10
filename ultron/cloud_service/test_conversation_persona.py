@@ -15,6 +15,16 @@ class TestConversationPersona(unittest.TestCase):
     def test_requested_joke(self):
         self.assertEqual(classify_tone("Bana komik şaka yap"), "playful")
 
+    def test_no_humour_phrases_never_activate_playful_mode(self):
+        for phrase in ("Şaka yapma", "Espri istemiyorum", "Ciddi konuş",
+                       "No jokes", "Stop joking", "Don't joke"):
+            with self.subTest(phrase=phrase):
+                self.assertEqual(classify_tone(phrase), "serious")
+                prompt = build_system_instruction(user_message=phrase)
+                self.assertIn("No jokes or sarcasm", prompt)
+                self.assertIn("Owner requests serious tone", prompt)
+                self.assertNotIn("Friendly, light humour is welcome.", prompt)
+
     def test_neutral(self):
         self.assertEqual(classify_tone("Merhaba"), "balanced")
 

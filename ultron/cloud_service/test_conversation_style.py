@@ -64,6 +64,29 @@ class ConversationStyleTests(unittest.TestCase):
             with self.subTest(message=sentence):
                 self.assertEqual(classify_reply_mode(sentence), expected)
 
+    def test_negated_style_requests_use_last_positive_instruction(self):
+        fixtures = [
+            ("Kısa cevap istemiyorum, detaylı açıkla", "detailed"),
+            ("Kısaca değil, adım adım anlat", "detailed"),
+            ("Kısa cevap verme, en ince ayrıntısına açıkla", "detailed"),
+            ("Detaylı anlatma, kısa cevap ver", "brief"),
+            ("Önce detaylı düşün ama tek cümleyle söyle", "brief"),
+            ("Briefly explain but then in detail please", "detailed"),
+            ("No short answer; explain in detail", "detailed"),
+            ("Kısa cevap istemiyorum", "natural"),
+            ("Detaylı değil", "natural"),
+        ]
+        for sentence, expected in fixtures:
+            with self.subTest(message=sentence):
+                self.assertEqual(classify_reply_mode(sentence), expected)
+                guidance = dialogue_guidance(sentence, has_prior_turns=True)
+                if expected == "brief":
+                    self.assertIn("Answer briefly", guidance)
+                elif expected == "detailed":
+                    self.assertIn("Explain sufficiently", guidance)
+                else:
+                    self.assertIn("Match the question", guidance)
+
     def test_named_recall_uses_old_answer_evidence_not_invented_memories(self):
         present = build_system_instruction(
             user_message="Mercedes C180 hakkında ne demiştik?",
