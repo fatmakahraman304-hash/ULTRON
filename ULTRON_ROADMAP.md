@@ -1,3 +1,11 @@
+## Conversational intelligence — long recap coverage (2026-10-10)
+
+- [x] True first-topic return beyond 80 turns (previous release).
+- [x] Scoped real-start / real-midpoint / recent recaps for 80+ turn chats, validated in both deterministic and disposable PostgreSQL integration tests (`066b7b982a19c97297a2d74ee4cf68a4a9c4d336`, Cloud 38070614904 and Scene 38070614899: SUCCESS).
+- [ ] Real Gemini and reachable Qwen/Ollama 100-case transcript capture + independent human scoring.
+- [ ] Latency/context-window measurement and actual phone/desktop microphone tests.
+- [ ] Final single Windows update after conversational acceptance. No Windows changes made in this cycle.
+
 # ULTRON — Teknik Yol Haritası
 
 Bu belge `MARK-ULTRON-MERGED` kaynak ağacına dayanır. **Test edilmemiş özellik tamamlanmış sayılmaz.**

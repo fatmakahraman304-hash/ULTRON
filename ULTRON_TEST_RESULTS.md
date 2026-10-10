@@ -1,3 +1,11 @@
+## 2026-10-10 — Continued natural conversation: true midpoint in long recaps
+
+- Functional SHA: `066b7b982a19c97297a2d74ee4cf68a4a9c4d336`.
+- GitHub Actions Cloud Queue PostgreSQL Integration [38070614904](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38070614904): **SUCCESS**, including new 120+ message real PostgreSQL recap/multitenant regression.
+- GitHub Actions Scene Build Check [38070614899](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38070614899): **SUCCESS**.
+- New deterministic `test_thread_recap.py` case verifies true beginning, true midpoint, recent end, role/character bounds and identical authenticated-thread query predicates. New `test_conversation_turns_postgres.py` case verifies content from the true middle after >80 turns and excludes another conversation and another owner. Existing Cloud and frontend CI remain green.
+- **Limit:** This is deterministic infrastructure verification, not proof of naturalness or model accuracy. Real Gemini and Qwen evaluation still NOT MEASURED; no 100/100 score. New Render deploy commit / device tests were not independently checked.
+
 # ULTRON — Gerçek Test Kayıtları
 
 ## 2026-10-09

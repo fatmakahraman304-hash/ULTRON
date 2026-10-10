@@ -1,3 +1,12 @@
+# Current priority — conversation acceptance (2026-10-10)
+
+- **Latest verified functional code:** `066b7b982a19c97297a2d74ee4cf68a4a9c4d336`. Long-thread recaps now sample the actual beginning, midpoint and end, even after 80+ prior turns, rather than sampling only the latest 80.
+- **Verified CI:** Cloud Queue PostgreSQL Integration [38070614904](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38070614904) SUCCESS; ULTRON Scene Build Check [38070614899](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38070614899) SUCCESS. New offline synthetic-long-thread and disposable PostgreSQL 120+ history/tenant-boundary tests are covered.
+- **Next:** Obtain authorized real Gemini and local Ollama/Qwen evaluations without extracting secrets or connecting production private conversations. Run frozen 100-scenario suite for each available provider and independent human review before any quality score. Measure latency and context losses before increasing prompt budgets.
+- **Do not yet:** call natural conversation 100/100; deploy a Windows update; claim new Render deployment LIVE without exact SHA confirmation. Preserve sparse UI, Cloud approval gate, owner isolation, and conservative model fallback.
+
+---
+
 # Current priority — conversational intelligence (2026-10-10)
 
 ## Next tasks

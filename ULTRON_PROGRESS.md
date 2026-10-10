@@ -1,3 +1,11 @@
+## 2026-10-10 — Long conversation recap true-midpoint follow-up
+
+- Functional SHA: `066b7b982a19c97297a2d74ee4cf68a4a9c4d336` on `feat/ultron-cloud-shared-memory`.
+- Old limitation: a recap request used at most the last 80 thread messages. For 100+ messages, the sampled 'beginning' and 'middle' were actually inside that recent window. This did not reflect the full conversation.
+- New behavior: an explicit recap with >80 prior turns now fetches the real start and midpoint and keeps recent dialogue under the existing 7,200-character / 20-turn hard ceilings. Scoped SQL filters on user_id, conversation_id and before_id apply to every slice and count. Short conversations retain the previous one-query path. No extra LLM calls, memory writes, cross-thread reads or approval-policy changes.
+- New deterministic long-thread test and real disposable PostgreSQL 120+ message tenant-isolation test were added. CI: [Cloud 38070614904](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38070614904) SUCCESS; [Scene 38070614899](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38070614899) SUCCESS.
+- Gemini/Qwen real-answer acceptance remains NOT_RUN / NOT MEASURED. Render deployment of this newer SHA and Windows/iPhone physical tests have not been verified in this continuation.
+
 # ULTRON — Kalıcı Geliştirme Günlüğü
 
 Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. Kendiliğinden arka plan çalışan bir süreç değildir.
