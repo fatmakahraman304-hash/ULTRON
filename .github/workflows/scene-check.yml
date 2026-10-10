@@ -67,6 +67,10 @@ jobs:
         env:
           PYTHONPATH: ultron/backend
         run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
+      - name: Local Qwen phone mic tap-to-interrupt and stale speech reply guard
+        run: |
+          node --check ultron/cloud_service/static/voice-turn-guard.js
+          node --test ultron/cloud_service/test_voice_turn_guard.cjs
       - name: Single ULTRON speaker arbitration on phone and laptop
         run: |
           node --check ultron/cloud_service/static/speaker-policy.js
