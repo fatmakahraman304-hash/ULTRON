@@ -12,6 +12,7 @@
     const opt = options || {};
     const doc = opt.document || (typeof document !== "undefined" ? document : null);
     const api = opt.fetchJson;
+    const openExport = opt.openExport || (typeof window !== "undefined" ? url => window.location.assign(url) : () => {});
     const ask = opt.confirmDelete || (typeof window !== "undefined" ? text => window.confirm(text) : () => false);
     if (!doc || typeof api !== "function") throw Error("document_and_fetchJson_required");
     const el = id => doc.getElementById(id);
@@ -139,9 +140,23 @@
       if (saved) await refresh();
     }
 
+    function exportCalendar() {
+      if (busy) return;
+      const zone = el("planExportTimezone").value;
+      if (!["Europe/Istanbul", "Asia/Nicosia", "UTC"].includes(zone)) {
+        el("ownerPlansStatus").textContent = "Geçerli bir saat dilimi seçmelisin.";
+        return;
+      }
+      // No background export, no external calendar API; only a direct owner click.
+      openExport("/api/owner-plans/calendar.ics?tz=" + encodeURIComponent(zone));
+      el("ownerPlansStatus").textContent =
+        "Takvim dosyası istendi. Apple/Google Takvim'e otomatik ekleme yapılmadı; notlar aktarılmaz.";
+    }
+
     function init() {
       if (!el("refreshOwnerPlans") || !el("saveOwnerPlan")) return false;
       el("refreshOwnerPlans").addEventListener("click", refresh);
+      el("exportOwnerPlans").addEventListener("click", exportCalendar);
       el("saveOwnerPlan").addEventListener("click", save);
       el("cancelPlanEdit").addEventListener("click", () => {
         if (busy) return;
