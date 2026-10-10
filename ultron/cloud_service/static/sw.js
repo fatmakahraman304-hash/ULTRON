@@ -1,5 +1,5 @@
-const CACHE='ultron-shell-v53';
-const SHELL=['/','/static/manifest.webmanifest','/static/ultron-icon.svg','/static/mobile-action-guard.js','/static/world.html','/static/world.js','/static/dev-requests.js','/static/local-voice.js','/static/live-playback.js','/static/speaker-policy.js','/static/personal-panel.js','/static/owner-plans.js','/static/learning-review.js','/static/panel-intents.js','/static/auto-brain.js','/static/conversation-notes.js'];
+const CACHE='ultron-shell-v54';
+const SHELL=['/','/static/manifest.webmanifest','/static/ultron-icon.svg','/static/mobile-action-guard.js','/static/world.html','/static/world.js','/static/dev-requests.js','/static/local-voice.js','/static/live-playback.js','/static/speaker-policy.js','/static/voice-turn-guard.js','/static/personal-panel.js','/static/owner-plans.js','/static/learning-review.js','/static/panel-intents.js','/static/auto-brain.js','/static/conversation-notes.js'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)));self.skipWaiting()});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});
 self.addEventListener('fetch',event=>{

@@ -626,6 +626,7 @@
 <script src="/static/mobile-action-guard.js"></script>
 <script src="/static/dev-requests.js"></script>
 <script src="/static/local-voice.js"></script>
+<script src="/static/voice-turn-guard.js"></script>
 <script src="/static/live-playback.js"></script>
 <script src="/static/speaker-policy.js"></script>
 <script src="/static/personal-panel.js"></script>
@@ -655,6 +656,7 @@ let serverSpeakerEnrolled=false,serverSpeakerReady=false,speakerEnrollPcm=[],spe
 const SPEAKER_LOCK_ENABLED=false;
 let wakeWordActive=false;
 const scheduledSources=new Set();
+const voiceTurnGuard=window.ULTRONVoiceTurnGuard.create();
 const livePlaybackState=window.ULTRONLivePlayback?.create({
   onDrained:()=>{
     if(!liveDesired||!voiceListening||suppressOutput||desktopVoiceLeader)return;
@@ -933,7 +935,7 @@ function setVoiceEnabled(value,announce=false){
   voiceEnabled=!!value;localStorage.setItem('ultronVoiceEnabled',voiceEnabled?'1':'0');
   $('#voiceToggle').textContent=voiceEnabled?'◖))':'◖×';
   $('#stageVoiceText').textContent=voiceEnabled?'Mikrofona dokun ve konuş':'Sesli yanıt kapalı';
-  if(!voiceEnabled){localVoiceController?.stop();stopLiveVoice();if('speechSynthesis' in window)speechSynthesis.cancel()}
+  if(!voiceEnabled){voiceTurnGuard.cancel();localVoiceController?.stop();stopLiveVoice();if('speechSynthesis' in window)speechSynthesis.cancel()}
   if(announce&&voiceEnabled)speakUltron('Sesli ULTRON aktif. Canlı konuşmak için mikrofona dokun.',true);
 }
 function resampleTo16k(input,inputRate){
@@ -1731,8 +1733,10 @@ localVoiceController=window.ULTRONLocalVoice?.create({
   onError:msg=>{toast(msg);liveStatus(msg,false)},
   onTranscript:async text=>{
     if(brainMode!=='local'||liveDesired||voiceListening)return;
+    // A cancelled user-tapped mic turn must not play a late reply.
+    const voiceToken=voiceTurnGuard.begin();
     $('#message').value=text;
-    await send(true);
+    await send(true,voiceToken);
   },
 });
 async function localBrainAnswer(text){
@@ -1756,10 +1760,11 @@ async function localBrainAnswer(text){
   }
   throw new Error('Laptop yanıtı gecikti. Aynı mesajı tekrar göndermeden önce durumu kontrol et.');
 }
-async function send(fromVoice=false){
+async function send(fromVoice=false,voiceToken=null){
   if(pendingImage){await sendImage();return}
   if(pendingPdf){await sendPdf();return}
   const text=$('#message').value.trim();if(!text)return;
+  if(!fromVoice)voiceTurnGuard.cancel();
   $('#message').value='';clearDraft();
   rememberPendingVoice('user',text);addMessage('user',text);
   const panelHandled=handlePanelIntent(text);
@@ -1787,7 +1792,11 @@ async function send(fromVoice=false){
     }else d=await cloud();
     conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);
     rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply);
-    messageSignature='';if(fromVoice||voiceEnabled)speakUltron(d.reply);
+    messageSignature='';
+    // A mic cancel/mute/background action invalidates a previous voice reply;
+    // the successful text response remains available in chat.
+    if((!fromVoice||voiceTurnGuard.current(voiceToken))&&
+       (!fromVoice||!document.hidden)&&(fromVoice||voiceEnabled))speakUltron(d.reply);
   }catch(e){
     const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir.':(e.data?.detail||e.message);
     addMessage('assistant','Hata: '+msg);
@@ -1797,7 +1806,16 @@ $('#sendBtn').onclick=()=>send(false);
 updateBrainModeUi();
 $('#voiceBtn').onclick=async()=>{
  if(liveDesired||voiceListening){await stopLiveVoice();return}
- if(localVoiceController?.active()){localVoiceController.stop();return}
+ if(localVoiceController?.active()){
+   voiceTurnGuard.cancel();
+   localVoiceController.stop();
+   try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
+   return;
+ }
+ // Mic tap interrupts any browser TTS before listening; late old replies
+ // are still shown as text but may not read themselves into the microphone.
+ voiceTurnGuard.cancel();
+ try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
  const preferred=await refreshAutoBrain(true);
  if(preferred==='local'){
    if(localVoiceController?.toggle())return;
@@ -2128,10 +2146,10 @@ setInterval(phoneHeartbeat,5000);
 setInterval(watchDesktopPresence,5000);
 setInterval(()=>{if(currentView==='remote')loadRemoteState().catch(()=>{})},3000);
 setInterval(watchLaptopTasks,2500);
-window.addEventListener('pagehide',()=>{localVoiceController?.stop();releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
+window.addEventListener('pagehide',()=>{voiceTurnGuard.cancel();localVoiceController?.stop();try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
 window.addEventListener('pageshow',()=>{void refreshAutoBrain(true)});
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){localVoiceController?.stop();stopPhoneCamera();releaseVoiceWakeLock().catch(()=>{});return}
+  if(document.hidden){voiceTurnGuard.cancel();localVoiceController?.stop();try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}stopPhoneCamera();releaseVoiceWakeLock().catch(()=>{});return}
   if(currentView==='chat')setUnread(0);
    void refreshAutoBrain(true);
   phoneHeartbeat();messageSignature='';loadMessages().catch(()=>{});watchLaptopTasks().catch(()=>{});
