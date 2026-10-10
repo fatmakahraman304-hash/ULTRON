@@ -220,3 +220,10 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - Windows: simplified voice-first React Dashboard hides top nav, footbar, system rail, redundant cards, retains CenterStage/ULTRON chat, small mic and one Menu. Desktop HologramLab opens on demand via dynamic component, Earth opens via existing stage backend, tools available in dialog.
 - Safety: panel commands change visual UI only (except authenticated preexisting stage modes). No microphone auto-start, approval bypass, file operations, continuous recording or operating-system tool execution introduced.
 - Mobile hologram is an animated *screen preview*, not full Windows 3D editor or a volumetric free-air hologram. Real devices still require manual acceptance.
+
+
+## 2026-10-10 — Invisible local-first brain, clean mobile composer
+- Requested simplified Cloud PWA removes visible "ULTRON BEYİN" title, Qwen/Gemini picker, cloud-limit explanations and duplicate technical guidance. Only voice button, attachment, message composer and send remain; existing hidden on-demand workspace menu is preserved.
+- Browser Cloud /api/device-presence yields per-owner Windows desktop heartbeat: online within existing 15s window -> choose local Qwen; otherwise -> Gemini Cloud. No stale localStorage selector override. The choice re-checks before every text send and when the user taps microphone; background presence update is only for routing and must not start microphones.
+- Browser transient source failures route to Gemini. Once a local request has entered the queue, uncertain timeout/failure is NOT blindly replayed to Gemini, avoiding duplicate command/message and surprise billing. Explicit 409 desktop_offline rejection before insert is safe for cloud fallback.
+- Existing owner auth, browser microphone permission, live audio owner, queue fencing and local dangerous-tool isolation unchanged. Real provider subscription/quotas still apply, whether or not provider UI is hidden. Real iPhone/laptop manual verification remains required.

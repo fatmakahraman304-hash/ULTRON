@@ -231,3 +231,11 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Updated legacy test_world_contract.cjs to assert WORLD's new indirect dispatcher route rather than outdated direct direct transcript call.
 - Scene run 38051154409 failed old direct WORLD assertion; run 38051359430 succeeded after updating. Subsequent new test run 38051416468 caught parse "kaç" as substring "aç"; fixed by whole-word verb regex in mobile and desktop. Latest CI must show passed on updated SHA.
 - Frontend Build Check 38051547171 SUCCESS on intent whole-word fix branch; Render code release and physical devices must be confirmed separately.
+
+
+## 2026-10-10 — Auto brain routing CI evidence
+- unit test_auto_brain.cjs: online desktop -> local; offline, stale/absent, "true" string, phone-only -> Gemini; fallback only exact 409 desktop_offline, never rate limited/failure/network ambiguity; no visible Qwen/Gemini picker; inline UI script syntax, only click starts mic.
+- Updated offline test_local_brain_bridge.py to assert device-presence selection, automatic 409-before-queue fallback and safe preservation of local-only data bridge; updated test_local_voice.cjs to match no selector, tap-triggered local/cloud mode and revised unsupported speech warning.
+- On code SHA 7cfb708000c5274e2d968b3e731d17a0cf2af8db: Cloud Queue PostgreSQL Integration 38053172917 SUCCESS; Scene Build Check 38053172923 SUCCESS. Render live for that SHA confirmed (dep-db53733bc2fs738bq5j0).
+- Additional cleanup commit bd9aec003af2436f912116e2bd09ebdba6984f83 tripped old unsupported-voice test text regex (old test expected "deste.*yok"; source now says "desteklemiyor"). Fixed test at 09fe6974de0ebf53c00c51506b7bb50eba07ce6f. Latest CI and Render must be checked before calling final correction verified.
+- Physical iPhone Safari, real Windows worker/Ollama availability, Gemini provider quota/network and Live mic permissions not tested here.

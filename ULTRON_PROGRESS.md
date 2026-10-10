@@ -242,3 +242,11 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Desktop Dashboard: voice-first class hides large nav/footer/system rail/redundant right panels by default, retains chat+CenterStage+mic+Menu. React HologramLab and Earth accessible by exact command; handles new native voice-log commands.
 - CI tests added for iOS typed/Live words and no accidental question interception, desktop command parser and minimalist CSS; existing WORLD legacy test updated for new handlePanelIntent chain. Focus on low-cost GPU.
 - Old scene CI failing because tests assumed direct worldVoiceIntent(heard) and naive "aç" substring matched "kaç"; patched actual intent routing/whole-word grammar. Need confirm exact final CI SHA and Render deployed code before reporting verified.
+
+
+## 2026-10-10 — Implemented fully automatic brain route in minimal mobile UI
+- Added static/auto-brain.js (select devices, safeToFallback verified 409 desktop_offline only) and PWA service worker cache v50.
+- index.html removes the entire brain-picker row, unused CSS and old saved manual model preference; reads authenticated device presence on login, before chat submission, on voice tap, via existing 5s laptop heartbeat and on reactivation. Keeps a short re-check cache / deduplicated in-flight check; no extra microphone permission prompts on load.
+- A connected, heartbeat-online Windows ULTRON gets first chance at local Ollama/Qwen. Otherwise Gemini Cloud chat. Local /api/local-chat rechecks heartbeat before creating queue task; only pre-queue desktop_offline permits resending to Gemini. If queued local later times out, the error is shown rather than risking double answer. Current live voice session is not automatically interrupted to switch providers.
+- Kept microphone, attachment, message send controls; replaced provider text with generic speech status. If browser STT unsupported, Gemini Live can be offered after a direct microphone tap (existing permission requirements still apply). No silent mic start.
+- Updated old local voice and bridge tests to new auto selection contract. Added test_auto_brain.cjs in Scene CI for owner-scoped heartbeat, safe fallback, no picker, JS syntax, privacy conditions. Must still verify final exact HEAD GitHub CI/Render; real device test not possible here.

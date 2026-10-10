@@ -289,3 +289,12 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 4. Real Windows START.bat: ensure native audio still owned by existing system; CenterStage+chat+small mic appear, old menu/footer hidden, "Hologram Lab'i aç" opens actual HologramLab, "Dünyayı aç" opens Earth stage, "Hafızayı göster" opens ToolPanel, Escape closes modal, menu button provides fallback.
 5. Mobile screen-preview hologram is NOT same as full Windows 3D lab. If user wants full parity, ship prebuilt interactive Three.js mobile lab with verified performance/permissions and then test on hardware.
 6. Continue truthful capability gaps and avoid real background/PC powered-off or native iOS feature claims without hardware/provider access.
+
+
+## Next user acceptance: automatic Qwen/Gemini without a manual selector
+1. Confirm latest Cloud Queue PostgreSQL Integration and ULTRON Scene Build Check on exact code SHA, inspect failures and fix before calling done. Confirm latest Render deploy status and code SHA (not merely repository commit).
+2. Real iPhone: sign in to https://ultron-yubh.onrender.com, refresh PWA/Safari cache. Ensure no large "ULTRON BEYİN", Qwen/Gemini select, rate limit explanation row. Chat composer with microphone, attachment and send must remain.
+3. With Windows ULTRON + CloudRemote queue + Ollama running, verify desktop device heartbeat is ONLINE, send ordinary text and test local Qwen answer returns with shared conversation. Tap mic with browser permission and test local speech turn.
+4. Shut Windows ULTRON down, wait >15s for heartbeat to expire, send text and check real Gemini reply; try tap-to-speak and Gemini Live only after user tap. On reconnect, send next text and check automatic local selection. Do not claim actual laptop hardware powered-down detection beyond heartbeat.
+5. Simulate laptop going offline between presence check and local queue submit: a confirmed 409 desktop_offline must trigger Gemini once; 429 busy, network ambiguity, queued timeouts and permission errors must NOT silently duplicate/replay message.
+6. Verify Cloud API key quota failures are reported truthfully; model limits are not removed by hiding labels. No fully unbounded free model claims.
