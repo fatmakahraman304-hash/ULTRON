@@ -81,7 +81,8 @@ test('async transcript turn cannot double-submit',async()=>{
 test('PWA voice picks connected local first, otherwise Cloud, only after tap',()=>{
  assert.match(html,/localVoiceController=window\.ULTRONLocalVoice\?\.create/);
  assert.match(html,/localVoiceController\?\.toggle\(\)/);
- assert.match(html,/await send\(true\)/);
+ assert.match(html,/await send\(true,voiceToken\)/);
+ assert.match(html,/const voiceToken=voiceTurnGuard\.begin\(\)/);
  assert.match(html,/const preferred=await refreshAutoBrain\(true\)/);
  assert.match(html,/if\(preferred==='local'\)/);
  assert.match(html,/await startVoice\(\)/);
