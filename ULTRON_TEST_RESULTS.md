@@ -261,3 +261,12 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Disposable PostgreSQL test_conversation_turns_postgres.py also verifies 24+ intervening turns, old Mercedes C180 recall only for correct user and conversation, no leaks from other conversations/users, and exclusion of the current message.
 - GitHub Cloud Queue PostgreSQL Integration run 38057407803 SUCCESS. Scene Build Check run 38057407812 SUCCESS on code SHA 8c25b3db4186d7e62bac465b6bbe8693af55a298. Render deployed same code SHA LIVE as dep-db546815efls73a9o7cg. Earlier intermediate code run 38057311007 failure was an outdated test asserting the old function name; corrected in the passing code commit.
 - No real Gemini/OpenAI live naturalness benchmark or physical iPhone/Windows acceptance has been executed in this session. Only CI contracts and Render deployment are verified.
+
+
+## 2026-10-10 — Recap verification
+- Python unit test_thread_recap.py covers explicit Turkish/English same-conversation recap commands, excludes ordinary "kitabı özetle", head/mid/recent selection, model role separation, text/token/SQL lookback limits, malformed record filtering, and no phantom history.
+- Disposable PostgreSQL integration test_conversation_turns_postgres.py extended: 28-turn chat, recap sees start/mid/end while excluding current request and other user/conversation secrets; owner-scoped query enforced.
+- Cloud Queue PostgreSQL Integration 38061079383 SUCCESS at ef474b66ad9009871aa4dae7126223ee363ebe6c (test CI includes explicit recap step), and prior 38061059249 SUCCESS at 8ffd9983cc1fc077745f3c5ed257b9f224553b8f.
+- ULTRON Scene Build Check 38061059184 SUCCESS at 8ffd9983cc1fc077745f3c5ed257b9f224553b8f.
+- Render code release at da9f6e76049953e88ae91b17104018bb9bdc6613 confirmed LIVE; subsequent commits differ only in tests/workflow. Exact Render promotion for subsequent test-only commit is optional and should not be confused with a new code release.
+- No physical iPhone, Windows Ollama/Qwen, live Gemini conversational benchmark or real voice interaction was performed here.

@@ -248,3 +248,10 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - Support JARVIS-like follow-up questions about specific topics referenced earlier in the *same* conversation. Fetch at most 80 prior user/assistant rows only by current authenticated user_id and conversation_id; older recall requires explicit topic terms (e.g. Mercedes C180), never guesses a subject from "Peki?".
 - Keep the newest conversation turns and reserve at most ~25% of the existing model context budget for relevant older excerpts. Preserve chronological order, role boundary and bounded Qwen 4GB context; skip malformed/system records. No new persistent personal memory, embedding service, hidden model API, background surveillance or automatic training.
 - Integrate into Cloud Gemini and queued Windows Qwen user text chat. Existing owner-approved memory stays separate; no new native tool execution or Approval Gate relaxation. Cloud autoDeploy remains independent of the user's deferred one-time Windows download.
+
+
+## 2026-10-10 — ULTRON on-demand whole-chat recap (no extra UI)
+- When the owner explicitly says "Bu sohbeti özetle", "Konuştuklarımızı özetle", "Az önce ne konuştuk?" or "Summarize this conversation", select beginning, middle and recent turns from *only the currently authenticated user's currently active conversation*. This fixes recaps based only on recent 12–16 messages.
+- Regular conversation continues using recent / explicit-topic recall; no cross-conversation auto-summary, hidden background job, new permanent memory, external model call, provider account, hardware permission, or visible toolbar/picker.
+- Preserve role boundaries (user/assistant only), 80-message SQL lookback, 7200-character absolute cap, existing Gemini (up to 5200) and 4GB laptop Qwen (up to 2600) budgets.
+- Persona explicitly cautions Gemini/Qwen that sampled excerpts may omit intervening messages, forbids invented earlier topics and claims about saved personal memory. Real device tests still outstanding. Windows installation deferred until the final release.

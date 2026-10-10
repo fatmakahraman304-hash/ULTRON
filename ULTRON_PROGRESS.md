@@ -275,3 +275,12 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Changed old thread-contract checks to assert the new helper. Added test_contextual_recall.py and expanded disposable PostgreSQL test_conversation_turns_postgres.py for earlier same-thread recall, no current-turn duplication and cross-owner/cross-conversation denial. Cloud CI workflow runs the new tests.
 - After code/test commit 8c25b3db4186d7e62bac465b6bbe8693af55a298: Cloud Queue PostgreSQL Integration 38057407803 SUCCESS, ULTRON Scene Build Check 38057407812 SUCCESS, Render deployment dep-db546815efls73a9o7cg LIVE. Real Gemini/Qwen spoken quality and iPhone/Windows device acceptance NOT independently verified.
 - Requested persistent hourly development automation now enabled with explicit instructions not to install/download Windows files until the user chooses a final release; each hourly execution must still independently verify permissions and CI.
+
+
+## 2026-10-10 — Read-only conversation recap for natural dialogues
+- Added is_thread_recap_request() and select_recap_turns() in conversation_turns.py. Exact owner request only; samples from start / midpoint / latest messages in order with capped char and role budgets. load_contextual_thread_turns() detects recap commands and fetches at most 80 scoped prior user/assistant messages, honoring before_id, instead of only recent history.
+- conversation_persona.py adds THREAD RECAP guidance to avoid hallucinating omitted discussion, and to state when thread has no prior messages.
+- Both Gemini Cloud and queued Windows Qwen already use load_contextual_thread_turns; no new dispatch, model provider, microphone behavior, API endpoint, file write, database table, or visible UI change.
+- Added test_thread_recap.py: exact command detection vs incidental summarization, chronological beginning-middle-end, caps, invalid/system-role rejection, no missing-context invention, scoped SQL and current-message exclusion.
+- Expanded real PostgreSQL test_conversation_turns_postgres.py with cross-owner/cross-thread privacy and older-summary detection. CI wired in cloud-queue-postgres.yml.
+- Code da9f6e76049953e88ae91b17104018bb9bdc6613 verified Render live; tests 8ffd9983cc1fc077745f3c5ed257b9f224553b8f verified Scene+PostgreSQL CI successes; workflow-only commit ef474b66ad9009871aa4dae7126223ee363ebe6c Cloud CI success. Actual mobile Safari / Gemini and local Qwen live answers not tested in this session.

@@ -323,3 +323,11 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. Maintain automated CI and Render proof for every changeset; treat physical iPhone voice latency, iOS PWA, Windows START.bat, local STT/Piper, IoT, calendar/email OAuth, true hologram hardware and powered-off PC interactions as separate unverified goals.
 4. Next candidate: opt-in per-conversation "summary of older dialogue" feature with explicit, editable review and deletion. Never auto-save sensitive personal information or let LLM-authored summaries become system instructions; prefer deterministic bounded sources and preserve all owner approval/security gates.
 5. Update user only with actual verified code/test/deployment outcomes, not a promise of nonstop autonomous work beyond the scheduled hourly task. Laptop installation remains deferred until the user requests it.
+
+
+## Next ULTRON steps after scoped whole-chat recap
+1. Run real iPhone Cloud Gemini conversation: discuss a car, then 20 messages on architecture, then a recent voice topic. Ask "Bu sohbeti özetle" and verify the recap covers the early, middle and latest *known* portions without fabricating facts or claiming exhaustiveness. No UI changes needed: type or speak normally.
+2. Test a brand-new empty chat: same command should explicitly say there is no prior thread. Ask "Kitabı özetle" and verify normal book summary task is NOT misrouted to whole-conversation recap.
+3. On real iPhone/Windows when approved and available, test Gemini Live multi-turn and local Qwen with shorter context; verify correctness and latency. Do not trigger a Windows download or installation until owner explicitly requests the final package.
+4. Consider next: user-requested editable, local-only conversation notes and a review-before-saving mechanism; no automatic sensitive learning or unapproved external cloud sync. Keep UI minimal and voice-first.
+5. Recheck GitHub CI + Render on each code SHA; never treat CI unit tests as live subjective conversation quality proof. Physically powered-off control, Apple entitlements, external Calendar/Email OAuth, actual volumetric holograms and hardware tests remain separate.
