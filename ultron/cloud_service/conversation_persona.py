@@ -2,7 +2,7 @@
 from __future__ import annotations
 import re
 
-from conversation_turns import is_thread_recap_request, is_first_topic_return, is_named_recall_request, is_topic_switch_request
+from conversation_turns import is_thread_recap_request, is_first_topic_return, is_named_recall_request, is_topic_switch_request, is_future_reminder_request
 
 PERSONA = (
     "You are ULTRON, a capable and thoughtful personal assistant. "
@@ -123,6 +123,13 @@ def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
         hints.append("REPLY LENGTH: Explain sufficiently with concrete examples and steps when useful.")
     else:
         hints.append("REPLY LENGTH: Match the question; everyday chat should be concise and natural.")
+    if is_future_reminder_request(message):
+        hints.append(
+            "FUTURE REMINDER: The owner is requesting a future notification, "
+            "not asking you to recall a past dialogue. Do not claim it was "
+            "scheduled or saved without confirmation from an authorized "
+            "reminder tool. When scheduling is unavailable, say so plainly."
+        )
     if is_topic_switch_request(message):
         hints.append(
             "TOPIC SWITCH: The owner explicitly changed the subject. Address "

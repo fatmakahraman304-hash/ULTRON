@@ -6,7 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from conversation_turns import (
     select_contextual_turns, load_contextual_thread_turns, _topic_terms,
-    is_topic_switch_request, is_explicit_turn_correction
+    is_topic_switch_request, is_explicit_turn_correction,
+    is_future_reminder_request, is_named_recall_request
 )
 
 
@@ -298,6 +299,39 @@ class ContextualRecallUnitTests(unittest.TestCase):
                         "Bir sonraki konuyu anlatalım"):
                 self.assertFalse(is_explicit_turn_correction(txt),txt)
         asyncio.run(go())
+
+    def test_future_reminder_does_not_become_historical_recall(self):
+        reminders = ("Yarın saat 9'da DAÜ sınavını hatırlat",
+                     "Saat 17:30'da bunu hatırlat.",
+                     "Bunu 20 dakika sonra hatırlat.",
+                     "Remind me in 20 minutes to study.",
+                     "Remind me tomorrow about the Mercedes.")
+        for question in reminders:
+            self.assertTrue(is_future_reminder_request(question),question)
+            self.assertFalse(is_named_recall_request(question),question)
+        for question in ("DAÜ hakkında ne demiştik?",
+                         "Mercedes C180 konuşmamızı hatırlat",
+                         "What did we decide about Mercedes?"):
+            self.assertTrue(is_named_recall_request(question),question)
+            self.assertFalse(is_future_reminder_request(question),question)
+
+        class DB:
+            def __init__(self): self.calls=[]
+            async def fetch(self,sql,*args):
+                self.calls.append((sql,args))
+                return [{"role":"user","content":"En son mimarlığı konuşuyorduk"}]
+        import asyncio
+        async def check():
+            db=DB()
+            turns=await load_contextual_thread_turns(
+                db,"owner","thread",
+                question="Yarın saat 9'da DAÜ sınavını hatırlat",
+                before_id=50,max_chars=1500,limit=14)
+            self.assertEqual(len(db.calls),1)
+            self.assertEqual(db.calls[0][1],("owner","thread",50,14))
+            self.assertNotIn("ILIKE",db.calls[0][0])
+            self.assertIn("mimarlığı",str(turns))
+        asyncio.run(check())
 
     def test_no_topic_uses_small_sql_window(self):
         class DB:

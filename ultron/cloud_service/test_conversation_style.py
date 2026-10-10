@@ -115,6 +115,17 @@ class ConversationStyleTests(unittest.TestCase):
         ordinary = dialogue_guidance("Peki onun fiyatı?",has_prior_turns=True)
         self.assertNotIn("TOPIC SWITCH",ordinary)
 
+    def test_future_reminder_is_not_false_history_or_action_success(self):
+        reminder = dialogue_guidance(
+            "Yarın saat 9'da sınavı hatırlat",has_prior_turns=True)
+        self.assertIn("FUTURE REMINDER",reminder)
+        self.assertIn("without confirmation",reminder)
+        self.assertNotIn("NAMED THREAD RECALL",reminder)
+        historic = dialogue_guidance(
+            "DAÜ hakkında ne demiştik?",has_prior_turns=True)
+        self.assertIn("NAMED THREAD RECALL",historic)
+        self.assertNotIn("FUTURE REMINDER",historic)
+
     def test_named_recall_uses_old_answer_evidence_not_invented_memories(self):
         present = build_system_instruction(
             user_message="Mercedes C180 hakkında ne demiştik?",

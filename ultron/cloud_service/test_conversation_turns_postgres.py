@@ -305,4 +305,28 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertLessEqual(sum(len(x["content"]) for x in turns),2800)
 
 
+ async def test_future_reminder_does_not_search_old_thematic_history(self):
+  await self.add(self.c1,"ci-dialogue-a","user",
+                 "DAÜ sınavı eski sohbet ilk mesaj")
+  await self.add(self.c2,"ci-dialogue-a","user","OTHER_THREAD_SECRET")
+  await self.add(self.c3,"ci-dialogue-b","assistant","OTHER_OWNER_SECRET")
+  for i in range(45):
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant",
+                  f"Recently discussing another subject {i}")
+  current=await self.add(self.c1,"ci-dialogue-a","user",
+                         "Yarın saat 9'da DAÜ sınavını hatırlat")
+  turns=await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c1,
+      question="Yarın saat 9'da DAÜ sınavını hatırlat",
+      before_id=current,max_chars=2000,limit=14)
+  joined=" ".join(t["content"] for t in turns)
+  self.assertIn("another subject 44",joined)
+  self.assertNotIn("eski sohbet",joined)
+  self.assertNotIn("SECRET",joined)
+  self.assertNotIn("Yarın saat 9",joined)
+  self.assertLessEqual(len(turns),14)
+  self.assertLessEqual(sum(len(t["content"]) for t in turns),2000)
+
+
 if __name__=="__main__":unittest.main()

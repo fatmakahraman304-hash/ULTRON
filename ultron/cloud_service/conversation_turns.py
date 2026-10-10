@@ -318,10 +318,31 @@ def is_first_topic_return(question: str) -> bool:
         _FIRST_RETURN.fullmatch(" ".join(question.strip().split())))
 
 
+_REMINDER_VERB = re.compile(
+    r"\b(?:hatırlat|hatirlat|anımsat|animsat|remind me)\b", re.I
+)
+_FUTURE_REMINDER = re.compile(
+    r"\b(?:yarın|yarin|öbür gün|haftaya|gelecek hafta|"
+    r"tomorrow|tonight|next week|"
+    r"saat\s*[0-2]?\d(?::[0-5]\d)?|"
+    r"at\s+\d{1,2}(?::[0-5]\d)?\s*(?:am|pm)?|"
+    r"in\s+\d+\s+(?:minutes?|hours?|days?)|"
+    r"\d+\s+(?:dakika|saat|gün)\s+sonra)\b", re.I
+)
+
+
+def is_future_reminder_request(question: str) -> bool:
+    """Do not mistake a scheduled reminder for a past-conversation recall."""
+    return isinstance(question, str) and len(question) <= 320 and bool(
+        _REMINDER_VERB.search(question) and _FUTURE_REMINDER.search(question)
+    )
+
+
 _NAMED_RECALL = re.compile(
-    r"\b(?:ne demiştik|ne konuşmuştuk|konuştuğumuzu hatırlat|"
-    r"hatırlat|hatırlıyor musun|daha önce ne|"
-    r"what did we (?:say|discuss)|remind me what|"
+    r"\b(?:ne demiştik|ne konuşmuştuk|ne konuştuk|"
+    r"(?:konuştuğumuzu|konuşmamızı|sohbetimizi|konuştuklarımızı)\s+hatırlat|"
+    r"hatırlıyor musun|daha önce ne|"
+    r"what did we (?:say|discuss|decide)|remind me what|"
     r"what (?:have|did) we discussed|previously discussed)\b",
     re.I,
 )
@@ -331,7 +352,7 @@ def is_named_recall_request(question: str) -> bool:
     """Only explicit old-topic recall warrants an older-than-window SQL lookup."""
     return isinstance(question, str) and len(question) <= 280 and bool(
         _NAMED_RECALL.search(" ".join(question.strip().split()))
-    )
+    ) and not is_future_reminder_request(question)
 
 
 async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
@@ -345,6 +366,13 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
     SQL LIMIT and output caps bound database and model usage.
     """
     n = max(1, min(int(limit), 20))
+    if is_future_reminder_request(question):
+        # Scheduling is an action request, not an instruction to recover
+        # old plans. Keep only bounded recent context; no memory writes.
+        return await load_thread_turns(
+            pool, user_id, conversation_id, before_id=before_id,
+            max_chars=max_chars, limit=n,
+        )
     if is_topic_switch_request(question):
         # Explicit change of subject should not scan 80 old turns and revive
         # prior discussion simply because its name appears in this request.
