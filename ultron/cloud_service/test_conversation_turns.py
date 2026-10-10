@@ -84,7 +84,11 @@ class HistoryContractTests(unittest.TestCase):
   self.assertIn("load_contextual_thread_turns(",bridge)
   self.assertIn('"turns":turns',bridge)
   self.assertIn('payload.get("turns")',native)
-  self.assertIn("ollama_messages(system, turns or [], text)",ollama)
+  # The local wire may safely append a derived reply-style hint to the
+  # trusted system prompt. Assert the serializer stays connected, not the
+  # obsolete argument variable name.
+  self.assertIn('"messages":ollama_messages(',ollama)
+  self.assertIn("ollama_messages(effective_system, turns or [], text)",ollama)
   self.assertIn("conversations.user_id=EXCLUDED.user_id",app)
   self.assertIn("conversations.user_id=EXCLUDED.user_id",bridge)
 
