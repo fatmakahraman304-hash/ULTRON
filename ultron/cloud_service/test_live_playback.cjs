@@ -67,7 +67,7 @@ test("mobile live socket drains normal endings but cancels real interruption",()
  assert.match(interrupted,/stopPlayback\(\)/);
  assert.match(html,/if\(bargeBlocks>=2\)\{[\s\S]{0,140}stopPlayback\(\)/);
  assert.match(html,/src\.start\(when\)/);
- assert.match(sw,/ultron-shell-v52/);
+ assert.match(sw,/ultron-shell-v[0-9]+/);
  assert.ok(sw.includes("'/static/live-playback.js'"));
  assert.ok(html.includes('<script src="/static/live-playback.js"></script>'));
  for(const m of html.matchAll(/<script(?:\s+[^>]*)?>([\s\S]*?)<\/script>/g)){

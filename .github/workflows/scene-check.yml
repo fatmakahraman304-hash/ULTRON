@@ -67,6 +67,10 @@ jobs:
         env:
           PYTHONPATH: ultron/backend
         run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
+      - name: Single ULTRON speaker arbitration on phone and laptop
+        run: |
+          node --check ultron/cloud_service/static/speaker-policy.js
+          node --test ultron/cloud_service/test_speaker_policy.cjs
       - name: Live voice barge-in and graceful final audio queue tests
         run: |
           node --check ultron/cloud_service/static/live-playback.js
