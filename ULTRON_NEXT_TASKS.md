@@ -307,3 +307,11 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 4. On real iPhone Gemini Live voice: speak several follow-ups and verify session_id-scoped history and interruption, no microphone capture without tap and no unproven tool actions.
 5. Manually evaluate naturalness for 20 diverse Turkish dialogues (greetings, follow-ups, ambiguity, serious situations, humour requested, corrections, long/short requests). Track latency and provider model names. Do not claim human-level conversation without hardware/provider evidence.
 6. For deeper conversational memory consider user-approved summaries of older conversation threads with explicit retention limits, never automatic sensitive facts or cross-user history mixing. Keep minimal mobile/desktop UX.
+
+
+## Next ULTRON natural conversation tasks before final Windows update
+1. Verify all Cloud Queue PostgreSQL Integration jobs including test_conversation_style.py and full Scene Build Check pass for latest functional commit; verify Render latest functional SHA LIVE. If failed, inspect exact logs and fix before new changes.
+2. Run real conversational acceptance dialogues on deployed mobile Gemini: "Merhaba" -> natural short chat; "Mercedes C180 2009" -> "Peki onun yakıtı?" -> "Kısa cevap ver" -> "Hayır, 2016 E220d'yi kastettim" -> "Adım adım karşılaştır". Check no invented earlier context when starting a new conversation.
+3. Preserve safety of native device approval gates and Cloud text/voice session scoping. Retest phone mic handoff without claiming physical hardware was tested.
+4. Later add optional user-controlled advanced conversation presets or explicit feedback scores, keeping the mobile UI uncluttered and avoiding automatic personal-sensitive learning.
+5. Only AFTER iterative GitHub+Render development is complete, guide user through a single Windows update of latest clean branch with START.bat/DOCTOR and real local Qwen tests. Do NOT attempt a Windows download or claim local installation now.

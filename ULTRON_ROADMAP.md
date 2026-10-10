@@ -235,3 +235,10 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - Gemini Cloud uses real genai Content(role=user/model) history rather than a flat concatenated string; local paired Qwen/Ollama receives role-separated messages (system/user/assistant). Cloud voice history now scoped to its existing session id.
 - Prevent caller-supplied conversation UUID from silently modifying another owner's thread: conversation insert/update returns an id only when current owner owns it; reject cross-owner UUID before saving messages or queuing tasks.
 - Local Qwen sampling uses moderate warmth 0.55, top_p .9, repeat penalty 1.08, and bounded 240–420 output tokens; tool/approval paths unchanged. Not model retraining or a guarantee of human-level reasoning. True sound/latency quality requires Windows+iPhone provider testing.
+
+
+## 2026-10-10 — Natural conversation coaching, no Windows install until final hand-off
+- Keep a coherent ULTRON-only personality for both phone Gemini and installed laptop Qwen, without adding visible brain/model controls. Expand deterministic per-turn response coaching: explicit brief/detailed requests, corrections (e.g. "Hayır, yanlış anladın") and elliptical follow-ups (e.g. "Peki onun fiyatı?", "Devam et").
+- For follow-ups, distinguish real owner-scoped, same-conversation prior user/assistant turns from placeholder system text. If no previous turn exists in the conversation, ask once what should be continued instead of falsely referencing unrelated chat.
+- Don't persist natural reply-mode instructions to personal memory or autonomously retrain. Don't insert untrusted history as system roles; ignore malformed injected history values.
+- Preserve the user's explicit preference: continue code/test/deploy via GitHub/Render; download/install the Windows update once after the chosen features are completed and verified. Cloud autoDeploy may still update the web app, but the user's Windows installation is not touched.

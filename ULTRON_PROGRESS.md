@@ -259,3 +259,11 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - integration/local_cloud_brain.py uses conversation_turns.ollama_messages and moderate bounded sampling for less robotic Qwen replies while retaining configured provider and installed-model selection.
 - conversation_persona.py now specifically instructs pronoun resolution, short casual tone and fewer formulaic honorifics, no repetitive follow-up questions, transparent limitations and respectful correction.
 - Regression suite test_conversation_turns.py, test_conversation_turns_postgres.py and test_local_dialogue_runtime.py added to Cloud CI. Latest code SHA dddbb7338c0689aa20fc0d708abfd5433d6646c6 is awaiting final Scene/Render verification. Native hardware and live model sample dialogues still NOT tested here.
+
+
+## 2026-10-10 — Natural dialogue continued, Windows deferred
+- Added classify_reply_mode, classify_dialogue_act and dialogue_guidance to conversation_persona.py. Dynamic response hints now match explicit request for short vs detailed explanations, same-topic followups, or corrected misunderstanding.
+- Changed Cloud Gemini /api/chat and local Qwen bridge to set has_prior_turns=bool(real_thread_turns), not truthy placeholder strings; Gemini Live uses existing session-scoped recent context presence. No new data source or cross-session tracking.
+- Hardening in conversation_turns.py ignores malformed/non-text history records instead of permitting invalid roles/content to derail conversation generation. Maintains bounded newest-first user/assistant turn history.
+- Added offline test_conversation_style.py with realistic Turkish/English user utterances, history/no-history followups, seriousness/corrections and malicious history structure checks. Wired into Cloud Queue PostgreSQL Integration persona-policy job. Native Windows installation deliberately deferred.
+- Cloud CI/Render must be confirmed on exact functional code SHA. Real Qwen/Gemini model subjective quality tests and Windows local updates remain outstanding.

@@ -247,3 +247,9 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Qwen offline fake-Ollama test_local_dialogue_runtime.py checks actual outgoing Ollama user/assistant role messages and bounded temperature/top_p/num_predict/repeat_penalty without model download or tool access.
 - Cloud Queue PostgreSQL Integration from workflow now executes all three tests; Scene Build Check runs full frontend/build integrity. CI success verifies code contracts, NOT real LLM naturalness on user devices.
 - Render status/code SHA must be checked after docs update. No claims of real voice-latency improvement or model retraining; no new external model accounts connected.
+
+
+## 2026-10-10 — Conversation style validation
+- New test_conversation_style.py exercises 16 follow-up/new-topic/correction cases, 13 brief/detailed/casual cases, prior-turn authenticity, serious tone overrides, malformed untrusted history records and Cloud/local integration contract.
+- Additional baseline contracts: test_conversation_turns.py and real Postgres test_conversation_turns_postgres.py remain enabled. GitHub Cloud Queue PostgreSQL Integration #38055784729 persona-policy successfully completed at code SHA 321d5105fcd7576fad489fd2c3705fe30a0e66ee; full PostgreSQL and Render final verification required before describing the whole release as green/live.
+- The deterministic tests prove wiring and boundaries, NOT the live models' JARVIS-level intelligence or latency. Real Windows device is unchanged as requested.
