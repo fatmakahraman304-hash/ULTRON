@@ -1,3 +1,11 @@
+## Conversation intelligence — final user correction under capped current message (2026-10-10)
+
+- [x] Preserve final explicit constraints of a long **current** message across Gemini (16k) and local Qwen (3k) model wires, not just older history; keep original character caps.
+- [x] Add deterministic history+direct provider-message regression and mocked local Ollama payload test.
+- [x] Exact code `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf` passed Cloud/PostgreSQL #38078688366 and Scene/Frontend #38078688244.
+- [ ] Human-reviewed real Gemini and Qwen/Ollama pilot 20-case run and frozen 100-case acceptance with device latency; not yet run here.
+- [ ] Verify Render deployment SHA and physical iPhone/Windows model/voice behavior before deferred final Windows update.
+
 ## Natural conversation measurement: real small pilot (2026-10-10)
 
 - [x] Add provider-specific `--pilot` to test 20 existing balanced TR/EN scenarios without touching frozen acceptance criteria; 80 unselected remain NOT_RUN, not false failures or passes.

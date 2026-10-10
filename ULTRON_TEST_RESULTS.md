@@ -1,3 +1,9 @@
+## 2026-10-10 — Current prompt head+tail retention, not history alone
+
+- Functional SHA `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf` — Cloud Queue PostgreSQL Integration [38078688366](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688366) SUCCESS; ULTRON Scene Build Check [38078688244](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688244) SUCCESS.
+- The old production Qwen and Gemini wire formatting discarded the last part of long **current** messages via `[:3000]` and `[:16000]`, respectively; Qwen's `local_chat` pre-truncated even earlier. Both now retain the latest user correction with a bounded head/end excerpt, within unchanged prompt lengths. Tests exercise both wire formatters and local Ollama mocked outgoing payload.
+- Real Gemini/Qwen quality scores, Render exact deployed SHA, Windows and iPhone microphone/inference verification: NOT MEASURED/NOT VERIFIED. No Windows installation or model download performed.
+
 ## 2026-10-10 — Negated reply-style instructions and colloquial followups
 
 - Functional code `0f0f9936d3407d63e91218adb5b5e7645b63971f` following `3d07bf4`.

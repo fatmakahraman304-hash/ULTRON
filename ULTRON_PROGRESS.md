@@ -1,3 +1,9 @@
+## 2026-10-10 — Current long-message final correction preserved in Gemini and Qwen
+
+- Production code commit `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf`. A new shared `bounded_user_request` helper retains the beginning and ending of overlong current turns. Qwen `local_chat` and `ollama_messages` preserve final instructions under their existing 3,000-character cap; `gemini_turns` does the same under its existing 16,000-character cap. Regular short turns remain unchanged. No model training, download, prompt-size increase, implicit memory write, external account access or Windows changes.
+- Tests verify last-request correction after long unrelated text in Gemini and Ollama message payloads and local loopback mocked chat call. GitHub CI **SUCCESS** for Cloud/PostgreSQL [38078688366](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688366) and Scene/frontend [38078688244](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688244).
+- Outstanding: real Gemini/Qwen human-reviewed pilot and 100-case conversational quality, provider latency, exact live Render SHA and real iOS/Windows hardware testing. Do not use synthetic infrastructure tests to claim a model quality percentile.
+
 ## 2026-10-10 — 20-case bilingual pilot and honest provider labeling
 
 - Functional SHAs: `bf9ddc28b112266228a606e4c2fd817a7625f558`, followed by verified `ceef1f499ccb5690de3bdcd8289873a5d6f8c52f`.

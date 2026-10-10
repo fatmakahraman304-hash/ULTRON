@@ -1,3 +1,11 @@
+# Current priority — preserve late instructions in long current prompts (2026-10-10)
+
+1. **Verified code SHA:** `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf`. Both workflows completed **SUCCESS** on that exact SHA: [Cloud Queue/PostgreSQL #38078688366](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688366), [ULTRON Scene/frontend #38078688244](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688244).
+2. **Real production behavior improved:** Both direct Gemini and local Qwen current-user-message adapters previously truncated from the beginning only (16,000/3,000 characters), silently dropping final user corrections. They now preserve the opening and closing instructions with an explicit omission marker within unchanged caps. Qwen `local_chat` no longer strips the final tail before its Ollama wire call. Regression tests check both provider message lists and mocked local Ollama wire payloads, no GPU/cloud secrets needed.
+3. **NEXT:** Real authorized Gemini/local Qwen 20-case pilot, independent transcript review, full frozen 100-scenario run per provider with measured latency. No 100/100 score or new intelligence percentage based solely on code tests. Exact latest Render deploy SHA and physical iPhone/Windows verification still unconfirmed; defer single final Windows update as requested. Preserve privacy, cloud/local fallback, approval gates and minimal UI.
+
+---
+
 # Current priority — natural Turkish/English conversation cues (2026-10-10)
 
 - **Latest code SHA:** `0f0f9936d3407d63e91218adb5b5e7645b63971f` after `3d07bf4df776a23472d61c11a232e49922ca780c`. Negated requests now control tone and reply length: `Şaka yapma` is not treated as a request for a joke; `Kısa cevap istemiyorum, detaylı anlat` selects detailed output; the final affirmative instruction wins. Everyday correction and follow-up wording (`Yok, 2010 değil 2009`, `Aslında...`, `Onu/Buna/Şunu...`) is recognized in the shared Cloud+local conversation persona. No model calls, new memory writes, system permissions or UI controls were added.
