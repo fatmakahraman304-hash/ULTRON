@@ -301,3 +301,12 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Original intermediate Scene run #38066796046 failed after function signature changed to send(true,voiceToken); old test_local_voice.cjs expected send(true) exactly. Updated assertion in commit 70991ff6610e2cac631a2c1ec91d856588aa0cab.
 - Exact commit 70991ff6610e2cac631a2c1ec91d856588aa0cab: GitHub Cloud Queue PostgreSQL Integration run #38066919827 SUCCESS, ULTRON Scene Build Check run #38066919837 SUCCESS. Render deployment dep-db5697jhu5js73djph4g was still update_in_progress on last check, not marked live until verified.
 - No physical iPhone microphone / SpeechSynthesis playback, actual Qwen inference, headset echo or desktop hardware tests were run. Windows package not downloaded or installed.
+
+
+## 2026-10-10 — Personal context & Qwen reasoner test evidence
+- Offline Python test_personal_context_focus.py: long irrelevant memory vs old Mercedes C180 project, Turkish reply preference preservation, event priority and chronological inclusion, empty/cap checks, malformed line flattening, app+local bridge wiring, deep installed-Qwen8B route and fast Qwen4B default.
+- Disposable PostgreSQL test_personal_context_focus_postgres.py: real memorized project + preference and unfinished dated plan per owner; no foreign owner's private memory/plans or private note leakage; strict scope and bounded output.
+- Original CI intermediate commits 76b7fe17, 4d5eb6ad, 0119eb83, d25056d4, 7684956e failed persona-policy because pre-existing tests assumed all SQL remained physically in app.py's _memory_context. These tests were corrected to examine personal_context_focus.py while preserving the real query and note-omission assertions; intermediate Postgres tests passed.
+- Final Cloud Queue PostgreSQL Integration #38068020642 SUCCESS (persona-policy + postgres-fencing) and ULTRON Scene Build Check #38068020631 SUCCESS for code a6ce694ff35423f93a386140c7e1938a374ad162.
+- Render autoDeploy dep-db56gpmoq3os73c5cicg for a6ce694f was still update_in_progress at latest inspection. Earlier test-only deploy dep-db56gcn40ujc73c6ctag at 7684956ec0 was LIVE. Confirm final live SHA before claiming latest release live.
+- CI tests do not measure real model reasoning ability, GPU/offload latency, Turkish speech understanding or subjective naturalness. User laptop installation remains intentionally deferred.
