@@ -1,3 +1,9 @@
+## 2026-10-10 — Oldest historical Q&A survival under dense matches
+
+- Code SHA `f73d43358715358dc21b48f4b34c510307627f3f`. [Cloud Queue PostgreSQL Integration run 38073658327](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658327): **SUCCESS**. [ULTRON Scene Build Check run 38073658416](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658416): **SUCCESS**.
+- Regression: Named-topic search no longer samples only the latest 24 historical matching rows. It checks oldest and newest 16 matching rows in separately scoped SQL, takes bounded best lexical candidates with paired adjacent Q&A, and retains up to existing model context limits. Added test with 42 old keyword repetitions and 105 recent turns on disposable PostgreSQL; other users' and conversations' messages are not included. Normal pronoun followups do not invoke deep retrieval.
+- This CI confirms code/regression behavior, not real Gemini/Qwen reasoning quality. 100-case conversation score, Render LIVE SHA and real mobile/Windows voice inference **NOT VERIFIED**; Windows update intentionally untouched.
+
 ## 2026-10-10 — Evaluation integrity + actual Gemini model identity
 
 - Functional code SHA `043a5386e510bc81a1bc163d9887cef8f75a4071`. GitHub [Cloud Queue PostgreSQL Integration #38073193493](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193493) **SUCCESS**; [Scene Build Check #38073193481](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193481) **SUCCESS**; [ULTRON WORLD Live Read-only Smoke #38073193495](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193495) **SUCCESS**.

@@ -1,3 +1,12 @@
+# Current priority — validated long-topic recall (2026-10-10)
+
+1. **Latest functional code SHA:** `f73d43358715358dc21b48f4b34c510307627f3f`. Exact-SHA GitHub Cloud Queue PostgreSQL Integration [38073658327](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658327): **SUCCESS**; ULTRON Scene Build Check [38073658416](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658416): **SUCCESS**.
+2. **New verified behavior:** Explicit named-topic historical recall searches up to 16 oldest AND 16 newest candidates older than the recent 80 turns, instead of newest 24 only. It selects bounded best matches from both ends with owner+thread+before-current SQL filters and adjacent Q&A evidence. New deterministic and real PostgreSQL >24 keyword-match tests verify preservation of original discussion, recent context, tenant isolation and unchanged maximum prompt size. Ordinary followups do not trigger deeper SQL calls.
+3. **Next priority:** Run authorized real Gemini and Qwen/Ollama 100-scenario assessments with actual model answers, latency and independent reviews. **100/100 NOT MEASURED.** No user secrets or private chat should be exported for the benchmark. Use the frozen suite and integrity-linked review records; do not score mocks.
+4. **Unverified:** Production Render exact deployed SHA of this code, physical iPhone/Windows model/voice, and final once-only Windows update. Keep approval gate, existing model fallback, sparse phone+desktop UI and owner privacy isolation intact.
+
+---
+
 # Current priority — real conversational acceptance (2026-10-10)
 
 1. **Verified code HEAD:** `043a5386e510bc81a1bc163d9887cef8f75a4071`. Cloud Queue PostgreSQL Integration [38073193493](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193493) **SUCCESS**; ULTRON Scene Build Check [38073193481](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193481) **SUCCESS**; ULTRON WORLD Live Read-only Smoke [38073193495](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193495) **SUCCESS**.

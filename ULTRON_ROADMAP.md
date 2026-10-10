@@ -1,3 +1,11 @@
+## Natural conversation — persistent oldest/newest topic retrieval (2026-10-10)
+
+- [x] Fix omission of the original named-topic Q&A when more than 24 older lexical matches exist.
+- [x] Reserve oldest and newest historical evidence under bounded same-user/same-conversation SQL, and preserve adjacent Q&A plus recent turns.
+- [x] New deterministic and disposable PostgreSQL tests, including >100 recent turns, 42 older repeated-topic mentions, isolation and size caps. GitHub Cloud CI #38073658327 and Scene CI #38073658416 PASS on `f73d43358715358dc21b48f4b34c510307627f3f`.
+- [ ] Complete genuine Gemini and local Qwen 100-case live inference plus independent human scoring. Model quality remains NOT MEASURED.
+- [ ] Verify exact Render deployment SHA and true iPhone/Windows end-to-end performance. Final Windows update deferred.
+
 ## Measured conversational intelligence (2026-10-10)
 
 - [x] Keep the frozen 100-scenario TR/EN acceptance dataset unchanged and auditably versioned.

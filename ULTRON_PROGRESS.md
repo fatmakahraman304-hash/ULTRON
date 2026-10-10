@@ -1,3 +1,11 @@
+## 2026-10-10 — Dense older named-topic mentions: oldest + newest scoped recall
+
+- Functional code SHA `f73d43358715358dc21b48f4b34c510307627f3f` on `feat/ultron-cloud-shared-memory`.
+- Fixed the old-history query taking only the 24 most recent lexical matches. In long same-topic discussions, this could hide the original question and first decision even though the user explicitly asked to recall it. Two bounded SQL queries now sample the oldest and newest historical matches (16 each), with explicit owner/conversation/previous-message constraints on both. Best-scoring old/new evidence and adjacent Q&A are included within unchanged character/turn budgets; ordinary chat still avoids extra searches. This is lexical recall, not semantic truth or general contradiction resolution.
+- Deterministic regression simulates dense later references; real disposable PostgreSQL regression inserts 42 historical keyword mentions, >100 newer turns, and unrelated user/thread records. The original discussion, assistant answer and latest context survive without crossing owners.
+- Exact CI **SUCCESS**: [Cloud/PostgreSQL 38073658327](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658327) and [Scene/Frontend 38073658416](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658416).
+- Live Gemini/Qwen natural quality NOT MEASURED; 100/100 unproven. New Render deployment and Windows/iPhone hardware tests not verified. No Windows update was run.
+
 ## 2026-10-10 — Conversation acceptance integrity and provider metadata
 
 - Verified functional code `043a5386e510bc81a1bc163d9887cef8f75a4071` after evaluation-runner changes in `0ad17db51fb60b50ceab42abf5e22d3cb7f4baa9`.
