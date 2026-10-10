@@ -27,10 +27,15 @@ _MODELS_CACHE=(0.0, [])
 # The remote mobile chat queue includes only text. There is no image,
 # screenshot or attachment payload, so a blind vision model must not infer
 # contents from a nonexistent picture.
-_NO_IMAGE_REPLY=(
+_NO_IMAGE_REPLY_TR=(
     "Bu yerel sohbet bağlantısına görsel ulaşmadı; yalnızca metni "
     "görebiliyorum. Fotoğrafı veya ekran görüntüsünü görsel yüklemeyi "
     "destekleyen bir sohbet modunda gönderirsen inceleyebilirim."
+)
+_NO_IMAGE_REPLY_EN=(
+    "This text-only chat hasn't received an image or screenshot. "
+    "I can't inspect one without an actual attachment. "
+    "Please use an image-capable chat mode to send it."
 )
 _ENGLISH_IMAGE_REQUEST=re.compile(
     r"\b(?:analy[sz]e|describe|inspect|read|look at)\s+"
@@ -109,8 +114,12 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     if not text:
         raise ValueError("empty_local_prompt")
     if _text_only_image_request(text):
-        return {"reply":_NO_IMAGE_REPLY, "model":"",
-                "provider":"local-no-image"}
+        # The detection contains an English-only supplemental matcher;
+        # ordinary Turkish and mixed voice commands keep a Turkish reply.
+        language_english = bool(_ENGLISH_IMAGE_REQUEST.search(text))
+        return {"reply":(_NO_IMAGE_REPLY_EN if language_english
+                         else _NO_IMAGE_REPLY_TR),
+                "model":"", "provider":"local-no-image"}
     settings=json.loads(_SETTINGS.read_text(encoding="utf-8"))["llm"]
     policy=FastBrainPolicy(settings.get("fast_brain",{}))
     models=installed_models()

@@ -39,7 +39,12 @@ class LocalConversationTests(unittest.TestCase):
                         reply=local.local_chat(prompt, "ULTRON", [])
                 self.assertEqual(reply["model"], "")
                 self.assertEqual(reply["provider"], "local-no-image")
-                self.assertIn("görsel ulaşmadı", reply["reply"])
+                if prompt.startswith(("Analyze", "What")):
+                    self.assertIn("hasn't received an image", reply["reply"])
+                    self.assertNotIn("görsel ulaşmadı", reply["reply"])
+                else:
+                    self.assertIn("görsel ulaşmadı", reply["reply"])
+                    self.assertNotIn("I can't inspect", reply["reply"])
                 self.assertNotIn("görseli görüyorum", reply["reply"])
         wire=self.run_local("Mercedes C180 bakımı?", [])
         self.assertTrue(wire["model"].startswith("qwen"))
