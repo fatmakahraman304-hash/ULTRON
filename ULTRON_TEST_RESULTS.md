@@ -1,3 +1,10 @@
+## 2026-10-10 — Prevent invented image contents in text-only Ollama chat
+
+- Functional commits: `3547fcb6948a78c919c1f87c6569d158aab48ed5` (text-only local visual request no longer invokes vision Ollama; desktop reports the no-image provider instead of a fabricated Ollama result); `c8be0b96f172649a2846e2a860717c56487b5d18` (Turkish/English grounded replies); and `599d8aa709cb1288d95fc3313cc24ab7c4577707` (explicit *how-to* tutorial questions still invoke installed text Qwen instead of vision LLaVA or no-image error).
+- Offline mock tests: direct Turkish `Bu fotoğrafı analiz et` and `Şu ekran görüntüsünü oku`, English `Analyze this screenshot` and `What is in this picture?` produce a truthful missing-image notice, empty model label, distinct provider and zero Ollama API/inventory calls. Tutorial prompts in both languages use one Qwen text inference in mocked local model inventory, even if LLaVA is also installed. Ordinary `Mercedes C180 bakımı?` still reaches Qwen.
+- GitHub final code SHA `599d8aa709cb1288d95fc3313cc24ab7c4577707`: [Cloud Queue PostgreSQL Integration run #38080586438](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38080586438) **SUCCESS**, [ULTRON Scene Build Check #38080586446](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38080586446) **SUCCESS**. Previous code `c8be0b9` Cloud #38080465402 and Scene #38080465619 also SUCCESS.
+- Not verified: actual image input to mobile local chat (**NOT IMPLEMENTED** by this change), real Gemini/Qwen 20/100 conversation benchmark, model inference latency and correct image perception, latest Render LIVE commit, physical Windows/iPhone device routing. No Windows update or model download occurred.
+
 ## 2026-10-10 — Shared Qwen reply-length policy + accurate response-quality flag
 
 - Functional code `a7134b0f6479649434c737077b22ee08f6733434` and `ac1e9556851c9943804b838275b2e7b0ec14a2b3` on `feat/ultron-cloud-shared-memory`.
