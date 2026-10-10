@@ -26,6 +26,32 @@ class ReferenceReturnTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Motor versiyonunu', str(result))
         self.assertLessEqual(sum(len(t['content']) for t in result), 2600)
 
+    def test_older_long_exchange_keeps_final_answer_and_latest_correction(self):
+        old_question = ("Mercedes C180 2009 fren konusunu konuşalım. "
+                        + "teknik ayrıntı " * 85
+                        + " SON SORU: Fren balatası mı disk mi?")
+        old_answer = ("Araç için ilk kontrol açıklaması. "
+                      + "ayrıntı " * 105
+                      + " SON KARAR: Ön disk ve balata kontrol edilmeli.")
+        rows = [
+            {"role": "user", "content": old_question},
+            {"role": "assistant", "content": old_answer},
+        ] + [
+            {"role": "user" if i % 2 == 0 else "assistant",
+             "content": f"Başka bir konu {i}"} for i in range(32)
+        ]
+        chosen = select_contextual_turns(
+            rows, "Mercedes C180 hakkında ne demiştik?",
+            max_chars=3000, max_turns=14,
+        )
+        material = " ".join(t["content"] for t in chosen)
+        self.assertIn("Mercedes C180", material)
+        self.assertIn("SON SORU", material)
+        self.assertIn("SON KARAR", material)
+        self.assertIn("Başka bir konu 31", material)
+        self.assertLessEqual(len(chosen), 14)
+        self.assertLessEqual(sum(len(t["content"]) for t in chosen), 3000)
+
     async def test_first_return_fetches_actual_beginning_not_last_80(self):
         class DB:
             calls = []

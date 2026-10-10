@@ -185,4 +185,35 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertLessEqual(sum(len(x["content"]) for x in turns),3000)
 
 
+ async def test_long_historical_answer_conclusion_survives_deep_recall(self):
+  question=("Mercedes C180 2009 fren sistemi sorusu. "
+            + "teknik ayrıntı " * 90
+            + " SON SORU: Balata mı disk mi?")
+  answer=("İlk teknik değerlendirme. " + "uzun açıklama " * 100
+          + " SON KARAR: Ön disk ve balata kontrolü.")
+  await self.add(self.c1,"ci-dialogue-a","user",question)
+  await self.add(self.c1,"ci-dialogue-a","assistant",answer)
+  for i in range(110):
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant", f"Güncel konu {i}")
+  await self.add(self.c2,"ci-dialogue-a","user",
+                 "OTHER_THREAD SON KARAR: gizli")
+  await self.add(self.c3,"ci-dialogue-b","assistant",
+                 "OTHER_OWNER SON KARAR: gizli")
+  current=await self.add(self.c1,"ci-dialogue-a","user",
+                         "Mercedes C180 hakkında ne demiştik?")
+  turns=await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c1,
+      question="Mercedes C180 hakkında ne demiştik?",
+      before_id=current,max_chars=3000,limit=14)
+  material=" ".join(row["content"] for row in turns)
+  self.assertIn("SON SORU",material)
+  self.assertIn("SON KARAR: Ön disk",material)
+  self.assertIn("Güncel konu 109",material)
+  self.assertNotIn("OTHER_THREAD",material)
+  self.assertNotIn("OTHER_OWNER",material)
+  self.assertLessEqual(len(turns),14)
+  self.assertLessEqual(sum(len(row["content"]) for row in turns),3000)
+
+
 if __name__=="__main__":unittest.main()

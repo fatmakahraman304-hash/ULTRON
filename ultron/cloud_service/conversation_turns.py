@@ -177,7 +177,13 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
     # A verbose answer must not consume its question's entire evidence budget.
     # Reserve a share for each selected role before newest-first truncation.
     share = older_budget // max(1, len(chosen))
-    evidence = [{"role": row["role"], "content": row["content"][:share]} for row in chosen]
+    # The old exchange may end with the actual answer or a user correction.
+    # Head-only truncation misrepresented such evidence as if the ending had
+    # never been stated. Keep opening and conclusion under the SAME cap.
+    evidence = [
+        {"role": row["role"], "content": _bounded_excerpt(row["content"], share)}
+        for row in chosen
+    ]
     old_turns = prepare_turns(
         evidence,
         max_chars=older_budget, max_turns=min(4, count - recent_count),
