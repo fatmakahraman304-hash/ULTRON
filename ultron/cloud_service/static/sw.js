@@ -1,4 +1,4 @@
-const CACHE='ultron-shell-v47';
+const CACHE='ultron-shell-v48';
 const SHELL=['/','/static/manifest.webmanifest','/static/ultron-icon.svg','/static/mobile-action-guard.js','/static/world.html','/static/world.js','/static/dev-requests.js','/static/local-voice.js','/static/personal-panel.js','/static/owner-plans.js','/static/learning-review.js'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)));self.skipWaiting()});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim()});

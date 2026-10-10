@@ -539,6 +539,10 @@
       <div class="memory-form panel" id="ownerLearningPanel">
         <div class="section-title"><h2>İZİNLİ ÖĞRENME</h2><button type="button" class="secondary" id="refreshLearning">ÖNERİLERİ GÖSTER</button></div>
         <p class="remote-note">ULTRON bilginin hafızaya kaydedilmesini yalnızca sen ONAYLA dediğinde yapar. Öneriler kendiliğinden sohbet hafızasına eklenmez.</p>
+        <div class="section-title" style="margin-top:12px"><h2>SOHBETTEN OTOMATİK ÖĞRENME</h2></div>
+        <p class="remote-note">Sadece kendi sohbetinde <strong>Tercihim:</strong>, <strong>Hedefim:</strong> veya <strong>Projem:</strong> diye açıkça yazdığın bilgiler öğrenilir. Şifreler ve bazı hassas veriler filtrelenir; dış uygulamalar veya arka plan mikrofonu izlenmez. Sonsuz depolama ya da yapay zekâ modelinin yeniden eğitimi değildir.</p>
+        <button type="button" id="autoLearningToggle" class="secondary" style="width:100%">OTOMATİK ÖĞRENME AYARINI GÖR</button>
+        <p id="autoLearningStatus" class="remote-note" role="status" aria-live="polite">Başlangıçta kapalıdır. Önce durumunu görüntüle, istersen açıkça etkinleştir.</p>
         <label for="learningCategory" class="settings-label">Bilgi kategorisi</label>
         <select id="learningCategory" style="width:100%">
           <option value="PREFERENCE">Konuşma tercihi</option>

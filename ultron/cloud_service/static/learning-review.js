@@ -16,7 +16,33 @@
     const memoryChanged=o.onMemoryChanged||(()=>{});
     if(!doc||typeof api!=="function") throw Error("document_and_fetchJson_required");
     const el=id=>doc.getElementById(id);
-    let busy=false;
+    let busy=false, autoLoaded=false, autoEnabled=false;
+    async function toggleAuto() {
+      if(busy)return;
+      busy=true;
+      const button=el("autoLearningToggle"), status=el("autoLearningStatus");
+      button.disabled=true;
+      try {
+        if(!autoLoaded) {
+          const info=await api("/api/auto-learning");
+          autoEnabled=Boolean(info.enabled);
+          autoLoaded=true;
+        } else {
+          const next=!autoEnabled;
+          if(next && !ask("ULTRON yalnızca senin açıkça yazdığın 'Tercihim:', 'Hedefim:' ve 'Projem:' ifadelerini sohbet sırasında otomatik hafızaya kaydetsin mi? Bu ayarı istediğin zaman kapatabilirsin.")) {
+            return;
+          }
+          const result=await api("/api/auto-learning",{method:"PUT",body:JSON.stringify({enabled:next})});
+          autoEnabled=Boolean(result.enabled);
+        }
+        status.textContent=autoEnabled
+          ? "AÇIK • Yalnızca açıkça belirttiğin hedef/tercih/projeler kaydedilir. Şifre ve hassas bilgiler dışlanır. İstediğinde kapatabilirsin."
+          : "KAPALI • Sohbetlerden otomatik bilgi kaydedilmez. Elle onaylama kullanılabilir.";
+        button.textContent=autoEnabled?"OTOMATİK ÖĞRENMEYİ KAPAT":"OTOMATİK ÖĞRENMEYİ AÇ";
+      } catch(e) {
+        status.textContent="Öğrenme ayarı okunamadı/değiştirilemedi: "+String(e.message||e).slice(0,130);
+      } finally {busy=false;button.disabled=false;}
+    }
     function makeItem(p) {
       const card=doc.createElement("div");card.className="memory";
       const title=doc.createElement("b");
@@ -110,6 +136,7 @@
       if(!el("submitLearning")||!el("refreshLearning"))return false;
       el("submitLearning").addEventListener("click",propose);
       el("refreshLearning").addEventListener("click",refresh);
+      el("autoLearningToggle")?.addEventListener("click",toggleAuto);
       return true;
     }
     return {init,refresh,propose};
