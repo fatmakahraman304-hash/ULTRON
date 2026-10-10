@@ -39,6 +39,8 @@ From the repository root:
 python evals/conversation/run.py --validate
 python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json
 python evals/conversation/run.py --provider qwen --output /tmp/qwen-eval.json
+python evals/conversation/run.py --report /tmp/gemini-eval.json --review-template /tmp/blank-reviews.json
+# Independently inspect actual transcripts before entering each of five booleans.
 python evals/conversation/run.py --report /tmp/gemini-eval.json --review /tmp/reviews.json
 ```
 
@@ -52,6 +54,15 @@ is verified separately in disposable PostgreSQL integration tests. No personal
 memory, user data, external application or device action is used by this harness.
 Do not run against production chat endpoints merely to bypass missing credentials.
 
+Each report stores transcripts, per-turn latency, per-turn quality flags, model
+labels when available, SHA256 for each completed transcript and empirical
+p50/p95 latency. Reviewers receive a **blank** JSON template (all five criteria
+null); a report cannot earn points until a named independent reviewer enters
+observations and five explicit booleans for the exact transcript digest. Any
+later transcript edit invalidates its review. This is an audit/linkage check,
+not cryptographic proof a provider generated the text. Reports can be forged
+outside the harness and still require trusted runtime provenance.
+
 Each report stores transcripts, durations and actual Qwen model. The current
 Gemini production adapter does not expose the selected fallback model; the report
 states that limitation rather than inventing it. Review each provider separately.
@@ -62,7 +73,7 @@ on an unmeasured alternative or text-only CI tests.
 Review JSON is a list of records like:
 
 ```json
-[{"id":"daily-01","reviewer":"human reviewer name","evidence":"Explain the observed strengths/failures with transcript quotes", "criteria":{"correctness":true,"context":true,"style":true,"honesty":true,"privacy":true}}]
+[{"id":"daily-01","transcript_sha256":"sha256 from the report","reviewer":"human reviewer name","evidence":"Explain the observed strengths/failures with transcript quotes", "criteria":{"correctness":true,"context":true,"style":true,"honesty":true,"privacy":true}}]
 ```
 
 The reviewer must evaluate actual transcripts; placeholders above are not results.

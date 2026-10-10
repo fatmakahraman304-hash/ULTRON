@@ -21,6 +21,45 @@ DATA = Path(__file__).with_name('scenarios.json')
 DIMENSIONS = ('correctness', 'context', 'style', 'honesty', 'privacy')
 
 
+def transcript_digest(transcript):
+    """Bind each independent human review to exactly the reviewed model text."""
+    payload = json.dumps(transcript, sort_keys=True, ensure_ascii=False,
+                         separators=(',', ':')).encode('utf-8')
+    return hashlib.sha256(payload).hexdigest()
+
+
+def latency_summary(values):
+    """Empirical turn-level median and nearest-rank p95; null when unavailable."""
+    valid = sorted(float(x) for x in values if isinstance(x, (int, float))
+                   and not isinstance(x, bool) and 0 <= x < float('inf'))
+    if not valid:
+        return {'p50': None, 'p95': None}
+    import math
+    return {'p50': statistics.median(valid),
+            'p95': valid[max(0, math.ceil(len(valid)*0.95)-1)]}
+
+
+def review_template(report):
+    """Generate blank, non-passing review slots; NEVER fabricate evaluations."""
+    cases = {case['id']: case for case in json.loads(DATA.read_text())}
+    if report.get('suite_sha256') != hashlib.sha256(DATA.read_bytes()).hexdigest():
+        raise ValueError('Review template requires the unchanged frozen suite')
+    output = []
+    for row in report.get('results', []):
+        if row.get('status') != 'captured':
+            continue
+        case = cases.get(row['id'])
+        if case is None or len(row.get('transcript', [])) != 2*len(case['turns']):
+            raise ValueError('Review template requires complete captured transcript')
+        digest = transcript_digest(row['transcript'])
+        if row.get('transcript_sha256') != digest:
+            raise ValueError('Report transcript digest mismatch')
+        output.append({'id':row['id'], 'transcript_sha256':digest,
+                       'reviewer':'', 'evidence':'',
+                       'criteria':{dimension:None for dimension in DIMENSIONS}})
+    return output
+
+
 def validate(cases):
     if len(cases) != 100 or len({x['id'] for x in cases}) != 100:
         raise ValueError('Expected 100 unique scenarios')
@@ -64,6 +103,10 @@ def score(report, reviews):
                 answer = transcript[2*i+1]
                 if answer.get('role') != 'assistant' or not isinstance(answer.get('content'), str) or not answer['content'].strip():
                     raise ValueError('Missing model answer')
+            digest = transcript_digest(transcript)
+            if (row.get('transcript_sha256') != digest or
+                    review.get('transcript_sha256') != digest):
+                raise ValueError('Review transcript hash does not match the captured reply')
             if (not review.get('reviewer') or not review.get('evidence') or
                 set(review.get('criteria', {})) != set(DIMENSIONS) or
                 any(type(v) is not bool for v in review['criteria'].values())):
@@ -84,6 +127,7 @@ def main():
     parser.add_argument('--validate', action='store_true')
     parser.add_argument('--review', type=Path)
     parser.add_argument('--report', type=Path)
+    parser.add_argument('--review-template', type=Path)
     args = parser.parse_args()
     cases = json.loads(DATA.read_text())
     validate(cases)
@@ -91,7 +135,18 @@ def main():
         print('Dataset valid: 100 scenarios, 10 categories, 50 TR + 50 EN. Model quality NOT evaluated.')
         return 0
     if args.review:
+        if not args.report:
+            parser.error('--review requires --report')
         print(json.dumps(score(json.loads(args.report.read_text()), json.loads(args.review.read_text())), indent=2))
+        return 0
+    if args.review_template:
+        if not args.report:
+            parser.error('--review-template requires --report')
+        template = review_template(json.loads(args.report.read_text()))
+        args.review_template.write_text(
+            json.dumps(template, ensure_ascii=False, indent=2)+'\n', encoding='utf-8'
+        )
+        print(f'{len(template)} unsigned human-review slots generated; 0 graded.')
         return 0
     if not args.provider or not args.output:
         parser.error('--provider and --output are required for real inference')
@@ -120,7 +175,8 @@ def main():
               'review_required': True, 'results': []}
     for case in cases:
         item = {'id': case['id'], 'category': case['category'], 'status': 'not_run',
-                'transcript': [], 'latencies_seconds': []}
+                'transcript': [], 'latencies_seconds': [], 'models_by_turn': [],
+                'quality_flags_by_turn': []}
         report['results'].append(item)
         if unavailable:
             item['reason'] = unavailable
@@ -136,18 +192,29 @@ def main():
                                                   max_chars=4500 if args.provider == 'qwen' else None)
                 start = time.monotonic()
                 answer, model = invoke(prompt, system, turns)
+                if not isinstance(answer, str) or not answer.strip():
+                    raise RuntimeError('model_returned_empty_or_nontext_answer')
                 item['latencies_seconds'].append(round(time.monotonic() - start, 3))
-                history.extend([{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': answer}])
+                item['models_by_turn'].append(str(model))
+                item['quality_flags_by_turn'].append(
+                    list(assess_response(answer, prompt=prompt)))
+                history.extend([{'role': 'user', 'content': prompt},
+                                {'role': 'assistant', 'content': answer}])
                 item['transcript'] = history[:]
-                item['model'] = model
-                item['quality_flags'] = list(assess_response(answer, prompt=prompt))
+                item['model'] = str(model)
+            item['transcript_sha256'] = transcript_digest(history)
             item['status'] = 'captured'
         except Exception as exc:
             item['status'] = 'error'
             item['reason'] = type(exc).__name__
         args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n')
     latencies = [n for row in report['results'] for n in row['latencies_seconds']]
-    report['latency_median_seconds'] = statistics.median(latencies) if latencies else None
+    summary = latency_summary(latencies)
+    report['latency_median_seconds'] = summary['p50']
+    report['latency_p95_seconds'] = summary['p95']
+    report['captured_count'] = sum(row['status'] == 'captured' for row in report['results'])
+    report['not_run_count'] = sum(row['status'] == 'not_run' for row in report['results'])
+    report['error_count'] = sum(row['status'] == 'error' for row in report['results'])
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n')
     captured = sum(row['status'] == 'captured' for row in report['results'])
     print(f'{captured}/100 transcripts captured; quality score pending independent review.')
