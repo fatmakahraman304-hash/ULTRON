@@ -16,10 +16,13 @@ def prepare_turns(rows, *, max_chars: int = 3200, max_turns: int = 14) -> list[d
     kept: list[dict[str, str]] = []
     remaining = cap
     for record in reversed(list(rows)[-count:]):
-        role = str(record["role"])
-        if role not in ("user", "assistant"):
+        if not hasattr(record, "get"):
             continue
-        text = str(record["content"] or "").strip()
+        role = record.get("role")
+        text = record.get("content")
+        if role not in ("user", "assistant") or not isinstance(text, str):
+            continue
+        text = text.strip()
         if not text or remaining < 24:
             continue
         # Preserve the end of the latest short answer if an old turn was huge.

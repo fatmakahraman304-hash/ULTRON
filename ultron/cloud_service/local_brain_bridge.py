@@ -64,6 +64,7 @@ async def post_local_chat(request: web.Request) -> web.Response:
     system = build_system_instruction(
         memory=memory, recent="Conversation turns provided separately with roles.",
         user_message=text, read_only=True, max_chars=4500,
+        has_prior_turns=bool(turns),
     )
 
     async with pool.acquire() as conn:

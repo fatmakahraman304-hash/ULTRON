@@ -47,7 +47,7 @@ def classify_tone(message: str) -> str:
 # Conversation coaching is turn-specific, never a persistent memory write.
 # Unlike semantic auto-learning, it does not infer or store personal facts.
 _BRIEF = re.compile(
-    r"(?:\b(?:kısaca|kısa cevap|kısa anlat|özetle|tek cümle(?:yle)?|"
+    r"(?:\b(?:kısaca|kısa (?:cevap|anlat|tut|tutalım|yaz|söyle|olsun|özet)|özetle|tek cümle(?:yle)?|"
     r"briefly|short answer|in one sentence)\b)", re.I
 )
 _DEEP = re.compile(

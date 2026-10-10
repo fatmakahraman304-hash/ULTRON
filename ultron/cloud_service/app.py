@@ -1251,7 +1251,7 @@ async def chat(request: web.Request) -> web.Response:
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
-        user_message=text, read_only=True,
+        user_message=text, read_only=True, has_prior_turns=bool(turns),
     )
     prompt = text
 
@@ -1320,6 +1320,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     base_prompt = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent=recent,
+        has_prior_turns=not recent.startswith("No previous chat messages."),
     )
     system_instruction = (
         base_prompt
