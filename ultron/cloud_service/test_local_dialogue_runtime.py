@@ -303,6 +303,56 @@ class LocalConversationTests(unittest.TestCase):
         self.assertNotIn("CONTINUATION REPLY LENGTH",calls[0]["messages"][0]["content"])
         self.assertLessEqual(len(calls[0]["messages"][0]["content"]),5400)
 
+    def test_malformed_or_mislabeled_ollama_replies_are_never_success(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b",
+                   "fast_brain":{"enabled":True,
+                                 "conversation_models":["qwen3:4b"]}}}))
+        invalid=(
+            {"message":"An answer pretending to be text"},
+            {"message":{"content":{"text":"not model prose"}}},
+            {"message":{"content":["not model prose"]}},
+            {"message":{"content":42}},
+            {"message":{"content":None}},
+            {"message":{"content":"  "}},
+            {"message":{"content":"A partial answer"},"done":False},
+            {"model":"llava:7b",
+             "message":{"content":"Different model output"},"done":True},
+        )
+        for response in invalid:
+            with self.subTest(response=response):
+                calls=[]
+                def fake_request(path,payload=None,**kwargs):
+                    self.assertEqual(path,"/api/chat")
+                    calls.append(payload)
+                    return response
+                with patch.object(local,"_SETTINGS",settings), \
+                     patch.object(local,"installed_models",
+                                  return_value=["qwen3:4b"]), \
+                     patch.object(local,"_get_json",side_effect=fake_request):
+                    with self.assertRaises(local.LocalBrainUnavailable):
+                        local.local_chat("Selam","ULTRON",[])
+                self.assertEqual(len(calls),1)
+                self.assertFalse(calls[0].get("tools"))
+
+        valid=(
+            {"message":{"content":"  Merhaba!  "}},
+            {"model":"qwen3:4b","done":True,
+             "message":{"content":"  Merhaba!  "}},
+        )
+        for response in valid:
+            with self.subTest(valid=response):
+                def fake_request(path,payload=None,**kwargs):
+                    return response
+                with patch.object(local,"_SETTINGS",settings), \
+                     patch.object(local,"installed_models",
+                                  return_value=["qwen3:4b"]), \
+                     patch.object(local,"_get_json",side_effect=fake_request):
+                    got=local.local_chat("Selam","ULTRON",[])
+                self.assertEqual(got["reply"],"Merhaba!")
+                self.assertEqual(got["model"],"qwen3:4b")
+                self.assertEqual(got["provider"],"local-ollama")
+
     def test_previous_turns_are_actual_model_messages(self):
         msg=self.run_local("Peki fiyatı?",[
             {"role":"user","content":"Mercedes C180 bakıyorum"},

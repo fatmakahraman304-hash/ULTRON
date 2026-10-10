@@ -281,7 +281,18 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
         "messages":ollama_messages(effective_system, turns or [], text),
         **config,
     },timeout=70)
-    answer=str((result.get("message") or {}).get("content") or "").strip()
+    # A malformed or interrupted Ollama response is not a successful answer.
+    # Do not stringify arbitrary JSON as if it were model-generated prose or
+    # claim a configured model produced a reply labeled as another model.
+    actual_model=result.get("model")
+    if actual_model is not None and actual_model != choice.model:
+        raise LocalBrainUnavailable("Ollama beklenmeyen modelden yanıt döndürdü.")
+    if result.get("done") is False:
+        raise LocalBrainUnavailable("Ollama tamamlanmamış yanıt döndürdü.")
+    message=result.get("message")
+    if not isinstance(message,dict) or not isinstance(message.get("content"),str):
+        raise LocalBrainUnavailable("Ollama yanıtının metin biçimi geçersiz.")
+    answer=message["content"].strip()
     if not answer:
         raise LocalBrainUnavailable("Yerel model boş yanıt verdi.")
     return {"reply":finalize_response(answer[:12000], prompt=text),"model":choice.model,"provider":"local-ollama"}
