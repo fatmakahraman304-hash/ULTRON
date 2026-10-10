@@ -1491,7 +1491,20 @@ async function loadMemories(){
     const x=document.createElement('div');x.className='memory';
     const b=document.createElement('b'),v=document.createElement('div'),s=document.createElement('small');
     b.textContent='['+m.category+'] '+m.key;v.textContent=m.value;s.textContent='v'+m.version+' • '+(m.updated_by_device||'cihaz');
-    x.append(b,v,s);$('#memories').appendChild(x);
+    const remove=document.createElement('button');
+    remove.type='button';remove.className='secondary';
+    remove.textContent='HAFIZADAN SİL';
+    remove.setAttribute('aria-label',m.key+' bilgisini hafızadan sil');
+    remove.addEventListener('click',async()=>{
+      if(!window.confirm('Bu kayıtlı bilgiyi ULTRON hafızasından silmek istiyor musun?'))return;
+      remove.disabled=true;
+      try{
+        await api('/api/memories/'+encodeURIComponent(m.key),{method:'DELETE'});
+        await loadMemories();
+        toast('Bilgi ULTRON hafızasından silindi.');
+      }catch(e){toast('Hafıza silinemedi: '+e.message);remove.disabled=false}
+    });
+    x.append(b,v,s,remove);$('#memories').appendChild(x);
   });
 }
 const worldCommandQueue=[];

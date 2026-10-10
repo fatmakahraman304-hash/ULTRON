@@ -71,3 +71,10 @@ test("new mobile panel, script and PWA shell are wired",()=>{
  assert.ok(html.includes('/static/learning-review.js'));
  assert.ok(sw.includes("'/static/learning-review.js'"));
 });
+
+test("approved memories have a separate explicit delete control in shared memory UI",()=>{
+ const html=fs.readFileSync(path.join(__dirname,"static/index.html"),"utf8");
+ assert.ok(html.includes("HAFIZADAN SİL"));
+ assert.ok(html.includes("await api('/api/memories/'+encodeURIComponent(m.key),{method:'DELETE'})"));
+ assert.ok(html.includes("window.confirm('Bu kayıtlı bilgiyi ULTRON hafızasından silmek istiyor musun?')"));
+});
