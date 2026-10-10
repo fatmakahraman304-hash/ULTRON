@@ -4,9 +4,9 @@
  */
 (function(root,factory){
   "use strict";
-  const module=factory();
-  if(typeof module!=="undefined" && module.exports)module.exports=module;
-  if(root)root.ULTRONLivePlayback=module;
+  const api=factory();
+  if(typeof module!=="undefined" && module.exports)module.exports=api;
+  if(root)root.ULTRONLivePlayback=api;
 })(typeof window!=="undefined"?window:null,function(){
   "use strict";
   function create(opts){
