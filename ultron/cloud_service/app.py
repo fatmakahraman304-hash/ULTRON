@@ -4,6 +4,7 @@ from capability_readiness import readiness
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
 from approved_learning import register_learning_routes
+from auto_learning import register_routes as register_auto_learning_routes, learn_from_owner_message
 
 import asyncio
 import base64
@@ -1260,6 +1261,14 @@ async def chat(request: web.Request) -> web.Response:
         conv_uuid, request["user_id"], reply,
     )
     await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
+    # Owner opted in to learning explicit facts from their own text only.
+    # Learning failure must never block a successful assistant response.
+    if request.get("auth_kind") == "web":
+        try:
+            await learn_from_owner_message(pool, request["user_id"], text)
+        except Exception:
+            pass  # Never echo any message contents or secrets to logs.
+
 
     return web.json_response({"conversation_id": str(conv_uuid), "reply": reply})
 
@@ -2187,6 +2196,7 @@ def build_app() -> web.Application:
     register_local_brain_routes(app,_memory_context,_recent_context)
     register_personal_plan_routes(app)
     register_learning_routes(app)
+    register_auto_learning_routes(app)
     app.router.add_get("/health", health)
     app.router.add_post("/api/login", login)
     app.router.add_post("/api/logout", logout)

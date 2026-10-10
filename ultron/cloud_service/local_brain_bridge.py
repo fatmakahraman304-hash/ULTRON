@@ -13,6 +13,7 @@ import uuid
 
 from aiohttp import web
 from conversation_persona import build_system_instruction
+from auto_learning import learn_from_owner_message
 
 
 async def post_local_chat(request: web.Request) -> web.Response:
@@ -87,6 +88,11 @@ async def post_local_chat(request: web.Request) -> web.Response:
                 "VALUES($1,$2,'user',$3,$4)",
                 conversation, request["user_id"], text, request["device_id"],
             )
+    # User text accepted into the real local queue; no assistant/tool text is learned.
+    try:
+        await learn_from_owner_message(pool, request["user_id"], text)
+    except Exception:
+        pass  # Learning is ancillary and cannot fail the chat request.
     return web.json_response({
         "status": "queued", "command_id": row["id"],
         "conversation_id": str(conversation), "provider": "local",

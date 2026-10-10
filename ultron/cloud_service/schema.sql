@@ -167,3 +167,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_pending_owner_key
   ON learning_proposals(user_id,key) WHERE status='pending';
 CREATE INDEX IF NOT EXISTS idx_learning_owner_recent
   ON learning_proposals(user_id,id DESC);
+
+
+-- Private, reversible, default-off learning switch. No surveillance/background job.
+CREATE TABLE IF NOT EXISTS owner_auto_learning (
+  user_id TEXT PRIMARY KEY,
+  enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
