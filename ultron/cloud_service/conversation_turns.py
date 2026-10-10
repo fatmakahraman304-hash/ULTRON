@@ -405,29 +405,53 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
             # message text into SQL or search another account/conversation.
             patterns = ["%" + term + "%" for term in
                         sorted(terms, key=lambda t: (-len(t), t))[:4]]
-            candidates = await pool.fetch(
+            # A recent-only keyword sample misses the real original exchange
+            # when the same topic was mentioned dozens of times in old chat.
+            # Sample both chronological ends of the *older* segment. Only an
+            # explicit recall request adds these two bounded SQL lookups.
+            search_sql = (
                 "SELECT id,role,content FROM messages "
                 "WHERE user_id=$1 AND conversation_id=$2 "
                 "AND ($3::bigint IS NULL OR id < $3) "
                 "AND id < $4 AND role IN ('user','assistant') "
                 "AND content ILIKE ANY($5::text[]) "
-                "ORDER BY id DESC LIMIT $6",
-                user_id, conversation_id, before_id, earliest, patterns, 24,
             )
-            # Prefer messages covering more of the user's distinct topic
-            # terms instead of only taking the newest partial keyword match.
-            ranked = sorted(
-                (row for row in candidates
-                 if row.get("role") in ("user", "assistant")
-                 and isinstance(row.get("content"), str)),
-                key=lambda row: (
-                    len(terms & _topic_terms(row["content"])),
-                    row["role"] == "user",
-                    row["id"],
-                ),
-                reverse=True,
+            args = (user_id, conversation_id, before_id, earliest, patterns, 16)
+            newer_candidates = await pool.fetch(
+                search_sql + "ORDER BY id DESC LIMIT $6", *args,
             )
-            matches = ranked[:2]
+            older_candidates = await pool.fetch(
+                search_sql + "ORDER BY id ASC LIMIT $6", *args,
+            )
+
+            def best_match(candidates, *, prefer_oldest):
+                valid = [
+                    row for row in candidates
+                    if row.get("role") in ("user", "assistant")
+                    and isinstance(row.get("content"), str)
+                    and isinstance(row.get("id"), int)
+                ]
+                if not valid:
+                    return None
+                ranked = sorted(
+                    valid,
+                    key=lambda row: (
+                        len(terms & _topic_terms(row["content"])),
+                        row["role"] == "user",
+                        -row["id"] if prefer_oldest else row["id"],
+                    ),
+                    reverse=True,
+                )
+                return ranked[0] if (terms & _topic_terms(ranked[0]["content"])) else None
+
+            oldest_match = best_match(older_candidates, prefer_oldest=True)
+            newest_match = best_match(newer_candidates, prefer_oldest=False)
+            matches = []
+            for match in (oldest_match, newest_match):
+                if match is not None and not any(
+                    item["id"] == match["id"] for item in matches
+                ):
+                    matches.append(match)
             evidence = {row["id"]: row for row in matches}
             for match in matches:
                 after_user = match["role"] == "user"

@@ -170,6 +170,52 @@ class ContextualRecallUnitTests(unittest.TestCase):
             self.assertNotIn("fren disklerini",str(result))
         asyncio.run(run())
 
+    def test_oldest_exchange_survives_dense_repeated_old_topic_mentions(self):
+        class DB:
+            def __init__(self):
+                self.calls = []
+                self.recent = [
+                    {"id":i, "role":"user" if i%2==0 else "assistant",
+                     "content":f"Unrelated current chat {i}"}
+                    for i in range(100,180)
+                ]
+            async def fetch(self, sql, *args):
+                self.calls.append((sql,args))
+                if "ILIKE ANY" in sql:
+                    if "ORDER BY id ASC" in sql:
+                        return [{"id":1,"role":"user",
+                                 "content":"Mercedes C180 2009 ORIGIN brake budget"}]
+                    return [{"id":90,"role":"user",
+                             "content":"Mercedes C180 later incidental mention"}]
+                if "AND id > $5" in sql:
+                    return [{"id":2,"role":"assistant",
+                             "content":"Original decision: inspect front discs."}]
+                if "AND id < $5" in sql:
+                    return [{"id":89,"role":"user","content":"Recent older question"}]
+                return list(reversed(self.recent))
+        import asyncio
+        async def check():
+            db=DB()
+            found=await load_contextual_thread_turns(
+                db,"owner-a","thread-b",
+                question="Mercedes C180 hakkında ne demiştik?",
+                before_id=1000,max_chars=3200,limit=14)
+            combined=" ".join(x["content"] for x in found)
+            self.assertIn("ORIGIN brake budget",combined)
+            self.assertIn("Original decision",combined)
+            self.assertIn("current chat 179",combined)
+            self.assertLessEqual(len(found),14)
+            self.assertLessEqual(sum(len(x["content"]) for x in found),3200)
+            old_queries=[sql for sql,_ in db.calls if "ILIKE ANY" in sql]
+            self.assertEqual(len(old_queries),2)
+            self.assertTrue(any("ORDER BY id ASC" in sql for sql in old_queries))
+            self.assertTrue(any("ORDER BY id DESC" in sql for sql in old_queries))
+            for sql,args in db.calls:
+                self.assertIn("user_id=$1 AND conversation_id=$2",sql)
+                self.assertIn("id < $3",sql)
+                self.assertEqual(args[:3],("owner-a","thread-b",1000))
+        asyncio.run(check())
+
     def test_no_topic_uses_small_sql_window(self):
         class DB:
             def __init__(self): self.query=None

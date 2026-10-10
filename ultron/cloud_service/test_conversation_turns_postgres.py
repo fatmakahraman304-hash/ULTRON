@@ -216,4 +216,37 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertLessEqual(sum(len(row["content"]) for row in turns),3000)
 
 
+ async def test_earliest_decision_survives_more_than_24_old_keyword_hits(self):
+  await self.add(self.c1,"ci-dialogue-a","user",
+                 "Mercedes C180 2009 ORIGINAL_PLAN inspect front discs")
+  await self.add(self.c1,"ci-dialogue-a","assistant",
+                 "Original conclusion: start with front brake inspection")
+  await self.add(self.c2,"ci-dialogue-a","user",
+                 "OTHER_THREAD Mercedes C180 original fake")
+  await self.add(self.c3,"ci-dialogue-b","user",
+                 "OTHER_OWNER Mercedes C180 original fake")
+  for i in range(42):
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant",
+                  f"Mercedes C180 repeated old reference {i}")
+  for i in range(105):
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant",
+                  f"Unrelated latest conversation {i}")
+  current=await self.add(self.c1,"ci-dialogue-a","user",
+                         "Mercedes C180 hakkında ne demiştik?")
+  found=await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c1,
+      question="Mercedes C180 hakkında ne demiştik?",
+      before_id=current,max_chars=3500,limit=14)
+  material=" ".join(t["content"] for t in found)
+  self.assertIn("ORIGINAL_PLAN",material)
+  self.assertIn("Original conclusion",material)
+  self.assertIn("conversation 104",material)
+  self.assertNotIn("OTHER_THREAD",material)
+  self.assertNotIn("OTHER_OWNER",material)
+  self.assertLessEqual(len(found),14)
+  self.assertLessEqual(sum(len(t["content"]) for t in found),3500)
+
+
 if __name__=="__main__":unittest.main()
