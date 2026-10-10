@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 try:
     import asyncpg
-    from app import _memory_context
+    from personal_context_focus import load_focused_owner_context
 except ImportError:
     asyncpg=None
 DB=os.getenv("ULTRON_QUEUE_TEST_DATABASE_URL","")
@@ -35,7 +35,7 @@ class PersonalContextPgTests(unittest.IsolatedAsyncioTestCase):
       "INSERT INTO owner_plans(user_id,title,scheduled_date,note) "
       "VALUES('ci-focus-a','Gelecek mimarlık sınavı',CURRENT_DATE+1,'never expose this note'),"
       "('ci-focus-b','PRIVATE_OTHER_OWNER_PLAN',CURRENT_DATE+1,'secret')")
-    focussed=await _memory_context(self.pool,"ci-focus-a","Mercedes C180")
+    focussed=await load_focused_owner_context(self.pool,"ci-focus-a","Mercedes C180")
     self.assertIn("Mercedes C180",focussed)
     self.assertIn("Türkçe ve kısa",focussed)
     self.assertIn("Gelecek mimarlık sınavı",focussed)
@@ -43,7 +43,7 @@ class PersonalContextPgTests(unittest.IsolatedAsyncioTestCase):
     self.assertNotIn("PRIVATE_OTHER_OWNER",focussed)
     self.assertNotIn("never expose this note",focussed)
     self.assertLessEqual(len(focussed),3400)
-    other=await _memory_context(self.pool,"ci-focus-b","Mercedes C180")
+    other=await load_focused_owner_context(self.pool,"ci-focus-b","Mercedes C180")
     self.assertNotIn("Araç bakım incelemesi",other)
     self.assertNotIn("Gelecek mimarlık sınavı",other)
 

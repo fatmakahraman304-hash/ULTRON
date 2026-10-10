@@ -24,7 +24,7 @@ from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes
 from conversation_persona import build_system_instruction
-from personal_context_focus import select_personal_context
+from personal_context_focus import load_focused_owner_context
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
@@ -835,20 +835,7 @@ async def list_messages(request: web.Request) -> web.Response:
 
 
 async def _memory_context(pool: asyncpg.Pool, user_id: str, query: str = "") -> str:
-    # User-owned persistent memories and explicitly saved plans only.
-    # Relevant older goals survive unrelated recent entries, and upcoming
-    # plans survive the short local Qwen context window.
-    rows = await pool.fetch(
-        "SELECT category,key,value FROM memories WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 100",
-        user_id,
-    )
-    plan_rows = await pool.fetch(
-        "SELECT title,scheduled_date,scheduled_time FROM owner_plans "
-        "WHERE user_id=$1 AND is_done=FALSE "
-        "ORDER BY scheduled_date ASC, scheduled_time ASC NULLS LAST,id ASC LIMIT 8",
-        user_id,
-    )
-    return select_personal_context(rows, plan_rows, query, max_chars=3400)
+    return await load_focused_owner_context(pool, user_id, query)
 
 
 async def _recent_context(pool: asyncpg.Pool, user_id: str, limit: int = 24,

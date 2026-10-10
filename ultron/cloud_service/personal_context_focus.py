@@ -99,3 +99,23 @@ def select_personal_context(memories, plans, question="", *, max_chars=3500):
     if output == header:
         return "No saved ULTRON memory or personal plans yet."
     return output.rstrip()
+
+
+async def load_focused_owner_context(pool, user_id: str, query: str = "") -> str:
+    """Read from the *authenticated user's* saved memory and unfinished plans.
+
+    Excludes private plan notes and user-created conversation notes. Used by
+    both cloud Gemini and the paired local Qwen queue with the same filtering.
+    """
+    rows = await pool.fetch(
+        "SELECT category,key,value FROM memories WHERE user_id=$1 "
+        "ORDER BY updated_at DESC LIMIT 100",
+        user_id,
+    )
+    plans = await pool.fetch(
+        "SELECT title,scheduled_date,scheduled_time FROM owner_plans "
+        "WHERE user_id=$1 AND is_done=FALSE "
+        "ORDER BY scheduled_date ASC, scheduled_time ASC NULLS LAST,id ASC LIMIT 8",
+        user_id,
+    )
+    return select_personal_context(rows, plans, query, max_chars=3400)

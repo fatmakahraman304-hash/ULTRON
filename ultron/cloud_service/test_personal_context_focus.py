@@ -63,10 +63,10 @@ class FocusedMemoryTests(unittest.TestCase):
         self.assertEqual(select_personal_context(rows,[],max_chars=0),"")
         app=(HERE/"app.py").read_text(encoding="utf-8")
         bridge=(HERE/"local_brain_bridge.py").read_text(encoding="utf-8")
-        self.assertIn("select_personal_context(rows, plan_rows, query",app)
+        self.assertIn("load_focused_owner_context(pool, user_id, query)",app)
         self.assertIn('await _memory_context(pool, request["user_id"], query=text)',app)
         self.assertIn('request.app["local_memory_context"](pool, request["user_id"], text)',bridge)
-        self.assertIn("WHERE user_id=$1",app)
+        self.assertIn("WHERE user_id=$1",(HERE/"personal_context_focus.py").read_text(encoding="utf-8"))
 
 
 class QualityModelRoutingTests(unittest.TestCase):
