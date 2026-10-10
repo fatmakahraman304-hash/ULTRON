@@ -121,6 +121,11 @@ jobs:
         run: |
           node --check ultron/cloud_service/static/learning-review.js
           node --test ultron/cloud_service/test_auto_learning_ui.cjs
+      - name: Minimal phone UI voice/text navigation contracts
+        run: |
+          node --check ultron/cloud_service/static/panel-intents.js
+          node --test ultron/cloud_service/test_panel_intents.cjs
+          node --experimental-strip-types --test ultron/frontend/tests/panelIntent.test.mjs
       - name: ULTRON WORLD JavaScript syntax and UI contracts
         run: |
           node --check ultron/cloud_service/static/world.js
