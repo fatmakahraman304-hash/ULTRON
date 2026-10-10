@@ -140,8 +140,12 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
             indices.update(pair)
     chosen = [earlier[index] for index in sorted(indices)]
     older_budget = cap // 4
+    # A verbose answer must not consume its question's entire evidence budget.
+    # Reserve a share for each selected role before newest-first truncation.
+    share = older_budget // max(1, len(chosen))
+    evidence = [{"role": row["role"], "content": row["content"][:share]} for row in chosen]
     old_turns = prepare_turns(
-        chosen,
+        evidence,
         max_chars=older_budget, max_turns=min(4, count - recent_count),
     )
     recent_turns = prepare_turns(

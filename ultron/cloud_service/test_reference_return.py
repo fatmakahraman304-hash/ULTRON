@@ -18,6 +18,14 @@ class ReferenceReturnTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Motor versiyonunu', str(result))
         self.assertIn('aşama 29', str(result))
 
+    def test_verbose_recalled_answer_does_not_evict_its_question(self):
+        rows = self.history()
+        rows[1]['content'] = 'Motor versiyonunu kontrol et. ' * 50
+        result = select_contextual_turns(rows, 'Mercedes C180 ne demiştik?', max_chars=2600)
+        self.assertIn('2009 Mercedes C180', str(result))
+        self.assertIn('Motor versiyonunu', str(result))
+        self.assertLessEqual(sum(len(t['content']) for t in result), 2600)
+
     async def test_first_return_fetches_actual_beginning_not_last_80(self):
         class DB:
             calls = []
