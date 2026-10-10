@@ -5,7 +5,7 @@ HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
 try:
  import asyncpg
- from conversation_turns import load_thread_turns
+ from conversation_turns import load_thread_turns, load_contextual_thread_turns
 except ImportError:
  asyncpg=None
 DB=os.getenv("ULTRON_QUEUE_TEST_DATABASE_URL","")
@@ -41,5 +41,29 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertNotIn("SECRET_FROM_OTHER",str(turns))
   self.assertEqual(await load_thread_turns(self.pool,"ci-dialogue-b",self.c1),[])
   self.assertEqual(await load_thread_turns(self.pool,"ci-dialogue-a",self.c3),[])
+
+
+ async def test_explicit_topic_recalls_older_in_thread_without_leaking_other_messages(self):
+  await self.add(self.c1,"ci-dialogue-a","user","Mercedes C180 2009 modelinin bakımını konuşalım")
+  await self.add(self.c1,"ci-dialogue-a","assistant","Mercedes C180 bakımını araştırabiliriz")
+  await self.add(self.c2,"ci-dialogue-a","user","PRIVATE OTHER THREAD MERCEDES C180")
+  await self.add(self.c3,"ci-dialogue-b","user","PRIVATE OTHER USER MERCEDES C180")
+  for i in range(24):
+   await self.add(self.c1,"ci-dialogue-a","user" if i%2==0 else "assistant",
+      f"Genel günlük sohbet {i} hakkında konuşuyoruz")
+  current=await self.add(self.c1,"ci-dialogue-a","user","Mercedes C180 için ne demiştik?")
+  turns=await load_contextual_thread_turns(
+    self.pool,"ci-dialogue-a",self.c1,question="Mercedes C180 için ne demiştik?",
+    before_id=current,max_chars=3000,limit=14,
+  )
+  text=" ".join(t["content"] for t in turns)
+  self.assertIn("Mercedes C180 2009",text)
+  self.assertNotIn("PRIVATE",text)
+  self.assertNotIn("ne demiştik?",text)
+  self.assertLessEqual(sum(len(t["content"]) for t in turns),3000)
+  self.assertEqual(await load_contextual_thread_turns(self.pool,"ci-dialogue-b",
+      self.c1,question="Mercedes C180"),[])
+  self.assertEqual(await load_contextual_thread_turns(self.pool,"ci-dialogue-a",
+      self.c3,question="Mercedes C180"),[])
 
 if __name__=="__main__":unittest.main()

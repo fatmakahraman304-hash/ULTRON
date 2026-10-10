@@ -107,7 +107,7 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
     clean = [
         {"role": row.get("role"), "content": row.get("content")}
         for row in rows
-        if isinstance(row, dict)
+        if hasattr(row, "get")
         and row.get("role") in ("user", "assistant")
         and isinstance(row.get("content"), str)
     ]
