@@ -39,6 +39,8 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_contextual_recall.py' -v
       - name: Owner-reviewed conversation notes preview and input validation
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_notes.py' -v
+      - name: JARVIS-style topic-aware memory and intelligent local Qwen routing
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus.py' -v
       - name: Ten-capability readiness truthfulness tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_capability_readiness.py' -v
       - name: Personal briefing privacy and grounding tests
@@ -99,6 +101,10 @@ jobs:
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
         run: python -m unittest discover -s ultron/cloud_service -p 'test_auto_learning_postgres.py' -v
+      - name: Real PostgreSQL relevant personal memory, plan priority and owner isolation
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus_postgres.py' -v
       - name: Real PostgreSQL natural conversation tenant/thread isolation
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
