@@ -153,6 +153,23 @@ def is_topic_switch_request(question: str) -> bool:
             bool(_TOPIC_SWITCH.search(" ".join(question.strip().split()))))
 
 
+_OLD_TURN_CORRECTION = re.compile(
+    r"^(?:hayır\b|yok\b(?!\s+(?:mu|mı|mi|mü)\b)|"
+    r"yanlış anladın\b|onu demedim\b|düzeltme\s*:|"
+    r"aslında\b.{0,95}\b(?:kastettim|demiştim|istiyorum|olacak|olsun)\b|"
+    r"no[,!:]\s|no,?\s+i meant\b|"
+    r"actually,?\s+i meant\b|correction\s*:)",
+    re.I | re.S,
+)
+
+
+def is_explicit_turn_correction(text: str) -> bool:
+    """A clear owner correction directly after an old assistant response."""
+    return isinstance(text, str) and bool(
+        _OLD_TURN_CORRECTION.match(text.strip()[:180])
+    )
+
+
 def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
                             max_turns: int = 14) -> list[dict[str, str]]:
     """Keep immediate chat plus a small chronological selection of older matches.
@@ -486,6 +503,7 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                 ):
                     matches.append(match)
             evidence = {row["id"]: row for row in matches}
+            original_exchange_end = None
             for match in matches:
                 after_user = match["role"] == "user"
                 nearby = await pool.fetch(
@@ -501,12 +519,39 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                 if nearby and nearby[0]["role"] == (
                     "assistant" if after_user else "user"
                 ):
-                    evidence[nearby[0]["id"]] = nearby[0]
+                    partner = nearby[0]
+                    evidence[partner["id"]] = partner
+                    # The earliest question/answer is often immediately
+                    # followed by a user correction without repeating the
+                    # topic's name. A keyword-only search misses that change.
+                    if (match is oldest_match and isinstance(partner["id"], int)
+                            and partner["role"] == "assistant"):
+                        original_exchange_end = partner["id"]
+                    elif (match is oldest_match and match["role"] == "assistant"):
+                        original_exchange_end = match["id"]
+
+            if original_exchange_end is not None and n >= 5:
+                # Only the immediately following same-thread message may
+                # qualify; never scan for an unrelated later correction.
+                following = await pool.fetch(
+                    "SELECT id,role,content FROM messages "
+                    "WHERE user_id=$1 AND conversation_id=$2 "
+                    "AND ($3::bigint IS NULL OR id < $3) "
+                    "AND id < $4 AND role IN ('user','assistant') "
+                    "AND id > $5 ORDER BY id ASC LIMIT 1",
+                    user_id, conversation_id, before_id,
+                    earliest, original_exchange_end,
+                )
+                if (following and following[0]["role"] == "user"
+                        and is_explicit_turn_correction(following[0]["content"])):
+                    evidence[following[0]["id"]] = following[0]
             if evidence:
-                # Explicit historical Q&A receives a reserved, capped share;
-                # otherwise newer incidental matches could evict it again.
+                # Reserve the same total character budget for earlier Q&A.
+                # A fifth slot is allowed only when evidence includes an
+                # explicit follow-up correction, so a newer pair can coexist.
                 cap = max(0, min(int(max_chars), 7200))
-                old_rows = [evidence[key] for key in sorted(evidence)][:4]
+                max_old = min(5 if original_exchange_end is not None else 4, n - 2)
+                old_rows = [evidence[key] for key in sorted(evidence)][:max_old]
                 old_budget = cap // 4
                 per_turn = min(1000, old_budget // len(old_rows))
                 old_excerpts = [
@@ -515,7 +560,7 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                     for row in old_rows
                 ]
                 old_turns = prepare_turns(
-                    old_excerpts, max_chars=old_budget, max_turns=4,
+                    old_excerpts, max_chars=old_budget, max_turns=max_old,
                 )
                 if old_turns:
                     remaining = cap - sum(len(t["content"]) for t in old_turns)

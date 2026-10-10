@@ -275,4 +275,34 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertLessEqual(sum(len(t["content"]) for t in turns),2800)
 
 
+ async def test_old_user_correction_without_topic_word_is_retained(self):
+  await self.add(self.c1,"ci-dialogue-a","user",
+                 "Mercedes C180 2009 aracını konuşuyorduk")
+  await self.add(self.c1,"ci-dialogue-a","assistant",
+                 "2009 üzerinden devam edelim")
+  await self.add(self.c1,"ci-dialogue-a","user",
+                 "Hayır, 2010 modelini kastettim; SON DÜZELTME 2010.")
+  await self.add(self.c2,"ci-dialogue-a","user",
+                 "OTHER_THREAD_SECRET 2010")
+  await self.add(self.c3,"ci-dialogue-b","assistant",
+                 "OTHER_OWNER_SECRET 2010")
+  for i in range(115):
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant", f"Recent unrelated message {i}")
+  current=await self.add(self.c1,"ci-dialogue-a","user",
+                         "Mercedes C180 hakkında ne demiştik?")
+  turns=await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c1,
+      question="Mercedes C180 hakkında ne demiştik?",before_id=current,
+      max_chars=2800,limit=14)
+  joined=" ".join(x["content"] for x in turns)
+  self.assertIn("Mercedes C180 2009",joined)
+  self.assertIn("2009 üzerinden",joined)
+  self.assertIn("SON DÜZELTME 2010",joined)
+  self.assertIn("message 114",joined)
+  self.assertNotIn("OTHER_",joined)
+  self.assertLessEqual(len(turns),14)
+  self.assertLessEqual(sum(len(x["content"]) for x in turns),2800)
+
+
 if __name__=="__main__":unittest.main()

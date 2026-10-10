@@ -6,7 +6,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from conversation_turns import (
     select_contextual_turns, load_contextual_thread_turns, _topic_terms,
-    is_topic_switch_request
+    is_topic_switch_request, is_explicit_turn_correction
 )
 
 
@@ -252,6 +252,52 @@ class ContextualRecallUnitTests(unittest.TestCase):
             self.assertIn("mimarlık maketi",str(got))
             self.assertNotIn("Mercedes",str(got))
         asyncio.run(run())
+
+    def test_old_question_answer_then_subjectless_correction_is_recovered(self):
+        class DB:
+            def __init__(self):
+                self.calls=[]
+                self.latest=[
+                    {"id":i, "role":"user" if i % 2 else "assistant",
+                     "content":f"Son unrelated konuşma {i}"}
+                    for i in range(100,180)
+                ]
+            async def fetch(self,sql,*args):
+                self.calls.append((sql,args))
+                if "ILIKE ANY" in sql:
+                    return [{"id":1,"role":"user",
+                             "content":"Mercedes C180 için 2009 modelini konuşalım"}]
+                if "AND id > $5" in sql:
+                    if args[4] == 1:
+                        return [{"id":2,"role":"assistant",
+                                 "content":"2009 üzerinden devam edelim"}]
+                    if args[4] == 2:
+                        return [{"id":3,"role":"user",
+                                 "content":"Hayır, 2010 olanı kastettim; son karar bu."}]
+                return list(reversed(self.latest))
+        import asyncio
+        async def go():
+            db=DB()
+            turns=await load_contextual_thread_turns(
+                db,"owner","thread",question="Mercedes C180 hakkında ne demiştik?",
+                before_id=500,max_chars=2800,limit=14)
+            combined=" ".join(item["content"] for item in turns)
+            self.assertIn("2009 modelini konuşalım",combined)
+            self.assertIn("2009 üzerinden",combined)
+            self.assertIn("Hayır, 2010 olanı kastettim",combined)
+            self.assertIn("konuşma 179",combined)
+            self.assertLessEqual(sum(len(item["content"]) for item in turns),2800)
+            self.assertLessEqual(len(turns),14)
+            for sql,args in db.calls:
+                self.assertIn("user_id=$1 AND conversation_id=$2",sql)
+                self.assertEqual(args[:3],("owner","thread",500))
+            for txt in ("Hayır, 2010 istiyorum", "Yok, 2010 olsun",
+                        "Aslında 2010'u kastettim", "No, I meant 2010"):
+                self.assertTrue(is_explicit_turn_correction(txt),txt)
+            for txt in ("Yok mu?", "Yeni model hakkında konuşalım",
+                        "Bir sonraki konuyu anlatalım"):
+                self.assertFalse(is_explicit_turn_correction(txt),txt)
+        asyncio.run(go())
 
     def test_no_topic_uses_small_sql_window(self):
         class DB:
