@@ -23,7 +23,7 @@ from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes
 from conversation_persona import build_system_instruction
-from conversation_turns import load_thread_turns, gemini_turns
+from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
 from google import genai
@@ -1244,9 +1244,9 @@ async def chat(request: web.Request) -> web.Response:
     )
 
     memory = await _memory_context(pool, request["user_id"])
-    turns = await load_thread_turns(
-        pool, request["user_id"], conv_uuid, before_id=current_message_id,
-        max_chars=5200, limit=16,
+    turns = await load_contextual_thread_turns(
+        pool, request["user_id"], conv_uuid, question=text,
+        before_id=current_message_id, max_chars=5200, limit=16,
     )
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),

@@ -13,7 +13,7 @@ import uuid
 
 from aiohttp import web
 from conversation_persona import build_system_instruction
-from conversation_turns import load_thread_turns
+from conversation_turns import load_contextual_thread_turns
 from auto_learning import learn_from_owner_message
 
 
@@ -59,8 +59,10 @@ async def post_local_chat(request: web.Request) -> web.Response:
 
     # Bound shared memory/history to protect 4GB consumer GPU.
     memory = (await request.app["local_memory_context"](pool, request["user_id"]))[:2400]
-    turns = await load_thread_turns(pool, request["user_id"], conversation,
-                                    max_chars=2600, limit=12)
+    turns = await load_contextual_thread_turns(
+        pool, request["user_id"], conversation,
+        question=text, max_chars=2600, limit=12,
+    )
     system = build_system_instruction(
         memory=memory, recent="Conversation turns provided separately with roles.",
         user_message=text, read_only=True, max_chars=4500,
