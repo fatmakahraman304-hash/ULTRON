@@ -113,6 +113,10 @@ jobs:
         run: |
           node --check ultron/cloud_service/static/owner-plans.js
           node --test ultron/cloud_service/test_owner_plans_ui.cjs
+      - name: ULTRON owner-approved learning review mobile UI
+        run: |
+          node --check ultron/cloud_service/static/learning-review.js
+          node --test ultron/cloud_service/test_learning_review_ui.cjs
       - name: ULTRON WORLD JavaScript syntax and UI contracts
         run: |
           node --check ultron/cloud_service/static/world.js
