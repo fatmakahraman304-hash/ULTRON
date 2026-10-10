@@ -93,8 +93,10 @@ _CODING_COMMAND = re.compile(
     r"fix (?:the |this )?(?:bug|code))\b", re.I
 )
 _CONTINUE_ONLY = re.compile(
-    r"(?:devam et|devam|kaldığın yerden devam et|"
-    r"aynı şekilde devam et|continue|keep going|go on)[\s.!?]*",
+    r"(?:kaldığın yerden devam et|aynı şekilde devam et|"
+    r"devam et böyle|böyle devam et|devam et|devam|"
+    r"continue like that|continue|keep going|go on)"
+    r"(?:\s+(?:lütfen|lutfen|please))?[\s.!?]*",
     re.I,
 )
 
@@ -138,6 +140,25 @@ def _local_reply_mode(text: str, turns=None) -> str:
     """Preserve reply detail only for an explicit continuation of a user task."""
     prior = _last_substantive_owner_request(text, turns)
     return classify_reply_mode(prior if prior else text)
+
+
+def _continuation_style_hint(text: str, turns=None) -> str:
+    """Align the model's reply-length instruction with its token budget.
+
+    The hint contains no previous user text and never promotes history to
+    a system role. It is generated only for a bare, explicit continuation.
+    """
+    prior = _last_substantive_owner_request(text, turns)
+    if not prior:
+        return ""
+    mode = classify_reply_mode(prior)
+    if mode == "brief":
+        return ("CONTINUATION REPLY LENGTH: The user requested a brief reply "
+                "for this ongoing task. Continue concisely.")
+    if mode == "detailed":
+        return ("CONTINUATION REPLY LENGTH: The user requested a detailed "
+                "explanation for this ongoing task. Continue with useful detail.")
+    return ""
 
 
 class LocalBrainUnavailable(RuntimeError):
@@ -246,10 +267,18 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     runtime["top_p"]=0.9
     runtime["repeat_penalty"]=1.08
     config["options"]=runtime
+    # The Cloud persona sees the bare "Devam et", so its generic reply-length
+    # hint can otherwise contradict the model's inherited detailed/brief cap.
+    # Preserve the original trusted system instructions intact: if it is
+    # already at the wire limit, skip this optional hint rather than truncate.
+    effective_system=str(system or "")
+    style_hint=_continuation_style_hint(text, turns)
+    if style_hint and len(effective_system)+len(style_hint)+1 <= 5400:
+        effective_system += "\n" + style_hint
     # Ollama may finish slowly on CPU offload; Cloud worker renews the lease.
     result=_get_json("/api/chat",{
         "model":choice.model,
-        "messages":ollama_messages(system, turns or [], text),
+        "messages":ollama_messages(effective_system, turns or [], text),
         **config,
     },timeout=70)
     answer=str((result.get("message") or {}).get("content") or "").strip()

@@ -243,6 +243,66 @@ class LocalConversationTests(unittest.TestCase):
                 self.assertLessEqual(cap,420)
                 self.assertFalse(packets[0].get("tools"))
 
+    def test_continuation_style_hint_matches_token_budget(self):
+        cases=(
+            ("Devam et lütfen", "Detaylı açıkla", "detailed"),
+            ("Devam et böyle", "Detaylı açıkla", "detailed"),
+            ("Continue please", "Kısa cevap ver", "brief"),
+            ("Böyle devam et", "Kısa cevap ver", "brief"),
+            ("Devam et", "Merhaba", "natural"),
+        )
+        for prompt,previous,kind in cases:
+            with self.subTest(prompt=prompt, kind=kind):
+                turns=[
+                    {"role":"user","content":previous},
+                    {"role":"assistant","content":"Birinci bölüm."},
+                ]
+                system="Trusted read-only system policy."
+                wire=self.run_local(prompt,turns)
+                system_text=wire["messages"][0]["content"]
+                self.assertTrue(system_text.startswith("You are ULTRON"))
+                self.assertEqual(wire["messages"][-1]["content"],prompt)
+                self.assertEqual(len(wire["messages"]),4)
+                self.assertFalse(wire.get("tools"))
+                cap=wire["options"]["num_predict"]
+                if kind=="detailed":
+                    self.assertIn("CONTINUATION REPLY LENGTH",system_text)
+                    self.assertIn("detailed explanation",system_text)
+                    self.assertGreaterEqual(cap,360)
+                elif kind=="brief":
+                    self.assertIn("CONTINUATION REPLY LENGTH",system_text)
+                    self.assertIn("brief reply",system_text)
+                    self.assertLessEqual(cap,160)
+                else:
+                    self.assertNotIn("CONTINUATION REPLY LENGTH",system_text)
+                    self.assertGreaterEqual(cap,240)
+
+    def test_style_hint_preserves_original_system_boundary(self):
+        prior=[{"role":"user","content":"Detaylı anlat"}]
+        self.assertEqual(local._continuation_style_hint("Yeni soru",prior),"")
+        hint=local._continuation_style_hint("Devam et",prior)
+        self.assertIn("detailed explanation",hint)
+        self.assertNotIn("Detaylı anlat",hint)
+        self.assertEqual(local._continuation_style_hint(
+            "Devam et",[{"role":"system","content":"Detaylı anlat"}]),"")
+        self.assertEqual(local._continuation_style_hint("Devam et",[]),"")
+
+        long_system="ORIGINAL POLICY-"*400
+        calls=[]
+        def fake_request(path,payload=None,**kwargs):
+            calls.append(payload)
+            return {"message":{"content":"Devam."}}
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b",
+                   "fast_brain":{"enabled":True}}}))
+        with patch.object(local,"_SETTINGS",settings), \
+             patch.object(local,"installed_models",return_value=["qwen3:4b"]), \
+             patch.object(local,"_get_json",side_effect=fake_request):
+            local.local_chat("Devam et",long_system,prior)
+        self.assertEqual(calls[0]["messages"][0]["content"],long_system[:5400])
+        self.assertNotIn("CONTINUATION REPLY LENGTH",calls[0]["messages"][0]["content"])
+        self.assertLessEqual(len(calls[0]["messages"][0]["content"]),5400)
+
     def test_previous_turns_are_actual_model_messages(self):
         msg=self.run_local("Peki fiyatı?",[
             {"role":"user","content":"Mercedes C180 bakıyorum"},
