@@ -1,3 +1,13 @@
+## Measured conversational intelligence (2026-10-10)
+
+- [x] Keep the frozen 100-scenario TR/EN acceptance dataset unchanged and auditably versioned.
+- [x] Prevent old human reviews from being reused for edited transcripts via SHA256 linkage; template starts without passes.
+- [x] Record actual successful Gemini fallback/primary identity for each read-only evaluation turn while preserving the string-only Cloud production API.
+- [x] Capture p50/p95 inference latency and per-turn flags for eventual real Gemini/Qwen comparison.
+- [x] Exact-code GitHub Cloud, Scene and WORLD smoke checks passed at `043a5386e510bc81a1bc163d9887cef8f75a4071`.
+- [ ] Run real available Gemini and Qwen providers with authorized credentials/local Ollama and independent reviews. **Model score is unmeasured**, not automatically 100/100.
+- [ ] Verify Render exact deployed SHA, iPhone/Windows voice and single final Windows update after quality acceptance.
+
 ## Conversation quality — final historical statement retrieval (2026-10-10)
 
 - [x] Recall original same-thread Q&A older than 80 messages, even with later incidental mentions of the topic (previous commit `064a9f6`).

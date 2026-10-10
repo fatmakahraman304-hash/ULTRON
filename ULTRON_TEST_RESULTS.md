@@ -1,3 +1,10 @@
+## 2026-10-10 — Evaluation integrity + actual Gemini model identity
+
+- Functional code SHA `043a5386e510bc81a1bc163d9887cef8f75a4071`. GitHub [Cloud Queue PostgreSQL Integration #38073193493](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193493) **SUCCESS**; [Scene Build Check #38073193481](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193481) **SUCCESS**; [ULTRON WORLD Live Read-only Smoke #38073193495](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193495) **SUCCESS**.
+- Added evaluation tests: altered/transplanted transcript hash invalidates review, generated human-review templates keep five criteria null, missing latency statistics stay null, nearest-rank p95/median are deterministic. Same production `_gemini_reply` wrapper is compiled with no-network fake model generation for primary and fallback paths; default production callers still receive a string.
+- All scores remain unmeasured until 100 actual captured responses and independent reviews per provider. Hash linkage is content integrity, not provider authenticity or proof of factual correctness.
+- CI does not establish a LIVE Render commit or physical-device voice/inference functionality. No Windows update, model download, or private credential usage performed in this continuation.
+
 ## 2026-10-10 — Long historical answer final-correction coverage
 
 - **Functional SHA:** `4a196658820aa38f747cb6cd1e74a12714c59eaf`.

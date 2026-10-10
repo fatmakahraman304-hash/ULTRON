@@ -1,3 +1,11 @@
+## 2026-10-10 — Conversation acceptance integrity and provider metadata
+
+- Verified functional code `043a5386e510bc81a1bc163d9887cef8f75a4071` after evaluation-runner changes in `0ad17db51fb60b50ceab42abf5e22d3cb7f4baa9`.
+- Versioned 100-case (50 Turkish + 50 English) scenario suite is unchanged. Completed transcripts gain reproducible SHA256 digests, blank independent-review templates, digest verification before accepting reviews, per-turn model identity and presentation flags, plus measured p50/p95 latency reporting. None of this substitutes for real model inference and human judgement. SHA256 binds transcript content to reviewed content but does not prove that an external provider generated it.
+- The production Gemini retry/fallback wrapper now supports a keyword-only `include_model=True` exclusively for evaluation; the default remains the original text string for normal Cloud conversations. A no-network test exercises fallback and primary-only behavior with the actual function AST. This allows honest per-call Gemini model labeling, and keeps Qwen labels already returned by the local adapter.
+- GitHub exact-code workflows all **SUCCESS**: [Cloud/PostgreSQL 38073193493](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193493), [Scene/Frontend 38073193481](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193481), [WORLD read-only smoke 38073193495](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193495).
+- Actual Gemini and Ollama/Qwen 100-case transcripts: **NOT RUN** in this continuation (no authorized reachable provider demonstrated). Model quality 100/100: **NOT MEASURED**. New Render live commit, Windows installation and physical phone voice not verified.
+
 ## 2026-10-10 — Historical Q&A conclusions preserved under context caps
 
 - Functional code commit: `4a196658820aa38f747cb6cd1e74a12714c59eaf`, following named-recall improvements at `064a9f6efbea16f5a71bb474f35e27300584d26c`.

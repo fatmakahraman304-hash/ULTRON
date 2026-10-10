@@ -1,3 +1,12 @@
+# Current priority — real conversational acceptance (2026-10-10)
+
+1. **Verified code HEAD:** `043a5386e510bc81a1bc163d9887cef8f75a4071`. Cloud Queue PostgreSQL Integration [38073193493](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193493) **SUCCESS**; ULTRON Scene Build Check [38073193481](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193481) **SUCCESS**; ULTRON WORLD Live Read-only Smoke [38073193495](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073193495) **SUCCESS**.
+2. **New assessment integrity:** Independent review templates carry SHA256 of the exact completed transcript and contain no pre-filled passes. Changed transcript invalidates a prior review; scoring requires matching digest and the five manually reviewed dimensions. Runtime reports capture per-turn model labels, per-turn presentation flags and p50/p95 latency. Gemini evaluation uses the production fallback path but now receives the actual successful model name through `include_model=True`; normal production behavior returns text only.
+3. **Still NOT MEASURED:** 100 real Gemini and 100 local Qwen scenarios, independent human transcript reviews, scored naturalness and real device latency. Do not manufacture 100/100 or update the estimated JARVIS completion percentage based on CI tests. When credentials and a reachable model are legitimately available, execute `python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json` or Qwen equivalent, use `--review-template` for blank review slots, then score completed human reviews. No extraction of Render secrets or production user chats.
+4. Verify Render deployed commit by exact SHA before claiming production LIVE. Final Windows update remains postponed until acceptance; iPhone/desktop physical inference and microphone tests also remain pending. Preserve the existing permission/privacy guard and minimal UI.
+
+---
+
 # Current priority — natural conversation acceptance (2026-10-10)
 
 1. **Latest verified functional code:** `4a196658820aa38f747cb6cd1e74a12714c59eaf`. [Cloud/PostgreSQL CI 38072623731](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38072623731) and [Scene/Frontend CI 38072623801](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38072623801) both completed successfully at this exact SHA. This follows `064a9f6efbea16f5a71bb474f35e27300584d26c` (older Q&A retrieved even when topic is incidentally mentioned recently).
