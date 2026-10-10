@@ -262,3 +262,9 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - GET /api/conversation-notes/preview reads up to 80 user/assistant rows scoped to authenticated user_id AND conversation_id. It presents a deterministic excerpt draft (not an exhaustive LLM summary), omitting some obvious secret-looking lines. The owner must review for residual sensitive data.
 - Explicit POST/PUT/DELETE to /api/conversation-notes create/edit/delete owner-only notes stored in the ULTRON Cloud PostgreSQL account and linked to the original conversation. These are NOT offline phone files, separate third-party sync, or automatically model-visible personal memories. Draft GET never writes.
 - Default privacy: authenticated browser session, same-origin checks for mutations, no device-token access, bounded 30 notes/conversation and 3000 characters per note, user-scoped SQL and consent-gated deletion UI.
+
+
+## 2026-10-10 — Natural phone Live audio final-drain and instant barge-in
+- On iOS PWA Gemini Live, turn_complete means the server finished transcription/response generation; it must NOT cancel scheduled 24 kHz WebAudio chunks. Only user interruption, explicit stop, session disconnect or laptop-single-speaker takeover may cancel playback.
+- Keep a small explicit-generation playback queue for WebAudio source completion. Old onended callbacks after an interruption cannot unlock a new conversation or report a false status. Update listening UI only after pending chunks drain.
+- Preserve Live microphone ownership, no auto-microphone on load, safety approval gates, desktop/cloud model selection, PWA voice-first minimal UX and limited local Qwen compute. Test actual hardware later; CI is only a functional contract.

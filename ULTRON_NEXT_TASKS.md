@@ -339,3 +339,11 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. Test privacy limits with genuinely sensitive-looking user messages; deterministic common-secret filters are NOT a substitute for guaranteed PII classification, so owner must review all excerpts before saving.
 4. For Windows Qwen/Cloud Gemini continue improving real conversational and voice response quality; on actual hardware measure Turkish latency and interruption after user authorizes final Windows update. No local laptop install/download until the owner explicitly requests final package.
 5. Investigate chat notes export/import or semantic overview only on specific request and with permission; never promote notes to model system instructions or automatic permanent personal memory. Preserve clean command-first interface.
+
+
+## Next user-requested ULTRON development after safer Live audio playback
+1. Test on real iPhone Safari/PWA, with microphone permission after user tap: ask for a two-sentence response; verify its last word is fully audible, UI does not say 'listening' while final WebAudio buffers are still queued, and no second browser SpeechSynthesis voice runs over Gemini Live.
+2. Speak during a long Gemini Live response and verify Gemini's server interrupt or local RMS gate immediately stops playback, does not resume old chunks and recognizes the new user turn. Then mute/stop/close browser mid-playback and ensure no audio leak.
+3. Test laptop single-speaker leader switching: phone output stops when desktop leads; on reconnect it should not replay stale audio. Check session-scoped transcript and approval-gated device tools remain intact.
+4. Evaluate voice echo cancellation/threshold under real room noise and headphones. Consider exposing a private calibration diagnostic only after real recordings/tests; don't hardcode risky mic thresholds or claim flawless full-duplex conversation.
+5. Continue safer real user tasks, per-chat edit/review and privacy tests while keeping the clean on-command UI. Windows laptop update/download only once the user explicitly requests final handoff.

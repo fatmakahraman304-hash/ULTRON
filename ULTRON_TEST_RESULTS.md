@@ -278,3 +278,11 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - test_conversation_notes_ui.cjs: no API on mount, natural typed/voice requests, review and explicit save, XSS-safe textContent, editing and confirmation-gated deletion, hidden-panel PWA wiring and inline JavaScript syntax.
 - Initial Scene CI runs #38061640815, #38061738567 and #38061793040 failed due to a stale test_auto_brain.cjs exact 'ultron-shell-v50' assertion after PWA cache v51. Changed assertion to accept future cache version numbers at code SHA a1afc4befbdfbd84fc52e3b0511aebdba675bed8.
 - Final GitHub Cloud Queue PostgreSQL Integration #38061837383 SUCCESS and ULTRON Scene Build Check #38061837381 SUCCESS at the same SHA. Render deploy dep-db555toae00c739bvqn0 for the same SHA LIVE. Earlier failed intermediate CI runs are superseded; no real provider or physical iPhone/Windows acceptance tests were executed.
+
+
+## 2026-10-10 — Live natural audio test results
+- Node test_live_playback.cjs exercises queued three-chunk response: turn_complete must wait until all three finish; duplicates and stale onended following cancel ignored; a new turn retains its own pending counter; empty responses do not leave a talking/microphone lock.
+- Static PWA contracts assert actual playback helper and service worker v52 wiring, WebAudio source onended accounting, queued-drain turn_complete with no stopPlayback, and immediate cancellation for bargeBlocks>=2 or Gemini server interrupted.
+- Intermediate GitHub ULTRON Scene Build Check #38065262849 failed on 'playback.create is not a function' due to shadowed CommonJS module binding. Corrected UMD wrapper in code SHA b431b82314c4b27fee7c1cf7b2d96e5b27a51acf.
+- GitHub Cloud Queue PostgreSQL Integration #38065354266 SUCCESS; ULTRON Scene Build Check #38065354265 SUCCESS; Render automatic deploy dep-db55ubl9mjac73899sl0 LIVE at the same code SHA.
+- This does NOT establish real iOS microphone/audio interruption latency or guarantee network-based Gemini provider availability; hands-on physical iPhone test remains necessary. No local Windows installation attempted.

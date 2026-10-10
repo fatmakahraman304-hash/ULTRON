@@ -293,3 +293,12 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Added Python validators and preview safety tests (test_conversation_notes.py), disposable PostgreSQL consent/ACL/edit/delete/no-memory tests (test_conversation_notes_postgres.py), Node mobile preview/save/edit/safe-DOM tests (test_conversation_notes_ui.cjs). Wired GitHub Cloud Queue and Scene workflows.
 - Fixed stale test_auto_brain.cjs PWA-version assertion after v51 cache bump (pinning v50 previously caused Scene CI failure).
 - Final functional/test SHA a1afc4befbdfbd84fc52e3b0511aebdba675bed8: Cloud Queue PostgreSQL Integration #38061837383 SUCCESS, Scene Build Check #38061837381 SUCCESS, Render deploy dep-db555toae00c739bvqn0 LIVE. No real iPhone Safari, microphone or Windows hardware tests completed.
+
+
+## 2026-10-10 — Fixed mobile Gemini Live end-of-answer clipping
+- Created static/live-playback.js with generation-scoped pending audio counters, turnComplete() (drain rather than cut), enqueue()/idempotent finish() and cancel() invalidating stale completion events.
+- index.html player registers every AudioBufferSourceNode with queue; audio onended removes and retires its entry, while normal turn_complete keeps already scheduled buffers running. Listening status returns after the last chunk. stopPlayback for real barge-in, server-interrupted, microphone stop, socket close and single-speaker desktop handoff still cancels immediately.
+- service worker moved to v52 to precache Live playback helper. No additional home UI button or audible double TTS, no new account/provider/storage.
+- New test_live_playback.cjs verifies normal end -> full drain, interruption -> invalidation, empty response -> no audio lock, late duplicate ended event safety, server/UI hook correctness, and microphone owner protection. Added to ULTRON Scene Build Check.
+- Intermediate Scene workflow #38065262849 failed because UMD helper used a module variable shadowing Node's module.exports; fixed in final code commit b431b82314c4b27fee7c1cf7b2d96e5b27a51acf. Final Cloud Queue PostgreSQL Integration #38065354266 SUCCESS, Scene Build Check #38065354265 SUCCESS, Render dep-db55ubl9mjac73899sl0 LIVE at same SHA.
+- No real iPhone Safari microphone, real-time Gemini audio API or paired Windows physical tests have been conducted. Laptop installation remains deferred.
