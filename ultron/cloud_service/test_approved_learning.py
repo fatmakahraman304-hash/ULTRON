@@ -44,7 +44,7 @@ class ApprovedLearningTests(unittest.TestCase):
         start=model.index("async def _memory_context(")
         stop=model.index("async def _recent_context(")
         self.assertNotIn("learning_proposals",model[start:stop])
-        self.assertIn("SELECT category, key, value",model[start:stop])
+        self.assertIn("SELECT category,key,value FROM memories WHERE user_id=$1",model[start:stop])
         self.assertIn("INSERT INTO memories",p)
 
 if __name__=="__main__":
