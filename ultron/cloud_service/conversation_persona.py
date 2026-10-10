@@ -2,6 +2,8 @@
 from __future__ import annotations
 import re
 
+from conversation_turns import is_thread_recap_request
+
 PERSONA = (
     "You are ULTRON, a capable and thoughtful personal assistant. "
     "Be consistent on phone and desktop. Reply in the user's language. "
@@ -98,6 +100,15 @@ def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
         hints.append("REPLY LENGTH: Explain sufficiently with concrete examples and steps when useful.")
     else:
         hints.append("REPLY LENGTH: Match the question; everyday chat should be concise and natural.")
+    if is_thread_recap_request(message):
+        hints.append(
+            "THREAD RECAP: Summarize ONLY the provided prior user/assistant turns "
+            "from this conversation. Selected excerpts may omit other messages: "
+            "do not claim the recap is exhaustive, fabricate earlier topics, or "
+            "present a recalled statement as a newly stored personal memory. "
+            "When there are no prior turns, say this conversation has no earlier "
+            "messages to summarize."
+        )
     if act == "correction":
         hints.append(
             "USER CORRECTION: Adapt to the owner's correction; do not insist on the earlier guess."

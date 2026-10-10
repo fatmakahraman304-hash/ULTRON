@@ -145,6 +145,73 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
     return old_turns + recent_turns
 
 
+
+# An explicit on-demand recap spans the beginning, middle and end of only the
+# currently selected conversation. Normal follow-ups keep recency priority.
+_RECAP_PATTERNS = (
+    re.compile(r"^(?:ultron[,.!? ]+)?(?:bu |bizim )?(?:sohbeti|sohbetimizi|konuşmayı|konuşmamızı|"
+               r"konuştuklarımızı) (?:kısaca |bana )?(?:özetle|özetler misin|özetini çıkar|"
+               r"özetini çıkart)(?: lütfen| lütfen)?[.?!]*$", re.I),
+    re.compile(r"^(?:az önce|bu sohbette|bu konuşmada|şimdiye kadar) "
+               r"(?:ne |neler )?(?:konuştuk|konuşmuştuk|konuştuklarımız nelerdi)"
+               r"(?:\?)?$", re.I),
+    re.compile(r"^(?:please )?(?:summarize|recap) (?:our|this|the) (?:chat|conversation)"
+               r"(?: please)?[.?!]*$", re.I),
+    re.compile(r"^what (?:did|have) we (?:discuss|talked about) "
+               r"(?:in this chat|so far)[.?!]*$", re.I),
+)
+
+
+def is_thread_recap_request(question: str) -> bool:
+    if not isinstance(question, str) or len(question) > 180:
+        return False
+    text = " ".join(question.strip().split())
+    return any(pattern.fullmatch(text) is not None for pattern in _RECAP_PATTERNS)
+
+
+def select_recap_turns(rows, *, max_chars: int = 3200,
+                       max_turns: int = 14) -> list[dict[str, str]]:
+    """Read-only recap context sampled chronologically across one old thread.
+
+    This does not generate a summary, store anything, or grant tool permissions.
+    The model sees ordinary untrusted conversation roles only.
+    """
+    cap = max(0, min(int(max_chars), 7200))
+    count = max(0, min(int(max_turns), 20))
+    if cap == 0 or count == 0:
+        return []
+    clean = [
+        {"role": row.get("role"), "content": row.get("content")}
+        for row in rows
+        if hasattr(row, "get")
+        and row.get("role") in ("user", "assistant")
+        and isinstance(row.get("content"), str)
+        and row.get("content").strip()
+    ]
+    if len(clean) <= count or count < 4:
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    beginning_count = max(1, count // 4)
+    middle_count = max(1, count // 6) if count >= 6 else 0
+    recent_count = count - beginning_count - middle_count
+    beginning = clean[:beginning_count]
+    midpoint = (len(clean) - middle_count) // 2
+    middle = clean[midpoint:midpoint + middle_count] if middle_count else []
+    recent = clean[-recent_count:]
+
+    beginning_turns = prepare_turns(
+        beginning, max_chars=cap // 4, max_turns=beginning_count,
+    )
+    middle_turns = prepare_turns(
+        middle, max_chars=cap // 5, max_turns=middle_count,
+    ) if middle_count else []
+    used = sum(len(t["content"]) for t in beginning_turns + middle_turns)
+    recent_turns = prepare_turns(
+        recent, max_chars=cap - used, max_turns=recent_count,
+    )
+    return beginning_turns + middle_turns + recent_turns
+
+
 async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                                        *, question: str, before_id: int | None = None,
                                        max_chars: int = 3200,
@@ -156,6 +223,19 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
     SQL LIMIT and output caps bound database and model usage.
     """
     n = max(1, min(int(limit), 20))
+    if is_thread_recap_request(question):
+        window = max(n, min(int(lookback), 80))
+        rows = await pool.fetch(
+            "SELECT role,content FROM messages "
+            "WHERE user_id=$1 AND conversation_id=$2 "
+            "AND ($3::bigint IS NULL OR id < $3) "
+            "AND role IN ('user','assistant') "
+            "ORDER BY id DESC LIMIT $4",
+            user_id, conversation_id, before_id, window,
+        )
+        return select_recap_turns(
+            list(reversed(rows)), max_chars=max_chars, max_turns=n,
+        )
     terms = _topic_terms(question)
     if not terms:
         return await load_thread_turns(
