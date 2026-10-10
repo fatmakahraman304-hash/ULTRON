@@ -234,3 +234,11 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Attached to accepted /api/chat (Gemini) and /api/local-chat (Windows Qwen bridge). No network model extractor, background observer, assistant-message learning or unrestricted continuous retraining.
 - Added HAFIZA one-click status fetch followed by explicit confirmation to enable, reversible OFF and honest scope/exclusions text; PWA shell v48.
 - Added offline Python extraction/owner-scope tests, disposable PostgreSQL on/off/cross-owner/no-overwrite tests and Node manual-toggle tests. Wired GitHub CI; statuses verified separately. iPhone/Windows real hardware not tested.
+
+
+## 2026-10-10 — Command-first mobile + laptop UX
+- Added pure mobile static/panel-intents.js and React panelIntent.ts with Turkish/English recognized requests and strict standalone command verbs; normal questions like "Dünya kaç yaşında?" must stay in chat.
+- PWA index.html: original WORLD map remains in iframe but never prominently exposed. All five/six tab buttons only appear via tiny ⋯ menu; natural speech transcripts and typed messages routed through handlePanelIntent. New optional Hologram Lab screen-only CSS 3D ring energy preview; no third-party assets.
+- Desktop Dashboard: voice-first class hides large nav/footer/system rail/redundant right panels by default, retains chat+CenterStage+mic+Menu. React HologramLab and Earth accessible by exact command; handles new native voice-log commands.
+- CI tests added for iOS typed/Live words and no accidental question interception, desktop command parser and minimalist CSS; existing WORLD legacy test updated for new handlePanelIntent chain. Focus on low-cost GPU.
+- Old scene CI failing because tests assumed direct worldVoiceIntent(heard) and naive "aç" substring matched "kaç"; patched actual intent routing/whole-word grammar. Need confirm exact final CI SHA and Render deployed code before reporting verified.

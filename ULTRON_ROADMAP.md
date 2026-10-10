@@ -212,3 +212,11 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - Sensitive-pattern, email, long-number, URL and multiline rejects; bounded single message length/value and duplicate-key hash. No arbitrary "infinite storage" promise; actual storage and server resources are finite.
 - Both Gemini Cloud and free paired Windows Qwen text chats can learn accepted owner messages after enabled, without weakening Approval Gate. Non-owner messages, replies and tool results must not be sources.
 - Actual model-side autonomous omniscient learning, OS control while PC is powered off, unrestricted iOS Siri, free-air hologram and unpaired smart-home physical control remain unsupported.
+
+
+## 2026-10-10 — One clean ULTRON interface, reveal workspaces on demand
+- User wants mobile and desktop to show minimal cockpit/chat/voice by default. No permanently visible DÜNYA/Hologram/Tools grids; controls should appear only after user speech/text request (e.g. "Dünyayı aç", "Hologram Lab'i aç", "Hafızamı göster", "Ana ekrana dön").
+- Mobile Cloud PWA: bottom multi-tab strip visually hidden except when ⋯ menu is explicitly opened; natural-language text and Gemini Live transcript routing to existing WORLD/HAFIZA/UZAKTAN/GELİŞTİR and new mobile screen-only Hologram Lab preview. PWA service worker shell caches panel-intents.js (v49). Menu remains for accessibility/no microphone.
+- Windows: simplified voice-first React Dashboard hides top nav, footbar, system rail, redundant cards, retains CenterStage/ULTRON chat, small mic and one Menu. Desktop HologramLab opens on demand via dynamic component, Earth opens via existing stage backend, tools available in dialog.
+- Safety: panel commands change visual UI only (except authenticated preexisting stage modes). No microphone auto-start, approval bypass, file operations, continuous recording or operating-system tool execution introduced.
+- Mobile hologram is an animated *screen preview*, not full Windows 3D editor or a volumetric free-air hologram. Real devices still require manual acceptance.

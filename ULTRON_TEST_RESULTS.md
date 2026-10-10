@@ -223,3 +223,11 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - test_auto_learning_postgres.py: default off, authenticated owner-toggle PUT, same-origin JSON requirement, rejection of device/cross-site calls, owner-scoped learning, idempotent saves, on/off and existing-key non-overwrite with a disposable Postgres.
 - test_auto_learning_ui.cjs: initial no-network, opt-in confirmation, cancel and toggle-off, mobile UI wiring. GitHub workflow steps added.
 - Scope disclaimer: These tests do NOT prove limitless general intelligence, model training or free infinite persistent storage. Real iPhone and Windows device behavior not tested. Check exact CI and Render before claiming a working release.
+
+
+## 2026-10-10 — Minimal UI verification plan
+- Added mobile Node test_panel_intents.cjs: natural command cases, negative ordinary questions, DOM and PWA shell registration, syntax of inline index.html JS.
+- Added desktop Node v24 type stripping tests/ panelIntent.test.mjs: language commands, negative ordinary chat, React HologramLab/voice-first CSS wiring. Scene CI new test step.
+- Updated legacy test_world_contract.cjs to assert WORLD's new indirect dispatcher route rather than outdated direct direct transcript call.
+- Scene run 38051154409 failed old direct WORLD assertion; run 38051359430 succeeded after updating. Subsequent new test run 38051416468 caught parse "kaç" as substring "aç"; fixed by whole-word verb regex in mobile and desktop. Latest CI must show passed on updated SHA.
+- Frontend Build Check 38051547171 SUCCESS on intent whole-word fix branch; Render code release and physical devices must be confirmed separately.

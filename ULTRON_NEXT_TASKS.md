@@ -280,3 +280,12 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. Confirm account A's opt-in and stored facts are not accessible by B. Confirm direct Gemini and free Qwen text accepted. Verify no background audio/camera/email/calendar collection.
 4. For smarter extraction beyond direct statements: separate approval inbox for low-confidence AI-suggested memories with source excerpts and PII redaction, no silent automatic approval. Add preferences for retention/export and limits; no unlimited database promise.
 5. Other JARVIS goals: least-privilege calendar/email OAuth, native iOS entitlements/device build, Wake-on-LAN hardware, real smart-home enrollment, measured local Whisper/Piper voice and safe desktop self-updating, external holo hardware.
+
+
+## Next after command-first UI
+1. Verify exact HEAD Cloud Queue PostgreSQL Integration, Frontend Build Check and ULTRON Scene Build Check including NEW minimal intent tests. On failure inspect logs and patch, don't handwave.
+2. Verify Render live deployed commit SHA. Do not trigger redundant manual deploy (autoDeploy enabled).
+3. Real iPhone Safari/PWA: ensure chat input+mic visible, bottom DÜNYA/HAFIZA/UZAKTAN/GELİŞTİR buttons not exposed by default, ⋯ menu expands and closes, typing or speaking "Dünyayı aç"/"Hologram Lab'i aç"/"Ana ekrana dön" changes view. Verify World real map/3D render and Safari browser permission restrictions.
+4. Real Windows START.bat: ensure native audio still owned by existing system; CenterStage+chat+small mic appear, old menu/footer hidden, "Hologram Lab'i aç" opens actual HologramLab, "Dünyayı aç" opens Earth stage, "Hafızayı göster" opens ToolPanel, Escape closes modal, menu button provides fallback.
+5. Mobile screen-preview hologram is NOT same as full Windows 3D lab. If user wants full parity, ship prebuilt interactive Three.js mobile lab with verified performance/permissions and then test on hardware.
+6. Continue truthful capability gaps and avoid real background/PC powered-off or native iOS feature claims without hardware/provider access.
