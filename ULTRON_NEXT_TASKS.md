@@ -1,3 +1,12 @@
+# Current priority — verified conversation continuation (2026-10-10)
+
+1. **Latest verified functional HEAD:** `1e5e11002a471d041023e5c8efd95047b733442b`, following `d9d1f9ac33d75fd558671a2f3fafc7ab376dd5af`. Both CI paths PASS at this exact HEAD: [Cloud/PostgreSQL 38071243972](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071243972) and [Scene/Frontend 38071243961](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071243961).
+2. Conversation improvements in this continuation: older-than-80 **explicit named** same-thread recall with bounded SQL matching and adjacent Q&A evidence; important end-of-long-message corrections preserved in shortened history; relevant short topic names DAÜ/YDÜ/Qwen/KKTC recognized; persona guided to rely on actual prior evidence without inventing old dialogue. Ordinary chats retain bounded recent context; approval, privacy, no cross-tenant access, model routing and sparse interface remain unchanged.
+3. **NEXT:** Run the versioned 50-TR + 50-EN Gemini and Qwen/Ollama scenarios where authorized providers genuinely exist, retain actual transcript/model/latency artifacts, independently review correctness/context/style/honesty/privacy; only then report a score. Do not call infrastructure tests a 100/100 conversational score. Compare real latency before model changes.
+4. **Not yet verified:** live-model inference, production Render commit for these two new code commits, physical iPhone/Windows model/microphone tests. Windows installation deliberately deferred until final update; old Windows safely uses Gemini when Ollama readiness is unavailable. Do not disclose secrets or bypass permissions to make evaluation run.
+
+---
+
 # Current priority — conversation acceptance (2026-10-10)
 
 - **Latest verified functional code:** `066b7b982a19c97297a2d74ee4cf68a4a9c4d336`. Long-thread recaps now sample the actual beginning, midpoint and end, even after 80+ prior turns, rather than sampling only the latest 80.

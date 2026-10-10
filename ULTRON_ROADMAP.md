@@ -1,3 +1,12 @@
+## Conversational milestone — named recall beyond recent context (2026-10-10)
+
+- [x] Explicit old-topic recall past 80 messages, authenticated-thread lexical match with adjacent Q&A and bounded history prompt.
+- [x] Preserve long message beginning + final correction under existing character budget.
+- [x] Recognize short specific topic names such as DAÜ/YDÜ/KKTC/Qwen/Siri, plus long-message trailing topic mentions.
+- [x] Add grounded named-recall conversation guidance; verify with synthetic tests, disposable PostgreSQL and existing Cloud/Scene CI (`1e5e11002a471d041023e5c8efd95047b733442b`, two SUCCESS workflows).
+- [ ] Run real Gemini/Qwen 100-scenario/provider evaluation with independent reviews and latency evidence. Model quality 100/100 is unmeasured, not achieved or claimed.
+- [ ] Verify Render exact deployed commit and physical phone/Windows behavior. Windows final update remains postponed.
+
 ## Conversational intelligence — long recap coverage (2026-10-10)
 
 - [x] True first-topic return beyond 80 turns (previous release).

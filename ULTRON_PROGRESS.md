@@ -1,3 +1,12 @@
+## 2026-10-10 — Conversational intelligence: historical topic retrieval and corrected long messages
+
+- Code SHAs: `d9d1f9ac33d75fd558671a2f3fafc7ab376dd5af` (context and targeted retrieval), then `1e5e11002a471d041023e5c8efd95047b733442b` (grounded named-recall system guidance).
+- Explicit named old-topic questions can now find messages older than the last 80 turns. The additional keyword search is parameterized, capped, same-owner / same-conversation / prior-message only and runs only on explicit historical requests with no recent match. The matched user/assistant exchange is paired so the model sees what was said, not a detached keyword.
+- `prepare_turns` now retains the opening and ending excerpt of a long previous message, protecting late corrections from silent head-only truncation within the same character budget. Short topic acronyms and end-of-message entities are recognized, with bounded token scanning.
+- The system prompt distinguishes confirmed earlier Q&A from speculation and forbids invented recall. The new deterministic tests and real disposable PostgreSQL >120-turn cross-owner/cross-conversation regression passed on GitHub.
+- **CI PASS on exact `1e5e11002a471d041023e5c8efd95047b733442b`:** [Cloud Queue PostgreSQL Integration #38071243972](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071243972); [ULTRON Scene Build Check #38071243961](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071243961). Prior context code `d9d1f9a` also passed both [38071107141](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071107141) and [38071107135](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071107135).
+- Quality limits: older search is lexical, not general semantic truth retrieval; long texts are still excerpted; 100 live Gemini/Qwen scenario quality remains NOT MEASURED. Render promotion of this new SHA, iPhone voice and Windows updates were not verified.
+
 ## 2026-10-10 — Long conversation recap true-midpoint follow-up
 
 - Functional SHA: `066b7b982a19c97297a2d74ee4cf68a4a9c4d336` on `feat/ultron-cloud-shared-memory`.

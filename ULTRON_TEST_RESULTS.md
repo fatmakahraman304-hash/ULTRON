@@ -1,3 +1,11 @@
+## 2026-10-10 — Named historical recall and late-correction quality regressions
+
+- Functional HEAD: `1e5e11002a471d041023e5c8efd95047b733442b`; prior context commit `d9d1f9ac33d75fd558671a2f3fafc7ab376dd5af`.
+- **Exact-HEAD Cloud Queue PostgreSQL Integration** [38071243972](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071243972): **SUCCESS** (persona policy and real disposable PostgreSQL checks).
+- **Exact-HEAD ULTRON Scene Build Check** [38071243961](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071243961): **SUCCESS** (regressions, browser contracts and frontend build).
+- Prior commit likewise passed Cloud #38071107141 and Scene #38071107135. New regression cases test a named first-topic exchange beyond 80 messages with real PostgreSQL owner/thread isolation, deterministic deep retrieval, short technical/acronym topics, beginning+ending preservation in long prior user statements, and read-only persona evidence discipline.
+- **NOT_RUN:** Actual Gemini and Ollama/Qwen transcript grading; owner hardware inference/latency, mobile microphone/voice, Windows update. No conversation-quality score. Render exact deployment for this code has not been confirmed.
+
 ## 2026-10-10 — Continued natural conversation: true midpoint in long recaps
 
 - Functional SHA: `066b7b982a19c97297a2d74ee4cf68a4a9c4d336`.
