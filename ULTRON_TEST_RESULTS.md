@@ -1,3 +1,10 @@
+## 2026-10-10 — Negated reply-style instructions and colloquial followups
+
+- Functional code `0f0f9936d3407d63e91218adb5b5e7645b63971f` following `3d07bf4`.
+- Tests now cover `Şaka yapma` / `No jokes` without conflicting playful directions, `Kısa cevap istemiyorum, detaylı anlat`, `Detaylı anlatma, kısa cevap ver`, latest affirmative reply-length priority, casual `Yok, onu demedim`/ `Aslında` corrections and `Onu/Buna/Şunu` followups.
+- Cloud/PostgreSQL [run 38077714651](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38077714651) SUCCESS. Scene/Frontend [run 38077714632](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38077714632) `verify` job SUCCESS; workflow final state pending in last check.
+- **Still NOT RUN:** Real Gemini or Qwen speech/conversation benchmark, independently reviewed 100-case score, exact Render LIVE SHA, physical Windows/mobile. Infrastructure CI successes do not prove JARVIS-level intelligence, and no actual percent improvement can be claimed.
+
 ## 2026-10-10 — Pilot availability / non-Qwen mislabelling guard
 
 - Functional SHA `ceef1f499ccb5690de3bdcd8289873a5d6f8c52f` (initial feature `bf9ddc28b112266228a606e4c2fd817a7625f558`). Cloud/PostgreSQL CI [38076948096](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948096) **SUCCESS**; Scene/Frontend [38076948157](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948157) **SUCCESS**.

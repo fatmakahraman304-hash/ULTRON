@@ -1,3 +1,11 @@
+# Current priority — natural Turkish/English conversation cues (2026-10-10)
+
+- **Latest code SHA:** `0f0f9936d3407d63e91218adb5b5e7645b63971f` after `3d07bf4df776a23472d61c11a232e49922ca780c`. Negated requests now control tone and reply length: `Şaka yapma` is not treated as a request for a joke; `Kısa cevap istemiyorum, detaylı anlat` selects detailed output; the final affirmative instruction wins. Everyday correction and follow-up wording (`Yok, 2010 değil 2009`, `Aslında...`, `Onu/Buna/Şunu...`) is recognized in the shared Cloud+local conversation persona. No model calls, new memory writes, system permissions or UI controls were added.
+- **Regression coverage:** Deterministic Turkish+English prompt-routing and explicitly negated tone tests. Cloud/PostgreSQL CI [38077714651](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38077714651) SUCCESS; Scene build job `verify` within [38077714632](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38077714632) SUCCESS (workflow completion status should be checked again before calling the workflow fully complete).
+- **NEXT:** Actual model quality remains NOT MEASURED. Run authorized local Qwen and/or Gemini 20-case bilingual pilot (`evals/conversation/run.py --pilot`), independently review real transcripts, then full 100 cases per model and measure p50/p95; only then revise conversational quality estimates. Latest production Render commit and physical iPhone/Windows inference remain unverified. Windows one-time final update still intentionally deferred.
+
+---
+
 # Current priority — live conversational acceptance pilot (2026-10-10)
 
 - **Latest verified code:** `ceef1f499ccb5690de3bdcd8289873a5d6f8c52f` (preceded by `bf9ddc28b112266228a606e4c2fd817a7625f558`). [Cloud/PostgreSQL CI #38076948096](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948096) and [Scene/Frontend CI #38076948157](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948157) both **SUCCESS**.
