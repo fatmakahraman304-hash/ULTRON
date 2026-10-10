@@ -43,7 +43,7 @@ test('unsupported Safari voice fails clearly without enabling Gemini',()=>{
  const app=voice.create({host:{},onError:m=>errors.push(m)});
  assert.equal(app.toggle(),false);
  assert.equal(app.active(),false);
- assert.match(errors[0],/deste.*yok/);
+ assert.match(errors[0],/desteklemiyor/);
  assert.match(errors[0],/bulut bağlantısı denenebilir/);
 });
 test('permission denied and no-speech are honest failures',()=>{
