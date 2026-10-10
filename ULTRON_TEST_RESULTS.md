@@ -294,3 +294,10 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Commit 6e35a098378ba1fc03f622f73636070ddbd26bad: GitHub Cloud Queue PostgreSQL Integration #38066016781 SUCCESS and ULTRON Scene Build Check #38066016772 SUCCESS.
 - Commit 4952ea5a6a44c041aebf5d87e21ce2184ad3e48d: latest Cloud Queue PostgreSQL Integration #38066114015 SUCCESS and ULTRON Scene Build Check #38066114014 SUCCESS. Render code at prior 8eb876077ab7951758892cee05b32d6e4f63b597 LIVE as of verification; Render promotion of test-only 4952ea5a6 still in progress then. Check final live SHA before claiming deployment.
 - CI does not exercise real iPhone/Windows speaker, physical acoustic feedback or Chrome/Safari AudioContext timing. User intentionally deferred Windows update and no local desktop files were altered.
+
+
+## 2026-10-10 — Phone local Qwen stale TTS protection
+- test_voice_turn_guard.cjs: generation tokens reject stale async completions, idempotent invalidation across repeated mic taps, invalid/fabricated tokens, and no late voice replies while backgrounded, muted or after typing new chat. Static PWA asserts text result is still added, sound gated by token and visibility.
+- Original intermediate Scene run #38066796046 failed after function signature changed to send(true,voiceToken); old test_local_voice.cjs expected send(true) exactly. Updated assertion in commit 70991ff6610e2cac631a2c1ec91d856588aa0cab.
+- Exact commit 70991ff6610e2cac631a2c1ec91d856588aa0cab: GitHub Cloud Queue PostgreSQL Integration run #38066919827 SUCCESS, ULTRON Scene Build Check run #38066919837 SUCCESS. Render deployment dep-db5697jhu5js73djph4g was still update_in_progress on last check, not marked live until verified.
+- No physical iPhone microphone / SpeechSynthesis playback, actual Qwen inference, headset echo or desktop hardware tests were run. Windows package not downloaded or installed.

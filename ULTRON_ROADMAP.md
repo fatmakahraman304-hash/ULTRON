@@ -275,3 +275,9 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - Desktop presence responses carry a locally monotonic request sequence, so late responses cannot undo more recent decisions or cause phone TTS cut-out/flapping.
 - While desktop has output priority, phone task-result TTS is suppressed to avoid overlapping audio; engaging desktop ownership cancels outstanding browser SpeechSynthesis and clears its microphone gate. Local user mic tap preempts desktop speaker UI state instantly, rather than waiting for next 5-second poll.
 - No change to actual desktop audio driver/device state, no new permissions, no always-on microphone, no giant picker. True physical cross-device acoustic echo and real device-leader behavior still require the owner to test on Windows and iPhone.
+
+
+## 2026-10-10 — Local Qwen phone mic: user-first audible interruption
+- The user wants the same natural JARVIS conversation on both phone and laptop, without extra on-screen model selectors or interruption delays. For phone one-tap local Qwen STT, starting a new mic capture MUST immediately cancel current iOS SpeechSynthesis so the phone doesn't transcribe its own outgoing reply as input.
+- A previously dispatched local-chat task is NOT canceled/replayed just by stopping a voice turn. Its result stays in the conversation text, but it must never start speaking after the user cancels/mutes the mic or moves the phone app to the background.
+- Keep explicit user mic permission, no auto-recording on boot, no new UI buttons, no unsafe device commands, no changes to Gemini Live/WebAudio owner's state machine. Single-speaker desktop priority is preserved.

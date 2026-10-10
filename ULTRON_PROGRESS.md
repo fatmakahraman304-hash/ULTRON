@@ -311,3 +311,11 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Added test_speaker_policy.cjs with no provider: online/unmuted actual speaker, invalid/stale statuses, phone Live or local microphone priority, no duplicate TTS, handoff cancellation, out-of-order presence safety and inline JS/PWA registration.
 - Updated old test_live_playback.cjs to accept versioned PWA service-worker names and wired new Node speaker tests to Scene Build Check. Latest code/test SHA 4952ea5a6a44c041aebf5d87e21ce2184ad3e48d; Cloud CI and Scene CI SUCCESS (see tests doc).
 - Windows laptop installation deferred at user request. Latest Render deployment must be checked for live separately. Real physical iPhone/Windows sound ownership NOT verified by browser/static CI.
+
+
+## 2026-10-10 — Tap-to-interrupt stale phone Qwen voice reply
+- Added static/voice-turn-guard.js, a tiny generation-token gate for browser local speech recognition completions and later model replies. A second explicit mic tap, typed new turn, voice mute, pagehide or app background invalidates the prior token.
+- Mobile index.html now cancels browser SpeechSynthesis BEFORE starting/restarting a local mic; onTranscript associates a distinct token with send(true,voiceToken). The local/cloud response is still appended to chat, but audio is only played when the original voice turn remains current and the app is visible. No automatic cancellation or unsafe replay of an accepted desktop queue task.
+- sw.js advanced v53 -> v54 to precache voice-turn-guard.js; no new visible panels, model picker, or automatic mic startup.
+- test_voice_turn_guard.cjs checks cancellation and new-generation fencing, invalid tokens, pending text-vs-audio separation, mute/background cleanup, and PWA JavaScript syntax. Scene Build Check runs this module. A stale old test_local_voice.cjs assertion expected await send(true) without the new voice token; fixed to assert await send(true,voiceToken).
+- Final code/test commit 70991ff6610e2cac631a2c1ec91d856588aa0cab: Cloud Queue PostgreSQL Integration #38066919827 SUCCESS and Scene Build Check #38066919837 SUCCESS. Render deploy dep-db5697jhu5js73djph4g was update_in_progress when checked; confirm live before saying deployed. No physical iPhone or Windows voice tests performed; Windows install remains deferred.

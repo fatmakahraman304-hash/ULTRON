@@ -356,3 +356,11 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 4. Phone local Qwen one-tap microphone should take immediate UI priority even if earlier desktop speaker was leading. After stopping local voice, desktop presence refresh can regain speaker role without old WebAudio chunk replay or stale callback interference.
 5. Stress overlapping /api/device-presence responses: only newest request should update phone speaker; server and user permission constraints still apply.
 6. Real iPhone Safari, Gemini Live permissions, Windows microphone/speaker, Ollama performance and task replay are not verified. Do not install/update user's Windows files until they explicitly request final combined package.
+
+
+## Next after tap-to-interrupt guarded local voice
+1. Check the latest Render deployment dep-db5697jhu5js73djph4g for status live at code 70991ff6610e2cac631a2c1ec91d856588aa0cab; do not infer from GitHub success alone. Verify both Cloud/Scene jobs green, fixed old test.
+2. Real iPhone Safari PWA + paired active Windows Qwen (when owner approves the final Windows update): tap mic, speak a long question, tap mic again while response is queued, confirm the old answer appears as text but does NOT begin speaking. Starting a new mic must stop old browser TTS immediately.
+3. Test toggling speaker mute, sending typed chat while voice in-flight, hiding PWA and reopening; ensure no late local voice audio and no microphone use when backgrounded. Check desktop one-speaker handoff unaffected.
+4. Keep the present deliberate Cloud local_chat queue behavior: tapping mic off is an audio stop, NOT a request to delete or cancel a real worker task; do not duplicate prompts via uncertain Gemini fallback. If user requests task cancellation, design a separately authenticated explicit cancel with approval and idempotent result semantics.
+5. For genuine JARVIS quality, perform real latency, Turkish transcript accuracy and interrupt/reconnect measurements on owner devices when available; don't claim full-duplex natural human speech from CI-only tests. Continue advancing real features without installing Windows until requested.
