@@ -175,3 +175,18 @@ CREATE TABLE IF NOT EXISTS owner_auto_learning (
   enabled BOOLEAN NOT NULL DEFAULT FALSE,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+
+-- Editable, user-approved notes are NOT model-visible memories.
+-- Retain notes only while the original owner's conversation exists.
+CREATE TABLE IF NOT EXISTS conversation_notes (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  title TEXT NOT NULL CHECK(length(title) BETWEEN 1 AND 140),
+  body TEXT NOT NULL CHECK(length(body) BETWEEN 1 AND 3000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_notes_owner_conversation
+  ON conversation_notes(user_id,conversation_id,id DESC);

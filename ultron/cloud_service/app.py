@@ -4,6 +4,7 @@ from capability_readiness import readiness
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
 from approved_learning import register_learning_routes
+from conversation_notes import register_conversation_note_routes
 from auto_learning import register_routes as register_auto_learning_routes, learn_from_owner_message
 
 import asyncio
@@ -2220,6 +2221,7 @@ def build_app() -> web.Application:
     register_local_brain_routes(app,_memory_context,_recent_context)
     register_personal_plan_routes(app)
     register_learning_routes(app)
+    register_conversation_note_routes(app)
     register_auto_learning_routes(app)
     app.router.add_get("/health", health)
     app.router.add_post("/api/login", login)
