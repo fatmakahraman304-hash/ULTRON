@@ -193,6 +193,56 @@ class LocalConversationTests(unittest.TestCase):
                 self.assertFalse(calls[0].get("tools"))
                 self.assertLessEqual(len(calls[0]["messages"]),14)
 
+    def test_bare_continuation_retains_requested_reply_length(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b","fast_brain":{
+                "enabled":True,
+                "conversation_models":["qwen3:4b"],
+                "coding_models":["qwen2.5-coder:7b"]}}}))
+        for prompt,history,expected_mode in (
+            ("Devam et", [
+                {"role":"user","content":"Python kod yaz, detaylı anlat"},
+                {"role":"assistant","content":"İlk bölüm."}], "detailed"),
+            ("Continue", [
+                {"role":"user","content":"Kısa cevap ver"},
+                {"role":"assistant","content":"Kısa yanıt."}], "brief"),
+            ("Aynı şekilde devam et", [
+                {"role":"user","content":"Detaylı açıkla"},
+                {"role":"assistant","content":"Birinci açıklama."},
+                {"role":"user","content":"Devam et"},
+                {"role":"assistant","content":"İkinci açıklama."}], "detailed"),
+            ("Devam et", [
+                {"role":"user","content":"Detaylı açıkla"},
+                {"role":"assistant","content":"Uzun cevap."},
+                {"role":"user","content":"Yeni konu: kahve sever misin?"}],
+             "natural"),
+            ("Devam et", [{"role":"assistant","content":"Detaylı açıkla"}],
+             "natural"),
+            ("Farklı bir konu sorayım", [
+                {"role":"user","content":"Detaylı anlat"}], "natural"),
+        ):
+            with self.subTest(prompt=prompt, history=history):
+                self.assertEqual(local._local_reply_mode(prompt,history),expected_mode)
+                packets=[]
+                def fake_request(path,payload=None,**kwargs):
+                    packets.append(payload)
+                    return {"message":{"content":"Devam."}}
+                with patch.object(local,"_SETTINGS",settings), \
+                     patch.object(local,"installed_models",
+                                  return_value=["qwen3:4b","qwen2.5-coder:7b"]), \
+                     patch.object(local,"_get_json",side_effect=fake_request):
+                    local.local_chat(prompt,"ULTRON",history)
+                self.assertEqual(len(packets),1)
+                cap=packets[0]["options"]["num_predict"]
+                if expected_mode=="detailed":
+                    self.assertGreaterEqual(cap,360)
+                elif expected_mode=="brief":
+                    self.assertLessEqual(cap,160)
+                else:
+                    self.assertGreaterEqual(cap,240)
+                self.assertLessEqual(cap,420)
+                self.assertFalse(packets[0].get("tools"))
+
     def test_previous_turns_are_actual_model_messages(self):
         msg=self.run_local("Peki fiyatı?",[
             {"role":"user","content":"Mercedes C180 bakıyorum"},

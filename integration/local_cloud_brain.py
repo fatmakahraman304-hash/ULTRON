@@ -99,25 +99,31 @@ _CONTINUE_ONLY = re.compile(
 )
 
 
+def _last_substantive_owner_request(text: str, turns) -> str:
+    """Only for a bare continuation; never interpret assistant/system as user.
+
+    Already-scoped, recent history only. No additional DB/model call.
+    """
+    if not _CONTINUE_ONLY.fullmatch(text.strip()) or not isinstance(turns, list):
+        return ""
+    for turn in reversed(turns[-10:]):
+        if not hasattr(turn, "get") or turn.get("role") != "user":
+            continue
+        prior = turn.get("content")
+        if not isinstance(prior, str):
+            continue
+        prior = prior.strip()
+        if prior and not _CONTINUE_ONLY.fullmatch(prior):
+            return prior
+    return ""
+
+
 def _local_text_task(text: str, turns=None) -> str:
-    # Bare continuations should keep the latest substantive intent, rather
-    # than suddenly switch a coding conversation to the FAST chat model.
-    # Only a few already-scoped owner conversation turns are considered.
-    if _CONTINUE_ONLY.fullmatch(text.strip()) and isinstance(turns, list):
-        for turn in reversed(turns[-10:]):
-            if not hasattr(turn, "get") or turn.get("role") != "user":
-                continue
-            prior = turn.get("content")
-            if not isinstance(prior, str):
-                continue
-            prior = prior.strip()
-            if not prior:
-                continue
-            if _CONTINUE_ONLY.fullmatch(prior):
-                continue
-            # Do not carry over image or old coding intent after a new topic.
-            past_task = _local_text_task(prior)
-            return "FAST" if past_task == "VISION" else past_task
+    # Keep the latest substantive coding/chat intent across a bare "continue".
+    prior = _last_substantive_owner_request(text, turns)
+    if prior:
+        past_task = _local_text_task(prior)
+        return "FAST" if past_task == "VISION" else past_task
     task = classify_text(text)
     if task == "CODING":
         if _NO_CODE.search(text) or (
@@ -126,6 +132,12 @@ def _local_text_task(text: str, turns=None) -> str:
         ):
             return "FAST"
     return task
+
+
+def _local_reply_mode(text: str, turns=None) -> str:
+    """Preserve reply detail only for an explicit continuation of a user task."""
+    prior = _last_substantive_owner_request(text, turns)
+    return classify_reply_mode(prior if prior else text)
 
 
 class LocalBrainUnavailable(RuntimeError):
@@ -219,7 +231,7 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     # Conversational replies benefit from less deterministic sampling and enough
     # output tokens to finish a thought. Keep small-laptop bounds intact.
     runtime=dict(config.get("options") or {})
-    mode=classify_reply_mode(text)
+    mode=_local_reply_mode(text, turns)
     base=int(runtime.get("num_predict",192))
     # A negated "detaylı anlatma" is NOT a detailed-mode request.
     # Keep a lower output ceiling for explicit brief replies on the 4GB GPU.
