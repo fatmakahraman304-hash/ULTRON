@@ -11,6 +11,8 @@ def prepare_turns(rows, *, max_chars: int = 3200, max_turns: int = 14) -> list[d
     """Return recent chronological user/assistant turns, with newest priority."""
     cap = max(0, min(int(max_chars), 7200))
     count = max(0, min(int(max_turns), 20))
+    if count == 0 or cap == 0:
+        return []
     kept: list[dict[str, str]] = []
     remaining = cap
     for record in reversed(list(rows)[-count:]):

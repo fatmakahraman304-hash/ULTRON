@@ -853,11 +853,19 @@ async def _memory_context(pool: asyncpg.Pool, user_id: str) -> str:
     return "\n".join(lines) if lines else "No saved ULTRON memory or personal plans yet."
 
 
-async def _recent_context(pool: asyncpg.Pool, user_id: str, limit: int = 24) -> str:
-    rows = await pool.fetch(
-        "SELECT role,content FROM messages WHERE user_id=$1 ORDER BY id DESC LIMIT $2",
-        user_id, limit,
-    )
+async def _recent_context(pool: asyncpg.Pool, user_id: str, limit: int = 24,
+                          conversation_id=None) -> str:
+    if conversation_id is not None:
+        rows = await pool.fetch(
+            "SELECT role,content FROM messages WHERE user_id=$1 "
+            "AND conversation_id=$2 ORDER BY id DESC LIMIT $3",
+            user_id, conversation_id, limit,
+        )
+    else:
+        rows = await pool.fetch(
+            "SELECT role,content FROM messages WHERE user_id=$1 ORDER BY id DESC LIMIT $2",
+            user_id, limit,
+        )
     rows = list(reversed(rows))
     if not rows:
         return "No previous chat messages."
@@ -1308,7 +1316,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     except (ValueError, AttributeError):
         conv_uuid = uuid.uuid4()
     memory = await _memory_context(pool, user_id)
-    recent = await _recent_context(pool, user_id, limit=18)
+    recent = await _recent_context(pool, user_id, limit=18, conversation_id=conv_uuid)
     base_prompt = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent=recent,
