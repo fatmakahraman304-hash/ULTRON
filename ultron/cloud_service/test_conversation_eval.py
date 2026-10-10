@@ -3,6 +3,8 @@ import importlib.util
 import json
 import hashlib
 import os
+import sys
+import tempfile
 from unittest.mock import patch
 from pathlib import Path
 import unittest
@@ -93,6 +95,26 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual({x['category'] for x in pilot},
                          {x['category'] for x in cases})
         self.assertEqual(hashlib.sha256(evaluation.DATA.read_bytes()).hexdigest(),digest)
+
+    def test_pilot_without_gemini_key_never_fabricates_scores(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'pilot.json'
+            args=['run.py','--provider','gemini','--pilot',
+                  '--output',str(path)]
+            with patch.dict(os.environ, {'GEMINI_API_KEY':''}),patch.object(sys,'argv',args):
+                result=evaluation.main()
+            self.assertEqual(result,2)
+            report=json.loads(path.read_text(encoding='utf-8'))
+            self.assertEqual(report['selected_count'],20)
+            self.assertTrue(report['pilot'])
+            self.assertEqual(report['captured_count'],0)
+            self.assertEqual(report['not_run_count'],100)
+            self.assertIsNone(report['model_quality_score'])
+            self.assertEqual(sum(row.get('reason')=='not_selected_in_pilot'
+                                 for row in report['results']),80)
+            self.assertEqual(sum(row.get('reason')=='GEMINI_API_KEY_not_configured'
+                                 for row in report['results']),20)
+            self.assertFalse(evaluation.score(report,[])['complete'])
 
     def test_qwen_provider_accepts_only_actual_qwen_family_models(self):
         valid=['qwen3:4b','Qwen2.5-coder:7b','qwen:latest',

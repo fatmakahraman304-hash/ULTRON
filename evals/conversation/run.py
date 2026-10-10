@@ -207,8 +207,11 @@ def main():
                     raise WrongProviderModel('non_qwen_model_selected')
                 return result['reply'], actual_model
     except Exception as exc:
-        # Never copy SDK exception text: it may contain credential-bearing URLs.
-        unavailable = type(exc).__name__
+        # Never copy arbitrary SDK exception text: it can contain API keys.
+        # Only two known in-process preflight sentinels can be shown verbatim.
+        safe_reasons = ('GEMINI_API_KEY_not_configured', 'qwen_not_installed')
+        unavailable = (str(exc) if str(exc) in safe_reasons
+                       else type(exc).__name__)
     report = {'suite_sha256': hashlib.sha256(DATA.read_bytes()).hexdigest(),
               'provider': args.provider, 'model_quality_score': None,
               'review_required': True, 'selected_count':selected_count,
