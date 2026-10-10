@@ -24,6 +24,7 @@ from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes
 from conversation_persona import build_system_instruction
+from personal_context_focus import select_personal_context
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
@@ -833,25 +834,21 @@ async def list_messages(request: web.Request) -> web.Response:
     return web.json_response({"messages": items}, dumps=_json_dumps)
 
 
-async def _memory_context(pool: asyncpg.Pool, user_id: str) -> str:
+async def _memory_context(pool: asyncpg.Pool, user_id: str, *, query: str = "") -> str:
+    # User-owned persistent memories and explicitly saved plans only.
+    # Relevant older goals survive unrelated recent entries, and upcoming
+    # plans survive the short local Qwen context window.
     rows = await pool.fetch(
         "SELECT category,key,value FROM memories WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 100",
         user_id,
     )
-    # Only the owner's explicitly created, still-open plans are available to
-    # the assistant. Notes are intentionally excluded from model context.
     plan_rows = await pool.fetch(
         "SELECT title,scheduled_date,scheduled_time FROM owner_plans "
         "WHERE user_id=$1 AND is_done=FALSE "
         "ORDER BY scheduled_date ASC, scheduled_time ASC NULLS LAST,id ASC LIMIT 8",
         user_id,
     )
-    lines = [f"- [{r['category']}] {r['key']}: {r['value']}" for r in rows]
-    for plan in plan_rows:
-        clock = plan["scheduled_time"]
-        at = (" " + clock.strftime("%H:%M")) if clock else ""
-        lines.append(f"- [OWNER PLAN - no notification] {plan['scheduled_date'].isoformat()}{at}: {plan['title']}")
-    return "\n".join(lines) if lines else "No saved ULTRON memory or personal plans yet."
+    return select_personal_context(rows, plan_rows, query, max_chars=3400)
 
 
 async def _recent_context(pool: asyncpg.Pool, user_id: str, limit: int = 24,
@@ -1244,7 +1241,7 @@ async def chat(request: web.Request) -> web.Response:
         conv_uuid, request["user_id"], text, request["device_id"],
     )
 
-    memory = await _memory_context(pool, request["user_id"])
+    memory = await _memory_context(pool, request["user_id"], query=text)
     turns = await load_contextual_thread_turns(
         pool, request["user_id"], conv_uuid, question=text,
         before_id=current_message_id, max_chars=5200, limit=16,

@@ -24,8 +24,11 @@ _VISION = re.compile(
     r"(?:bu (?:resim|fotoğraf|görsel|ekran görüntüsü))", re.IGNORECASE,
 )
 _DEEP = re.compile(
-    r"(?:detaylı araştır|kapsamlı analiz|uzun rapor|ayrıntılı karşılaştır|"
-    r"matematiksel ispat|derinlemesine|çok aşamalı)", re.IGNORECASE,
+    r"(?:detaylı (?:araştır|karşılaştır|analiz|açıkla)|"
+    r"ayrıntılı (?:karşılaştır|analiz|açıkla)|kapsamlı (?:analiz|karşılaştır|açıkla)|"
+    r"uzun rapor|matematiksel ispat|derinlemesine|çok aşamalı|"
+    r"mantık yürüt|artılarını eksilerini karşılaştır|"
+    r"step by step reasoning|deep analysis|compare in detail)", re.IGNORECASE,
 )
 
 
