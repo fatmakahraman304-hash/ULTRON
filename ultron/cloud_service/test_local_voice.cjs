@@ -78,18 +78,17 @@ test('async transcript turn cannot double-submit',async()=>{
  assert.deepEqual(received,['ULTRON konuş']);
  assert.equal(app.state,'idle');
 });
-test('PWA local mic routes into local Ollama, Gemini only explicit',()=>{
+test('PWA voice picks connected local first, otherwise Cloud, only after tap',()=>{
  assert.match(html,/localVoiceController=window\.ULTRONLocalVoice\?\.create/);
  assert.match(html,/localVoiceController\?\.toggle\(\)/);
  assert.match(html,/await send\(true\)/);
- assert.match(html,/const d=brainMode==='local'\s*\?\s*await localBrainAnswer\(text\)/);
- assert.match(html,/if\(brainMode!=='gemini'\)/);
- assert.doesNotMatch(html,/setTimeout\(\(\)=>startHandsFreeVoice\(\),250\)/);
- assert.doesNotMatch(html,/setTimeout\(\(\)=>startHandsFreeVoice\(\),180\)/);
- assert.doesNotMatch(html,/setTimeout\(\(\)=>startHandsFreeVoice\(\),220\)/);
- assert.match(html,/Tanıma hizmeti internet kullanabilir/);
- assert.match(html,/Gemini Live.*sağlayıcı kotası/i);
+ assert.match(html,/const preferred=await refreshAutoBrain\(true\)/);
+ assert.match(html,/if\(preferred==='local'\)/);
+ assert.match(html,/await startVoice\(\)/);
+ assert.doesNotMatch(html,/setTimeout\(\(\)=>startHandsFreeVoice\(\),(?:180|220|250)\)/);
+ assert.doesNotMatch(html,/id="brainMode"/);
+ assert.doesNotMatch(html,/ULTRON BEYİN/);
  assert.match(serviceWorker,/ultron-shell-v[0-9]+/);
- assert.ok(serviceWorker.includes("'/static/personal-panel.js'"));
+ assert.ok(serviceWorker.includes("'/static/auto-brain.js'"));
  assert.match(serviceWorker,/\/static\/local-voice\.js/);
 });
