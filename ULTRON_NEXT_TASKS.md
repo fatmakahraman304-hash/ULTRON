@@ -331,3 +331,11 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. On real iPhone/Windows when approved and available, test Gemini Live multi-turn and local Qwen with shorter context; verify correctness and latency. Do not trigger a Windows download or installation until owner explicitly requests the final package.
 4. Consider next: user-requested editable, local-only conversation notes and a review-before-saving mechanism; no automatic sensitive learning or unapproved external cloud sync. Keep UI minimal and voice-first.
 5. Recheck GitHub CI + Render on each code SHA; never treat CI unit tests as live subjective conversation quality proof. Physically powered-off control, Apple entitlements, external Calendar/Email OAuth, actual volumetric holograms and hardware tests remain separate.
+
+
+## Next after owner-reviewed chat notes
+1. On a real iPhone Safari/PWA sign in to deployed ULTRON, have a multi-turn conversation, type/speak "Sohbet notu hazırla", inspect HAFIZA draft title and excerpt. Verify it is NOT saved before tapping NOTU KAYDET. Edit content, save, reopen, edit and delete with confirmation.
+2. Start another conversation and verify the first conversation's notes do not appear there; check an unrelated user cannot access previews/notes. Verify ordinary "Kitabı özetle" stays a chat request, not a note preview.
+3. Test privacy limits with genuinely sensitive-looking user messages; deterministic common-secret filters are NOT a substitute for guaranteed PII classification, so owner must review all excerpts before saving.
+4. For Windows Qwen/Cloud Gemini continue improving real conversational and voice response quality; on actual hardware measure Turkish latency and interruption after user authorizes final Windows update. No local laptop install/download until the owner explicitly requests final package.
+5. Investigate chat notes export/import or semantic overview only on specific request and with permission; never promote notes to model system instructions or automatic permanent personal memory. Preserve clean command-first interface.

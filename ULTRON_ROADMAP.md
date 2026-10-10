@@ -255,3 +255,10 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - Regular conversation continues using recent / explicit-topic recall; no cross-conversation auto-summary, hidden background job, new permanent memory, external model call, provider account, hardware permission, or visible toolbar/picker.
 - Preserve role boundaries (user/assistant only), 80-message SQL lookback, 7200-character absolute cap, existing Gemini (up to 5200) and 4GB laptop Qwen (up to 2600) budgets.
 - Persona explicitly cautions Gemini/Qwen that sampled excerpts may omit intervening messages, forbids invented earlier topics and claims about saved personal memory. Real device tests still outstanding. Windows installation deferred until the final release.
+
+
+## 2026-10-10 — Owner-reviewed conversation notes, no extra cockpit buttons
+- Allow "Sohbet notu hazırla" or "Notlarımı göster" through the same command-first mobile/voice UI. The tool lives inside HAFIZA only; main chat composer stays minimal.
+- GET /api/conversation-notes/preview reads up to 80 user/assistant rows scoped to authenticated user_id AND conversation_id. It presents a deterministic excerpt draft (not an exhaustive LLM summary), omitting some obvious secret-looking lines. The owner must review for residual sensitive data.
+- Explicit POST/PUT/DELETE to /api/conversation-notes create/edit/delete owner-only notes stored in the ULTRON Cloud PostgreSQL account and linked to the original conversation. These are NOT offline phone files, separate third-party sync, or automatically model-visible personal memories. Draft GET never writes.
+- Default privacy: authenticated browser session, same-origin checks for mutations, no device-token access, bounded 30 notes/conversation and 3000 characters per note, user-scoped SQL and consent-gated deletion UI.

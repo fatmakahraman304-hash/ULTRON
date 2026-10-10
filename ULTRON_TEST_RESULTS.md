@@ -270,3 +270,11 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - ULTRON Scene Build Check 38061059184 SUCCESS at 8ffd9983cc1fc077745f3c5ed257b9f224553b8f.
 - Render code release at da9f6e76049953e88ae91b17104018bb9bdc6613 confirmed LIVE; subsequent commits differ only in tests/workflow. Exact Render promotion for subsequent test-only commit is optional and should not be confused with a new code release.
 - No physical iPhone, Windows Ollama/Qwen, live Gemini conversational benchmark or real voice interaction was performed here.
+
+
+## 2026-10-10 — Conversation notes test results
+- test_conversation_notes.py: preview bounded, common secret-looking excerpts omitted, field validation and rejection of NUL/control chars, absence of implicit model-memory integration.
+- test_conversation_notes_postgres.py: disposable database complete draft/read/save/update/delete lifecycle, no draft or editing without explicit write, cross-user/cross-thread access isolation, CSRF JSON/session restrictions, no writes into memories.
+- test_conversation_notes_ui.cjs: no API on mount, natural typed/voice requests, review and explicit save, XSS-safe textContent, editing and confirmation-gated deletion, hidden-panel PWA wiring and inline JavaScript syntax.
+- Initial Scene CI runs #38061640815, #38061738567 and #38061793040 failed due to a stale test_auto_brain.cjs exact 'ultron-shell-v50' assertion after PWA cache v51. Changed assertion to accept future cache version numbers at code SHA a1afc4befbdfbd84fc52e3b0511aebdba675bed8.
+- Final GitHub Cloud Queue PostgreSQL Integration #38061837383 SUCCESS and ULTRON Scene Build Check #38061837381 SUCCESS at the same SHA. Render deploy dep-db555toae00c739bvqn0 for the same SHA LIVE. Earlier failed intermediate CI runs are superseded; no real provider or physical iPhone/Windows acceptance tests were executed.

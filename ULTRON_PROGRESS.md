@@ -284,3 +284,12 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Added test_thread_recap.py: exact command detection vs incidental summarization, chronological beginning-middle-end, caps, invalid/system-role rejection, no missing-context invention, scoped SQL and current-message exclusion.
 - Expanded real PostgreSQL test_conversation_turns_postgres.py with cross-owner/cross-thread privacy and older-summary detection. CI wired in cloud-queue-postgres.yml.
 - Code da9f6e76049953e88ae91b17104018bb9bdc6613 verified Render live; tests 8ffd9983cc1fc077745f3c5ed257b9f224553b8f verified Scene+PostgreSQL CI successes; workflow-only commit ef474b66ad9009871aa4dae7126223ee363ebe6c Cloud CI success. Actual mobile Safari / Gemini and local Qwen live answers not tested in this session.
+
+
+## 2026-10-10 — Conversation-notes implementation and verification
+- Added ultron/cloud_service/conversation_notes.py with explicit owner-only preview/list/create/edit/delete REST endpoints. Preview uses bounded same-thread excerpts, avoids common secrets and never saves; actual persistence requires direct Save from owner.
+- Added conversation_notes table in schema.sql (conversation FK ON DELETE CASCADE, owner indexes). Registered routes in app.py. The notes table is intentionally NOT read by _memory_context or sent to Gemini/Qwen prompts.
+- New static/conversation-notes.js creates a safe textContent-based editor/list under HAFIZA. Typed or voice "Sohbet notu hazırla" opens editable preview on demand; "Notlarımı göster" opens current conversation's notes. No extra home controls. sw.js v51 precaches the module.
+- Added Python validators and preview safety tests (test_conversation_notes.py), disposable PostgreSQL consent/ACL/edit/delete/no-memory tests (test_conversation_notes_postgres.py), Node mobile preview/save/edit/safe-DOM tests (test_conversation_notes_ui.cjs). Wired GitHub Cloud Queue and Scene workflows.
+- Fixed stale test_auto_brain.cjs PWA-version assertion after v51 cache bump (pinning v50 previously caused Scene CI failure).
+- Final functional/test SHA a1afc4befbdfbd84fc52e3b0511aebdba675bed8: Cloud Queue PostgreSQL Integration #38061837383 SUCCESS, Scene Build Check #38061837381 SUCCESS, Render deploy dep-db555toae00c739bvqn0 LIVE. No real iPhone Safari, microphone or Windows hardware tests completed.
