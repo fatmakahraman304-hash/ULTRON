@@ -115,6 +115,37 @@ class LocalConversationTests(unittest.TestCase):
         self.assertEqual(recorded[-1][1]["model"],"qwen2.5-coder:7b")
         self.assertEqual(got["provider"],"local-ollama")
 
+    def test_conversational_tech_mention_does_not_force_coding_model(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b","fast_brain":{
+                "enabled":True,
+                "conversation_models":["qwen3:4b"],
+                "coding_models":["qwen2.5-coder:7b"]}}}))
+        for question,expected in (
+            ("Python öğreniyorum, nereden başlayayım?", "qwen3:4b"),
+            ("React öğrenmek istiyorum, bana tavsiye ver", "qwen3:4b"),
+            ("Kod yazma, sadece mantığını açıkla", "qwen3:4b"),
+            ("I'm learning Python, where should I start?", "qwen3:4b"),
+            ("Don't write code, explain this function", "qwen3:4b"),
+            ("Python ile kod yaz", "qwen2.5-coder:7b"),
+            ("Python öğreniyorum, bana örnek kod yaz", "qwen2.5-coder:7b"),
+            ("Debug this Python function", "qwen2.5-coder:7b"),
+        ):
+            with self.subTest(question=question):
+                calls=[]
+                def fake_request(path,payload=None,**kwargs):
+                    calls.append(payload)
+                    return {"message":{"content":"Tamam."}}
+                with patch.object(local,"_SETTINGS",settings), \
+                     patch.object(local,"installed_models",
+                                  return_value=["qwen3:4b","qwen2.5-coder:7b"]), \
+                     patch.object(local,"_get_json",side_effect=fake_request):
+                    got=local.local_chat(question,"ULTRON",[])
+                self.assertEqual(got["model"],expected)
+                self.assertEqual(calls[-1]["model"],expected)
+                self.assertEqual(len(calls),1)
+                self.assertFalse(calls[-1].get("tools"))
+
     def test_previous_turns_are_actual_model_messages(self):
         msg=self.run_local("Peki fiyatı?",[
             {"role":"user","content":"Mercedes C180 bakıyorum"},

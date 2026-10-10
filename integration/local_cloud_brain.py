@@ -71,6 +71,40 @@ def _text_only_image_request(text: str) -> bool:
     )
 
 
+# Mentioning Python or React in a learning conversation is not an instruction
+# to invoke the larger coding model. Explicit programming jobs still route to
+# that model. This affects only the text-only local chat, not desktop tools.
+_CONVERSATIONAL_TECH = re.compile(
+    r"\b(?:öğreniyorum|öğrenmek|öğrenmeye|kurs(?:u)?|"
+    r"nereden başlayayım|nasıl çalışmalıyım|"
+    r"learning|learn|studying|beginner|getting started|"
+    r"can you explain|what is)\b", re.I
+)
+_NO_CODE = re.compile(
+    r"\b(?:kod yazma|kodu yazma|kod istemiyorum|"
+    r"no code|do not write code|don't write code|"
+    r"without (?:writing )?code)\b", re.I
+)
+_CODING_COMMAND = re.compile(
+    r"\b(?:kod(?:u)? yaz(?:dır)?|örnek kod yaz|"
+    r"script yaz|fonksiyon yaz|hata düzelt|"
+    r"debug|refactor|implement|"
+    r"write (?:some |a |the )?(?:code|script|function)|"
+    r"fix (?:the |this )?(?:bug|code))\b", re.I
+)
+
+
+def _local_text_task(text: str) -> str:
+    task = classify_text(text)
+    if task == "CODING":
+        if _NO_CODE.search(text) or (
+            _CONVERSATIONAL_TECH.search(text) and
+            not _CODING_COMMAND.search(text)
+        ):
+            return "FAST"
+    return task
+
+
 class LocalBrainUnavailable(RuntimeError):
     pass
 
@@ -150,7 +184,7 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     if not chat_models:
         # Never substitute a visual-only or unknown model for local Qwen chat.
         raise LocalBrainUnavailable("Yerel sohbet için kurulu Qwen modeli bulunamadı.")
-    task=classify_text(text)
+    task=_local_text_task(text)
     # A text-only how-to question about analysing images needs a language
     # model, not a vision-only model with no pixels supplied.
     if task == "VISION" and _image_howto(text):
