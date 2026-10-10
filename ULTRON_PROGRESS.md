@@ -267,3 +267,11 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Hardening in conversation_turns.py ignores malformed/non-text history records instead of permitting invalid roles/content to derail conversation generation. Maintains bounded newest-first user/assistant turn history.
 - Added offline test_conversation_style.py with realistic Turkish/English user utterances, history/no-history followups, seriousness/corrections and malicious history structure checks. Wired into Cloud Queue PostgreSQL Integration persona-policy job. Native Windows installation deliberately deferred.
 - Cloud CI/Render must be confirmed on exact functional code SHA. Real Qwen/Gemini model subjective quality tests and Windows local updates remain outstanding.
+
+
+## 2026-10-10 — Delivered topic-aware contextual recall
+- Added _topic_terms, select_contextual_turns, load_contextual_thread_turns in conversation_turns.py. Directly stated salient topics can retrieve a small set of older messages within the exact same owner/conversation; pronoun-only turns use normal latest history.
+- Updated app.py /api/chat and local_brain_bridge.py /api/local-chat to use this bounded selection. More natural continuity for very long threads without introducing another model call, autonomous memory writes or new platform dependencies.
+- Changed old thread-contract checks to assert the new helper. Added test_contextual_recall.py and expanded disposable PostgreSQL test_conversation_turns_postgres.py for earlier same-thread recall, no current-turn duplication and cross-owner/cross-conversation denial. Cloud CI workflow runs the new tests.
+- After code/test commit 8c25b3db4186d7e62bac465b6bbe8693af55a298: Cloud Queue PostgreSQL Integration 38057407803 SUCCESS, ULTRON Scene Build Check 38057407812 SUCCESS, Render deployment dep-db546815efls73a9o7cg LIVE. Real Gemini/Qwen spoken quality and iPhone/Windows device acceptance NOT independently verified.
+- Requested persistent hourly development automation now enabled with explicit instructions not to install/download Windows files until the user chooses a final release; each hourly execution must still independently verify permissions and CI.

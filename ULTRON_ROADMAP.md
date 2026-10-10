@@ -242,3 +242,9 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - For follow-ups, distinguish real owner-scoped, same-conversation prior user/assistant turns from placeholder system text. If no previous turn exists in the conversation, ask once what should be continued instead of falsely referencing unrelated chat.
 - Don't persist natural reply-mode instructions to personal memory or autonomously retrain. Don't insert untrusted history as system roles; ignore malformed injected history values.
 - Preserve the user's explicit preference: continue code/test/deploy via GitHub/Render; download/install the Windows update once after the chosen features are completed and verified. Cloud autoDeploy may still update the web app, but the user's Windows installation is not touched.
+
+
+## 2026-10-10 — Long-thread ULTRON contextual recall, without laptop installation
+- Support JARVIS-like follow-up questions about specific topics referenced earlier in the *same* conversation. Fetch at most 80 prior user/assistant rows only by current authenticated user_id and conversation_id; older recall requires explicit topic terms (e.g. Mercedes C180), never guesses a subject from "Peki?".
+- Keep the newest conversation turns and reserve at most ~25% of the existing model context budget for relevant older excerpts. Preserve chronological order, role boundary and bounded Qwen 4GB context; skip malformed/system records. No new persistent personal memory, embedding service, hidden model API, background surveillance or automatic training.
+- Integrate into Cloud Gemini and queued Windows Qwen user text chat. Existing owner-approved memory stays separate; no new native tool execution or Approval Gate relaxation. Cloud autoDeploy remains independent of the user's deferred one-time Windows download.

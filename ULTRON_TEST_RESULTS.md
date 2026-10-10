@@ -253,3 +253,11 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - New test_conversation_style.py exercises 16 follow-up/new-topic/correction cases, 13 brief/detailed/casual cases, prior-turn authenticity, serious tone overrides, malformed untrusted history records and Cloud/local integration contract.
 - Additional baseline contracts: test_conversation_turns.py and real Postgres test_conversation_turns_postgres.py remain enabled. GitHub Cloud Queue PostgreSQL Integration #38055784729 persona-policy successfully completed at code SHA 321d5105fcd7576fad489fd2c3705fe30a0e66ee; full PostgreSQL and Render final verification required before describing the whole release as green/live.
 - The deterministic tests prove wiring and boundaries, NOT the live models' JARVIS-level intelligence or latency. Real Windows device is unchanged as requested.
+
+
+## 2026-10-10 — Long conversation topic recall regression evidence
+- Offline Python test_contextual_recall.py verifies older named-topic recall, recent-dialogue priority, no random old-topic recall on "Peki?" or "Devam et", max 80 SQL lookback, model character/turn caps and malformed/system-role rejection.
+- Existing Python test_conversation_turns.py now checks the new Cloud and local contextual helper instead of the old direct load_thread_turns call.
+- Disposable PostgreSQL test_conversation_turns_postgres.py also verifies 24+ intervening turns, old Mercedes C180 recall only for correct user and conversation, no leaks from other conversations/users, and exclusion of the current message.
+- GitHub Cloud Queue PostgreSQL Integration run 38057407803 SUCCESS. Scene Build Check run 38057407812 SUCCESS on code SHA 8c25b3db4186d7e62bac465b6bbe8693af55a298. Render deployed same code SHA LIVE as dep-db546815efls73a9o7cg. Earlier intermediate code run 38057311007 failure was an outdated test asserting the old function name; corrected in the passing code commit.
+- No real Gemini/OpenAI live naturalness benchmark or physical iPhone/Windows acceptance has been executed in this session. Only CI contracts and Render deployment are verified.

@@ -315,3 +315,11 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. Preserve safety of native device approval gates and Cloud text/voice session scoping. Retest phone mic handoff without claiming physical hardware was tested.
 4. Later add optional user-controlled advanced conversation presets or explicit feedback scores, keeping the mobile UI uncluttered and avoiding automatic personal-sensitive learning.
 5. Only AFTER iterative GitHub+Render development is complete, guide user through a single Windows update of latest clean branch with START.bat/DOCTOR and real local Qwen tests. Do NOT attempt a Windows download or claim local installation now.
+
+
+## Next ULTRON JARVIS-like capabilities — develop first, install Windows last
+1. On the deployed mobile Cloud account, run a real 30-turn conversation: discuss Mercedes C180, switch to design/English for 20 turns, then explicitly ask "Mercedes C180 hakkında ne konuşmuştuk?" and verify selected old context is reflected without inventing facts; then ask "Peki?" and ensure it follows the immediate topic rather than jumping back. Repeat in a brand-new conversation ID to verify topic isolation.
+2. On a running Windows Ollama/Qwen desktop after the user eventually installs the finalized build, test the same long thread; confirm acceptable latency on RTX 2050 and adequate context caps (2600 characters).
+3. Maintain automated CI and Render proof for every changeset; treat physical iPhone voice latency, iOS PWA, Windows START.bat, local STT/Piper, IoT, calendar/email OAuth, true hologram hardware and powered-off PC interactions as separate unverified goals.
+4. Next candidate: opt-in per-conversation "summary of older dialogue" feature with explicit, editable review and deletion. Never auto-save sensitive personal information or let LLM-authored summaries become system instructions; prefer deterministic bounded sources and preserve all owner approval/security gates.
+5. Update user only with actual verified code/test/deployment outcomes, not a promise of nonstop autonomous work beyond the scheduled hourly task. Laptop installation remains deferred until the user requests it.
