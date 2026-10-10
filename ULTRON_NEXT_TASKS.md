@@ -1,3 +1,11 @@
+# Current priority — latest verified natural conversation improvements (2026-10-10)
+
+1. **Newest verified code:** `ec566816ef4eeaa162b579f05f86bb0828ff4237`, following `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf`. Exact code CI: Cloud/PostgreSQL [38078914038](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078914038) SUCCESS; Scene/frontend [38078914033](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078914033) SUCCESS. Previous bounded current-message code likewise passed Cloud [38078688366](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688366) and Scene [38078688244](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688244).
+2. **Natural conversation:** Gemini/Qwen now preserve *end-of-current-long-message* corrections within unchanged 16k/3k caps. Explicit topic switch phrasing in Turkish/English now bypasses old-topic keyword fetching and instructs the common persona to follow the new subject instead of reviving earlier tasks. Ordinary follow-ups, explicit recall, approval controls, owner boundaries and minimal UI remain intact.
+3. **NEXT:** Run actual authorized Gemini and Ollama/Qwen 20-case pilot and 100-case frozen evaluation with independent human reviews of transcripts and p50/p95 latency. Actual intelligence level NOT MEASURED; do not claim 100/100 or arbitrarily raise the informal JARVIS comparison percentages based on CI. Physical Windows/iPhone inference and latest Render live SHA are unverified; defer Windows update until final acceptance.
+
+---
+
 # Current priority — preserve late instructions in long current prompts (2026-10-10)
 
 1. **Verified code SHA:** `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf`. Both workflows completed **SUCCESS** on that exact SHA: [Cloud Queue/PostgreSQL #38078688366](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688366), [ULTRON Scene/frontend #38078688244](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688244).

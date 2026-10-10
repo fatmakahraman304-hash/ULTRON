@@ -1,3 +1,10 @@
+## 2026-10-10 — Final user correction + explicit topic switching
+
+- Code commits: `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf` (current messages keep head/end under original Qwen/Gemini limits) and `ec566816ef4eeaa162b579f05f86bb0828ff4237` (explicit new-topic commands avoid old lexical history matches and add TOPIC SWITCH persona hint).
+- Added no-provider mock Ollama wire and Gemini prompt tests for late user instructions; new deterministic and real disposable PostgreSQL tests for topic switch, owner/thread isolation, before-current cutoff and maximum context size.
+- Verified GitHub exact-SHA CI: [Cloud Queue PostgreSQL Integration 38078914038](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078914038) **SUCCESS**; [ULTRON Scene Build Check 38078914033](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078914033) **SUCCESS**. Older code commit CI also both successful.
+- Still NOT TESTED: real Gemini/Qwen 20/100 case inference and independent human quality review, accurate live model latency, exact deployed Render commit, iOS/Windows hardware. No local Windows update or download was performed.
+
 ## 2026-10-10 — Current long-message final correction preserved in Gemini and Qwen
 
 - Production code commit `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf`. A new shared `bounded_user_request` helper retains the beginning and ending of overlong current turns. Qwen `local_chat` and `ollama_messages` preserve final instructions under their existing 3,000-character cap; `gemini_turns` does the same under its existing 16,000-character cap. Regular short turns remain unchanged. No model training, download, prompt-size increase, implicit memory write, external account access or Windows changes.

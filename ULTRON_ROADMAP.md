@@ -1,3 +1,11 @@
+## Conversation intelligence — explicit new-topic priority (2026-10-10)
+
+- [x] Keep final user corrections in *current* long Qwen and Gemini prompts under unchanged length caps; mock wire tests confirmed.
+- [x] Detect only explicit Turkish/English requests to switch subjects, skip lexical retrieval from old chats in those cases, and instruct both cloud and local persona to address the new goal. Tested without model calls and with disposable PostgreSQL tenant/thread isolation.
+- [x] Cloud/PostgreSQL #38078914038 and Scene/Frontend #38078914033 both PASS at `ec566816ef4eeaa162b579f05f86bb0828ff4237`.
+- [ ] Authorized real Gemini and Qwen/Ollama 20-case pilot, then independent frozen 100-case evaluations, model identity and latency comparisons. JARVIS parity not verified.
+- [ ] Verify exact new Render LIVE SHA and phone/Windows actual interaction; single final Windows update remains postponed.
+
 ## Conversation intelligence — final user correction under capped current message (2026-10-10)
 
 - [x] Preserve final explicit constraints of a long **current** message across Gemini (16k) and local Qwen (3k) model wires, not just older history; keep original character caps.

@@ -1,3 +1,10 @@
+## 2026-10-10 — Gemini/Qwen latest instruction + topic switching verification
+
+- Functional code `ec566816ef4eeaa162b579f05f86bb0828ff4237`; parent `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf` also passed both CI workflows.
+- Tests added: overlong current input retains both opening and end-of-message correction under 3k Qwen and 16k Gemini wire caps; local mock Ollama receives late correction. Explicit topic switching in Turkish/English selects bounded recent same-thread history only and common persona adds TOPIC SWITCH hint. Real disposable PostgreSQL test inserts old Mercedes history, newer mimarlık history, and different owner/thread secrets: no old-topic keyword revival or tenant leakage.
+- Cloud Queue PostgreSQL Integration [38078914038](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078914038): **SUCCESS**. Scene/Frontend [38078914033](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078914033): **SUCCESS**.
+- Actual real-model correctness/style/logic evaluation remains NOT MEASURED. Production Render SHA and physical iPhone/Windows not verified. No Windows change.
+
 ## 2026-10-10 — Current prompt head+tail retention, not history alone
 
 - Functional SHA `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf` — Cloud Queue PostgreSQL Integration [38078688366](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688366) SUCCESS; ULTRON Scene Build Check [38078688244](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38078688244) SUCCESS.
