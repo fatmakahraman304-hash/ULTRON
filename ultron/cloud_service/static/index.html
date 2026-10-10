@@ -519,6 +519,15 @@
         <textarea id="planNote" maxlength="500" rows="2" placeholder="Kısa açıklama"></textarea>
         <button type="button" id="saveOwnerPlan" style="width:100%;margin-top:9px">PLANI KAYDET</button>
         <button type="button" id="cancelPlanEdit" class="secondary hidden" style="width:100%;margin-top:7px">DÜZENLEMEYİ İPTAL ET</button>
+        <div class="section-title" style="margin-top:12px"><h2>TAKVİM DOSYASINA AKTAR</h2></div>
+        <label for="planExportTimezone" class="settings-label">Saat dilimi (plan saatlerinin yorumu)</label>
+        <select id="planExportTimezone" style="width:100%">
+          <option value="Europe/Istanbul" selected>Türkiye (İstanbul)</option>
+          <option value="Asia/Nicosia">Kıbrıs (Lefkoşa)</option>
+          <option value="UTC">UTC</option>
+        </select>
+        <button type="button" id="exportOwnerPlans" class="secondary" style="width:100%;margin-top:9px">.ICS TAKVİM DOSYASINI İNDİR</button>
+        <p class="remote-note">Yalnızca sen tıklarsan takvim dosyası oluşturulur. Dosya sadece tamamlanmamış planların başlık ve tarih/saatini içerir; özel notları ve otomatik alarmı içermez. Apple/Google Takvim'e bağlanmaz.</p>
         <p class="remote-note" id="ownerPlansStatus" role="status" aria-live="polite">Tarih ve başlıkla bir plan oluştur. Görev tamamlanınca işaretleyebilir veya silebilirsin.</p>
         <div id="ownerPlansList" class="memory-list" aria-label="Kişisel plan kayıtları"></div>
       </div>
