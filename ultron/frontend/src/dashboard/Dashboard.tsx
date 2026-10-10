@@ -10,7 +10,7 @@ const HologramLab=lazy(()=>import('../hologram/HologramLab'));
 export default function Dashboard(){
  const u=useUltron(),[devDraft,setDevDraft]=useState(''),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[scale,setScale]=useState(1),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general');
  const messages=useRef<HTMLDivElement>(null),abort=useRef<AbortController|null>(null),errorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
- const voiceRouteSeen=useRef<string|null>(null),typedRouteSeen=useRef('');
+ const voiceRouteSeen=useRef<string|null>(''),typedRouteSeen=useRef('');
  useEffect(()=>{const resize=()=>setScale(Math.min(innerWidth/1920,innerHeight/1080));resize();window.addEventListener('resize',resize);const timer=setInterval(()=>setClock(new Date()),1000);return()=>{window.removeEventListener('resize',resize);clearInterval(timer);clearTimeout(errorTimer.current);abort.current?.abort();};},[]);
  useEffect(()=>{messages.current?.scrollTo({top:messages.current.scrollHeight});},[u.messages]);
  const notify=(message:string)=>{u.setNotice(message);setLocalState('ERROR');clearTimeout(errorTimer.current);errorTimer.current=setTimeout(()=>setLocalState('IDLE'),1800);};
@@ -376,7 +376,7 @@ export default function Dashboard(){
    const latest=[...u.messages].reverse().find(m=>m.role==='user');
    if(!latest)return;
    const id=String(latest.id);
-   if(voiceRouteSeen.current===null){voiceRouteSeen.current=id;return;}
+   if(Date.now()-latest.time>15000){voiceRouteSeen.current=id;return;}
    if(voiceRouteSeen.current===id)return;
    voiceRouteSeen.current=id;
    if(latest.text.toLocaleLowerCase('tr-TR').trim()===typedRouteSeen.current){typedRouteSeen.current='';return;}
