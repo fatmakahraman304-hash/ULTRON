@@ -1,3 +1,14 @@
+# Current priority — conversational intelligence (2026-10-10)
+
+1. Verify CI and Render for the new context/quality/evaluation commit; inspect real PostgreSQL first-topic isolation tests.
+2. Fix automatic routing so desktop heartbeat alone cannot imply Ollama readiness; preserve safe pre-queue-only fallback.
+3. Strengthen opt-in memory contradiction/secret handling without silently overwriting owner memory.
+4. Run `python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json` in an authorized credential-equipped environment and the Qwen equivalent only on an available Ollama host. Independently review all 100 transcripts per provider using README rubric. Current real-provider quality is NOT MEASURED.
+5. Preserve all approval/privacy controls, no new UI controls. Windows update remains deferred.
+
+---
+Historical task records below; the priorities above supersede older Windows-install or non-conversation tasks.
+
 # ULTRON — Sonraki Kesin Görevler / Kesinti Devam Kaydı
 
 **Repo:** `fatmakahraman304-hash/ULTRON`  

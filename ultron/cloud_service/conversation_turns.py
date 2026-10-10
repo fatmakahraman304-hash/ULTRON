@@ -111,7 +111,7 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
         and row.get("role") in ("user", "assistant")
         and isinstance(row.get("content"), str)
     ]
-    if len(clean) <= count:
+    if len(clean) <= count or count < 4:
         return prepare_turns(clean, max_chars=cap, max_turns=count)
     terms = _topic_terms(question)
     if not terms:
@@ -128,14 +128,20 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
     ranked = [item for item in ranked if item[0] > 0]
     if not ranked:
         return prepare_turns(clean, max_chars=cap, max_turns=count)
-    # Prefer multiple distinctive matches and newer examples on ties.
-    chosen = sorted(
-        sorted(ranked, key=lambda item: (item[0], item[1]), reverse=True)[:4],
-        key=lambda item: item[1],
-    )
-    older_budget = max(120, cap // 4)
+    # Recall evidence as an adjacent exchange, not disconnected keyword hits.
+    indices = set()
+    for _, index, message in sorted(ranked, key=lambda item: (item[0], item[1]), reverse=True):
+        pair = {index}
+        if message["role"] == "user" and index + 1 < len(earlier) and earlier[index + 1]["role"] == "assistant":
+            pair.add(index + 1)
+        elif message["role"] == "assistant" and index > 0 and earlier[index - 1]["role"] == "user":
+            pair.add(index - 1)
+        if len(indices | pair) <= min(4, count - recent_count):
+            indices.update(pair)
+    chosen = [earlier[index] for index in sorted(indices)]
+    older_budget = cap // 4
     old_turns = prepare_turns(
-        [item[2] for item in chosen],
+        chosen,
         max_chars=older_budget, max_turns=min(4, count - recent_count),
     )
     recent_turns = prepare_turns(
@@ -212,6 +218,19 @@ def select_recap_turns(rows, *, max_chars: int = 3200,
     return beginning_turns + middle_turns + recent_turns
 
 
+_FIRST_RETURN = re.compile(
+    r"^(?:ilk (?:söylediğine|söylediğime|söylediğimize|konuya|konuştuğumuz konuya)|"
+    r"başlangıçtaki konuya) (?:geri )?dön(?:elim)?[.!?]*$|"
+    r"^(?:go |let's go )?back to (?:the |our )?first (?:topic|thing we discussed)[.!?]*$",
+    re.I,
+)
+
+
+def is_first_topic_return(question: str) -> bool:
+    return isinstance(question, str) and len(question) <= 180 and bool(
+        _FIRST_RETURN.fullmatch(" ".join(question.strip().split())))
+
+
 async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                                        *, question: str, before_id: int | None = None,
                                        max_chars: int = 3200,
@@ -223,6 +242,24 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
     SQL LIMIT and output caps bound database and model usage.
     """
     n = max(1, min(int(limit), 20))
+    if is_first_topic_return(question):
+        # Explicit first-topic requests need the true start, even beyond 80 rows.
+        # Fetch IDs solely for chronological deduplication; never expose them.
+        query = (
+            "SELECT id,role,content FROM messages "
+            "WHERE user_id=$1 AND conversation_id=$2 "
+            "AND ($3::bigint IS NULL OR id < $3) AND role IN ('user','assistant') "
+            "ORDER BY id "
+        )
+        first = await pool.fetch(query + "ASC LIMIT $4", user_id, conversation_id, before_id, 4)
+        latest = await pool.fetch(query + "DESC LIMIT $4", user_id, conversation_id, before_id, n)
+        cap = max(0, min(int(max_chars), 7200))
+        start_count = min(4, max(1, n // 3))
+        start = prepare_turns(first[:start_count], max_chars=cap // 3, max_turns=start_count)
+        first_ids = {row.get("id") for row in first[:start_count] if row.get("id") is not None}
+        tail = [row for row in reversed(latest) if row.get("id") not in first_ids]
+        return start + prepare_turns(tail, max_chars=cap - sum(len(t["content"]) for t in start),
+                                     max_turns=n - len(start))
     if is_thread_recap_request(question):
         window = max(n, min(int(lookback), 80))
         rows = await pool.fetch(

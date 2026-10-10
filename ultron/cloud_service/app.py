@@ -26,6 +26,7 @@ from local_brain_bridge import register_local_brain_routes
 from conversation_persona import build_system_instruction
 from personal_context_focus import load_focused_owner_context
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
+from response_quality import finalize_response
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
 from google import genai
@@ -888,7 +889,7 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str,
     text = (response.text or "").strip()
     if not text:
         raise RuntimeError("Gemini returned an empty response")
-    return text
+    return finalize_response(text, prompt=prompt)
 
 
 def _gemini_reply(prompt: str, system_instruction: str, turns=None) -> str:

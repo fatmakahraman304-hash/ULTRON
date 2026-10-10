@@ -91,4 +91,25 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertEqual(await load_contextual_thread_turns(
       self.pool,"ci-dialogue-a",self.c3,question="Bu sohbeti özetle"),[])
 
+ async def test_first_topic_beyond_80_messages_is_owner_scoped_and_deduplicated(self):
+  await self.add(self.c1,"ci-dialogue-a","user","2009 Mercedes C180 başlangıç")
+  await self.add(self.c1,"ci-dialogue-a","assistant","Motor versiyonunu doğrula")
+  await self.add(self.c2,"ci-dialogue-a","user","OTHER_THREAD_SECRET")
+  await self.add(self.c3,"ci-dialogue-b","user","OTHER_OWNER_SECRET")
+  for i in range(100):
+   await self.add(self.c1,"ci-dialogue-a","user" if i%2==0 else "assistant",f"Mimarlık aşama {i}")
+  current=await self.add(self.c1,"ci-dialogue-a","user","İlk söylediğine geri dön.")
+  turns=await load_contextual_thread_turns(self.pool,"ci-dialogue-a",self.c1,
+      question="İlk söylediğine geri dön.",before_id=current,max_chars=2600,limit=12)
+  self.assertIn("2009 Mercedes C180",str(turns))
+  self.assertIn("aşama 99",str(turns))
+  self.assertNotIn("SECRET",str(turns))
+  self.assertNotIn("geri dön",str(turns))
+  self.assertLessEqual(len(turns),12)
+  self.assertEqual(await load_contextual_thread_turns(self.pool,"ci-dialogue-b",self.c1,
+      question="İlk söylediğine geri dön."),[])
+  other=await load_contextual_thread_turns(self.pool,"ci-dialogue-a",self.c2,
+      question="İlk söylediğine geri dön.")
+  self.assertEqual(len(other),1)
+
 if __name__=="__main__":unittest.main()

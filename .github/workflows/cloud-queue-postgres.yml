@@ -6,6 +6,8 @@ on:
       - feat/ultron-cloud-shared-memory
     paths:
       - "ultron/cloud_service/**"
+      - "integration/local_cloud_brain.py"
+      - "evals/conversation/**"
       - "ultron/backend/app/agent/persona_guard.py"
       - "ultron/backend/app/agent/agent.py"
       - "ultron/backend/tests/test_persona_warmth.py"
@@ -35,6 +37,13 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_style.py' -v
       - name: Explicit on-demand older conversation recap, provider-free tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_thread_recap.py' -v
+      - name: Cheap response quality and honest evaluation infrastructure
+        run: |
+          python -m unittest discover -s ultron/cloud_service -p 'test_response_quality.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_conversation_eval.py' -v
+          python evals/conversation/run.py --validate
+      - name: First topic return and bounded paired recall
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_reference_return.py' -v
       - name: Long chat contextual recall and no cross-thread contamination
         run: python -m unittest discover -s ultron/cloud_service -p 'test_contextual_recall.py' -v
       - name: Owner-reviewed conversation notes preview and input validation

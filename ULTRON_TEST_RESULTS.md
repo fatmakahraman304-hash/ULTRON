@@ -310,3 +310,12 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Final Cloud Queue PostgreSQL Integration #38068020642 SUCCESS (persona-policy + postgres-fencing) and ULTRON Scene Build Check #38068020631 SUCCESS for code a6ce694ff35423f93a386140c7e1938a374ad162.
 - Render autoDeploy dep-db56gpmoq3os73c5cicg for a6ce694f was still update_in_progress at latest inspection. Earlier test-only deploy dep-db56gcn40ujc73c6ctag at 7684956ec0 was LIVE. Confirm final live SHA before claiming latest release live.
 - CI tests do not measure real model reasoning ability, GPU/offload latency, Turkish speech understanding or subjective naturalness. User laptop installation remains intentionally deferred.
+
+
+## 2026-10-10 — Conversational intelligence regression cycle 1
+- Explicit first-topic return now retrieves the actual opening of the same owner/thread, including conversations beyond the 80-message recall window. Named recall includes adjacent question/answer evidence; very small context/turn budgets no longer overflow. Three new regressions first FAILED on the old code, then PASSED after fixes.
+- Shared lightweight response quality checks remove only adjacent identical long prose paragraphs, preserve code/verbatim text, and flag excessive length without another model call. This is not semantic truth verification.
+- Added versioned `evals/conversation`: 100 distinct scenarios (50 TR/50 EN), ten categories, scenario-specific acceptance plus five review dimensions. Real production provider adapters, transcript/latency capture, independent review and honest missing-run handling.
+- Local verification: conversation tests 30 PASS / 6 PostgreSQL tests SKIPPED (no local disposable DB), response-quality 3 PASS, local runtime 3 PASS, reference-return 3 PASS, contextual recall 5 PASS, recap 6 PASS, local brain 5 PASS; backend Earth 5 PASS; Python compile PASS; npm ci/build PASS and Earth JS 6 PASS. PostgreSQL extension awaits real CI.
+- Real model attempts: Gemini unavailable (no configured GEMINI_API_KEY in this environment); local Qwen unavailable (no reachable local Ollama). Each report has 100 NOT_RUN, zero captured transcripts, null quality score. **100/100 model quality NOT established.** No production personal chat accessed; no Windows install/model download.
+- Prior functional Render SHA a6ce694ff35423f93a386140c7e1938a374ad162 verified LIVE (dep-db56gpmoq3os73c5cicg). This cycle's CI and Render pending commit/push.

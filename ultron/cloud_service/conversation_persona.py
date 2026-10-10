@@ -2,7 +2,7 @@
 from __future__ import annotations
 import re
 
-from conversation_turns import is_thread_recap_request
+from conversation_turns import is_thread_recap_request, is_first_topic_return
 
 PERSONA = (
     "You are ULTRON, a capable and thoughtful personal assistant. "
@@ -108,6 +108,12 @@ def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
             "present a recalled statement as a newly stored personal memory. "
             "When there are no prior turns, say this conversation has no earlier "
             "messages to summarize."
+        )
+    if is_first_topic_return(message):
+        hints.append(
+            "FIRST TOPIC RETURN: The supplied history includes opening excerpts and recent turns. "
+            "Use only those excerpts. 'First' can mean the opening topic or a recent list item; "
+            "ask one short clarification if ambiguous. Never invent unavailable details."
         )
     if act == "correction":
         hints.append(

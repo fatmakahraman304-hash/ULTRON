@@ -15,6 +15,7 @@ from pathlib import Path
 
 from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
 from ultron.cloud_service.conversation_turns import ollama_messages
+from ultron.cloud_service.response_quality import finalize_response
 
 _ROOT=Path(__file__).resolve().parents[1]
 _SETTINGS=_ROOT/"ultron"/"backend"/"config"/"settings.json"
@@ -93,4 +94,4 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     answer=str((result.get("message") or {}).get("content") or "").strip()
     if not answer:
         raise LocalBrainUnavailable("Yerel model boş yanıt verdi.")
-    return {"reply":answer[:12000],"model":choice.model,"provider":"local-ollama"}
+    return {"reply":finalize_response(answer[:12000], prompt=text),"model":choice.model,"provider":"local-ollama"}
