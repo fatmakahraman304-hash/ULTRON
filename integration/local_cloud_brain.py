@@ -46,9 +46,27 @@ _ENGLISH_IMAGE_REQUEST=re.compile(
 )
 
 
+_IMAGE_HOWTO=re.compile(
+    r"^\s*(?:(?:bir|bu|şu)\s+)?"
+    r"(?:fotoğrafı|resmi|görseli|ekran görüntüsünü)\s+"
+    r"nasıl\s+(?:analiz|incele|oku|yorumla)|"
+    r"^\s*how\s+(?:do|can|should)\s+i\b|"
+    r"^\s*how\s+to\s+(?:analy[sz]e|inspect|describe|read)\s+"
+    r"(?:an?\s+)?(?:image|photo|picture|screenshot)\b",
+    re.I,
+)
+
+
+def _image_howto(text: str) -> bool:
+    """A request to LEARN image analysis does not require an actual image."""
+    return bool(_IMAGE_HOWTO.search(text))
+
+
 def _text_only_image_request(text: str) -> bool:
-    return classify_text(text) == "VISION" or bool(
-        _ENGLISH_IMAGE_REQUEST.search(text)
+    return not _image_howto(text) and (
+        classify_text(text) == "VISION" or bool(
+            _ENGLISH_IMAGE_REQUEST.search(text)
+        )
     )
 
 
@@ -126,6 +144,10 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     if not models:
         raise LocalBrainUnavailable("Ollama'da kurulu bir model bulunamadı.")
     task=classify_text(text)
+    # A text-only how-to question about analysing images needs a language
+    # model, not a vision-only model with no pixels supplied.
+    if task == "VISION" and _image_howto(text):
+        task = "FAST"
     choice=policy.choose(task=task,installed=models,primary=settings.get("model","qwen3:4b"))
     if choice.model not in models:
         raise LocalBrainUnavailable("Seçilen yerel model kurulu değil.")

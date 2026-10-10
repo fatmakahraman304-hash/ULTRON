@@ -49,6 +49,31 @@ class LocalConversationTests(unittest.TestCase):
         wire=self.run_local("Mercedes C180 bakımı?", [])
         self.assertTrue(wire["model"].startswith("qwen"))
 
+    def test_image_analysis_howto_uses_text_model_not_llava(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b",
+                   "fast_brain":{"enabled":True,
+                                 "conversation_models":["qwen3:4b"],
+                                 "vision_models":["llava:7b"]}}}))
+        for prompt in ("Bir fotoğrafı nasıl analiz edebilirim?",
+                       "Bu görseli nasıl inceleyebilirim?",
+                       "How can I analyze this photo?",
+                       "How to describe a picture?"):
+            with self.subTest(prompt=prompt):
+                captured=[]
+                def fake_request(path,payload=None,**kwargs):
+                    captured.append((path,payload))
+                    return {"message":{"content":"Adım adım inceleyebilirsin."}}
+                with patch.object(local,"_SETTINGS",settings):
+                    with patch.object(local,"installed_models",
+                                      return_value=["qwen3:4b","llava:7b"]):
+                        with patch.object(local,"_get_json",side_effect=fake_request):
+                            result=local.local_chat(prompt,"ULTRON",[])
+                self.assertEqual(result["model"],"qwen3:4b")
+                self.assertEqual(result["provider"],"local-ollama")
+                self.assertEqual(len(captured),1)
+                self.assertEqual(captured[0][1]["model"],"qwen3:4b")
+
     def test_previous_turns_are_actual_model_messages(self):
         msg=self.run_local("Peki fiyatı?",[
             {"role":"user","content":"Mercedes C180 bakıyorum"},
