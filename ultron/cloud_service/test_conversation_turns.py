@@ -30,6 +30,19 @@ class HistoryContractTests(unittest.TestCase):
   self.assertEqual([m["role"] for m in gemini],["user","model","user","user"])
   self.assertEqual(gemini[-2]["content"],"Mercedes C180")
 
+ def test_long_prior_user_message_retains_final_correction_without_extra_tokens(self):
+  message=("Başlangıç bilgisi: mimarlık tasarımı. " + "detay " * 280
+           + " SON DÜZELTME: yalnızca 2009 C180 modelini konuşuyoruz.")
+  result=prepare_turns([{"role":"user","content":message}],
+                       max_chars=1000,max_turns=4)
+  self.assertIn("Başlangıç bilgisi",result[0]["content"])
+  self.assertIn("SON DÜZELTME",result[0]["content"])
+  self.assertIn("[middle omitted]",result[0]["content"])
+  self.assertLessEqual(len(result[0]["content"]),1000)
+  for prepared in (ollama_messages("ULTRON",result,"Peki?"),
+                   gemini_turns(result,"Peki?")):
+   self.assertIn("SON DÜZELTME",str(prepared))
+
  def test_history_cap_older_messages_and_control_roles(self):
   rows=[{"role":"user" if i%2==0 else "assistant","content":"x"*800} for i in range(30)]
   messages=prepare_turns(rows,max_chars=1600,max_turns=6)

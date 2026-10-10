@@ -9,6 +9,24 @@ from __future__ import annotations
 import re
 
 
+def _bounded_excerpt(text: str, size: int) -> str:
+    """Preserve an older message's opening AND its final correction.
+
+    Previous head-only truncation silently dropped constraints at the end of
+    long messages. Excerpt boundaries stay explicit, within the old cap.
+    """
+    if len(text) <= size:
+        return text
+    if size <= 0:
+        return ""
+    marker = " … [middle omitted] … "
+    if size < 80:
+        return text[-size:]
+    available = size - len(marker)
+    front = available * 3 // 5
+    return text[:front].rstrip() + marker + text[-(available-front):].lstrip()
+
+
 def prepare_turns(rows, *, max_chars: int = 3200, max_turns: int = 14) -> list[dict[str, str]]:
     """Return recent chronological user/assistant turns, with newest priority."""
     cap = max(0, min(int(max_chars), 7200))
@@ -29,7 +47,7 @@ def prepare_turns(rows, *, max_chars: int = 3200, max_turns: int = 14) -> list[d
             continue
         # Preserve the end of the latest short answer if an old turn was huge.
         size = min(1000, remaining)
-        text = text[:size].strip()
+        text = _bounded_excerpt(text, size).strip()
         if not text:
             continue
         kept.append({"role": role, "content": text})
@@ -81,15 +99,31 @@ _COMMON_TERMS = frozenset((
     "message", "about", "which", "could", "would", "where", "what",
     "previous", "remember", "please", "tell", "more", "that", "this",
     "than", "then", "continue", "conversation",
+    "demiştik", "konuşmuştuk", "hatırlat", "söylediklerimi",
+    "konuştuklarımız", "previously", "earlier", "discussed", "discuss",
+    "remember", "remind", "said", "talked",
+))
+
+# Meaningful short acronyms are worth recalling, but generic 3-4 letter
+# Turkish/English words would create many irrelevant keyword matches.
+_TOPIC_SHORT = frozenset((
+    "daü", "ydü", "kktc", "qwen", "siri", "wifi", "ios", "rtx",
+    "gpu", "cpu", "api", "usb", "ram", "ssd", "llm", "pdf", "pwa",
 ))
 
 
 def _topic_terms(text: str) -> set[str]:
     if not isinstance(text, str):
         return set()
-    tokens = re.findall(r"(?u)\b[^\W_]+\b", text.casefold()[:280])
+    normalized = text.casefold()
+    # Topic names can occur at the end of a long request, not just its start.
+    # Avoid a full scan of arbitrarily large pasted documents.
+    excerpt = (normalized if len(normalized) <= 1200
+               else normalized[:600] + " " + normalized[-600:])
+    tokens = re.findall(r"(?u)\b[^\W_]+\b", excerpt)
     return {word for word in tokens
-            if (len(word) >= 5 or (len(word) >= 3 and any(c.isdigit() for c in word)))
+            if (len(word) >= 5 or (len(word) >= 3 and any(c.isdigit() for c in word))
+                or word in _TOPIC_SHORT)
             and word not in _COMMON_TERMS and not word.isdigit()}
 
 
@@ -235,6 +269,22 @@ def is_first_topic_return(question: str) -> bool:
         _FIRST_RETURN.fullmatch(" ".join(question.strip().split())))
 
 
+_NAMED_RECALL = re.compile(
+    r"\b(?:ne demiştik|ne konuşmuştuk|konuştuğumuzu hatırlat|"
+    r"hatırlat|hatırlıyor musun|daha önce ne|"
+    r"what did we (?:say|discuss)|remind me what|"
+    r"what (?:have|did) we discussed|previously discussed)\b",
+    re.I,
+)
+
+
+def is_named_recall_request(question: str) -> bool:
+    """Only explicit old-topic recall warrants an older-than-window SQL lookup."""
+    return isinstance(question, str) and len(question) <= 280 and bool(
+        _NAMED_RECALL.search(" ".join(question.strip().split()))
+    )
+
+
 async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                                        *, question: str, before_id: int | None = None,
                                        max_chars: int = 3200,
@@ -330,13 +380,57 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
         )
     lookback = max(n, min(int(lookback), 80))
     rows = await pool.fetch(
-        "SELECT role,content FROM messages "
+        "SELECT id,role,content FROM messages "
         "WHERE user_id=$1 AND conversation_id=$2 "
         "AND ($3::bigint IS NULL OR id < $3) AND role IN ('user','assistant') "
         "ORDER BY id DESC LIMIT $4",
         user_id, conversation_id, before_id, lookback,
     )
+    selected = list(reversed(rows))
+    # Ordinary chat reads remain unchanged. Only an explicit, named 'what did
+    # we say?' request with no relevant topic in the last 80 turns can trigger
+    # a deeper lexical lookup. Every query keeps the same owner/thread/cutoff.
+    if (is_named_recall_request(question) and len(rows) == lookback
+            and max_chars > 0 and n >= 4):
+        earliest = rows[-1].get("id")
+        if isinstance(earliest, int) and earliest > 0:
+            recent_terms = set().union(*(
+                _topic_terms(r.get("content", "")) for r in rows
+            ))
+            missing_terms = terms - recent_terms
+            if missing_terms:
+                patterns = ["%" + term + "%" for term in
+                            sorted(missing_terms, key=lambda t: (-len(t), t))[:3]]
+                matches = await pool.fetch(
+                    "SELECT id,role,content FROM messages "
+                    "WHERE user_id=$1 AND conversation_id=$2 "
+                    "AND ($3::bigint IS NULL OR id < $3) "
+                    "AND id < $4 AND role IN ('user','assistant') "
+                    "AND content ILIKE ANY($5::text[]) "
+                    "ORDER BY id DESC LIMIT $6",
+                    user_id, conversation_id, before_id, earliest, patterns, 2,
+                )
+                evidence = {row["id"]: row for row in matches}
+                for match in matches:
+                    # Restore an actual adjacent user -> assistant exchange
+                    # instead of quoting a disconnected previous answer.
+                    after_user = match["role"] == "user"
+                    nearby = await pool.fetch(
+                        "SELECT id,role,content FROM messages "
+                        "WHERE user_id=$1 AND conversation_id=$2 "
+                        "AND ($3::bigint IS NULL OR id < $3) "
+                        "AND id < $4 AND role IN ('user','assistant') "
+                        "AND id " + (">" if after_user else "<") + " $5 "
+                        "ORDER BY id " + ("ASC" if after_user else "DESC")
+                        + " LIMIT 1",
+                        user_id, conversation_id, before_id, earliest, match["id"],
+                    )
+                    if nearby and nearby[0]["role"] == (
+                        "assistant" if after_user else "user"
+                    ):
+                        evidence[nearby[0]["id"]] = nearby[0]
+                selected = [evidence[key] for key in sorted(evidence)] + selected
     return select_contextual_turns(
-        list(reversed(rows)), question,
+        selected, question,
         max_chars=max_chars, max_turns=n,
     )

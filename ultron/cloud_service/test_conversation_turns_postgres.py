@@ -136,4 +136,27 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertLessEqual(sum(len(t["content"]) for t in turns),2800)
 
 
+ async def test_explicit_named_topic_beyond_last_80_preserves_exchange_and_tenant(self):
+  await self.add(self.c1,"ci-dialogue-a","user","Mercedes C180 2009 bakım konuşması")
+  await self.add(self.c1,"ci-dialogue-a","assistant","Motor masrafını doğrulayalım")
+  await self.add(self.c2,"ci-dialogue-a","user","OTHER_THREAD_MERCEDES_C180")
+  await self.add(self.c3,"ci-dialogue-b","user","OTHER_OWNER_MERCEDES_C180")
+  for i in range(124):
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant",f"Günlük genel konu {i}")
+  current=await self.add(self.c1,"ci-dialogue-a","user",
+                         "Mercedes C180 hakkında ne demiştik?")
+  turns=await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c1,
+      question="Mercedes C180 hakkında ne demiştik?",
+      before_id=current,max_chars=2800,limit=14)
+  combined=" ".join(t["content"] for t in turns)
+  self.assertIn("Mercedes C180 2009",combined)
+  self.assertIn("Motor masrafını",combined)
+  self.assertIn("genel konu 123",combined)
+  self.assertNotIn("OTHER_",combined)
+  self.assertLessEqual(len(turns),14)
+  self.assertLessEqual(sum(len(t["content"]) for t in turns),2800)
+
+
 if __name__=="__main__":unittest.main()
