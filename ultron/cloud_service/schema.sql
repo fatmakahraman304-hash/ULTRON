@@ -149,3 +149,21 @@ CREATE TABLE IF NOT EXISTS owner_plans (
 );
 CREATE INDEX IF NOT EXISTS idx_owner_plans_user_date
   ON owner_plans(user_id, scheduled_date, scheduled_time, id);
+
+
+-- Review inbox for explicitly owner-approved learning.
+-- A pending/rejected entry is NOT part of assistant memories.
+CREATE TABLE IF NOT EXISTS learning_proposals (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('PREFERENCE','PROJECT','GOAL','FACT','DEVICE')),
+  key TEXT NOT NULL CHECK (length(key) BETWEEN 1 AND 120),
+  value TEXT NOT NULL CHECK (length(value) BETWEEN 1 AND 1000),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_learning_pending_owner_key
+  ON learning_proposals(user_id,key) WHERE status='pending';
+CREATE INDEX IF NOT EXISTS idx_learning_owner_recent
+  ON learning_proposals(user_id,id DESC);

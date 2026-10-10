@@ -3,6 +3,7 @@ from __future__ import annotations
 from capability_readiness import readiness
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
+from approved_learning import register_learning_routes
 
 import asyncio
 import base64
@@ -2185,6 +2186,7 @@ def build_app() -> web.Application:
     register_development_routes(app)
     register_local_brain_routes(app,_memory_context,_recent_context)
     register_personal_plan_routes(app)
+    register_learning_routes(app)
     app.router.add_get("/health", health)
     app.router.add_post("/api/login", login)
     app.router.add_post("/api/logout", logout)
