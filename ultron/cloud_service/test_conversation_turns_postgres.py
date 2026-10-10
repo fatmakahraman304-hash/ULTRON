@@ -5,7 +5,7 @@ HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
 try:
  import asyncpg
- from conversation_turns import load_thread_turns, load_contextual_thread_turns
+ from conversation_turns import load_thread_turns, load_contextual_thread_turns, is_thread_recap_request
 except ImportError:
  asyncpg=None
 DB=os.getenv("ULTRON_QUEUE_TEST_DATABASE_URL","")
@@ -65,5 +65,30 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
       self.c1,question="Mercedes C180"),[])
   self.assertEqual(await load_contextual_thread_turns(self.pool,"ci-dialogue-a",
       self.c3,question="Mercedes C180"),[])
+
+ async def test_on_demand_recap_samples_start_middle_end_without_other_users(self):
+  await self.add(self.c1,"ci-dialogue-a","user","BAŞLANGIÇ: Mimarlık maketi")
+  await self.add(self.c1,"ci-dialogue-a","assistant","Maket fikri üzerine konuştuk")
+  for i in range(26):
+   await self.add(self.c1,"ci-dialogue-a","user" if i%2==0 else "assistant",
+                  f"ORTA-KONU {i}: renkler ve malzemeler")
+  await self.add(self.c2,"ci-dialogue-a","user","OTHER_THREAD_PRIVATE_SECRET")
+  await self.add(self.c3,"ci-dialogue-b","user","OTHER_USER_PRIVATE_SECRET")
+  await self.add(self.c1,"ci-dialogue-a","user","SON: ULTRON sesli komut")
+  await self.add(self.c1,"ci-dialogue-a","assistant","Mikrofonu geliştireceğiz")
+  current=await self.add(self.c1,"ci-dialogue-a","user","Bu sohbeti özetle")
+  turns=await load_contextual_thread_turns(self.pool,"ci-dialogue-a",self.c1,
+          question="Bu sohbeti özetle",before_id=current,max_chars=2800,limit=14)
+  material=" | ".join(x["content"] for x in turns)
+  self.assertIn("BAŞLANGIÇ:",material)
+  self.assertIn("ORTA-KONU 13",material)
+  self.assertIn("SON:",material)
+  self.assertNotIn("OTHER_",material)
+  self.assertNotIn("Bu sohbeti özetle",material)
+  self.assertLessEqual(sum(len(x["content"]) for x in turns),2800)
+  self.assertEqual(await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-b",self.c1,question="Bu sohbeti özetle"),[])
+  self.assertEqual(await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c3,question="Bu sohbeti özetle"),[])
 
 if __name__=="__main__":unittest.main()
