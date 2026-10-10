@@ -298,3 +298,12 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 4. Shut Windows ULTRON down, wait >15s for heartbeat to expire, send text and check real Gemini reply; try tap-to-speak and Gemini Live only after user tap. On reconnect, send next text and check automatic local selection. Do not claim actual laptop hardware powered-down detection beyond heartbeat.
 5. Simulate laptop going offline between presence check and local queue submit: a confirmed 409 desktop_offline must trigger Gemini once; 429 busy, network ambiguity, queued timeouts and permission errors must NOT silently duplicate/replay message.
 6. Verify Cloud API key quota failures are reported truthfully; model limits are not removed by hiding labels. No fully unbounded free model claims.
+
+
+## Next — ULTRON humanlike conversational experience acceptance
+1. Verify Cloud Queue PostgreSQL Integration and ULTRON Scene Build Check for exact code SHA dddbb7338c0689aa20fc0d708abfd5433d6646c6; fix any failed tests. Confirm Render deploy of this SHA live, do not infer from commit.
+2. iPhone Cloud Gemini test with one conversation id: "2009 Mercedes C180'e bakalım" → "Yakıt tüketimi nasıl?" → "Peki onunla 2016 E220d'yi karşılaştır." Verify multi-turn 'onun' resolution and no stale different-topic bleed; request independent new conversation to ensure isolation.
+3. Laptop with Ollama Qwen and running CloudRemote: repeat multi-turn chat, check queued local_brain payload contains bounded ordered turns, no duplicated current user prompt, and actual local Qwen follow-up coherence.
+4. On real iPhone Gemini Live voice: speak several follow-ups and verify session_id-scoped history and interruption, no microphone capture without tap and no unproven tool actions.
+5. Manually evaluate naturalness for 20 diverse Turkish dialogues (greetings, follow-ups, ambiguity, serious situations, humour requested, corrections, long/short requests). Track latency and provider model names. Do not claim human-level conversation without hardware/provider evidence.
+6. For deeper conversational memory consider user-approved summaries of older conversation threads with explicit retention limits, never automatic sensitive facts or cross-user history mixing. Keep minimal mobile/desktop UX.

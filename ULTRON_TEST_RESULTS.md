@@ -239,3 +239,11 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - On code SHA 7cfb708000c5274e2d968b3e731d17a0cf2af8db: Cloud Queue PostgreSQL Integration 38053172917 SUCCESS; Scene Build Check 38053172923 SUCCESS. Render live for that SHA confirmed (dep-db53733bc2fs738bq5j0).
 - Additional cleanup commit bd9aec003af2436f912116e2bd09ebdba6984f83 tripped old unsupported-voice test text regex (old test expected "deste.*yok"; source now says "desteklemiyor"). Fixed test at 09fe6974de0ebf53c00c51506b7bb50eba07ce6f. Latest CI and Render must be checked before calling final correction verified.
 - Physical iPhone Safari, real Windows worker/Ollama availability, Gemini provider quota/network and Live mic permissions not tested here.
+
+
+## 2026-10-10 — True multi-turn conversation test/CI contracts
+- Offline test_conversation_turns.py tests chronological turn ordering, latest bounded history, system role injection rejection, conversation_id and user_id WHERE filtering, ID-before-current exclusion, persona naturalness prompt text and full Gemini/Qwen/mark_app integration contracts.
+- Disposable PostgreSQL test_conversation_turns_postgres.py proves only current owner/thread's earlier chat is fetched; current prompt and other threads/users excluded (no fabricated external data).
+- Qwen offline fake-Ollama test_local_dialogue_runtime.py checks actual outgoing Ollama user/assistant role messages and bounded temperature/top_p/num_predict/repeat_penalty without model download or tool access.
+- Cloud Queue PostgreSQL Integration from workflow now executes all three tests; Scene Build Check runs full frontend/build integrity. CI success verifies code contracts, NOT real LLM naturalness on user devices.
+- Render status/code SHA must be checked after docs update. No claims of real voice-latency improvement or model retraining; no new external model accounts connected.
