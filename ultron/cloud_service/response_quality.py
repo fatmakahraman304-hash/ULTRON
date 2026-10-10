@@ -6,6 +6,8 @@ Code blocks and requested verbatim text are left untouched.
 from __future__ import annotations
 import re
 
+from ultron.cloud_service.reply_policy import classify_reply_mode
+
 _LITERAL = re.compile(r'\b(?:aynen|harfi harfine|verbatim|exactly|repeat|tekrarla|şiir|poem)\b', re.I)
 
 
@@ -17,7 +19,9 @@ def assess_response(text: str, *, prompt: str = '') -> tuple[str, ...]:
         paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text.strip())]
         if any(a == b and len(a) >= 40 for a, b in zip(paragraphs, paragraphs[1:])):
             flags.append('adjacent_duplicate')
-    if re.search(r'\b(?:kısaca|tek cümle|briefly|short answer|one sentence)\b', prompt, re.I) and len(text) > 1800:
+    # A negated style phrase ("kısa cevap istemiyorum") is not a brief
+    # request. Use the exact same style decision as the model's runtime.
+    if classify_reply_mode(prompt) == 'brief' and len(text) > 1800:
         flags.append('possibly_too_long')
     # Signals for evaluation only: these are not reliable semantic verdicts.
     return tuple(flags)

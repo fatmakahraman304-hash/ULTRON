@@ -12,6 +12,23 @@ class ResponseQualityTests(unittest.TestCase):
                              ('', '```python\n'+p+'\n\n'+p+'\n```'),
                              ('', 'Evet.\n\nEvet.')]:
             self.assertEqual(finalize_response(text,prompt=prompt), text)
+    def test_length_flags_follow_shared_negation_aware_policy(self):
+        verbose='uzun ' * 500
+        not_brief=(
+            'Kısa cevap istemiyorum, detaylı açıkla',
+            'No short answer; explain in detail',
+            'Detaylı anlatma demedim, adım adım anlat',
+        )
+        for prompt in not_brief[:2]:
+            self.assertNotIn('possibly_too_long',
+                             assess_response(verbose,prompt=prompt),prompt)
+        for prompt in ('Detaylı anlatma, kısa cevap ver',
+                       'Tek cümleyle söyle', 'Briefly answer'):
+            self.assertIn('possibly_too_long',
+                          assess_response(verbose,prompt=prompt),prompt)
+        self.assertEqual(finalize_response(verbose,prompt='Kısa cevap ver'),
+                         verbose.strip())
+
     def test_flags_do_not_claim_semantic_accuracy_or_truncate(self):
         self.assertEqual(assess_response(''), ('empty',))
         text = 'uzun ' * 500
