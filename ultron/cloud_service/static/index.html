@@ -418,8 +418,8 @@
     <section id="chatView" class="view active">
       <div id="messages"></div>
       <div class="composer">
-        <div class="brain-picker"><label for="brainMode">ULTRON BEYİN <small id="brainInfo">Ücretsiz yerel • laptop açık olmalı</small></label><select id="brainMode" aria-label="ULTRON yanıt modeli"><option value="local">YEREL QWEN • ÜCRETSİZ</option><option value="gemini">GEMINI • İSTEĞE BAĞLI</option></select><small id="localVoiceNotice" role="status">Mikrofona dokun ve konuş. Ses tanıma tarayıcının hizmetini kullanabilir.</small></div>
-        <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="Ücretsiz yerel Qwen mikrofonu" title="Ücretsiz Qwen • Gemini yalnızca seçilirse">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="ULTRON'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
+        
+        <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON mikrofonu" title="Konuşmak için dokun">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="ULTRON'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
         <input id="imageInput" type="file" accept="image/*" class="hidden" />
         <input id="pdfInput" type="file" accept="application/pdf,.pdf" class="hidden" />
         <div id="imagePreview" class="image-preview"><img id="imageThumb" alt="Seçilen görsel"/><span id="imageName"></span><button id="clearImage" type="button">Kaldır</button></div>
@@ -619,6 +619,7 @@
 <script src="/static/local-voice.js"></script>
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
+<script src="/static/auto-brain.js"></script>
 <script src="/static/panel-intents.js"></script>
 <script src="/static/learning-review.js"></script>
 <script>
@@ -628,7 +629,8 @@ let conversationId=localStorage.getItem('ultronConversationId')||'';
 let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initialMessagesLoaded=false;
 const knownMessageIds=new Set();
 let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
-let brainMode=localStorage.getItem('ultronBrainModeV1')==='gemini'?'gemini':'local';
+let brainMode='gemini';
+let brainLastCheck=0,brainChecking=null;
 let localVoiceController=null;
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
 let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false,silentActionTurn=false,remoteResultSpeaking=false,remoteResultWatchdog=null;
@@ -908,7 +910,7 @@ function speakRemoteResult(text,status='completed'){
 function setVoiceEnabled(value,announce=false){
   voiceEnabled=!!value;localStorage.setItem('ultronVoiceEnabled',voiceEnabled?'1':'0');
   $('#voiceToggle').textContent=voiceEnabled?'◖))':'◖×';
-  $('#stageVoiceText').textContent=voiceEnabled?(brainMode==='local'?'Ücretsiz Qwen ses hazır':'Gemini Live ses hazır'):'Sesli yanıt kapalı';
+  $('#stageVoiceText').textContent=voiceEnabled?'Mikrofona dokun ve konuş':'Sesli yanıt kapalı';
   if(!voiceEnabled){localVoiceController?.stop();stopLiveVoice();if('speechSynthesis' in window)speechSynthesis.cancel()}
   if(announce&&voiceEnabled)speakUltron('Sesli ULTRON aktif. Canlı konuşmak için mikrofona dokun.',true);
 }
@@ -1390,11 +1392,11 @@ async function stopLiveVoice(){
   try{if(liveSocket)liveSocket.close()}catch{}
   micProcessor=micSource=micStream=micContext=liveSocket=null;
   $('#voiceBtn').classList.remove('listening');liveStatus('Mikrofona dokun ve konuş',false);
-  $('#stageVoiceText').textContent=voiceEnabled?(brainMode==='local'?'Ücretsiz Qwen ses hazır':'Gemini Live ses hazır'):'Sesli yanıt kapalı';
+  $('#stageVoiceText').textContent=voiceEnabled?'Mikrofona dokun ve konuş':'Sesli yanıt kapalı';
   setTimeout(()=>{intentionalVoiceStop=false},80);
 }
 async function startLiveVoice(){
-  if(brainMode!=='gemini'){toast('Gemini isteğe bağlı. Önce GEMINI modunu seç.');return}
+  if(brainMode!=='gemini')return;
   if(liveDesired||voiceListening){await stopLiveVoice();return}
   if(!voiceEnabled)setVoiceEnabled(true,false);
   if(!navigator.mediaDevices?.getUserMedia||!window.WebSocket){
@@ -1594,7 +1596,7 @@ async function boot(){
     setSplash('Oturum doğrulanıyor');
     await api('/api/session');
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#tabs').classList.remove('hidden');
-    setOnline(true,'Cloud bağlı');setSplash('Ortak sohbet yükleniyor');await loadMessages();restoreDraft();scrollChatToBottom(false);setVoiceEnabled(voiceEnabled,false);await refreshSpeakerStatus();hideSplash();
+    setOnline(true,'Cloud bağlı');setSplash('Ortak sohbet yükleniyor');await refreshAutoBrain(true);await loadMessages();restoreDraft();scrollChatToBottom(false);setVoiceEnabled(voiceEnabled,false);await refreshSpeakerStatus();hideSplash();
     // No microphone automatically starts on page load.
   }catch(e){
     hideSplash();
@@ -1656,29 +1658,34 @@ function runDirectPhoneCommand(text){
 }
 
 function updateBrainModeUi(){
-  const select=$('#brainMode');
-  if(!select)return;
-  select.value=brainMode;
-  $('#brainInfo').textContent=brainMode==='local'
-    ? 'Ücretsiz Qwen • bağlı Windows laptop gerekli'
-    : 'Gemini Cloud • mevcut sağlayıcı limitleri geçerli';
-  $('#localVoiceNotice').textContent=brainMode==='local'
-    ? 'Dokun-konuş: tarayıcı sesi yazıya çevirir, Windows Qwen yanıtlar. Tanıma hizmeti internet kullanabilir.'
-    : 'Gemini Live sesli konuşması için ayrıca mikrofona dokun. Sağlayıcı kotası geçerlidir.';
-  $('#voiceBtn').setAttribute('aria-label',brainMode==='local'?'Ücretsiz Qwen: konuşmak için dokun':'Gemini Live: başlat veya durdur');
-  $('#voiceBtn').title=brainMode==='local'?'Ücretsiz yerel Qwen • bas-konuş':'Gemini Live • isteğe bağlı';
-  if(!liveDesired&&!voiceListening&&!localVoiceController?.active())
-    $('#stageVoiceText').textContent=brainMode==='local'?'Ücretsiz Qwen ses hazır • mikrofona dokun':'Gemini Live hazır • mikrofona dokun';
+ $('#voiceBtn').setAttribute('aria-label','ULTRON mikrofonu');
+ $('#voiceBtn').title='Konuşmak için dokun';
+ if(!liveDesired&&!voiceListening&&!localVoiceController?.active())
+   $('#stageVoiceText').textContent=voiceEnabled?'Mikrofona dokun ve konuş':'Sesli yanıt kapalı';
+}
+async function refreshAutoBrain(force=false){
+ if(liveDesired||voiceListening||localVoiceController?.active())return brainMode;
+ if(!force&&Date.now()-brainLastCheck<4500)return brainMode;
+ if(brainChecking)return brainChecking;
+ brainChecking=(async()=>{
+   try{
+     const response=await api('/api/device-presence');
+     brainMode=window.ULTRONAutoBrain.select(response.devices);
+   }catch(e){brainMode='gemini'}
+   finally{brainLastCheck=Date.now();brainChecking=null;updateBrainModeUi()}
+   return brainMode;
+ })();
+ return brainChecking;
 }
 localVoiceController=window.ULTRONLocalVoice?.create({
   host:window,
   onState:state=>{
     const listening=state==='listening'||state==='starting';
     $('#voiceBtn').classList.toggle('listening',listening);
-    $('#stageVoiceText').textContent=state==='processing'?'Ücretsiz Qwen cevaplıyor…':
-      listening?'Seni dinliyorum • Qwen':'Ücretsiz Qwen ses hazır • dokun';
+    $('#stageVoiceText').textContent=state==='processing'?'Yanıt hazırlanıyor…':
+      listening?'Seni dinliyorum…':'Mikrofona dokun ve konuş';
     liveStatus(state==='listening'?'Seni dinliyorum…':
-      state==='processing'?'Qwen ile yanıt hazırlanıyor…':'Mikrofona dokun ve konuş',listening);
+      state==='processing'?'Yanıt hazırlanıyor…':'Mikrofona dokun ve konuş',listening);
   },
   onError:msg=>{toast(msg);liveStatus(msg,false)},
   onTranscript:async text=>{
@@ -1706,7 +1713,7 @@ async function localBrainAnswer(text){
       throw new Error(res.detail||'Yerel Ollama cevabı tamamlanamadı.');
     }
   }
-  throw new Error('Yerel model yanıtı gecikti. Windows ULTRON ve Ollama durumunu kontrol et; otomatik Gemini kullanmadım.');
+  throw new Error('Laptop yanıtı gecikti. Aynı mesajı tekrar göndermeden önce durumu kontrol et.');
 }
 async function send(fromVoice=false){
   if(pendingImage){await sendImage();return}
@@ -1736,22 +1743,16 @@ async function send(fromVoice=false){
   }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;scrollChatToBottom(false)}
 }
 $('#sendBtn').onclick=()=>send(false);
-$('#brainMode').onchange=e=>{
-  if(liveDesired||voiceListening){toast('Gemini Live konuşmasını kapatıp modu değiştirebilirsin.');updateBrainModeUi();return}
-  localVoiceController?.stop();
-  brainMode=e.target.value==='gemini'?'gemini':'local';
-  localStorage.setItem('ultronBrainModeV1',brainMode);
-  updateBrainModeUi();
-  toast(brainMode==='local'?'Ücretsiz Qwen seçildi; Windows ULTRON açık olmalı.':'Gemini isteğe bağlı seçildi.');
-};
 updateBrainModeUi();
-$('#voiceBtn').onclick=()=>{
-  if(brainMode==='local'){
-    if(liveDesired||voiceListening){toast('Önce Gemini Live oturumunu kapat.');return}
-    return localVoiceController?.toggle();
-  }
-  localVoiceController?.stop();
-  return startVoice();
+$('#voiceBtn').onclick=async()=>{
+ if(liveDesired||voiceListening){await stopLiveVoice();return}
+ if(localVoiceController?.active()){localVoiceController.stop();return}
+ const preferred=await refreshAutoBrain(true);
+ if(preferred==='local'){
+   if(localVoiceController?.toggle())return;
+   brainMode='gemini';
+ }
+ await startVoice();
 };
 $('#plusBtn').onclick=e=>{e.stopPropagation();toggleAttachMenu()};
 $('#photoOption').onclick=()=>{setAttachMenu(false);$('#imageInput').click()};
@@ -1848,6 +1849,10 @@ async function watchDesktopPresence(){
     const d=await api('/api/device-presence');
     const laptop=(d.devices||[]).find(x=>x.device==='desktop');
     const online=!!laptop?.online;
+    if(!liveDesired&&!voiceListening&&!localVoiceController?.active()){
+      brainMode=window.ULTRONAutoBrain.select(d.devices);
+      brainLastCheck=Date.now();updateBrainModeUi();
+    }
     const state=laptop?.state||{};
     // If the phone Live session is active, the phone owns audio continuously.
     // Do not flap output between devices as the desktop speaking heartbeat
@@ -2070,10 +2075,11 @@ setInterval(watchDesktopPresence,5000);
 setInterval(()=>{if(currentView==='remote')loadRemoteState().catch(()=>{})},3000);
 setInterval(watchLaptopTasks,2500);
 window.addEventListener('pagehide',()=>{localVoiceController?.stop();releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
-window.addEventListener('pageshow',()=>{if(brainMode==='local')updateBrainModeUi()});
+window.addEventListener('pageshow',()=>{void refreshAutoBrain(true)});
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){localVoiceController?.stop();stopPhoneCamera();releaseVoiceWakeLock().catch(()=>{});return}
   if(currentView==='chat')setUnread(0);
+   void refreshAutoBrain(true);
   phoneHeartbeat();messageSignature='';loadMessages().catch(()=>{});watchLaptopTasks().catch(()=>{});
   if(currentView==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{})}
   if(liveDesired){
