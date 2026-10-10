@@ -92,9 +92,32 @@ _CODING_COMMAND = re.compile(
     r"write (?:some |a |the )?(?:code|script|function)|"
     r"fix (?:the |this )?(?:bug|code))\b", re.I
 )
+_CONTINUE_ONLY = re.compile(
+    r"(?:devam et|devam|kaldığın yerden devam et|"
+    r"aynı şekilde devam et|continue|keep going|go on)[\s.!?]*",
+    re.I,
+)
 
 
-def _local_text_task(text: str) -> str:
+def _local_text_task(text: str, turns=None) -> str:
+    # Bare continuations should keep the latest substantive intent, rather
+    # than suddenly switch a coding conversation to the FAST chat model.
+    # Only a few already-scoped owner conversation turns are considered.
+    if _CONTINUE_ONLY.fullmatch(text.strip()) and isinstance(turns, list):
+        for turn in reversed(turns[-10:]):
+            if not hasattr(turn, "get") or turn.get("role") != "user":
+                continue
+            prior = turn.get("content")
+            if not isinstance(prior, str):
+                continue
+            prior = prior.strip()
+            if not prior:
+                continue
+            if _CONTINUE_ONLY.fullmatch(prior):
+                continue
+            # Do not carry over image or old coding intent after a new topic.
+            past_task = _local_text_task(prior)
+            return "FAST" if past_task == "VISION" else past_task
     task = classify_text(text)
     if task == "CODING":
         if _NO_CODE.search(text) or (
@@ -184,7 +207,7 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     if not chat_models:
         # Never substitute a visual-only or unknown model for local Qwen chat.
         raise LocalBrainUnavailable("Yerel sohbet için kurulu Qwen modeli bulunamadı.")
-    task=_local_text_task(text)
+    task=_local_text_task(text, turns)
     # A text-only how-to question about analysing images needs a language
     # model, not a vision-only model with no pixels supplied.
     if task == "VISION" and _image_howto(text):
