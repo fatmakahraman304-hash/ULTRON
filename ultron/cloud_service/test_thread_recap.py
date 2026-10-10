@@ -128,5 +128,49 @@ class RecapLoaderTests(unittest.IsolatedAsyncioTestCase):
         ),[])
         self.assertEqual(db2.calls[0][1][-1],80)
 
+    async def test_long_recap_uses_true_midpoint_not_last_80_midpoint(self):
+        class LongDB:
+            def __init__(self):
+                self.rows = [
+                    {"id":i+1, "role":"user" if i%2==0 else "assistant",
+                     "content":f"Topic sequence {i}"}
+                    for i in range(152)
+                ]
+                self.rows[0]["content"] = "TRUE_BEGIN_MERCEDES_C180"
+                self.rows[75]["content"] = "TRUE_MIDDLE_ARCHITECTURE"
+                self.rows[-1]["content"] = "TRUE_END_ULTRON_VOICE"
+                self.calls = []
+
+            async def fetch(self, sql, *args):
+                self.calls.append((sql,args))
+                if "DESC" in sql:
+                    return list(reversed(self.rows[-args[3]:]))
+                if "OFFSET $5" in sql:
+                    return self.rows[args[4]:args[4]+args[3]]
+                return self.rows[:args[3]]
+
+            async def fetchval(self, sql, *args):
+                self.calls.append((sql,args))
+                return len(self.rows)
+
+        db = LongDB()
+        turns = await load_contextual_thread_turns(
+            db, "owner-1", "thread-2", question="Bu sohbeti özetle",
+            before_id=200, max_chars=2800, limit=14,
+        )
+        content = " ".join(t["content"] for t in turns)
+        for expected in ("TRUE_BEGIN_MERCEDES_C180",
+                         "TRUE_MIDDLE_ARCHITECTURE",
+                         "TRUE_END_ULTRON_VOICE"):
+            self.assertIn(expected, content)
+        self.assertLessEqual(len(turns), 14)
+        self.assertLessEqual(sum(len(t["content"]) for t in turns), 2800)
+        self.assertTrue(any("OFFSET $5" in sql for sql, _ in db.calls))
+        for sql, args in db.calls:
+            self.assertIn("user_id=$1 AND conversation_id=$2", sql)
+            self.assertIn("id < $3", sql)
+            self.assertEqual(args[:3], ("owner-1", "thread-2", 200))
+
+
 if __name__=="__main__":
     unittest.main()

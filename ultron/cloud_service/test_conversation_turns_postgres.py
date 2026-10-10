@@ -112,4 +112,28 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
       question="İlk söylediğine geri dön.")
   self.assertEqual(len(other),1)
 
+ async def test_recap_after_120_messages_preserves_true_middle_and_isolation(self):
+  await self.add(self.c1,"ci-dialogue-a","user","TRUE_START: Mercedes C180")
+  await self.add(self.c1,"ci-dialogue-a","assistant","İlk yanıt")
+  await self.add(self.c2,"ci-dialogue-a","user","OTHER_THREAD_SECRET")
+  await self.add(self.c3,"ci-dialogue-b","user","OTHER_OWNER_SECRET")
+  for i in range(124):
+   text = "TRUE_MIDDLE: Mimarlık maketi" if i == 61 else f"Later topic {i}"
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant", text)
+  await self.add(self.c1,"ci-dialogue-a","user","TRUE_END: ULTRON ses")
+  await self.add(self.c1,"ci-dialogue-a","assistant","Mikrofon konuşması")
+  current = await self.add(self.c1,"ci-dialogue-a","user","Bu sohbeti özetle")
+  turns = await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c1,question="Bu sohbeti özetle",
+      before_id=current,max_chars=2800,limit=14)
+  combined = " ".join(t["content"] for t in turns)
+  self.assertIn("TRUE_START:", combined)
+  self.assertIn("TRUE_MIDDLE:", combined)
+  self.assertIn("TRUE_END:", combined)
+  self.assertNotIn("OTHER_", combined)
+  self.assertLessEqual(len(turns),14)
+  self.assertLessEqual(sum(len(t["content"]) for t in turns),2800)
+
+
 if __name__=="__main__":unittest.main()

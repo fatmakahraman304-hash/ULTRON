@@ -265,18 +265,63 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
         return start + prepare_turns(tail, max_chars=cap - sum(len(t["content"]) for t in start),
                                      max_turns=n - len(start))
     if is_thread_recap_request(question):
+        # Ordinary chats use one bounded fetch. For long conversations the
+        # most recent 80 rows are NOT a representative whole-chat recap.
         window = max(n, min(int(lookback), 80))
-        rows = await pool.fetch(
-            "SELECT role,content FROM messages "
+        scope = (
             "WHERE user_id=$1 AND conversation_id=$2 "
             "AND ($3::bigint IS NULL OR id < $3) "
             "AND role IN ('user','assistant') "
-            "ORDER BY id DESC LIMIT $4",
+        )
+        rows = await pool.fetch(
+            "SELECT id,role,content FROM messages " + scope
+            + "ORDER BY id DESC LIMIT $4",
             user_id, conversation_id, before_id, window,
         )
-        return select_recap_turns(
-            list(reversed(rows)), max_chars=max_chars, max_turns=n,
+        if len(rows) < window or n < 4 or max_chars <= 0:
+            return select_recap_turns(
+                list(reversed(rows)), max_chars=max_chars, max_turns=n,
+            )
+        total = await pool.fetchval(
+            "SELECT COUNT(*) FROM messages " + scope,
+            user_id, conversation_id, before_id,
         )
+        if total <= window:
+            return select_recap_turns(
+                list(reversed(rows)), max_chars=max_chars, max_turns=n,
+            )
+
+        # Retrieve actual beginning/midpoint/end, not the start and midpoint
+        # of the latest 80 messages. All three slices are owner/thread scoped.
+        start_count = max(1, n // 4)
+        middle_count = max(1, n // 6) if n >= 6 else 0
+        recent_count = n - start_count - middle_count
+        beginning = await pool.fetch(
+            "SELECT id,role,content FROM messages " + scope
+            + "ORDER BY id ASC LIMIT $4",
+            user_id, conversation_id, before_id, start_count,
+        )
+        middle = []
+        if middle_count:
+            offset = max(start_count, (int(total) - middle_count) // 2)
+            middle = await pool.fetch(
+                "SELECT id,role,content FROM messages " + scope
+                + "ORDER BY id ASC LIMIT $4 OFFSET $5",
+                user_id, conversation_id, before_id, middle_count, offset,
+            )
+        tail = list(reversed(rows[:recent_count]))
+        cap = max(0, min(int(max_chars), 7200))
+        first_turns = prepare_turns(
+            beginning, max_chars=cap // 4, max_turns=start_count,
+        )
+        mid_turns = prepare_turns(
+            middle, max_chars=cap // 5, max_turns=middle_count,
+        ) if middle_count else []
+        used = sum(len(t["content"]) for t in first_turns + mid_turns)
+        last_turns = prepare_turns(
+            tail, max_chars=cap - used, max_turns=recent_count,
+        )
+        return first_turns + mid_turns + last_turns
     terms = _topic_terms(question)
     if not terms:
         return await load_thread_turns(
