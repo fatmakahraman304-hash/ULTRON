@@ -72,6 +72,18 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     if choice.model not in models:
         raise LocalBrainUnavailable("Seçilen yerel model kurulu değil.")
     config=policy.runtime_options(choice.model,tools=False)
+    # Conversational replies benefit from less deterministic sampling and enough
+    # output tokens to finish a thought. Keep small-laptop bounds intact.
+    runtime=dict(config.get("options") or {})
+    detailed=any(x in text.casefold() for x in
+                 ("detaylı", "ayrıntılı", "adım adım", "uzun anlat",
+                  "in detail", "step by step"))
+    base=int(runtime.get("num_predict",192))
+    runtime["num_predict"]=min(420,max(base,360 if detailed else 240))
+    runtime["temperature"]=0.55
+    runtime["top_p"]=0.9
+    runtime["repeat_penalty"]=1.08
+    config["options"]=runtime
     # Ollama may finish slowly on CPU offload; Cloud worker renews the lease.
     result=_get_json("/api/chat",{
         "model":choice.model,
