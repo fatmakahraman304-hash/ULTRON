@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
-from conversation_turns import prepare_turns,load_thread_turns,ollama_messages,gemini_turns
+from conversation_turns import prepare_turns,load_thread_turns,ollama_messages,gemini_turns,bounded_user_request
 from conversation_persona import build_system_instruction
 
 
@@ -42,6 +42,19 @@ class HistoryContractTests(unittest.TestCase):
   for prepared in (ollama_messages("ULTRON",result,"Peki?"),
                    gemini_turns(result,"Peki?")):
    self.assertIn("SON DÜZELTME",str(prepared))
+
+ def test_current_long_question_retains_late_correction_for_both_models(self):
+  correction="SON TALİMAT: Arayüzde buton istemiyorum, sade kalsın."
+  for limit,builder in ((3000,ollama_messages),(16000,gemini_turns)):
+   current="BAŞLANGIÇ: ULTRON arayüz tasarımı. "+("detaylı anlatım "*2200)+correction
+   output=builder("SYSTEM",[],current) if builder is ollama_messages else builder([],current)
+   text=output[-1]["content"]
+   self.assertIn("BAŞLANGIÇ:",text)
+   self.assertIn(correction,text)
+   self.assertIn("[middle omitted]",text)
+   self.assertLessEqual(len(text),limit)
+   self.assertEqual(text,bounded_user_request(current,limit))
+   self.assertEqual(bounded_user_request("Peki?",limit),"Peki?")
 
  def test_history_cap_older_messages_and_control_roles(self):
   rows=[{"role":"user" if i%2==0 else "assistant","content":"x"*800} for i in range(30)]

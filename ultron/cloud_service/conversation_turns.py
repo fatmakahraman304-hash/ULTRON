@@ -27,6 +27,15 @@ def _bounded_excerpt(text: str, size: int) -> str:
     return text[:front].rstrip() + marker + text[-(available-front):].lstrip()
 
 
+def bounded_user_request(prompt: str, size: int) -> str:
+    """Preserve the opening *and latest correction* of an overlong user turn.
+
+    A request is never expanded beyond the caller's original provider limit.
+    Normal short questions remain byte-for-byte unchanged after outer trim.
+    """
+    return _bounded_excerpt(str(prompt or "").strip(), size).strip()
+
+
 def prepare_turns(rows, *, max_chars: int = 3200, max_turns: int = 14) -> list[dict[str, str]]:
     """Return recent chronological user/assistant turns, with newest priority."""
     cap = max(0, min(int(max_chars), 7200))
@@ -75,7 +84,7 @@ def ollama_messages(system: str, turns, current: str) -> list[dict[str, str]]:
     """Create only system/user/assistant roles; history never becomes system."""
     result = [{"role": "system", "content": str(system or "")[:5400]}]
     result.extend(prepare_turns(turns, max_chars=2600, max_turns=12))
-    result.append({"role": "user", "content": str(current or "")[:3000]})
+    result.append({"role": "user", "content": bounded_user_request(current, 3000)})
     return result
 
 
@@ -83,7 +92,7 @@ def gemini_turns(turns, current: str) -> list[dict[str, str]]:
     result = [{"role": "model" if t["role"] == "assistant" else "user",
                "content": t["content"]}
               for t in prepare_turns(turns, max_chars=5200, max_turns=16)]
-    result.append({"role": "user", "content": str(current or "")[:16000]})
+    result.append({"role": "user", "content": bounded_user_request(current, 16000)})
     return result
 
 

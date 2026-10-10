@@ -14,7 +14,7 @@ import urllib.request
 from pathlib import Path
 
 from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
-from ultron.cloud_service.conversation_turns import ollama_messages
+from ultron.cloud_service.conversation_turns import ollama_messages, bounded_user_request
 from ultron.cloud_service.response_quality import finalize_response
 
 _ROOT=Path(__file__).resolve().parents[1]
@@ -81,7 +81,7 @@ def local_chat_ready() -> bool:
 
 
 def local_chat(prompt:str,system:str,turns=None)->dict:
-    text=str(prompt or "").strip()[:3000]
+    text=bounded_user_request(prompt,3000)
     if not text:
         raise ValueError("empty_local_prompt")
     settings=json.loads(_SETTINGS.read_text(encoding="utf-8"))["llm"]
