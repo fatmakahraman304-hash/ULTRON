@@ -12,7 +12,9 @@ const app=fs.readFileSync(path.join(base,'app.py'),'utf8');
 
 test('PWA speech and typed WORLD controls accept only allowlisted same-origin iframe commands',()=>{
  assert.match(pwa,/function worldVoiceIntent\(text\)/);
- assert.match(pwa,/worldVoiceIntent\(heard\)/);
+ assert.match(pwa,/handlePanelIntent\(heard\)/);
+ assert.match(pwa,/function handlePanelIntent\(text\)/);
+ assert.match(pwa,/if\(!worldVoiceIntent\(text\)\)showView\('world'\)/);
  assert.match(pwa,/worldVoiceIntent\(text\)/);
  assert.match(pwa,/worldCommandQueue\.length>=4/);
  assert.match(js,/event\.origin!==location\.origin\|\|event\.source!==window\.parent/);
@@ -20,9 +22,10 @@ test('PWA speech and typed WORLD controls accept only allowlisted same-origin if
  assert.match(js,/Number\.isFinite\(lat\)/);
  assert.ok(js.includes("['flights','quakes','weather'].includes(cmd.value)"));
 });
-test('iPhone PWA actually embeds WORLD module as the fourth tab',()=>{
+test('iPhone PWA embeds WORLD behind the on-demand workspace menu',()=>{
  assert.match(pwa,/<section id="worldView" class="view">/);
  assert.match(pwa,/<button data-view="world">DÜNYA<\/button>/);
+ assert.match(pwa,/\.tabs:not\(\.panel-nav-open\)\{opacity:0!important/);
  assert.match(pwa,/iframe id="worldFrame"[^>]*src="\/static\/world.html"/);
 });
 test('2D map offers OpenStreetMap zoom to house scale with required attribution',()=>{
