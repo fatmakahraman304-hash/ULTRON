@@ -1,3 +1,9 @@
+## 2026-10-10 — Pilot availability / non-Qwen mislabelling guard
+
+- Functional SHA `ceef1f499ccb5690de3bdcd8289873a5d6f8c52f` (initial feature `bf9ddc28b112266228a606e4c2fd817a7625f558`). Cloud/PostgreSQL CI [38076948096](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948096) **SUCCESS**; Scene/Frontend [38076948157](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948157) **SUCCESS**.
+- New unit tests check that pilot includes 2 per category/1 Turkish and 1 English, never modifies frozen SHA256, and that Qwen-family labels are recognized while Llava/Llama/QwQ/other models are rejected as Qwen. A no-network CLI pilot test with missing Gemini key verifies actual `not_run` status and null model score rather than fake 20/20 success.
+- Pilot requests can produce real model transcripts only on a host with configured authorized API key or installed reachable local Qwen; **none were actually available/tested here**. CI passing does not measure quality, inference latency or true production deployment. Exact Render LIVE SHA, Windows/iPhone device behavior unverified; final Windows update postponed.
+
 ## 2026-10-10 — Oldest historical Q&A survival under dense matches
 
 - Code SHA `f73d43358715358dc21b48f4b34c510307627f3f`. [Cloud Queue PostgreSQL Integration run 38073658327](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658327): **SUCCESS**. [ULTRON Scene Build Check run 38073658416](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658416): **SUCCESS**.

@@ -1,3 +1,12 @@
+# Current priority — live conversational acceptance pilot (2026-10-10)
+
+- **Latest verified code:** `ceef1f499ccb5690de3bdcd8289873a5d6f8c52f` (preceded by `bf9ddc28b112266228a606e4c2fd817a7625f558`). [Cloud/PostgreSQL CI #38076948096](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948096) and [Scene/Frontend CI #38076948157](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948157) both **SUCCESS**.
+- **Added real-model pilot:** `python evals/conversation/run.py --provider gemini --pilot --output /tmp/gemini-pilot.json` (or `--provider qwen`) evaluates 20 balanced scenarios: one TR and one EN per ten existing categories. Remaining 80 are explicitly NOT_RUN; full 100 frozen scenarios remain unchanged. No fake inference or success rate is generated.
+- **Provider attribution:** The Qwen evaluator refuses to label other Ollama-family models (e.g. Llava/Llama) as Qwen. Gemini model labels still identify the actual primary/fallback call. Regression tests cover bilingual selection, family recognition, and the no-Gemini-key end-to-end pilot report producing 0 captured and no score.
+- **NEXT:** Run authorized real Gemini and reachable Qwen on actual respective hosts; inspect real pilot transcripts with independent reviewers, then run all 100 per provider and compare quality/latency. No access to owner's Windows Ollama or Gemini key from the GitHub-only CI session. Exact latest Render deployed SHA and physical phone/Windows tests remain unverified. Do not update JARVIS-style percentages without measured model data; Windows final update remains intentionally postponed.
+
+---
+
 # Current priority — validated long-topic recall (2026-10-10)
 
 1. **Latest functional code SHA:** `f73d43358715358dc21b48f4b34c510307627f3f`. Exact-SHA GitHub Cloud Queue PostgreSQL Integration [38073658327](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658327): **SUCCESS**; ULTRON Scene Build Check [38073658416](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38073658416): **SUCCESS**.

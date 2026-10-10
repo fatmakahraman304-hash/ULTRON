@@ -1,3 +1,11 @@
+## 2026-10-10 — 20-case bilingual pilot and honest provider labeling
+
+- Functional SHAs: `bf9ddc28b112266228a606e4c2fd817a7625f558`, followed by verified `ceef1f499ccb5690de3bdcd8289873a5d6f8c52f`.
+- Pilot selector draws 10 TR + 10 EN from all 10 existing categories (20 out of frozen 100), zero changed criteria, and reports 80 unselected cases as NOT_RUN. Allows an authorized small real-model pass before spending time/API quota on a full evaluation.
+- Read-only Qwen evaluator now checks that locally installed and actually selected Ollama model belongs to Qwen; another-family output is never scored under Qwen. Production model routing is unchanged.
+- Gemini preflight safe failure emits explicit `GEMINI_API_KEY_not_configured` without revealing any actual credential. New offline CLI regression verifies 0 captured, 100 NOT_RUN with 20 unavailable and 80 pilot exclusions; model score remains null. This is **not** a live Gemini run.
+- **GitHub exact-code checks SUCCESS:** [Cloud/PostgreSQL #38076948096](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948096), [Scene/Frontend #38076948157](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38076948157). Still NOT MEASURED: actual Gemini/Qwen model quality, p50/p95 on real hardware, production Render SHA, physical iPhone/Windows voice and local inference. No Windows change.
+
 ## 2026-10-10 — Dense older named-topic mentions: oldest + newest scoped recall
 
 - Functional code SHA `f73d43358715358dc21b48f4b34c510307627f3f` on `feat/ultron-cloud-shared-memory`.

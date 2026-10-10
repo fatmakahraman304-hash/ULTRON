@@ -1,3 +1,12 @@
+## Natural conversation measurement: real small pilot (2026-10-10)
+
+- [x] Add provider-specific `--pilot` to test 20 existing balanced TR/EN scenarios without touching frozen acceptance criteria; 80 unselected remain NOT_RUN, not false failures or passes.
+- [x] Reject non-Qwen model selection in Qwen-specific evaluation; no production Ollama fallback changes.
+- [x] Safe no-key Gemini pilot regression confirms no fabricated transcript, no score, and explicit NOT_RUN reasons.
+- [x] Cloud/PostgreSQL CI `38076948096` and Scene/Frontend CI `38076948157` passed on `ceef1f499ccb5690de3bdcd8289873a5d6f8c52f`.
+- [ ] Run actual Gemini/Qwen pilot on authorized/reachable model providers, inspect independent reviews, then 100-case benchmark, latency and corrective iterations. Real quality remains NOT MEASURED.
+- [ ] Verify exact Render release SHA and device voice/inference before final one-time Windows update.
+
 ## Natural conversation — persistent oldest/newest topic retrieval (2026-10-10)
 
 - [x] Fix omission of the original named-topic Q&A when more than 24 older lexical matches exist.
