@@ -387,49 +387,80 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
         user_id, conversation_id, before_id, lookback,
     )
     selected = list(reversed(rows))
-    # Ordinary chat reads remain unchanged. Only an explicit, named 'what did
-    # we say?' request with no relevant topic in the last 80 turns can trigger
-    # a deeper lexical lookup. Every query keeps the same owner/thread/cutoff.
+    # An incidental mention in recent chat is NOT evidence that we retained
+    # the owner's original question and its answer. Explicit named historical
+    # recall may inspect earlier same-thread messages even if every query term
+    # also appears in the most recent 80 turns. Ordinary chat never does.
     if (is_named_recall_request(question) and len(rows) == lookback
             and max_chars > 0 and n >= 4):
         earliest = rows[-1].get("id")
         if isinstance(earliest, int) and earliest > 0:
-            recent_terms = set().union(*(
-                _topic_terms(r.get("content", "")) for r in rows
-            ))
-            missing_terms = terms - recent_terms
-            if missing_terms:
-                patterns = ["%" + term + "%" for term in
-                            sorted(missing_terms, key=lambda t: (-len(t), t))[:3]]
-                matches = await pool.fetch(
+            # Bounded, parameterized lexical candidates; never interpolate
+            # message text into SQL or search another account/conversation.
+            patterns = ["%" + term + "%" for term in
+                        sorted(terms, key=lambda t: (-len(t), t))[:4]]
+            candidates = await pool.fetch(
+                "SELECT id,role,content FROM messages "
+                "WHERE user_id=$1 AND conversation_id=$2 "
+                "AND ($3::bigint IS NULL OR id < $3) "
+                "AND id < $4 AND role IN ('user','assistant') "
+                "AND content ILIKE ANY($5::text[]) "
+                "ORDER BY id DESC LIMIT $6",
+                user_id, conversation_id, before_id, earliest, patterns, 24,
+            )
+            # Prefer messages covering more of the user's distinct topic
+            # terms instead of only taking the newest partial keyword match.
+            ranked = sorted(
+                (row for row in candidates
+                 if row.get("role") in ("user", "assistant")
+                 and isinstance(row.get("content"), str)),
+                key=lambda row: (
+                    len(terms & _topic_terms(row["content"])),
+                    row["role"] == "user",
+                    row["id"],
+                ),
+                reverse=True,
+            )
+            matches = ranked[:2]
+            evidence = {row["id"]: row for row in matches}
+            for match in matches:
+                after_user = match["role"] == "user"
+                nearby = await pool.fetch(
                     "SELECT id,role,content FROM messages "
                     "WHERE user_id=$1 AND conversation_id=$2 "
                     "AND ($3::bigint IS NULL OR id < $3) "
                     "AND id < $4 AND role IN ('user','assistant') "
-                    "AND content ILIKE ANY($5::text[]) "
-                    "ORDER BY id DESC LIMIT $6",
-                    user_id, conversation_id, before_id, earliest, patterns, 2,
+                    "AND id " + (">" if after_user else "<") + " $5 "
+                    "ORDER BY id " + ("ASC" if after_user else "DESC")
+                    + " LIMIT 1",
+                    user_id, conversation_id, before_id, earliest, match["id"],
                 )
-                evidence = {row["id"]: row for row in matches}
-                for match in matches:
-                    # Restore an actual adjacent user -> assistant exchange
-                    # instead of quoting a disconnected previous answer.
-                    after_user = match["role"] == "user"
-                    nearby = await pool.fetch(
-                        "SELECT id,role,content FROM messages "
-                        "WHERE user_id=$1 AND conversation_id=$2 "
-                        "AND ($3::bigint IS NULL OR id < $3) "
-                        "AND id < $4 AND role IN ('user','assistant') "
-                        "AND id " + (">" if after_user else "<") + " $5 "
-                        "ORDER BY id " + ("ASC" if after_user else "DESC")
-                        + " LIMIT 1",
-                        user_id, conversation_id, before_id, earliest, match["id"],
+                if nearby and nearby[0]["role"] == (
+                    "assistant" if after_user else "user"
+                ):
+                    evidence[nearby[0]["id"]] = nearby[0]
+            if evidence:
+                # Explicit historical Q&A receives a reserved, capped share;
+                # otherwise newer incidental matches could evict it again.
+                cap = max(0, min(int(max_chars), 7200))
+                old_rows = [evidence[key] for key in sorted(evidence)][:4]
+                old_budget = cap // 4
+                per_turn = min(1000, old_budget // len(old_rows))
+                old_excerpts = [
+                    {"role": row["role"],
+                     "content": _bounded_excerpt(row["content"].strip(), per_turn)}
+                    for row in old_rows
+                ]
+                old_turns = prepare_turns(
+                    old_excerpts, max_chars=old_budget, max_turns=4,
+                )
+                if old_turns:
+                    remaining = cap - sum(len(t["content"]) for t in old_turns)
+                    new_turns = select_contextual_turns(
+                        selected, question, max_chars=remaining,
+                        max_turns=n - len(old_turns),
                     )
-                    if nearby and nearby[0]["role"] == (
-                        "assistant" if after_user else "user"
-                    ):
-                        evidence[nearby[0]["id"]] = nearby[0]
-                selected = [evidence[key] for key in sorted(evidence)] + selected
+                    return old_turns + new_turns
     return select_contextual_turns(
         selected, question,
         max_chars=max_chars, max_turns=n,

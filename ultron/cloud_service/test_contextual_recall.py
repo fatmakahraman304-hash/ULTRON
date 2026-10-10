@@ -116,6 +116,60 @@ class ContextualRecallUnitTests(unittest.TestCase):
             self.assertFalse(any("ILIKE ANY" in sql for sql,_ in normal.calls))
         asyncio.run(go())
 
+    def test_recent_incidental_name_cannot_hide_old_question_answer(self):
+        class DB:
+            def __init__(self):
+                self.calls = []
+                self.latest = [
+                    {"id":i, "role":"user" if i%2 else "assistant",
+                     "content":f"Güncel sohbet konu {i}"}
+                    for i in range(100,180)
+                ]
+                self.latest[8]["content"] = "Mercedes C180 adı sadece örnek olarak geçti."
+            async def fetch(self,sql,*args):
+                self.calls.append((sql,args))
+                if "ILIKE ANY" in sql:
+                    return [{"id":1,"role":"user",
+                             "content":"Mercedes C180 2009 fren ve bakım masrafı"}]
+                if "AND id > $5" in sql:
+                    return [{"id":2,"role":"assistant",
+                             "content":"Ön fren disklerini kontrol edecektik."}]
+                if "AND id < $5" in sql:
+                    return []
+                return list(reversed(self.latest))
+
+        import asyncio
+        async def run():
+            db=DB()
+            turns=await load_contextual_thread_turns(
+                db,"owner-a","thread-a",
+                question="Mercedes C180 hakkında ne demiştik?",
+                before_id=1000,max_chars=2600,limit=12)
+            text=" ".join(item["content"] for item in turns)
+            self.assertIn("2009 fren ve bakım",text)
+            self.assertIn("Ön fren disklerini",text)
+            self.assertIn("konu 179",text)
+            self.assertLessEqual(len(turns),12)
+            self.assertLessEqual(sum(len(item["content"]) for item in turns),2600)
+            self.assertTrue(any("ILIKE ANY" in sql for sql,_ in db.calls))
+            self.assertFalse(any(
+                args[:3] != ("owner-a","thread-a",1000)
+                for _,args in db.calls))
+            # No old-match evidence: do not invent an historical exchange.
+            no_old=DB()
+            async def no_match(sql,*args):
+                no_old.calls.append((sql,args))
+                if "ILIKE ANY" in sql:
+                    return []
+                return list(reversed(no_old.latest))
+            no_old.fetch=no_match
+            result=await load_contextual_thread_turns(
+                no_old,"owner-a","thread-a",
+                question="Mercedes C180 hakkında ne demiştik?",
+                before_id=1000,max_chars=2600,limit=12)
+            self.assertNotIn("fren disklerini",str(result))
+        asyncio.run(run())
+
     def test_no_topic_uses_small_sql_window(self):
         class DB:
             def __init__(self): self.query=None

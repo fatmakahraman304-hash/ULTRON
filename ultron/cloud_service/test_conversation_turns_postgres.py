@@ -159,4 +159,30 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertLessEqual(sum(len(t["content"]) for t in turns),2800)
 
 
+ async def test_old_answer_survives_incidental_recent_topic_and_owner_isolation(self):
+  await self.add(self.c1,"ci-dialogue-a","user","Mercedes C180 2009 orijinal fren masrafı")
+  await self.add(self.c1,"ci-dialogue-a","assistant","Ön fren disklerini kontrol edelim")
+  await self.add(self.c2,"ci-dialogue-a","user","OTHER_THREAD Mercedes C180 special")
+  await self.add(self.c3,"ci-dialogue-b","user","OTHER_OWNER Mercedes C180 special")
+  for i in range(124):
+   text=("Mercedes C180 sadece örnek, eski fren yanıtı yok" if i==40
+         else f"İlgisiz güncel sohbet {i}")
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant",text)
+  current=await self.add(self.c1,"ci-dialogue-a","user",
+                         "Mercedes C180 hakkında ne demiştik?")
+  turns=await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c1,
+      question="Mercedes C180 hakkında ne demiştik?",
+      before_id=current,max_chars=3000,limit=14)
+  text=" ".join(x["content"] for x in turns)
+  self.assertIn("orijinal fren masrafı",text)
+  self.assertIn("Ön fren disklerini",text)
+  self.assertIn("güncel sohbet 123",text)
+  self.assertNotIn("OTHER_THREAD",text)
+  self.assertNotIn("OTHER_OWNER",text)
+  self.assertLessEqual(len(turns),14)
+  self.assertLessEqual(sum(len(x["content"]) for x in turns),3000)
+
+
 if __name__=="__main__":unittest.main()
