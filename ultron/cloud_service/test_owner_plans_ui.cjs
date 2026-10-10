@@ -15,7 +15,7 @@ function fakeDOM() {
     addEventListener(event, fn) { this.listeners[event]=fn; }
   }
   const ids = ["refreshOwnerPlans","saveOwnerPlan","ownerPlansStatus","ownerPlansList",
-               "planTitle","planDate","planTime","planNote","cancelPlanEdit"];
+               "planTitle","planDate","planTime","planNote","cancelPlanEdit","planExportTimezone","exportOwnerPlans"];
   const elements=Object.fromEntries(ids.map(id=>[id,new Node()]));
   return {document:{getElementById:id=>elements[id]||null,createElement:()=>new Node()},elements};
 }
@@ -126,6 +126,25 @@ test("failed edit preserves unsaved values for correction without falsely succee
   assert.equal(elements.planTitle.value,"Korunan değişiklik");
   assert.equal(elements.saveOwnerPlan.textContent,"DEĞİŞİKLİKLERİ KAYDET");
 });
+test("calendar export requires explicit click and fixed timezone allowlist", async()=>{
+  const {document,elements}=fakeDOM(), calls=[],exports=[];
+  elements.planExportTimezone.value="Asia/Nicosia";
+  const ui=plans.create({document,
+    fetchJson:async(...args)=>{calls.push(args);return {plans:[]}},
+    openExport:url=>exports.push(url),
+  });
+  ui.init();
+  assert.deepEqual(exports,[]);
+  assert.deepEqual(calls,[]);
+  await elements.exportOwnerPlans.listeners.click();
+  assert.deepEqual(exports,["/api/owner-plans/calendar.ics?tz=Asia%2FNicosia"]);
+  assert.deepEqual(calls,[]);
+  assert.match(elements.ownerPlansStatus.textContent,/otomatik ekleme yapılmadı/);
+  elements.planExportTimezone.value="unsafe-zone";
+  await elements.exportOwnerPlans.listeners.click();
+  assert.equal(exports.length,1);
+  assert.match(elements.ownerPlansStatus.textContent,/Geçerli/);
+});
 test("invalid input does not make network request", async()=>{
   const {document,elements}=fakeDOM(), calls=[];
   const view=plans.create({document,fetchJson:async (...args)=>{calls.push(args);return {plans:[]}}});
@@ -137,7 +156,7 @@ test("invalid input does not make network request", async()=>{
 test("mobile UI has manual calendar fields, cache and initializer",()=>{
   const html=fs.readFileSync(path.join(__dirname,"static/index.html"),"utf8");
   const sw=fs.readFileSync(path.join(__dirname,"static/sw.js"),"utf8");
-  for(const id of ["planTitle","planDate","planTime","planNote","saveOwnerPlan","cancelPlanEdit","refreshOwnerPlans","ownerPlansList"])
+  for(const id of ["planTitle","planDate","planTime","planNote","saveOwnerPlan","cancelPlanEdit","refreshOwnerPlans","ownerPlansList","planExportTimezone","exportOwnerPlans"])
     assert.ok(html.includes('id="'+id+'"'),id);
   assert.ok(html.includes('ULTRONOwnerPlans?.create'));
   assert.ok(html.includes('<script src="/static/owner-plans.js"></script>'));
