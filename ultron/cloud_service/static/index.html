@@ -1731,9 +1731,19 @@ async function send(fromVoice=false){
   }
   $('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
   try{
-    const d=brainMode==='local'
-      ? await localBrainAnswer(text)
-      : await api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
+    const cloud=()=>api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
+    const preferred=await refreshAutoBrain(true);
+    let d;
+    if(preferred==='local'){
+      try{d=await localBrainAnswer(text)}
+      catch(e){
+        // Only explicit desktop_offline rejection occurs before local queue
+        // insertion, so this is the sole safe transparent cloud retry.
+        if(!window.ULTRONAutoBrain.safeToFallback(e))throw e;
+        brainMode='gemini';brainLastCheck=Date.now();
+        d=await cloud();
+      }
+    }else d=await cloud();
     conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);
     rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply);
     messageSignature='';if(fromVoice||voiceEnabled)speakUltron(d.reply);
