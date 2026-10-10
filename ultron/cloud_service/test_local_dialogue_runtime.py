@@ -26,6 +26,24 @@ class LocalConversationTests(unittest.TestCase):
         self.assertEqual(len(calls),1)
         return calls[0][0]
 
+    def test_text_only_vision_request_never_infers_image_content(self):
+        for prompt in ("Bu fotoğrafı analiz et",
+                       "Şu ekran görüntüsünü oku",
+                       "Analyze this screenshot",
+                       "What is in this picture?"):
+            with self.subTest(prompt=prompt):
+                with patch.object(local, "installed_models",
+                                  side_effect=AssertionError("no model probe")):
+                    with patch.object(local, "_get_json",
+                                      side_effect=AssertionError("no inference")):
+                        reply=local.local_chat(prompt, "ULTRON", [])
+                self.assertEqual(reply["model"], "")
+                self.assertEqual(reply["provider"], "local-no-image")
+                self.assertIn("görsel ulaşmadı", reply["reply"])
+                self.assertNotIn("görseli görüyorum", reply["reply"])
+        wire=self.run_local("Mercedes C180 bakımı?", [])
+        self.assertTrue(wire["model"].startswith("qwen"))
+
     def test_previous_turns_are_actual_model_messages(self):
         msg=self.run_local("Peki fiyatı?",[
             {"role":"user","content":"Mercedes C180 bakıyorum"},

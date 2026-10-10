@@ -8,6 +8,7 @@ must already be installed; no automatic download or paid API fallback.
 from __future__ import annotations
 
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -22,6 +23,28 @@ _ROOT=Path(__file__).resolve().parents[1]
 _SETTINGS=_ROOT/"ultron"/"backend"/"config"/"settings.json"
 _OLLAMA="http://127.0.0.1:11434"
 _MODELS_CACHE=(0.0, [])
+
+# The remote mobile chat queue includes only text. There is no image,
+# screenshot or attachment payload, so a blind vision model must not infer
+# contents from a nonexistent picture.
+_NO_IMAGE_REPLY=(
+    "Bu yerel sohbet bağlantısına görsel ulaşmadı; yalnızca metni "
+    "görebiliyorum. Fotoğrafı veya ekran görüntüsünü görsel yüklemeyi "
+    "destekleyen bir sohbet modunda gönderirsen inceleyebilirim."
+)
+_ENGLISH_IMAGE_REQUEST=re.compile(
+    r"\b(?:analy[sz]e|describe|inspect|read|look at)\s+"
+    r"(?:this |the |my |an? )?(?:image|photo|picture|screenshot)\b"
+    r"|\bwhat(?:'s| is) in (?:this|the|my) "
+    r"(?:image|photo|picture|screenshot)\b",
+    re.I,
+)
+
+
+def _text_only_image_request(text: str) -> bool:
+    return classify_text(text) == "VISION" or bool(
+        _ENGLISH_IMAGE_REQUEST.search(text)
+    )
 
 
 class LocalBrainUnavailable(RuntimeError):
@@ -85,6 +108,9 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     text=bounded_user_request(prompt,3000)
     if not text:
         raise ValueError("empty_local_prompt")
+    if _text_only_image_request(text):
+        return {"reply":_NO_IMAGE_REPLY, "model":"",
+                "provider":"local-no-image"}
     settings=json.loads(_SETTINGS.read_text(encoding="utf-8"))["llm"]
     policy=FastBrainPolicy(settings.get("fast_brain",{}))
     models=installed_models()

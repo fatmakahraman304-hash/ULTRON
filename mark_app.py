@@ -2214,11 +2214,12 @@ class UltronLive:
                     log_lease("Ollama result discarded: Cloud lease is no longer active")
                     return
                 await finish(
-                    True, "Yerel Qwen sohbet yanıtı hazır.",
+                    True, "Yerel sohbet yanıtı hazır.",
                     extra={
                         "assistant_reply": local["reply"],
                         "model": local["model"],
-                        "provider": "local-ollama",
+                        # Missing-image replies are deliberately not Ollama output.
+                        "provider": local.get("provider") or "local-ollama",
                     }
                 )
                 return
