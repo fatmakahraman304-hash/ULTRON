@@ -47,22 +47,22 @@ def classify_tone(message: str) -> str:
 # Conversation coaching is turn-specific, never a persistent memory write.
 # Unlike semantic auto-learning, it does not infer or store personal facts.
 _BRIEF = re.compile(
-    r"(?:\\b(?:kısaca|kısa cevap|kısa anlat|özetle|tek cümle(?:yle)?|"
-    r"briefly|short answer|in one sentence)\\b)", re.I
+    r"(?:\b(?:kısaca|kısa cevap|kısa anlat|özetle|tek cümle(?:yle)?|"
+    r"briefly|short answer|in one sentence)\b)", re.I
 )
 _DEEP = re.compile(
-    r"(?:\\b(?:detaylı(?:ca)?|ayrıntılı(?:ca)?|adım adım|en ince ayrıntısına|"
-    r"derinlemesine|thoroughly|in detail|step by step)\\b)", re.I
+    r"(?:\b(?:detaylı(?:ca)?|ayrıntılı(?:ca)?|adım adım|en ince ayrıntısına|"
+    r"derinlemesine|thoroughly|in detail|step by step)\b)", re.I
 )
 _FOLLOWUP = re.compile(
-    r"^(?:peki\\b|devam et\\b|biraz daha\\b|o zaman\\b|"
-    r"onun(?:la|un|u|dan)?\\b|bun(?:un|u|dan|larla)?\\b|"
-    r"what about\\b|and (?:it|that|then)\\b|continue\\b)",
+    r"^(?:peki\b|devam et\b|biraz daha\b|o zaman\b|"
+    r"onun(?:la|un|u|dan)?\b|bun(?:un|u|dan|larla)?\b|"
+    r"what about\b|and (?:it|that|then)\b|continue\b)",
     re.I
 )
 _CORRECT = re.compile(
-    r"^(?:hayır\\b|yok öyle değil\\b|yanlış anladın\\b|"
-    r"onu demedim\\b|öyle değil\\b|no,?\\b|that's not what i meant\\b)",
+    r"^(?:hayır\b|yok öyle değil\b|yanlış anladın\b|"
+    r"onu demedim\b|öyle değil\b|no,?\b|that's not what i meant\b)",
     re.I
 )
 
@@ -113,7 +113,7 @@ def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
                 "FOLLOW-UP WITHOUT CONTEXT: There is no verified previous turn in this thread. "
                 "Ask briefly what should be continued instead of inventing earlier conversation."
             )
-    return "\\n".join(hints) + "\\n"
+    return "\n".join(hints) + "\n"
 
 
 def build_system_instruction(
@@ -143,17 +143,17 @@ def build_system_instruction(
     )
     extra = ""
     if humour_off:
-        extra += ("\\nOwner requests serious tone: do not make jokes or sarcastic remarks. "
-                  "This applies to the current request; do not claim to store a permanent preference.\\n")
+        extra += ("\nOwner requests serious tone: do not make jokes or sarcastic remarks. "
+                  "This applies to the current request; do not claim to store a permanent preference.\n")
     if briefing_requested:
         extra += (
-            "\\nPERSONAL BRIEFING: Make a concise day plan only from facts the owner "
+            "\nPERSONAL BRIEFING: Make a concise day plan only from facts the owner "
             "provided in this request and explicitly saved memory or real tool results. "
             "Distinguish known deadlines from suggestions; do not invent appointments, "
             "weather, email, location, health information, device access or notifications. "
             "If current calendar data is unavailable, clearly say so. "
             "Offer a reminder only when scheduling tools are connected; never say it "
-            "was scheduled unless a real tool confirms success.\\n"
+            "was scheduled unless a real tool confirms success.\n"
         )
     head = ((base_prompt or "You are ULTRON, the owner's personal assistant.").strip()
             + "\n\n" + PERSONA + "\n" + hint
