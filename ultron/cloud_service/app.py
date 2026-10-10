@@ -886,7 +886,7 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str,
     return finalize_response(text, prompt=prompt)
 
 
-def _gemini_reply(prompt: str, system_instruction: str, turns=None) -> str:
+def _gemini_reply(prompt: str, system_instruction: str, turns=None, *, include_model: bool = False) -> str | tuple[str, str]:
     client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
     primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
     fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip() or "gemini-3.5-flash-lite"
@@ -900,7 +900,8 @@ def _gemini_reply(prompt: str, system_instruction: str, turns=None) -> str:
     for model in models:
         for attempt in range(max_retries):
             try:
-                return _generate_with_model(client, model, prompt, system_instruction, turns=turns)
+                answer = _generate_with_model(client, model, prompt, system_instruction, turns=turns)
+                return (answer, model) if include_model else answer
             except Exception as exc:
                 last_exc = exc
                 if not _is_transient_gemini_error(exc):

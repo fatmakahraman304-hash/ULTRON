@@ -158,8 +158,10 @@ def main():
                 raise RuntimeError('GEMINI_API_KEY_not_configured')
             # Exercise the actual production retry/model-selection and formatting path.
             from app import _gemini_reply
-            invoke = lambda prompt, system, turns: (_gemini_reply(prompt, system, turns),
-                                                    'configured Gemini primary/fallback; per-call model not exposed')
+            # Same production retry/fallback path, with the actual successful
+            # model identity returned only to the read-only evaluation.
+            invoke = lambda prompt, system, turns: _gemini_reply(
+                prompt, system, turns, include_model=True)
         else:
             from integration.local_cloud_brain import installed_models, local_chat
             if not installed_models():

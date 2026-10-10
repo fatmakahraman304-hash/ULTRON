@@ -63,9 +63,11 @@ later transcript edit invalidates its review. This is an audit/linkage check,
 not cryptographic proof a provider generated the text. Reports can be forged
 outside the harness and still require trusted runtime provenance.
 
-Each report stores transcripts, durations and actual Qwen model. The current
-Gemini production adapter does not expose the selected fallback model; the report
-states that limitation rather than inventing it. Review each provider separately.
+Each report stores transcripts, durations and actual Qwen model. The Gemini production adapter now exposes the **actual successful primary or
+fallback model** to the read-only evaluation using `include_model=True`; ordinary
+production conversations continue to receive the same text-only reply. Model
+labels are also stored for each turn, so failures and fallback can be diagnosed
+without guessing which Gemini model answered. Review each provider separately.
 Record hardware, configured model versions, quantization, cold/warm status and
 p50/p95 latency for a hardware comparison. Do not replace the default model based
 on an unmeasured alternative or text-only CI tests.

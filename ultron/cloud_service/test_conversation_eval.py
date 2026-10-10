@@ -1,6 +1,9 @@
+import ast
 import importlib.util
 import json
 import hashlib
+import os
+from unittest.mock import patch
 from pathlib import Path
 import unittest
 
@@ -35,6 +38,49 @@ class EvaluationTests(unittest.TestCase):
         with self.assertRaises(ValueError): evaluation.review_template(changed)
         template[0]['transcript_sha256']='0'*64
         with self.assertRaises(ValueError): evaluation.score(report,template)
+
+    def test_actual_gemini_fallback_model_identity_without_network(self):
+        """Compile the actual production wrapper with a fake generation adapter."""
+        path = ROOT/'ultron/cloud_service/app.py'
+        tree = ast.parse(path.read_text(encoding='utf-8'))
+        node = next(item for item in tree.body
+                    if isinstance(item, ast.FunctionDef)
+                    and item.name == '_gemini_reply')
+        calls = []
+        class ClientFactory:
+            def Client(self, api_key):
+                self.api_key = api_key
+                return object()
+        def generate(client, model, prompt, instruction, turns=None):
+            calls.append(model)
+            if model == 'primary':
+                raise RuntimeError('TEMPORARY_UNAVAILABLE')
+            return 'Model answer'
+        scope = {
+            'genai':ClientFactory(), 'required_env':lambda key:'test_only',
+            'os':os, '_generate_with_model':generate,
+            '_is_transient_gemini_error':lambda exc:'TEMPORARY' in str(exc),
+        }
+        code = compile(ast.Module(body=[node],type_ignores=[]),
+                       str(path),'exec')
+        exec(code,scope)
+        with patch.dict(os.environ, {'GEMINI_MODEL':'primary',
+                                     'GEMINI_FALLBACK_MODEL':'backup',
+                                     'GEMINI_MAX_RETRIES':'1'}):
+            fn = scope['_gemini_reply']
+            self.assertEqual(fn('hi','system',[],include_model=True),
+                             ('Model answer','backup'))
+            self.assertEqual(fn('hi','system',[]),'Model answer')
+        self.assertEqual(calls,['primary','backup','primary','backup'])
+        def primary_only(client, model, prompt, instruction, turns=None):
+            return 'Direct response'
+        scope['_generate_with_model'] = primary_only
+        with patch.dict(os.environ, {'GEMINI_MODEL':'primary',
+                                     'GEMINI_FALLBACK_MODEL':'backup',
+                                     'GEMINI_MAX_RETRIES':'1'}):
+            self.assertEqual(fn('hi','sys',[],include_model=True),
+                             ('Direct response','primary'))
+            self.assertEqual(fn('hi','sys',[]),'Direct response')
 
     def test_latency_summary_never_invents_missing_model_timings(self):
         self.assertEqual(evaluation.latency_summary([]),{'p50':None,'p95':None})
