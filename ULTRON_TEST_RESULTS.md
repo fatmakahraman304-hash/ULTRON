@@ -1,3 +1,10 @@
+## 2026-10-10 — Real installed Qwen only + tech-chat versus coding routing
+
+- Latest functional code SHA: `22edb909a93f7a4c4d6d4579994cf5bd12a83a75` (initial identity/readiness code `6c474f66d85a50302569642cdd4e988a1d707d22`). [Cloud Queue PostgreSQL Integration #38081094332](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38081094332) **SUCCESS**; [ULTRON Scene Build Check #38081094309](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38081094309) **SUCCESS**.
+- Offline contract tests added: local chat is NOT ready if only `llava:7b` is installed, and actual inference rejects that inventory rather than making visual-model calls for regular text. Mixed `llava:7b` + `qwen2.5-coder:7b` correctly selects installed Qwen; evaluation `is_qwen_model` uses the same helper as production. Plain language learning prompts (`Python öğreniyorum...`, `React öğrenmek...`) and negated code requests select chat routing, while explicit code generation/debug selects coding model, confirmed by one mocked Ollama payload per case in TR/EN.
+- Previous code CI at `6c474f6`: [Cloud #38080922802](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38080922802) and [Scene #38080922875](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38080922875) **SUCCESS**.
+- Does NOT establish a measured model intelligence gain or real laptop GPU latency improvement. The real Gemini and local Qwen 20/100 case human-reviewed evaluations, exact Render deployment SHA and physical Windows/iPhone inference remain **NOT VERIFIED**. `main` and Windows left unchanged.
+
 ## 2026-10-10 — Prevent invented image contents in text-only Ollama chat
 
 - Functional commits: `3547fcb6948a78c919c1f87c6569d158aab48ed5` (text-only local visual request no longer invokes vision Ollama; desktop reports the no-image provider instead of a fabricated Ollama result); `c8be0b96f172649a2846e2a860717c56487b5d18` (Turkish/English grounded replies); and `599d8aa709cb1288d95fc3313cc24ab7c4577707` (explicit *how-to* tutorial questions still invoke installed text Qwen instead of vision LLaVA or no-image error).
