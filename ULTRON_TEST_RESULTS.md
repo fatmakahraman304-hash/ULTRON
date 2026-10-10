@@ -345,3 +345,14 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Two actual-helper regression tests FAILED before the fix and now PASS. Full local Cloud suite **155 PASS**, including the same 28 real PostgreSQL tests, no skips.
 - Prior bounded-evidence code 25b8ee9a3495e4b82e8f1a7e98cfda95a37f6a3a: Cloud CI 38070026514 SUCCESS, Scene CI 38070026493 SUCCESS; Render dep-db56unf40ujc73c6t1p0 update_in_progress at inspection. Current isolation commit's CI/Render must be verified after push.
 - Real Gemini/Qwen quality, physical devices and Windows installation remain NOT RUN. No 100/100 conversational result claimed.
+
+
+## Final verification — 2026-10-10 conversational intelligence
+- Functional code SHA: `78930a44f40835917337b3d7f494435a500cd94e`.
+- [Cloud Queue PostgreSQL Integration 38070103017](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38070103017): **SUCCESS**, exact SHA; persona/evaluation/memory/readiness/legacy-history regressions and real PostgreSQL passed. Logs inspected.
+- [ULTRON Scene Build Check 38070103005](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38070103005): **SUCCESS**, exact SHA; Python checks, browser tests and frontend build passed. Logs inspected.
+- Local final tests: 155 Cloud Python including 28 disposable PostgreSQL, 86 Node, 6 local-brain, 5 Earth backend and 6 Earth math PASS; frontend TypeScript/Vite PASS. Health endpoint HTTP 200.
+- Live Gemini/Qwen quality remains **NOT MEASURED**, 100 scenarios per provider NOT_RUN, no quality score. See `evals/conversation/LATEST_RESULTS.md`. Missing Gemini credentials and local Ollama prevented actual inference.
+- Completed changes: bounded paired/first-topic recall; no cross-conversation multimodal context; shared low-cost presentation checking; real local service readiness; indexed scoped memory recall; conservative preference conflict/deduplication/common-secret controls; 100-scenario independent-review harness.
+- Limits: semantic factual verification and arbitrary memory contradictions are not solved by these rules. No hardware latency/quantization benchmark, phone voice acceptance or Windows installation performed. Old Windows worker falls back to Gemini until final authorized update advertises readiness.
+- Render **LIVE** verified at the exact functional SHA `78930a44f40835917337b3d7f494435a500cd94e`, deployment `dep-db56v7vmphoc739fq12g`, finished 2026-10-10 17:03:37 UTC. Later documentation-only commits do not represent additional tested code.
