@@ -191,3 +191,17 @@ Bu belge `MARK-ULTRON-MERGED` kaynak ağacına dayanır. **Test edilmemiş özel
 - Browser-session-protected GET /api/owner-plans/calendar.ics accepts only Europe/Istanbul, Asia/Nicosia or UTC, converts timed events to true UTC instants and emits all-day dates without invented hours. Rejects ambiguous/nonexistent DST times instead of silently changing schedules.
 - The file contains only outstanding plan titles and dates/times (not notes), uses stable opaque event identifiers and RFC5545 escaping/UTF-8 folding, and has no VALARM or subscription/provider side effects.
 - The user explicitly chooses timezone and taps .ICS TAKVİM DOSYASINI İNDİR. Import into Apple/Google calendar must be user-initiated; export is not provider OAuth, syncing, notifications, calendar import verification or an automatic reminder.
+
+
+## 2026-10-10 — Ten JARVIS capabilities implementation truth table
+1. Expressive conversation: ULTRON persona, safety-aware humour and owner preferences carried through explicit saved memory; real human feelings/consciousness do not exist.
+2. Personal memory/life: owner-scoped Cloud saved memory, daily briefing, manual dated plans, editing, completion and .ics export; real Gmail/Calendar provider authorization remains absent.
+3. Learning with consent (NEW): owner-supplied fact/preferences inbox, approve/reject/delete proposal; only approved inserts into memories and older key is not replaced without review. No silent surveillance or continuous model retraining.
+4. Offline powered-off computer: Cloud task queue exists, but actually powered-off PC control requires a separately powered authenticated device and compatible Wake-on-LAN configuration; unavailable here.
+5. iPhone Siri: native source and explicit Shortcut approval bridge exist; full iOS app installation, Apple entitlements and device tests required.
+6. Hologram: 3D scene on a screen exists; volumetric free-air hologram requires display hardware.
+7. Humanlike voice: Whisper/Piper Windows path and optional Gemini Live/Qwen browser paths exist; live phone/Windows hardware speed and audio quality not measured here.
+8. Self-updating: repository development queue, GitHub CI, Render autoDeploy exist; owner approval, tested desktop installation and rollback are mandatory before claiming fully self-updated.
+9. Calendar/email: manual plans and .ics export exist; email and calendar OAuth provider connections, permissions and delivery receipts absent.
+10. Smart home: connector concepts/adapters only; actual user-owned devices, authenticated LAN/cloud adapters and explicit device-change approval required.
+All ten are *workstream requirements*; not all are implemented or physically achievable through software alone.

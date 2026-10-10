@@ -210,3 +210,10 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - CI ULTRON Scene Build Check run 38034046409 SUCCESS at SHA 74162f6 includes Node tests for explicit click/URL allowlist and existing UI regressions, TypeScript/Vite build and scene suite.
 - Render ULTRON service srv-db20lmei0phs73crgujg verified live on code SHA 74162f6 at 2026-10-10 07:21Z.
 - Latest workflow-only SHA fb77617 also passed Cloud CI 38034057983; subsequent documentation changes do not affect functional code. Physical iPhone Safari PWA download, Apple Calendar import and actual Windows device were not executed.
+
+## 2026-10-10 — Reviewed learning automated test gates
+- Offline test_approved_learning.py covers category/key/value bounds, null byte rejection, browser consent and absence of pending proposals in model memory context.
+- Disposable PostgreSQL test_approved_learning_postgres.py covers proposal not saved until approval, owner isolation (cross-account 404), rejection no memory, existing memory conflict without overwrite, repeated approval failure, browser-only same-site JSON requirements and explicit deletion.
+- Node test_learning_review_ui.cjs covers no automatic fetch/write, separate propose+approve click, rejection, confirmation-gated deletion, safe textContent, PWA/HTML wiring and existing-memory delete approval contract.
+- GitHub workflow cloud-queue-postgres.yml runs both Python contracts (offline and real PostgreSQL), scene-check.yml runs UI tests. Earlier commit 7a65bcbee Cloud run 38036171181 failed a *test string whitespace assumption* for existing owner-memory SQL; corrected at 02be84c8. Its cloud CI run 38036212147 SUCCESS; Scene Build Check 38036212168 SUCCESS. The new memory deletion UI commit has its own CI pending and must be checked before claiming latest HEAD is tested.
+- Real iPhone microphone, learning panel interactions, Windows installation, model behaviours and hardware remain NOT RUN here.

@@ -220,3 +220,10 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - HAFIZA owner-plans.js and index.html now expose timezone selector (Europe/Istanbul / Asia/Nicosia / UTC) plus explicit download button. No background export and no third-party calendar authorization. No push notifications.
 - Automated Python offline test_personal_calendar_ics.py, extended disposable PostgreSQL test_personal_plans_postgres.py, and Node test_owner_plans_ui.cjs. Cloud Queue PostgreSQL Integration #38034057983 SUCCESS, Scene Build Check #38034046409 SUCCESS (code/test SHA 74162f6). Render confirmed export UI SHA 74162f6 live. Current docs-only or workflow-only HEAD can be ahead; distinguish deployment proof of working code from HEAD deployment proof.
 - This session had no access to the user's real iPhone/Windows hardware, so Safari file-download/import and native Apple Calendar appearance are not verified.
+
+## 2026-10-10 — Reviewable ULTRON learning / memory deletion
+- Added approved_learning.py, learning_proposals PostgreSQL table with pending-only unique index, and web-session-only owner-scoped APIs for create/list/review/delete. Explicit approval uses an atomic PostgreSQL transaction and INSERT memories ON CONFLICT DO NOTHING (existing memories are not silently overwritten). Rejection never saves memory.
+- iPhone HAFIZA now shows İZİNLİ ÖĞRENME panel for user-proposed preference/goal/project/fact/device records. No automatic extraction, polling or hidden memory writes; only the owner tapping ONAYLA can approve.
+- Added a separate confirmation-gated HAFIZADAN SİL control to shared memory entries to revoke learned information; deleting the proposal itself does not delete a previously approved memory.
+- Tests: offline validators, disposable PostgreSQL cross-owner consent/privacy/duplicate/conflict scenarios, and mobile Node safe DOM/explicit-click tests wired to Cloud and Scene CI. No native device or LLM quality claims.
+- The ten-capability readiness API now reports available reviewed learning but honestly marks general autonomous learning only partial.

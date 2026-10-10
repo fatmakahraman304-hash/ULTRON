@@ -14,7 +14,8 @@ def readiness(desktop_online: bool = False) -> dict:
         ("personal_memory", "Kişisel hafıza ve günlük plan", "available_in_code",
          "Kayıtlı sohbet/hafıza ve istek üzerine günlük plan var; takvim kaynakları otomatik bağlı değil."),
         ("approved_learning", "İzinli öğrenme", "partial",
-         "Hafıza ve görev sonuçları saklanabilir; izin alınmadan sürekli takip veya veri toplama yok."),
+         "Yeni bilgileri gözden geçirip ONAYLA/REDDET diyebileceğin bir öğrenme kutusu var. "
+         "Yalnızca onaylananlar hafızaya eklenir; kendi kendine sınırsız öğrenme veya izleme yok."),
         ("offline_computer", "Bilgisayar kapalıyken kontrol", "blocked_hardware",
          "Windows kapalıyken masaüstü işlemleri yapılamaz; ayrıca açık güvenilir cihaz gerekir."),
         ("native_iphone", "Siri seviyesinde iPhone", "requires_native_setup",

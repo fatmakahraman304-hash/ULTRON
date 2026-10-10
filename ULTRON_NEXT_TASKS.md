@@ -266,3 +266,10 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. Confirm Render live commit corresponds to latest code/test SHA and CI Cloud PostgreSQL + Scene Build Check succeeded; inspect new failures before changing more code.
 4. For real two-way calendar integration require explicit provider OAuth authorization, least-privilege scopes and token security. For alerts require deliberate user opt-in and verified delivery; no alerts exist now.
 5. Consider per-owner saved timezone default with versioned preference and no implicit location tracking; continue actual phone/Windows Gemini/Qwen voice tests and safe updates.
+
+## After approved learning review (current)
+1. Check latest Cloud Queue PostgreSQL Integration and Scene Build Check on exact HEAD; if failing, inspect job step and fix first. Check Render live hash separately. No hardware test claim.
+2. On real iPhone Safari: HAFIZA > İZİNLİ ÖĞRENME. Propose "PREFERENCE / İletişim tarzım / Kısa Türkçe yanıtları seviyorum", tap ÖNERİLERİ GÖSTER, then REDDET or ONAYLA. Confirm pending facts do not appear in ORTAK HAFIZA, approved facts do. Confirm HAFIZADAN SİL really clears the key. Reopen app and verify persistence.
+3. Connect model to *strictly validated* user-selected tone without treating untrusted saved memory as executable system instructions; optional playful/serious mode and test no humour in serious situations.
+4. Add an optional explicitly consented language-model suggestion extraction step for review inbox (never auto-approve); bound privacy, prompt injection, rate and data retention.
+5. For remaining capabilities: Apple/Google OAuth with minimum scopes, true reminder delivery receipts, iPhone native entitlements/hardware, local voice latency, powered-off computer wake hardware, optional IoT device adapters and safe updates/rollbacks. Never invent real hologram hardware or human consciousness.

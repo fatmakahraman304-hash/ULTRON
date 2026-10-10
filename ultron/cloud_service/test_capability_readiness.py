@@ -33,6 +33,12 @@ class TestReadiness(unittest.TestCase):
         self.assertEqual(items["smart_devices"]["status"], "requires_devices")
         self.assertFalse(readiness()["verified_device_test"])
 
+    def test_reviewed_learning_is_real_but_not_unrestricted(self):
+        caps={x["id"]:x for x in readiness()["capabilities"]}
+        self.assertEqual(caps["approved_learning"]["status"],"partial")
+        self.assertIn("ONAYLA/REDDET",caps["approved_learning"]["detail"])
+        self.assertIn("yok",caps["approved_learning"]["detail"])
+
     def test_api_is_authenticated_and_read_only(self):
         app = (ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn('app.router.add_get("/api/capability-readiness", capability_readiness_api)', app)
