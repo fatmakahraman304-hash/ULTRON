@@ -1,3 +1,11 @@
+## 2026-10-10 — Explicit historic user correction and real reminder-intent separation
+
+- Verified code commits `dc97a58cf327e4d9c77880d934b845aef5bed9c0` (topic-nameless historical owner correction preserved after retrieved Q&A) and `800a54d07e0159cec063c67f7555a94abe2ced48` (future reminders no longer falsely handled as historical recall, no invented notification state).
+- Query safety: correction row is accepted only when it immediately follows matched historical assistant answer and begins with explicit corrective language. One capped owner/thread/previous-message SQL lookup; within unchanged total chars and max model turns. New disposable PostgreSQL tests with >115 intervening turns, other account and other conversation records.
+- History-like `ne demiştik?` / `konuşmamızı hatırlat` remains historical. `Yarın saat 9'da hatırlat`, `in 20 minutes remind me` are future scheduling requests and use recent-thread context only. No device permission bypass or actual scheduling performed. Deterministic and real PostgreSQL tests pass.
+- CI at exact latest code SHA: [Cloud/PostgreSQL #38079636700](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079636700) **SUCCESS**; [Scene/Frontend #38079636678](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079636678) **SUCCESS**. Previous code Cloud [#38079471594](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079471594) and Scene [#38079471493](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079471493) also SUCCESS.
+- Outstanding: real Gemini/Qwen human-reviewed acceptance and 20-case pilot, accurate model latency, latest deployed Render SHA, iPhone/Windows physical runtime. No Windows update run.
+
 ## 2026-10-10 — Final user correction + explicit topic switching
 
 - Code commits: `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf` (current messages keep head/end under original Qwen/Gemini limits) and `ec566816ef4eeaa162b579f05f86bb0828ff4237` (explicit new-topic commands avoid old lexical history matches and add TOPIC SWITCH persona hint).

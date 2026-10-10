@@ -1,3 +1,10 @@
+## 2026-10-10 — Historical correction and future reminder distinction
+
+- Latest functional code `800a54d07e0159cec063c67f7555a94abe2ced48` (historic Q&A-correction commit `dc97a58`). GitHub [Cloud Queue PostgreSQL Integration 38079636700](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079636700) **SUCCESS** and [ULTRON Scene Build Check 38079636678](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079636678) **SUCCESS**.
+- New unit+real PostgreSQL regression: retrieve oldest matched `Mercedes C180 2009` question, its assistant answer, and immediately following owner `Hayır, 2010'u kastettim` without the topic repeated, across 115 subsequent messages. Tenant and thread secrets omitted, before-current filter applied and context/turn bounds preserved.
+- Real PostgreSQL and deterministic tests for distinction between future reminders (`yarın saat 9'da hatırlat`) and named historical recall. Future reminders use recent scoped context rather than topic matching; no actual reminder insertion is claimed.
+- Cloud/Frontend CI verifies code routing, not live Gemini/Qwen reasoning, factual correctness, latency, Render exact deployed SHA or physical device voice. 100-case quality score NOT MEASURED; Windows unchanged.
+
 ## 2026-10-10 — Gemini/Qwen latest instruction + topic switching verification
 
 - Functional code `ec566816ef4eeaa162b579f05f86bb0828ff4237`; parent `a08b3afadaed0f17ec67bfdbab6a3ebe5375b8bf` also passed both CI workflows.

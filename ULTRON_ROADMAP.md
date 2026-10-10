@@ -1,3 +1,11 @@
+## Conversation cognition — correction order and reminder intent (2026-10-10)
+
+- [x] Retrieve clear owner correction directly after an older topic question/answer, even when correction omits the topic name. Ordered context remains user/assistant/user and stays capped; real disposable PostgreSQL long-history and isolation checks successful.
+- [x] Separate scheduled future reminders from historical chat recall, preserving `ne demiştik` and named historic conversation requests. Do not invent scheduling success.
+- [x] Cloud/PostgreSQL #38079636700 and Scene/Frontend #38079636678 SUCCESS on exact code `800a54d07e0159cec063c67f7555a94abe2ced48`.
+- [ ] Run actual Gemini + Qwen 20-case pilot followed by independently reviewed frozen 100-case dataset; no provider model-quality score exists yet.
+- [ ] Verify Render deployed commit and actual Windows/iPhone voice and inference before one-time final Windows installation. Keep main branch and approval gates unchanged.
+
 ## Conversation intelligence — explicit new-topic priority (2026-10-10)
 
 - [x] Keep final user corrections in *current* long Qwen and Gemini prompts under unchanged length caps; mock wire tests confirmed.
