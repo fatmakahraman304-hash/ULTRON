@@ -7,7 +7,7 @@ from pathlib import Path
 try:
     import asyncpg
     from aiohttp import web
-    from personal_plans import create_plan, list_plans, update_plan, set_plan_done, delete_plan
+    from personal_plans import create_plan, list_plans, update_plan, set_plan_done, delete_plan, export_owner_plans_ics
 except ImportError:
     asyncpg = None
     web = None
@@ -17,7 +17,7 @@ DB = os.getenv("ULTRON_QUEUE_TEST_DATABASE_URL", "")
 
 class Request(dict):
     def __init__(self, pool, owner="ci-plan-1", body=None, method="GET",
-                 id="", auth="web", headers=None, content_type="application/json"):
+                 id="", auth="web", headers=None, content_type="application/json", query=None):
         super().__init__(user_id=owner, auth_kind=auth)
         self.app = {"db": pool}
         self.payload = body if body is not None else {}
@@ -25,6 +25,7 @@ class Request(dict):
         self.match_info = {"id": str(id)}
         self.headers = headers or {}
         self.content_type = content_type
+        self.query = query or {}
 
     async def json(self):
         return self.payload
@@ -99,6 +100,28 @@ class ManualPlanPostgresTests(unittest.IsolatedAsyncioTestCase):
                                       content_type="text/plain"))
         self.assertEqual(await self.pool.fetchval(
             "SELECT COUNT(*) FROM owner_plans WHERE user_id LIKE 'ci-plan-%'"), 0)
+
+    async def test_explicit_ics_owner_scope_no_private_notes_or_alarm(self):
+        data = {"title": "Ders; toplantı", "date": "2026-10-18",
+                "time": "12:30", "note": "MY_PRIVATE_NOTE_002"}
+        added = await create_plan(Request(self.pool, body=data, method="POST"))
+        self.assertEqual(added.status, 201)
+        a = await export_owner_plans_ics(Request(self.pool, query={"tz": "Europe/Istanbul"}))
+        self.assertEqual(a.status, 200)
+        self.assertTrue(a.content_type.startswith("text/calendar"))
+        self.assertEqual(a.headers.get("Cache-Control"), "private, no-store")
+        self.assertIn("attachment", a.headers.get("Content-Disposition", ""))
+        text = a.body.decode("utf-8")
+        self.assertIn("DTSTART:20261018T093000Z", text)
+        self.assertIn("SUMMARY:Ders\\; toplantı", text)
+        self.assertNotIn("MY_PRIVATE_NOTE_002", text)
+        self.assertNotIn("VALARM", text)
+        other = await export_owner_plans_ics(Request(self.pool, owner="ci-plan-2"))
+        self.assertNotIn("BEGIN:VEVENT", other.body.decode("utf-8"))
+        with self.assertRaises(web.HTTPForbidden):
+            await export_owner_plans_ics(Request(self.pool, auth="device"))
+        bad = await export_owner_plans_ics(Request(self.pool, query={"tz": "Invalid/Zone"}))
+        self.assertEqual(bad.status, 400)
 
     async def test_rejects_invalid_fields_and_state(self):
         for item in [
