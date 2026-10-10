@@ -130,6 +130,10 @@ jobs:
           node --check ultron/cloud_service/static/panel-intents.js
           node --test ultron/cloud_service/test_panel_intents.cjs
           node --experimental-strip-types --test ultron/frontend/tests/panelIntent.test.mjs
+      - name: ULTRON conversation notes on-demand editor and PWA
+        run: |
+          node --check ultron/cloud_service/static/conversation-notes.js
+          node --test ultron/cloud_service/test_conversation_notes_ui.cjs
       - name: ULTRON WORLD JavaScript syntax and UI contracts
         run: |
           node --check ultron/cloud_service/static/world.js
