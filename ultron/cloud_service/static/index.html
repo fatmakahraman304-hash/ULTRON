@@ -626,6 +626,7 @@
 <script src="/static/mobile-action-guard.js"></script>
 <script src="/static/dev-requests.js"></script>
 <script src="/static/local-voice.js"></script>
+<script src="/static/live-playback.js"></script>
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
 <script src="/static/conversation-notes.js"></script>
@@ -653,6 +654,14 @@ let serverSpeakerEnrolled=false,serverSpeakerReady=false,speakerEnrollPcm=[],spe
 const SPEAKER_LOCK_ENABLED=false;
 let wakeWordActive=false;
 const scheduledSources=new Set();
+const livePlaybackState=window.ULTRONLivePlayback?.create({
+  onDrained:()=>{
+    if(!liveDesired||!voiceListening||suppressOutput||desktopVoiceLeader)return;
+    liveSpeaking=false;
+    liveStatus('Seni dinliyorum…',true);
+    $('#stageVoiceText').textContent='ULTRON • dinliyor';
+  }
+});
 let pendingImage=null,pendingImageUrl='',pendingPdf=null;
 let cameraStream=null,cameraFacing='environment',cameraBusy=false,lastCameraAnalysis='';
 let attachMenuOpen=false;
@@ -951,10 +960,13 @@ function playPCM24k(buffer){
   for(let i=0;i<pcm.length;i++)floats[i]=pcm[i]/32768;
   const audio=playContext.createBuffer(1,floats.length,24000);audio.copyToChannel(floats,0);
   const src=playContext.createBufferSource();src.buffer=audio;src.connect(playContext.destination);
-  scheduledSources.add(src);src.onended=()=>scheduledSources.delete(src);
+  const finish=livePlaybackState?.enqueue();
+  scheduledSources.add(src);
+  src.onended=()=>{scheduledSources.delete(src);finish?.()};
   const when=Math.max(playContext.currentTime+.02,playCursor);src.start(when);playCursor=when+audio.duration;
 }
 function stopPlayback(){
+  livePlaybackState?.cancel();
   for(const src of [...scheduledSources]){try{src.stop()}catch{}scheduledSources.delete(src)}
   if(playContext)playCursor=playContext.currentTime;
 }
@@ -1367,15 +1379,20 @@ async function openLiveSocket(){
       setTimeout(()=>{if(voiceListening)$('#stageVoiceText').textContent='Gemini Live bağlı'},1100);
     }
     if(d.type==='turn_complete'){
-      liveSpeaking=false;bargeBlocks=0;suppressOutput=false;silentActionTurn=false;
-      resetRemoteResultSpeech();
-      stopPlayback();resetVoiceGateSegment();
+      // Gemini's turn_complete finishes the transcript, not the queued audio.
+      // Only user interruption or explicit stop must cancel WebAudio buffers.
+      const audioQueued=livePlaybackState?.turnComplete()||false;
+      liveSpeaking=audioQueued&&!desktopVoiceLeader&&!suppressOutput;
+      bargeBlocks=0;suppressOutput=false;silentActionTurn=false;
+      resetRemoteResultSpeech();resetVoiceGateSegment();
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
       if(!voiceDevToolSaved&&input){window.ULTRONDevRequests?.fromSpeech(input).catch(()=>{})}
       voiceDevToolSaved=false;
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
       if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
-      messageSignature='';setWakeUi(false);liveStatus('Seni dinliyorum…',true);$('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
+      messageSignature='';setWakeUi(false);
+      liveStatus(liveSpeaking?'ULTRON konuşuyor…':'Seni dinliyorum…',true);
+      $('#stageVoiceText').textContent=liveSpeaking?'ULTRON konuşuyor':'ULTRON • dinliyor';
       loadMemories().catch(()=>{});
     }
     if(d.type==='error'){
