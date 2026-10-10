@@ -49,7 +49,7 @@
     function start() {
       if (state !== "idle") return false;
       if (!supported()) {
-        onError("Bu tarayıcıda konuşmayı yazıya çevirme desteği yok. Metinle ücretsiz Qwen'i kullanabilirsin; Gemini'ye otomatik geçilmeyecek.");
+        onError("Bu tarayıcı ses tanımayı desteklemiyor. İstediğin sesli sohbet için bulut bağlantısı denenebilir.");
         return false;
       }
       const token = ++generation;
