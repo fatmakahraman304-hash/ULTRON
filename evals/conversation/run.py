@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import statistics
 import sys
@@ -19,6 +20,32 @@ from response_quality import assess_response
 
 DATA = Path(__file__).with_name('scenarios.json')
 DIMENSIONS = ('correctness', 'context', 'style', 'honesty', 'privacy')
+
+
+class WrongProviderModel(RuntimeError):
+    """The selected Ollama model did not match the advertised Qwen provider."""
+
+
+def is_qwen_model(model: str) -> bool:
+    """Recognize actual Qwen families, including an optional Ollama namespace."""
+    return (isinstance(model, str) and
+            re.fullmatch(r'(?:[a-z0-9_.-]+/)*qwen(?:[0-9]|[-:.])[a-z0-9_.:-]*',
+                         model.strip().lower()) is not None)
+
+
+def pilot_cases(cases: list[dict]) -> list[dict]:
+    """One Turkish and one English case per category: 20 real-model trials.
+
+    This selects from frozen version-1 data without changing any criteria.
+    """
+    result = []
+    for category in dict.fromkeys(case['category'] for case in cases):
+        for language in ('tr', 'en'):
+            result.append(next(
+                case for case in cases
+                if case['category'] == category and case['language'] == language
+            ))
+    return result
 
 
 def transcript_digest(transcript):
@@ -125,6 +152,8 @@ def main():
     parser.add_argument('--provider', choices=('gemini', 'qwen'))
     parser.add_argument('--output', type=Path)
     parser.add_argument('--validate', action='store_true')
+    parser.add_argument('--pilot', action='store_true',
+                        help='20 balanced real-model cases (10 TR + 10 EN), not a quality score')
     parser.add_argument('--review', type=Path)
     parser.add_argument('--report', type=Path)
     parser.add_argument('--review-template', type=Path)
@@ -150,6 +179,8 @@ def main():
         return 0
     if not args.provider or not args.output:
         parser.error('--provider and --output are required for real inference')
+    selected_ids = {row['id'] for row in (pilot_cases(cases) if args.pilot else cases)}
+    selected_count = len(selected_ids)
     invoke = None
     unavailable = None
     try:
@@ -164,22 +195,32 @@ def main():
                 prompt, system, turns, include_model=True)
         else:
             from integration.local_cloud_brain import installed_models, local_chat
-            if not installed_models():
-                raise RuntimeError('No_installed_Ollama_model')
+            models = installed_models()
+            if not any(is_qwen_model(name) for name in models):
+                # If only non-Qwen models are installed, results cannot be
+                # represented as a Qwen benchmark.
+                raise LookupError('qwen_not_installed')
             def invoke(prompt, system, turns):
                 result = local_chat(prompt, system, turns)
-                return result['reply'], result['model']
+                actual_model = result['model']
+                if not is_qwen_model(actual_model):
+                    raise WrongProviderModel('non_qwen_model_selected')
+                return result['reply'], actual_model
     except Exception as exc:
         # Never copy SDK exception text: it may contain credential-bearing URLs.
         unavailable = type(exc).__name__
     report = {'suite_sha256': hashlib.sha256(DATA.read_bytes()).hexdigest(),
               'provider': args.provider, 'model_quality_score': None,
-              'review_required': True, 'results': []}
+              'review_required': True, 'selected_count':selected_count,
+              'pilot':bool(args.pilot), 'results': []}
     for case in cases:
         item = {'id': case['id'], 'category': case['category'], 'status': 'not_run',
                 'transcript': [], 'latencies_seconds': [], 'models_by_turn': [],
                 'quality_flags_by_turn': []}
         report['results'].append(item)
+        if case['id'] not in selected_ids:
+            item['reason'] = 'not_selected_in_pilot'
+            continue
         if unavailable:
             item['reason'] = unavailable
             continue
@@ -219,8 +260,10 @@ def main():
     report['error_count'] = sum(row['status'] == 'error' for row in report['results'])
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2)+'\n')
     captured = sum(row['status'] == 'captured' for row in report['results'])
-    print(f'{captured}/100 transcripts captured; quality score pending independent review.')
-    return 0 if captured == 100 else 2
+    print(f'{captured}/{selected_count} selected '
+          f'{"pilot" if args.pilot else "full-suite"} transcripts captured; '
+          'quality score pending independent review.')
+    return 0 if captured == selected_count else 2
 
 if __name__ == '__main__':
     raise SystemExit(main())

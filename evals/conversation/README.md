@@ -37,12 +37,28 @@ From the repository root:
 
 ```bash
 python evals/conversation/run.py --validate
+# First: bounded 20-case real-model pilot (one TR and one EN per category).
+python evals/conversation/run.py --provider gemini --pilot --output /tmp/gemini-pilot.json
+python evals/conversation/run.py --provider qwen --pilot --output /tmp/qwen-pilot.json
+# Then, only if a provider is reachable and the owner accepts the model cost/time:
 python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json
 python evals/conversation/run.py --provider qwen --output /tmp/qwen-eval.json
 python evals/conversation/run.py --report /tmp/gemini-eval.json --review-template /tmp/blank-reviews.json
 # Independently inspect actual transcripts before entering each of five booleans.
 python evals/conversation/run.py --report /tmp/gemini-eval.json --review /tmp/reviews.json
 ```
+
+Pilot mode is a **real inference subset**, not a mock or a score: it picks
+10 Turkish and 10 English cases, two from each of the ten categories, without
+changing the frozen dataset. Its remaining 80 cases are marked NOT_RUN with
+reason `not_selected_in_pilot`. Pilot review is necessarily incomplete as a
+100-case quality score. The normal full mode still evaluates all 100 cases.
+No inference is triggered by `--validate` or `--review-template`.
+
+The `qwen` evaluator requires at least one installed Qwen-family model. It
+rejects a response if the local selection actually uses another family (for
+example Llava or Llama), rather than mislabelling it as Qwen. This affects
+evaluation only and does not modify production fallback routing.
 
 Gemini uses the existing production adapter and requires the configured
 `GEMINI_API_KEY` and cloud Python dependencies. Qwen uses the real local adapter

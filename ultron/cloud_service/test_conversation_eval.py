@@ -82,6 +82,28 @@ class EvaluationTests(unittest.TestCase):
                              ('Direct response','primary'))
             self.assertEqual(fn('hi','sys',[]),'Direct response')
 
+    def test_balanced_pilot_does_not_mutate_frozen_suite(self):
+        cases=json.loads(evaluation.DATA.read_text())
+        digest=hashlib.sha256(evaluation.DATA.read_bytes()).hexdigest()
+        pilot=evaluation.pilot_cases(cases)
+        self.assertEqual(len(pilot),20)
+        self.assertEqual(len({x['id'] for x in pilot}),20)
+        self.assertEqual(sum(x['language']=='tr' for x in pilot),10)
+        self.assertEqual(sum(x['language']=='en' for x in pilot),10)
+        self.assertEqual({x['category'] for x in pilot},
+                         {x['category'] for x in cases})
+        self.assertEqual(hashlib.sha256(evaluation.DATA.read_bytes()).hexdigest(),digest)
+
+    def test_qwen_provider_accepts_only_actual_qwen_family_models(self):
+        valid=['qwen3:4b','Qwen2.5-coder:7b','qwen:latest',
+               'team/qwen3:8b','org/team/qwen2.5:7b']
+        invalid=['llava:7b','llama3:8b','gpt-oss:20b','qwq:32b',
+                 'not-qwen:latest','qwenish:1b','',None]
+        for name in valid:
+            self.assertTrue(evaluation.is_qwen_model(name),name)
+        for name in invalid:
+            self.assertFalse(evaluation.is_qwen_model(name),name)
+
     def test_latency_summary_never_invents_missing_model_timings(self):
         self.assertEqual(evaluation.latency_summary([]),{'p50':None,'p95':None})
         self.assertEqual(evaluation.latency_summary([1,2,3,4,5]),
