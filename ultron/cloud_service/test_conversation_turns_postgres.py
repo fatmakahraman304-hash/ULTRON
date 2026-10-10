@@ -249,4 +249,30 @@ class ConversationTurnsPgTests(unittest.IsolatedAsyncioTestCase):
   self.assertLessEqual(sum(len(t["content"]) for t in found),3500)
 
 
+ async def test_explicit_switch_does_not_resurrect_old_lexical_subject(self):
+  await self.add(self.c1,"ci-dialogue-a","user",
+                 "Mercedes C180 2009 geçmiş arıza konusu")
+  await self.add(self.c1,"ci-dialogue-a","assistant",
+                 "Mercedes C180 eski fren masrafı")
+  await self.add(self.c2,"ci-dialogue-a","user","OTHER_THREAD_SECRET")
+  await self.add(self.c3,"ci-dialogue-b","assistant","OTHER_OWNER_SECRET")
+  for i in range(42):
+   await self.add(self.c1,"ci-dialogue-a",
+                  "user" if i%2==0 else "assistant",f"Mimarlık konusu {i}")
+  current=await self.add(self.c1,"ci-dialogue-a","user",
+                         "Konuyu değiştirelim; Mercedes değil mimarlık konuşalım")
+  turns=await load_contextual_thread_turns(
+      self.pool,"ci-dialogue-a",self.c1,
+      question="Konuyu değiştirelim; Mercedes değil mimarlık konuşalım",
+      before_id=current,max_chars=2800,limit=14)
+  material=" ".join(r["content"] for r in turns)
+  self.assertIn("Mimarlık konusu 41",material)
+  self.assertNotIn("geçmiş arıza",material)
+  self.assertNotIn("eski fren",material)
+  self.assertNotIn("SECRET",material)
+  self.assertNotIn("Konuyu değiştirelim",material)
+  self.assertLessEqual(len(turns),14)
+  self.assertLessEqual(sum(len(t["content"]) for t in turns),2800)
+
+
 if __name__=="__main__":unittest.main()

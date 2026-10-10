@@ -136,6 +136,23 @@ def _topic_terms(text: str) -> set[str]:
             and word not in _COMMON_TERMS and not word.isdigit()}
 
 
+_TOPIC_SWITCH = re.compile(
+    r"(?:\b(?:konuyu|konumuzu|mevzuyu)\s+değiştir(?:elim|mek)?\b|"
+    r"\b(?:başka|yeni)(?: bir)? konuya geç(?:elim|mek)?\b|"
+    r"\b(?:bu konuyu|bunu)\s+bırak(?:alım)?\b|"
+    r"\bswitch (?:the )?topic\b|\bchange the subject\b|"
+    r"\bnew topic\b|\b(?:let's|lets) talk about something else\b|"
+    r"\bmove on to (?:a )?(?:new|another) topic\b)",
+    re.I,
+)
+
+
+def is_topic_switch_request(question: str) -> bool:
+    """Only explicit topic-change intent suppresses older topic retrieval."""
+    return (isinstance(question, str) and len(question) <= 320 and
+            bool(_TOPIC_SWITCH.search(" ".join(question.strip().split()))))
+
+
 def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
                             max_turns: int = 14) -> list[dict[str, str]]:
     """Keep immediate chat plus a small chronological selection of older matches.
@@ -154,7 +171,7 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
         and row.get("role") in ("user", "assistant")
         and isinstance(row.get("content"), str)
     ]
-    if len(clean) <= count or count < 4:
+    if len(clean) <= count or count < 4 or is_topic_switch_request(question):
         return prepare_turns(clean, max_chars=cap, max_turns=count)
     terms = _topic_terms(question)
     if not terms:
@@ -311,6 +328,13 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
     SQL LIMIT and output caps bound database and model usage.
     """
     n = max(1, min(int(limit), 20))
+    if is_topic_switch_request(question):
+        # Explicit change of subject should not scan 80 old turns and revive
+        # prior discussion simply because its name appears in this request.
+        return await load_thread_turns(
+            pool, user_id, conversation_id, before_id=before_id,
+            max_chars=max_chars, limit=n,
+        )
     if is_first_topic_return(question):
         # Explicit first-topic requests need the true start, even beyond 80 rows.
         # Fetch IDs solely for chronological deduplication; never expose them.

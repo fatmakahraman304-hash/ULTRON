@@ -5,7 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from conversation_turns import (
-    select_contextual_turns, load_contextual_thread_turns, _topic_terms
+    select_contextual_turns, load_contextual_thread_turns, _topic_terms,
+    is_topic_switch_request
 )
 
 
@@ -215,6 +216,42 @@ class ContextualRecallUnitTests(unittest.TestCase):
                 self.assertIn("id < $3",sql)
                 self.assertEqual(args[:3],("owner-a","thread-b",1000))
         asyncio.run(check())
+
+    def test_explicit_topic_switch_uses_recent_window_not_old_matches(self):
+        cases = ("Konuyu değiştirelim, mimarlık konuşalım.",
+                 "Başka konuya geçelim: ULTRON ses",
+                 "Bu konuyu bırakalım, mimarlığı konuşalım.",
+                 "Switch the topic: architecture instead.",
+                 "Let's talk about something else.")
+        for question in cases:
+            self.assertTrue(is_topic_switch_request(question), question)
+        for question in ("Mercedes C180 hakkında ne demiştik?",
+                         "Peki yakıt tüketimi?", "Mimarlık nasıldı?"):
+            self.assertFalse(is_topic_switch_request(question), question)
+
+        class DB:
+            def __init__(self):
+                self.calls=[]
+            async def fetch(self,sql,*args):
+                self.calls.append((sql,args))
+                return [
+                    {"role":"assistant","content":"Yeni konuya hazırlanıyoruz"},
+                    {"role":"user","content":"Son konuşma mimarlık maketi"},
+                ]
+        import asyncio
+        async def run():
+            db=DB()
+            got=await load_contextual_thread_turns(
+                db,"owner-switch","conv-switch",
+                question="Konuyu değiştirelim, Mercedes değil mimarlık konuşalım",
+                before_id=1234,max_chars=1000,limit=14)
+            self.assertEqual(len(db.calls),1)
+            sql,args=db.calls[0]
+            self.assertNotIn("ILIKE",sql)
+            self.assertEqual(args,("owner-switch","conv-switch",1234,14))
+            self.assertIn("mimarlık maketi",str(got))
+            self.assertNotIn("Mercedes",str(got))
+        asyncio.run(run())
 
     def test_no_topic_uses_small_sql_window(self):
         class DB:

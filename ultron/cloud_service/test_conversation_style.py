@@ -106,6 +106,15 @@ class ConversationStyleTests(unittest.TestCase):
                 else:
                     self.assertIn("Match the question", guidance)
 
+    def test_switching_topics_does_not_resume_old_goal(self):
+        changed = dialogue_guidance(
+            "Konuyu değiştirelim, başka bir şey konuşalım",
+            has_prior_turns=True)
+        self.assertIn("TOPIC SWITCH",changed)
+        self.assertIn("new topic directly",changed)
+        ordinary = dialogue_guidance("Peki onun fiyatı?",has_prior_turns=True)
+        self.assertNotIn("TOPIC SWITCH",ordinary)
+
     def test_named_recall_uses_old_answer_evidence_not_invented_memories(self):
         present = build_system_instruction(
             user_message="Mercedes C180 hakkında ne demiştik?",
