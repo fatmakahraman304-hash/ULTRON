@@ -1,6 +1,7 @@
 """Consistent ULTRON conversation style across the cloud and local assistant."""
 from __future__ import annotations
 import re
+from reply_policy import classify_reply_mode
 
 from conversation_turns import is_thread_recap_request, is_first_topic_return, is_named_recall_request, is_topic_switch_request, is_future_reminder_request
 
@@ -54,14 +55,6 @@ def classify_tone(message: str) -> str:
 
 # Conversation coaching is turn-specific, never a persistent memory write.
 # Unlike semantic auto-learning, it does not infer or store personal facts.
-_BRIEF = re.compile(
-    r"(?:\b(?:kısaca|kısa (?:cevap|anlat|tut|tutalım|yaz|söyle|olsun|özet)|özetle|tek cümle(?:yle)?|"
-    r"briefly|short answer|in one sentence)\b)", re.I
-)
-_DEEP = re.compile(
-    r"(?:\b(?:detaylı(?:ca)?|ayrıntılı(?:ca)?|adım adım|en ince ayrıntısına|"
-    r"derinlemesine|thoroughly|in detail|step by step)\b)", re.I
-)
 _FOLLOWUP = re.compile(
     r"^(?:peki\b|devam et\b|biraz daha\b|o zaman\b|"
     r"onun(?:la|un|u|dan)?\b|onu\b|buna\b|şunu\b|"
@@ -69,14 +62,6 @@ _FOLLOWUP = re.compile(
     r"what about\b|and (?:it|that|then)\b|continue\b)",
     re.I
 )
-# The latest affirmative request wins. A phrase such as "kısa cevap
-# istemiyorum, detaylı anlat" is NOT a request for a short reply.
-_NEGATED_AFTER = re.compile(
-    r"^(?:değil|degil|istemiyorum|istemem|istemedim|olmasın|olmasin|"
-    r"verme|anlatma|yapma|olmasın|not|no)\b", re.I
-)
-_NEGATED_BEFORE = re.compile(r"\b(?:not|no|without)\s+$", re.I)
-
 _CORRECT = re.compile(
     r"^(?:hayır\b|yok\b(?!\s+(?:mu|mı|mi|mü)\b)|"
     r"yanlış anladın\b|onu demedim\b|öyle değil\b|"
@@ -85,21 +70,6 @@ _CORRECT = re.compile(
     r"no,?\b|that's not what i meant\b)",
     re.I
 )
-
-
-def classify_reply_mode(message: str) -> str:
-    """One-turn preference for response length, independent of stored memory."""
-    text = str(message or "").strip()
-    requests = []
-    for pattern, mode in ((_BRIEF, "brief"), (_DEEP, "detailed")):
-        for hit in pattern.finditer(text):
-            before = text[max(0, hit.start() - 16):hit.start()]
-            after = text[hit.end():hit.end() + 40].lstrip()
-            if _NEGATED_AFTER.match(after) or _NEGATED_BEFORE.search(before):
-                continue
-            requests.append((hit.start(), mode))
-    # Prefer the final *affirmative* instruction, not a negated earlier one.
-    return max(requests, default=(-1, "natural"))[1]
 
 
 def classify_dialogue_act(message: str) -> str:

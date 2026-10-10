@@ -16,6 +16,7 @@ from pathlib import Path
 from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
 from ultron.cloud_service.conversation_turns import ollama_messages, bounded_user_request
 from ultron.cloud_service.response_quality import finalize_response
+from ultron.cloud_service.reply_policy import classify_reply_mode
 
 _ROOT=Path(__file__).resolve().parents[1]
 _SETTINGS=_ROOT/"ultron"/"backend"/"config"/"settings.json"
@@ -97,11 +98,17 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     # Conversational replies benefit from less deterministic sampling and enough
     # output tokens to finish a thought. Keep small-laptop bounds intact.
     runtime=dict(config.get("options") or {})
-    detailed=any(x in text.casefold() for x in
-                 ("detaylı", "ayrıntılı", "adım adım", "uzun anlat",
-                  "in detail", "step by step"))
+    mode=classify_reply_mode(text)
     base=int(runtime.get("num_predict",192))
-    runtime["num_predict"]=min(420,max(base,360 if detailed else 240))
+    # A negated "detaylı anlatma" is NOT a detailed-mode request.
+    # Keep a lower output ceiling for explicit brief replies on the 4GB GPU.
+    # These are safe maxima, not a claim about actual inference latency.
+    if mode == "brief":
+        runtime["num_predict"]=max(96,min(160,base))
+    elif mode == "detailed":
+        runtime["num_predict"]=min(420,max(base,360))
+    else:
+        runtime["num_predict"]=min(420,max(base,240))
     runtime["temperature"]=0.55
     runtime["top_p"]=0.9
     runtime["repeat_penalty"]=1.08

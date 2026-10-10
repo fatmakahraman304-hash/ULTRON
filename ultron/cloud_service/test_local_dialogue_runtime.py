@@ -53,6 +53,36 @@ class LocalConversationTests(unittest.TestCase):
         self.assertGreaterEqual(detailed["options"]["num_predict"],short["options"]["num_predict"])
         self.assertGreaterEqual(short["options"]["num_predict"],240)
 
+    def test_brief_detailed_and_negation_share_persona_policy(self):
+        brief=self.run_local("Detaylı anlatma, kısa cevap ver",[])
+        natural=self.run_local("Mercedes C180 hakkında konuşalım",[])
+        detailed=self.run_local("Kısa cevap istemiyorum, detaylı anlat",[])
+        values=[x["options"]["num_predict"] for x in (brief,natural,detailed)]
+        self.assertLessEqual(values[0],160)
+        self.assertGreaterEqual(values[0],96)
+        self.assertGreaterEqual(values[1],240)
+        self.assertGreaterEqual(values[2],360)
+        self.assertLess(values[0],values[1])
+        self.assertLess(values[1],values[2])
+        for prompt, expected in (
+            ("Tek cümleyle söyle", "brief"),
+            ("In detail please", "detailed"),
+            ("No short answer, explain in detail", "detailed"),
+            ("Briefly explain, then in detail", "detailed"),
+            ("Detaylı değil", "natural"),
+        ):
+            self.assertEqual(local.classify_reply_mode(prompt),expected,prompt)
+            wire=self.run_local(prompt,[])
+            tokens=wire["options"]["num_predict"]
+            if expected == "brief":
+                self.assertLessEqual(tokens,160)
+            elif expected == "detailed":
+                self.assertGreaterEqual(tokens,360)
+            else:
+                self.assertGreaterEqual(tokens,240)
+            self.assertLessEqual(wire["options"]["num_ctx"],4096)
+            self.assertFalse(wire.get("tools"))
+
     def test_local_current_long_prompt_retains_final_user_correction(self):
         correction="SON TALİMAT: 2010 yerine yalnızca 2009 C180 kullan."
         prompt="BAŞLANGIÇ: Araç karşılaştırması. "+("çok uzun detaylar "*350)+correction
