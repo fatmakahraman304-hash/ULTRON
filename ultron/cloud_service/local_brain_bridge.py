@@ -13,6 +13,7 @@ import uuid
 
 from aiohttp import web
 from conversation_persona import build_system_instruction
+from conversation_turns import load_thread_turns
 from auto_learning import learn_from_owner_message
 
 
@@ -58,25 +59,30 @@ async def post_local_chat(request: web.Request) -> web.Response:
 
     # Bound shared memory/history to protect 4GB consumer GPU.
     memory = (await request.app["local_memory_context"](pool, request["user_id"]))[:2400]
-    recent = (await request.app["local_recent_context"](pool, request["user_id"]))[:2100]
+    turns = await load_thread_turns(pool, request["user_id"], conversation,
+                                    max_chars=2600, limit=12)
     system = build_system_instruction(
-        memory=memory, recent=recent, user_message=text,
-        read_only=True, max_chars=5400,
+        memory=memory, recent="Conversation turns provided separately with roles.",
+        user_message=text, read_only=True, max_chars=4500,
     )
 
     async with pool.acquire() as conn:
         async with conn.transaction():
-            await conn.execute(
+            claimed = await conn.fetchval(
                 "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
-                "ON CONFLICT(id) DO UPDATE SET updated_at=NOW()",
+                "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
+                "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
                 conversation, request["user_id"], text[:80],
             )
+            if claimed is None:
+                raise web.HTTPNotFound(text='{"error":"conversation_not_found"}',
+                                       content_type="application/json")
             row = await conn.fetchrow(
                 "INSERT INTO device_commands(user_id,target,command,payload,source_device) "
                 "VALUES($1,'desktop','agent_task',$2::jsonb,$3) RETURNING id",
                 request["user_id"],
-                json.dumps({"mode":"local_brain","text":text,"system":system},
-                           ensure_ascii=False),
+                json.dumps({"mode":"local_brain","text":text,"system":system,
+                            "turns":turns}, ensure_ascii=False),
                 request["device_id"],
             )
             await conn.execute(

@@ -2207,7 +2207,8 @@ class UltronLive:
                 lease_task = asyncio.create_task(lease_guard.run())
                 from integration.local_cloud_brain import local_chat
                 local = await asyncio.to_thread(
-                    local_chat, task_text, str(payload.get("system") or "")[:5400]
+                    local_chat, task_text, str(payload.get("system") or "")[:5400],
+                    payload.get("turns") if isinstance(payload.get("turns"),list) else []
                 )
                 if lease_guard.lost.is_set():
                     log_lease("Ollama result discarded: Cloud lease is no longer active")

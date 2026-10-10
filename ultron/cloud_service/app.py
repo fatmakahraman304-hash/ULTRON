@@ -23,6 +23,7 @@ from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes
 from conversation_persona import build_system_instruction
+from conversation_turns import load_thread_turns, gemini_turns
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
 from google import genai
@@ -880,10 +881,15 @@ def _is_transient_gemini_error(exc: Exception) -> bool:
     return any(marker in message for marker in transient_markers)
 
 
-def _generate_with_model(client: genai.Client, model: str, prompt: str, system_instruction: str) -> str:
+def _generate_with_model(client: genai.Client, model: str, prompt: str,
+                         system_instruction: str, turns=None) -> str:
+    content = [
+        types.Content(role=item["role"], parts=[types.Part.from_text(text=item["content"])])
+        for item in gemini_turns(turns or [], prompt)
+    ]
     response = client.models.generate_content(
         model=model,
-        contents=prompt,
+        contents=content,
         config=types.GenerateContentConfig(system_instruction=system_instruction),
     )
     text = (response.text or "").strip()
@@ -892,7 +898,7 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str, system_i
     return text
 
 
-def _gemini_reply(prompt: str, system_instruction: str) -> str:
+def _gemini_reply(prompt: str, system_instruction: str, turns=None) -> str:
     client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
     primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
     fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip() or "gemini-3.5-flash-lite"
@@ -906,7 +912,7 @@ def _gemini_reply(prompt: str, system_instruction: str) -> str:
     for model in models:
         for attempt in range(max_retries):
             try:
-                return _generate_with_model(client, model, prompt, system_instruction)
+                return _generate_with_model(client, model, prompt, system_instruction, turns=turns)
             except Exception as exc:
                 last_exc = exc
                 if not _is_transient_gemini_error(exc):
@@ -1211,29 +1217,38 @@ async def chat(request: web.Request) -> web.Response:
     except ValueError:
         raise web.HTTPBadRequest(text=json.dumps({"error": "invalid_conversation_id"}), content_type="application/json")
 
-    await pool.execute(
+    claimed = await pool.fetchval(
         """
         INSERT INTO conversations(id,user_id,title)
         VALUES($1,$2,$3)
         ON CONFLICT(id) DO UPDATE SET updated_at=NOW()
+        WHERE conversations.user_id=EXCLUDED.user_id
+        RETURNING id
         """,
         conv_uuid, request["user_id"], text[:80],
     )
-    await pool.execute(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4)",
+    if claimed is None:
+        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
+    current_message_id = await pool.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+        "VALUES($1,$2,'user',$3,$4) RETURNING id",
         conv_uuid, request["user_id"], text, request["device_id"],
     )
 
     memory = await _memory_context(pool, request["user_id"])
-    recent = await _recent_context(pool, request["user_id"])
+    turns = await load_thread_turns(
+        pool, request["user_id"], conv_uuid, before_id=current_message_id,
+        max_chars=5200, limit=16,
+    )
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
-        memory=memory, recent=recent, user_message=text,
+        memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
+        user_message=text, read_only=True,
     )
     prompt = text
 
     try:
-        reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction)
+        reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
     except Exception as exc:
         raw_error = str(exc)[:1000]
         await pool.execute(

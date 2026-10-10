@@ -14,6 +14,7 @@ import urllib.request
 from pathlib import Path
 
 from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
+from ultron.cloud_service.conversation_turns import ollama_messages
 
 _ROOT=Path(__file__).resolve().parents[1]
 _SETTINGS=_ROOT/"ultron"/"backend"/"config"/"settings.json"
@@ -57,7 +58,7 @@ def installed_models()->list[str]:
     return names
 
 
-def local_chat(prompt:str,system:str)->dict:
+def local_chat(prompt:str,system:str,turns=None)->dict:
     text=str(prompt or "").strip()[:3000]
     if not text:
         raise ValueError("empty_local_prompt")
@@ -74,10 +75,7 @@ def local_chat(prompt:str,system:str)->dict:
     # Ollama may finish slowly on CPU offload; Cloud worker renews the lease.
     result=_get_json("/api/chat",{
         "model":choice.model,
-        "messages":[
-            {"role":"system","content":str(system or "")[:5400]},
-            {"role":"user","content":text},
-        ],
+        "messages":ollama_messages(system, turns or [], text),
         **config,
     },timeout=70)
     answer=str((result.get("message") or {}).get("content") or "").strip()
