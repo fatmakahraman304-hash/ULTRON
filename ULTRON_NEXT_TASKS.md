@@ -347,3 +347,12 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. Test laptop single-speaker leader switching: phone output stops when desktop leads; on reconnect it should not replay stale audio. Check session-scoped transcript and approval-gated device tools remain intact.
 4. Evaluate voice echo cancellation/threshold under real room noise and headphones. Consider exposing a private calibration diagnostic only after real recordings/tests; don't hardcode risky mic thresholds or claim flawless full-duplex conversation.
 5. Continue safer real user tasks, per-chat edit/review and privacy tests while keeping the clean on-command UI. Windows laptop update/download only once the user explicitly requests final handoff.
+
+
+## Next: single-speaker ownership hardware acceptance
+1. Verify GitHub HEAD Cloud Queue PostgreSQL Integration and Scene Build Check at 4952ea5a6a44c041aebf5d87e21ce2184ad3e48d, verify Render LIVE at same code SHA.
+2. User-authorized actual hardware testing later: with Windows desktop genuinely online and audible, phone receives a remote laptop task result and does NOT read it simultaneously via iOS TTS; it still shows the result in chat.
+3. During phone Gemini Live with desktop reporting speaking=true, phone retains voice priority in UI; listen for actual duplicate desktop audio and debug Windows-side owner heartbeat if needed. Current phone-side policy cannot mute Windows physical speakers by itself.
+4. Phone local Qwen one-tap microphone should take immediate UI priority even if earlier desktop speaker was leading. After stopping local voice, desktop presence refresh can regain speaker role without old WebAudio chunk replay or stale callback interference.
+5. Stress overlapping /api/device-presence responses: only newest request should update phone speaker; server and user permission constraints still apply.
+6. Real iPhone Safari, Gemini Live permissions, Windows microphone/speaker, Ollama performance and task replay are not verified. Do not install/update user's Windows files until they explicitly request final combined package.

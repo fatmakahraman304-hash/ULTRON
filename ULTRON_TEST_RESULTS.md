@@ -286,3 +286,11 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Intermediate GitHub ULTRON Scene Build Check #38065262849 failed on 'playback.create is not a function' due to shadowed CommonJS module binding. Corrected UMD wrapper in code SHA b431b82314c4b27fee7c1cf7b2d96e5b27a51acf.
 - GitHub Cloud Queue PostgreSQL Integration #38065354266 SUCCESS; ULTRON Scene Build Check #38065354265 SUCCESS; Render automatic deploy dep-db55ubl9mjac73899sl0 LIVE at the same code SHA.
 - This does NOT establish real iOS microphone/audio interruption latency or guarantee network-based Gemini provider availability; hands-on physical iPhone test remains necessary. No local Windows installation attempted.
+
+
+## 2026-10-10 — Speaker policy regression evidence
+- Added Node test_speaker_policy.cjs: desktop speaker online+speaking+voice_active+not muted, no string/false trust; phone Gemini Live or local Qwen mic priority, no remote-result secondary phone TTS, cancelling old audio and clearing remoteResultSpeaking, immediate mic-tap takeover, stale out-of-order heartbeat checks, PWA v53 asset+inline script validation.
+- CI workflow .github/workflows/scene-check.yml executes node --check speaker-policy.js and node --test test_speaker_policy.cjs in addition to previous Live playback tests.
+- Commit 6e35a098378ba1fc03f622f73636070ddbd26bad: GitHub Cloud Queue PostgreSQL Integration #38066016781 SUCCESS and ULTRON Scene Build Check #38066016772 SUCCESS.
+- Commit 4952ea5a6a44c041aebf5d87e21ce2184ad3e48d: latest Cloud Queue PostgreSQL Integration #38066114015 SUCCESS and ULTRON Scene Build Check #38066114014 SUCCESS. Render code at prior 8eb876077ab7951758892cee05b32d6e4f63b597 LIVE as of verification; Render promotion of test-only 4952ea5a6 still in progress then. Check final live SHA before claiming deployment.
+- CI does not exercise real iPhone/Windows speaker, physical acoustic feedback or Chrome/Safari AudioContext timing. User intentionally deferred Windows update and no local desktop files were altered.

@@ -268,3 +268,10 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 - On iOS PWA Gemini Live, turn_complete means the server finished transcription/response generation; it must NOT cancel scheduled 24 kHz WebAudio chunks. Only user interruption, explicit stop, session disconnect or laptop-single-speaker takeover may cancel playback.
 - Keep a small explicit-generation playback queue for WebAudio source completion. Old onended callbacks after an interruption cannot unlock a new conversation or report a false status. Update listening UI only after pending chunks drain.
 - Preserve Live microphone ownership, no auto-microphone on load, safety approval gates, desktop/cloud model selection, PWA voice-first minimal UX and limited local Qwen compute. Test actual hardware later; CI is only a functional contract.
+
+
+## 2026-10-10 — Single-speaker iPhone/Windows voice arbitration
+- Mobile browser applies deterministic phone-first output arbitration: an explicit Gemini Live voice session or active one-tap local Qwen microphone owns the phone's speech turn; only a confirmed online, active, unmuted Windows desktop is otherwise allowed to lead output.
+- Desktop presence responses carry a locally monotonic request sequence, so late responses cannot undo more recent decisions or cause phone TTS cut-out/flapping.
+- While desktop has output priority, phone task-result TTS is suppressed to avoid overlapping audio; engaging desktop ownership cancels outstanding browser SpeechSynthesis and clears its microphone gate. Local user mic tap preempts desktop speaker UI state instantly, rather than waiting for next 5-second poll.
+- No change to actual desktop audio driver/device state, no new permissions, no always-on microphone, no giant picker. True physical cross-device acoustic echo and real device-leader behavior still require the owner to test on Windows and iPhone.

@@ -302,3 +302,12 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - New test_live_playback.cjs verifies normal end -> full drain, interruption -> invalidation, empty response -> no audio lock, late duplicate ended event safety, server/UI hook correctness, and microphone owner protection. Added to ULTRON Scene Build Check.
 - Intermediate Scene workflow #38065262849 failed because UMD helper used a module variable shadowing Node's module.exports; fixed in final code commit b431b82314c4b27fee7c1cf7b2d96e5b27a51acf. Final Cloud Queue PostgreSQL Integration #38065354266 SUCCESS, Scene Build Check #38065354265 SUCCESS, Render dep-db55ubl9mjac73899sl0 LIVE at same SHA.
 - No real iPhone Safari microphone, real-time Gemini audio API or paired Windows physical tests have been conducted. Laptop installation remains deferred.
+
+
+## 2026-10-10 — One speaker per ULTRON voice turn
+- Added static/speaker-policy.js pure decision functions for desktop eligibility and phone Live/local Qwen mic priority; only genuine boolean heartbeat fields grant desktop output.
+- PWA index.html now blocks speakRemoteResult browser TTS while desktop is speaker leader; setDesktopVoiceLeader cancels WebAudio/browser TTS and clears remoteResultSpeaking after output handoff. watchDesktopPresence uses monotonic sequence to ignore stale out-of-order async responses and includes localVoiceController.active() as phone priority. Local voice onState takes phone priority immediately on explicit tap.
+- PWA service worker cache advanced to v53 to precache speaker-policy.js; main minimal UI untouched.
+- Added test_speaker_policy.cjs with no provider: online/unmuted actual speaker, invalid/stale statuses, phone Live or local microphone priority, no duplicate TTS, handoff cancellation, out-of-order presence safety and inline JS/PWA registration.
+- Updated old test_live_playback.cjs to accept versioned PWA service-worker names and wired new Node speaker tests to Scene Build Check. Latest code/test SHA 4952ea5a6a44c041aebf5d87e21ce2184ad3e48d; Cloud CI and Scene CI SUCCESS (see tests doc).
+- Windows laptop installation deferred at user request. Latest Render deployment must be checked for live separately. Real physical iPhone/Windows sound ownership NOT verified by browser/static CI.
