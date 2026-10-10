@@ -29,6 +29,8 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_persona.py' -v
       - name: Natural conversation threading and realistic persona regression
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_turns.py' -v
+      - name: Local 4GB Qwen natural dialogue request and safe sampling
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_local_dialogue_runtime.py' -v
       - name: Ten-capability readiness truthfulness tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_capability_readiness.py' -v
       - name: Personal briefing privacy and grounding tests
