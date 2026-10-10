@@ -5,7 +5,6 @@ import argparse
 import hashlib
 import json
 import os
-import re
 from pathlib import Path
 import statistics
 import sys
@@ -17,6 +16,7 @@ sys.path.insert(0, str(ROOT / 'ultron/cloud_service'))
 from conversation_persona import build_system_instruction
 from conversation_turns import select_contextual_turns
 from response_quality import assess_response
+from ultron.cloud_service.model_identity import is_qwen_model
 
 DATA = Path(__file__).with_name('scenarios.json')
 DIMENSIONS = ('correctness', 'context', 'style', 'honesty', 'privacy')
@@ -24,13 +24,6 @@ DIMENSIONS = ('correctness', 'context', 'style', 'honesty', 'privacy')
 
 class WrongProviderModel(RuntimeError):
     """The selected Ollama model did not match the advertised Qwen provider."""
-
-
-def is_qwen_model(model: str) -> bool:
-    """Recognize actual Qwen families, including an optional Ollama namespace."""
-    return (isinstance(model, str) and
-            re.fullmatch(r'(?:[a-z0-9_.-]+/)*qwen(?:[0-9]|[-:.])[a-z0-9_.:-]*',
-                         model.strip().lower()) is not None)
 
 
 def pilot_cases(cases: list[dict]) -> list[dict]:

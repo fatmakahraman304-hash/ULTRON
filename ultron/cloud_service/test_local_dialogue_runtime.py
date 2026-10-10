@@ -74,6 +74,47 @@ class LocalConversationTests(unittest.TestCase):
                 self.assertEqual(len(captured),1)
                 self.assertEqual(captured[0][1]["model"],"qwen3:4b")
 
+    def test_only_visual_model_installed_is_not_local_chat_ready(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b","fast_brain":{"enabled":True}}}))
+        def tags(path,payload=None,**kwargs):
+            self.assertEqual(path,"/api/tags")
+            return {"models":[{"name":"llava:7b"}]}
+        with patch.object(local,"_SETTINGS",settings), \
+             patch.object(local,"_get_json",side_effect=tags):
+            self.assertFalse(local.local_chat_ready())
+        with patch.object(local,"_SETTINGS",settings), \
+             patch.object(local,"installed_models",return_value=["llava:7b"]), \
+             patch.object(local,"_get_json",
+                          side_effect=AssertionError("must not infer")):
+            with self.assertRaises(local.LocalBrainUnavailable):
+                local.local_chat("Merhaba","ULTRON",[])
+
+    def test_mixed_inventory_falls_back_to_installed_qwen_not_llava(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b",
+                   "fast_brain":{"enabled":True,
+                                 "conversation_models":["qwen3:8b"],
+                                 "coding_models":["llava:7b"]}}}))
+        recorded=[]
+        def fake_request(path,payload=None,**kwargs):
+            recorded.append((path,payload))
+            if path=="/api/tags":
+                return {"models":[{"name":"llava:7b"},
+                                  {"name":"qwen2.5-coder:7b"}]}
+            return {"message":{"content":"Merhaba, buradayım."}}
+        with patch.object(local,"_SETTINGS",settings), \
+             patch.object(local,"_get_json",side_effect=fake_request):
+            self.assertTrue(local.local_chat_ready())
+        with patch.object(local,"_SETTINGS",settings), \
+             patch.object(local,"installed_models",
+                          return_value=["llava:7b","qwen2.5-coder:7b"]), \
+             patch.object(local,"_get_json",side_effect=fake_request):
+            got=local.local_chat("Merhaba","ULTRON",[])
+        self.assertEqual(got["model"],"qwen2.5-coder:7b")
+        self.assertEqual(recorded[-1][1]["model"],"qwen2.5-coder:7b")
+        self.assertEqual(got["provider"],"local-ollama")
+
     def test_previous_turns_are_actual_model_messages(self):
         msg=self.run_local("Peki fiyatı?",[
             {"role":"user","content":"Mercedes C180 bakıyorum"},

@@ -126,6 +126,13 @@ class EvaluationTests(unittest.TestCase):
         for name in invalid:
             self.assertFalse(evaluation.is_qwen_model(name),name)
 
+    def test_evaluation_and_production_share_model_identity(self):
+        from ultron.cloud_service.model_identity import is_qwen_model
+        for label in ("qwen3:4b","qwen2.5-coder:7b","team/qwen3:8b",
+                      "llava:7b","qwenish:2b","",None):
+            self.assertEqual(evaluation.is_qwen_model(label),
+                             is_qwen_model(label))
+
     def test_latency_summary_never_invents_missing_model_timings(self):
         self.assertEqual(evaluation.latency_summary([]),{'p50':None,'p95':None})
         self.assertEqual(evaluation.latency_summary([1,2,3,4,5]),

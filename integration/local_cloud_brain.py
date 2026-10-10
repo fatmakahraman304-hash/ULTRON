@@ -18,6 +18,7 @@ from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
 from ultron.cloud_service.conversation_turns import ollama_messages, bounded_user_request
 from ultron.cloud_service.response_quality import finalize_response
 from ultron.cloud_service.reply_policy import classify_reply_mode
+from ultron.cloud_service.model_identity import is_qwen_model
 
 _ROOT=Path(__file__).resolve().parents[1]
 _SETTINGS=_ROOT/"ultron"/"backend"/"config"/"settings.json"
@@ -116,13 +117,15 @@ def local_chat_ready() -> bool:
         result = _get_json("/api/tags", timeout=1.5)
         models = [item["name"] for item in result.get("models", [])
                   if isinstance(item, dict) and isinstance(item.get("name"), str)]
-        if not models:
+        chat_models = [name for name in models if is_qwen_model(name)]
+        if not chat_models:
+            # An installed LLaVA-only inventory is not a usable Qwen chat.
             return False
         settings = json.loads(_SETTINGS.read_text(encoding="utf-8"))["llm"]
         policy = FastBrainPolicy(settings.get("fast_brain", {}))
-        choice = policy.choose(task=classify_text("Merhaba"), installed=models,
+        choice = policy.choose(task=classify_text("Merhaba"), installed=chat_models,
                                primary=settings.get("model", "qwen3:4b"))
-        return choice.model in models
+        return choice.model in chat_models
     except (LocalBrainUnavailable, OSError, ValueError, TypeError, KeyError):
         return False
 
@@ -143,13 +146,17 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     models=installed_models()
     if not models:
         raise LocalBrainUnavailable("Ollama'da kurulu bir model bulunamadı.")
+    chat_models=[name for name in models if is_qwen_model(name)]
+    if not chat_models:
+        # Never substitute a visual-only or unknown model for local Qwen chat.
+        raise LocalBrainUnavailable("Yerel sohbet için kurulu Qwen modeli bulunamadı.")
     task=classify_text(text)
     # A text-only how-to question about analysing images needs a language
     # model, not a vision-only model with no pixels supplied.
     if task == "VISION" and _image_howto(text):
         task = "FAST"
-    choice=policy.choose(task=task,installed=models,primary=settings.get("model","qwen3:4b"))
-    if choice.model not in models:
+    choice=policy.choose(task=task,installed=chat_models,primary=settings.get("model","qwen3:4b"))
+    if choice.model not in chat_models:
         raise LocalBrainUnavailable("Seçilen yerel model kurulu değil.")
     config=policy.runtime_options(choice.model,tools=False)
     # Conversational replies benefit from less deterministic sampling and enough
