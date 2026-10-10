@@ -33,6 +33,8 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_local_dialogue_runtime.py' -v
       - name: Context-aware natural dialogue and no-hallucinated-history contracts
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_style.py' -v
+      - name: Explicit on-demand older conversation recap, provider-free tests
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_thread_recap.py' -v
       - name: Long chat contextual recall and no cross-thread contamination
         run: python -m unittest discover -s ultron/cloud_service -p 'test_contextual_recall.py' -v
       - name: Ten-capability readiness truthfulness tests
