@@ -212,3 +212,11 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Implemented plan PUT endpoint with shared strict field validation and user_id-bound SQL. Existing done/delete paths unchanged; missing or other-owner plan returns 404.
 - iPhone owner's existing plan now offers DÜZENLE, DEĞİŞİKLİKLERİ KAYDET and DÜZENLEMEYİ İPTAL ET, preserving entries on failed network save. PWA cache v46.
 - Extended Python offline and disposable PostgreSQL lifecycle tests and Node UI regression contracts. CI / Render current commit confirmation required; actual devices not tested.
+
+
+## 2026-10-10 — Delivered opt-in .ics export
+- Added ultron/cloud_service/personal_calendar_ics.py with bounded RFC5545 UTF-8 folding, reserved-char escaping, opaque stable UID, calendar timestamps and explicit DST-safe UTC conversion. Private owner notes excluded.
+- Registered authenticated, no-store GET /api/owner-plans/calendar.ics in personal_plans.py with user_id-scoped SQL and a strict IANA timezone allowlist, only outstanding plans.
+- HAFIZA owner-plans.js and index.html now expose timezone selector (Europe/Istanbul / Asia/Nicosia / UTC) plus explicit download button. No background export and no third-party calendar authorization. No push notifications.
+- Automated Python offline test_personal_calendar_ics.py, extended disposable PostgreSQL test_personal_plans_postgres.py, and Node test_owner_plans_ui.cjs. Cloud Queue PostgreSQL Integration #38034057983 SUCCESS, Scene Build Check #38034046409 SUCCESS (code/test SHA 74162f6). Render confirmed export UI SHA 74162f6 live. Current docs-only or workflow-only HEAD can be ahead; distinguish deployment proof of working code from HEAD deployment proof.
+- This session had no access to the user's real iPhone/Windows hardware, so Safari file-download/import and native Apple Calendar appearance are not verified.

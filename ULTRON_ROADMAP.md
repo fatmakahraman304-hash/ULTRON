@@ -184,3 +184,10 @@ Bu belge `MARK-ULTRON-MERGED` kaynak ağacına dayanır. **Test edilmemiş özel
 ## 2026-10-10 — ULTRON Life v1 plan editor
 - Add authenticated owner-only PUT /api/owner-plans/{id} to edit title/date/time/notes atomically, preserving plan id and completion. Avoid any external calendar sync or fake notification claims. iPhone HAFIZA includes explicit EDIT / SAVE / CANCEL, with draft preserved after network errors.
 - CI acceptance: real PostgreSQL cross-owner edit forbidden and persistent update; Node UI confirms no write until click, cancel discards unsaved draft and errors retain it. No physical iPhone or Windows test inferred.
+
+
+## 2026-10-10 — Personal calendar file export (no OAuth required)
+- Implemented explicit owner-requested iCalendar (.ics) export from ULTRON HAFIZA.
+- Browser-session-protected GET /api/owner-plans/calendar.ics accepts only Europe/Istanbul, Asia/Nicosia or UTC, converts timed events to true UTC instants and emits all-day dates without invented hours. Rejects ambiguous/nonexistent DST times instead of silently changing schedules.
+- The file contains only outstanding plan titles and dates/times (not notes), uses stable opaque event identifiers and RFC5545 escaping/UTF-8 folding, and has no VALARM or subscription/provider side effects.
+- The user explicitly chooses timezone and taps .ICS TAKVİM DOSYASINI İNDİR. Import into Apple/Google calendar must be user-initiated; export is not provider OAuth, syncing, notifications, calendar import verification or an automatic reminder.

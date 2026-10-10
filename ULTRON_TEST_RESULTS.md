@@ -203,3 +203,10 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Node tests cover opt-in editing, cancel without writes, failure preserving draft, and existing completion/deletion. GitHub CI outcome and Render deployment must be checked after commit, no local device claim.
 
 - Original edit-API integration run 37998999457 caught missing PUT inside Fetch-Metadata/JSON write guard (cross-site PUT incorrectly reached DB). Fix adds PUT to both checks, with regression assertion; rerun real PostgreSQL tenant/security CI before calling complete.
+
+
+## 2026-10-10 — iCalendar export regression evidence
+- CI Cloud Queue PostgreSQL Integration run 38034057983 SUCCESS includes offline ICS date/time DST tests and disposable PostgreSQL authenticated owner-only export, timezone and no-private-notes assertions; .ics file never contains private note and has no VALARM.
+- CI ULTRON Scene Build Check run 38034046409 SUCCESS at SHA 74162f6 includes Node tests for explicit click/URL allowlist and existing UI regressions, TypeScript/Vite build and scene suite.
+- Render ULTRON service srv-db20lmei0phs73crgujg verified live on code SHA 74162f6 at 2026-10-10 07:21Z.
+- Latest workflow-only SHA fb77617 also passed Cloud CI 38034057983; subsequent documentation changes do not affect functional code. Physical iPhone Safari PWA download, Apple Calendar import and actual Windows device were not executed.

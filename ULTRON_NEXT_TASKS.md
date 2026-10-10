@@ -258,3 +258,11 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 2. Verify Render autoDeploy latest code SHA live without manually triggering an unnecessary deploy.
 3. On real iPhone: HAFIZA > KİŞİSEL TAKVİM > PLANLARI GÖSTER > DÜZENLE; change date and time; KAYDET; refresh and verify persisted. Check cancel, failed save, done state and cross-user isolation.
 4. Next opt-in capabilities: user-selected timezone, optional verified calendar .ics export or provider OAuth, repeat plans; do not promise phone push alerts until actual provider and permissions configured.
+
+
+## Next ULTRON Life acceptance and follow-ups
+1. On a logged-in iPhone, open HAFIZA > KİŞİSEL TAKVİM VE PLANLAR, select Türkiye or Kıbrıs timezone and tap .ICS TAKVİM DOSYASINI İNDİR. Import the downloaded file in Apple Calendar only with user consent; verify timed plan and all-day plan timestamps. iOS browser/PWA download support and real import have not been tested.
+2. Verify no private notes or automatic alarms appear in downloaded .ics; verify export does not mark a plan complete or update Cloud records.
+3. Confirm Render live commit corresponds to latest code/test SHA and CI Cloud PostgreSQL + Scene Build Check succeeded; inspect new failures before changing more code.
+4. For real two-way calendar integration require explicit provider OAuth authorization, least-privilege scopes and token security. For alerts require deliberate user opt-in and verified delivery; no alerts exist now.
+5. Consider per-owner saved timezone default with versioned preference and no implicit location tracking; continue actual phone/Windows Gemini/Qwen voice tests and safe updates.
