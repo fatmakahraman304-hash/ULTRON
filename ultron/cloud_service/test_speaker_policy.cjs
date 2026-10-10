@@ -71,6 +71,15 @@ test("a late/out-of-order desktop presence response never overrides newer state"
  assert.match(block,/ULTRONSpeakerPolicy\.desktopMayLead/);
 });
 
+test("local voice gets phone priority on microphone tap, not on a 5-second timer",()=>{
+ const start=html.indexOf("localVoiceController=window.ULTRONLocalVoice?.create(");
+ const end=html.indexOf("async function localBrainAnswer(",start);
+ assert.ok(start>=0&&end>start);
+ const local=html.slice(start,end);
+ assert.match(local,/if\(state!=='idle'&&desktopVoiceLeader\)setDesktopVoiceLeader\(false\)/);
+ assert.match(local,/onTranscript:async text=>/);
+});
+
 test("speaker policy is cached with PWA and adds no visible menu",()=>{
  assert.match(sw,/ultron-shell-v[0-9]+/);
  assert.ok(sw.includes("'/static/speaker-policy.js'"));
