@@ -2,7 +2,7 @@
 
 ## Next tasks
 
-1. Verify latest bounded-evidence SHA GitHub Cloud/PostgreSQL and Scene workflows plus Render live SHA. Local evidence: 153 Cloud Python (28 real PG), 86 Node, 6 local-brain tests passed.
+1. Verify latest history-isolation SHA GitHub Cloud/PostgreSQL and Scene workflows plus Render live SHA. Local evidence: 155 Cloud Python (28 real PG), 86 Node, 6 local-brain tests passed.
 2. Real quality remains NOT MEASURED. Run `python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json` where an authorized Gemini credential is configured, and Qwen equivalent only on an available Ollama host. Independently review all 100 transcripts per provider against README criteria; report model identity limitations and latency. No Windows setup before final handoff.
 3. Important compatibility: old Windows versions without `local_chat_ready` now use Gemini. Final single Windows update must include mark_app.py and integration/local_cloud_brain.py, then test Ollama reachable/unreachable transitions and no duplicate queued request fallback.
 4. Remaining quality work: general semantic factual contradictions are not automatically resolved; only explicit reply language/length preferences are. Common secret patterns are not exhaustive classification. Measure long multi-turn dialogue and inference truncation before increasing context/model budgets. Current additional response checks are presentation-only, not semantic fact verification.

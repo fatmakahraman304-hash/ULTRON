@@ -26,7 +26,7 @@ model failure. Infrastructure validation is separate from answer quality.
 | reasoning | 10 | NOT_RUN | NOT_RUN |
 | safety | 10 | NOT_RUN | NOT_RUN |
 
-Deterministic verification: 153 Cloud Python tests passed, including 28 real
+Deterministic verification: 155 Cloud Python tests passed, including 28 real
 disposable PostgreSQL tests; 86 mobile Node tests passed; 6 local-brain tests
 passed. Frontend TypeScript/Vite build and 6 Earth tests passed. These counts
 must never be reported as a conversational quality score. Exact GitHub and Render

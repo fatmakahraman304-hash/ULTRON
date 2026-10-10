@@ -841,18 +841,12 @@ async def _memory_context(pool: asyncpg.Pool, user_id: str, query: str = "") -> 
 
 async def _recent_context(pool: asyncpg.Pool, user_id: str, limit: int = 24,
                           conversation_id=None) -> str:
-    if conversation_id is not None:
-        rows = await pool.fetch(
-            "SELECT role,content FROM messages WHERE user_id=$1 "
-            "AND conversation_id=$2 ORDER BY id DESC LIMIT $3",
-            user_id, conversation_id, limit,
-        )
-    else:
-        rows = await pool.fetch(
-            "SELECT role,content FROM messages WHERE user_id=$1 ORDER BY id DESC LIMIT $2",
-            user_id, limit,
-        )
-    rows = list(reversed(rows))
+    # A missing thread is not permission to blend the owner's other chats.
+    # Image/PDF requests create their own conversation and have no prior thread.
+    if conversation_id is None:
+        return "No previous chat messages."
+    rows = await load_thread_turns(pool, user_id, conversation_id,
+                                   max_chars=3200, limit=limit)
     if not rows:
         return "No previous chat messages."
     return "\n".join(f"{r['role'].upper()}: {r['content']}" for r in rows)

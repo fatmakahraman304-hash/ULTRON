@@ -356,3 +356,10 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Final full local Cloud run: **153 PASS**, no skips, including 28 disposable PostgreSQL tests. `evals/conversation/LATEST_RESULTS.md` separately records all 100 TR/EN scenarios as NOT_RUN for both live providers and no quality score.
 - Cycle 2 SHA 06acb933f9568c7548ec0d62631fcdb6f65a1811 verified: Cloud PostgreSQL run 38069902423 SUCCESS, Scene run 38069902369 SUCCESS; Render dep-db56tv7avr4c73eqm5lg LIVE. Final bounded-evidence commit CI/Render is checked after push.
 - Continuation document now exposes current priorities under the resume script's supported `Next tasks` heading. No Windows changes, downloads or installations.
+
+
+## 2026-10-10 — Legacy multimodal history isolation
+- Audit found `_recent_context` blended other same-owner conversations when called without a thread (image/PDF paths). It now returns no prior history without a conversation_id and delegates explicit threads to bounded role-filtered load_thread_turns. User memory remains separately owner-scoped.
+- Two actual-helper regression tests FAILED before the fix and now PASS. Full local Cloud suite **155 PASS**, including the same 28 real PostgreSQL tests, no skips.
+- Prior bounded-evidence code 25b8ee9a3495e4b82e8f1a7e98cfda95a37f6a3a: Cloud CI 38070026514 SUCCESS, Scene CI 38070026493 SUCCESS; Render dep-db56unf40ujc73c6t1p0 update_in_progress at inspection. Current isolation commit's CI/Render must be verified after push.
+- Real Gemini/Qwen quality, physical devices and Windows installation remain NOT RUN. No 100/100 conversational result claimed.

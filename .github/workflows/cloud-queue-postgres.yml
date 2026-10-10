@@ -42,6 +42,8 @@ jobs:
           python -m unittest discover -s ultron/cloud_service -p 'test_response_quality.py' -v
           python -m unittest discover -s ultron/cloud_service -p 'test_conversation_eval.py' -v
           python evals/conversation/run.py --validate
+      - name: No unscoped legacy image or document chat history
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_recent_context_isolation.py' -v
       - name: First topic return and bounded paired recall
         run: python -m unittest discover -s ultron/cloud_service -p 'test_reference_return.py' -v
       - name: Long chat contextual recall and no cross-thread contamination
