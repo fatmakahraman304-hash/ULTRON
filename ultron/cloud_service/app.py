@@ -834,7 +834,7 @@ async def list_messages(request: web.Request) -> web.Response:
     return web.json_response({"messages": items}, dumps=_json_dumps)
 
 
-async def _memory_context(pool: asyncpg.Pool, user_id: str, *, query: str = "") -> str:
+async def _memory_context(pool: asyncpg.Pool, user_id: str, query: str = "") -> str:
     # User-owned persistent memories and explicitly saved plans only.
     # Relevant older goals survive unrelated recent entries, and upcoming
     # plans survive the short local Qwen context window.

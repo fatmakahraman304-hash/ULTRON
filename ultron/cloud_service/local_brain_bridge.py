@@ -58,7 +58,7 @@ async def post_local_chat(request: web.Request) -> web.Response:
             "detail":"Yerel beyin meşgul; önceki yanıtı bekle."},status=429)
 
     # Bound shared memory/history to protect 4GB consumer GPU.
-    memory = (await request.app["local_memory_context"](pool, request["user_id"]))[:2400]
+    memory = (await request.app["local_memory_context"](pool, request["user_id"], text))[:2400]
     turns = await load_contextual_thread_turns(
         pool, request["user_id"], conversation,
         question=text, max_chars=2600, limit=12,
