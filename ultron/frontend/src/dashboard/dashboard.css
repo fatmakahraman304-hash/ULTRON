@@ -288,3 +288,16 @@
 .world-desktop-toolbar{position:absolute;z-index:100;left:15px;bottom:12px;display:flex;gap:7px;pointer-events:auto}
 .world-desktop-toolbar button{font:10px Consolas,monospace;background:#050c12eb;border:1px solid #376077;color:#c9ebf6;display:flex;gap:7px;align-items:center;padding:9px}
 .world-desktop-toolbar svg{width:15px;height:15px}
+
+/* VOICE-FIRST ULTRON: workspace controls are summoned, not always on screen. */
+.ultron-app.voice-first{grid-template-rows:100px minmax(0,1fr) 0px;gap:10px}
+.ultron-app.voice-first .main-header nav,.ultron-app.voice-first .bottom-toolbar{display:none}
+.ultron-app.voice-first .main-header{justify-content:space-between}
+.ultron-app.voice-first .voice-first-mic,.ultron-app.voice-first .voice-first-menu{display:flex;align-items:center;gap:10px;white-space:nowrap;font:15px 'Segoe UI',sans-serif;padding:15px 20px;min-height:54px}
+.ultron-app.voice-first .voice-first-mic svg,.ultron-app.voice-first .voice-first-menu svg{width:19px;height:19px}
+.ultron-app.voice-first .main-grid{grid-template-columns:minmax(0,1fr) 475px}
+.ultron-app.voice-first .system-rail{display:none}
+.ultron-app.voice-first .right-panels{grid-template-rows:minmax(0,1fr)}
+.ultron-app.voice-first .right-panels>.panel:not(.chat-panel),.ultron-app.voice-first .right-panels>.files-panel{display:none}
+.ultron-app.voice-first .reactor-panel .subsystems{display:none}
+.ultron-app.voice-first .chat-panel .panel-body{height:calc(100% - 54px)}

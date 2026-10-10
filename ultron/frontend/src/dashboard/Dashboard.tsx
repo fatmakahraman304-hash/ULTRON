@@ -2,6 +2,7 @@ import {lazy,Suspense,useEffect,useRef,useState,type CSSProperties} from 'react'
 import {Home,Settings,Gamepad2,Box,Folder,Wrench,Puzzle,Power,Globe,Files,Terminal,Scan,ScanText,Calendar,Code,Activity,Grid2X2,PanelsTopLeft,Mic,MicOff,Send,Square,Trash2,MessageSquare,Command,ShieldCheck,X,Bell} from 'lucide-react';
 import {useUltron,request,type CoreState} from './runtime';
 import {Panel,ModelPanel,ToolPanel} from './Panels';
+import {resolvePanelIntent} from './panelIntent';
 import {Brand,SystemRail,FileDrop} from './ReferencePanels';
 import CenterStage from './CenterStage';
 import './dashboard.css';
@@ -9,6 +10,7 @@ const HologramLab=lazy(()=>import('../hologram/HologramLab'));
 export default function Dashboard(){
  const u=useUltron(),[devDraft,setDevDraft]=useState(''),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[scale,setScale]=useState(1),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general');
  const messages=useRef<HTMLDivElement>(null),abort=useRef<AbortController|null>(null),errorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+ const voiceRouteSeen=useRef<string|null>(null),typedRouteSeen=useRef('');
  useEffect(()=>{const resize=()=>setScale(Math.min(innerWidth/1920,innerHeight/1080));resize();window.addEventListener('resize',resize);const timer=setInterval(()=>setClock(new Date()),1000);return()=>{window.removeEventListener('resize',resize);clearInterval(timer);clearTimeout(errorTimer.current);abort.current?.abort();};},[]);
  useEffect(()=>{messages.current?.scrollTo({top:messages.current.scrollHeight});},[u.messages]);
  const notify=(message:string)=>{u.setNotice(message);setLocalState('ERROR');clearTimeout(errorTimer.current);errorTimer.current=setTimeout(()=>setLocalState('IDLE'),1800);};
@@ -334,7 +336,26 @@ export default function Dashboard(){
   if(/(?:sadece|yalnız) (?:windows|laptop|masaüstü|bilgisayar)/.test(t))return 'desktop';
   return 'both';
  };
+ const workspaceIntent=async(raw:string):Promise<string>=>{
+  const w=resolvePanelIntent(raw);
+  if(!w)return '';
+  if(w==='chat'){setModal('');setHologram(false);if(u.stage.mode!=='core_idle')await request('/api/stage/command',{operation:'reset'});return 'Ana ekran açıldı.';}
+  if(w==='hologram'){setModal('');setHologram(true);return 'Hologram Lab açıldı.';}
+  if(w==='world'){const op=/(?:2d|harita|sokak)/i.test(raw)?'world_map':'earth_open';await request('/api/stage/command',{operation:op});setModal('');setHologram(false);return op==='world_map'?'Dünya haritası açıldı.':'3D Dünya açıldı.';}
+  if(w==='memory'){open('Hafıza');return 'Hafıza açıldı.';}
+  if(w==='remote'){open('Kontroller');return 'Cihaz kontrolleri açıldı.';}
+  if(w==='develop'){open('Geliştir');u.native?.devRefresh?.();return 'Geliştirme alanı açıldı.';}
+  if(w==='tools'){open('Araçlar');return 'Araçlar açıldı.';}
+  if(w==='settings'){open('Ayarlar');return 'Ayarlar açıldı.';}
+  return '';
+ };
  const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
+   typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();
+   if(resolvePanelIntent(text)){
+     u.add('user',text);
+     try{const reply=await workspaceIntent(text);if(reply)u.add('assistant',reply);}catch(e){notify((e as Error).message);}
+     return;
+   }
   if(devIntent(text)&&u.native?.devRequest){u.add('user',text);u.native.devRequest(text,devTarget(text));u.add('assistant','Geliştirme isteğin Cloud’a kaydediliyor. ChatGPT’ye aktarma ve GitHub/Render doğrulaması gerekecek. Henüz kodu değiştirmedim.');setModal('Geliştir');return;}
   const markReply=markVideoIntent(text);
   if(markReply){u.add('user',text);u.add('assistant',markReply);return;}
@@ -350,17 +371,29 @@ export default function Dashboard(){
  const run=async(path:string,body?:unknown)=>{try{setExtra(JSON.stringify(await request(path,body),null,2));}catch(e){notify((e as Error).message);}};
  const open=(name:string)=>{setModal(name);setExtra('');if(name==='Eklentiler'){u.native?.action('plugins');void run('/api/skills');}if(name==='Araçlar')void run('/api/tools');if(name==='Kontroller')void run('/api/voice/wake');};
  const holo=()=>{void request('/api/stage/command',{operation:'hologram_create',kind:u.stage?.hologram?.kind||'energy'}).catch(e=>notify((e as Error).message));};
+ // Native speech transcripts arrive through desktop message logs. Route only UI.
+ useEffect(()=>{
+   const latest=[...u.messages].reverse().find(m=>m.role==='user');
+   if(!latest)return;
+   const id=String(latest.id);
+   if(voiceRouteSeen.current===null){voiceRouteSeen.current=id;return;}
+   if(voiceRouteSeen.current===id)return;
+   voiceRouteSeen.current=id;
+   if(latest.text.toLocaleLowerCase('tr-TR').trim()===typedRouteSeen.current){typedRouteSeen.current='';return;}
+   if(!resolvePanelIntent(latest.text))return;
+   void workspaceIntent(latest.text).then(reply=>{if(reply)u.add('assistant',reply)}).catch(e=>notify((e as Error).message));
+ },[u.messages]);
  const ready=(value:unknown)=>u.connected?(value?'ONLINE':'N/A'):'OFFLINE';
  const chipsLeft=[['SYSTEM',u.connected?'ONLINE':'OFFLINE'],['MEMORY',ready(u.memory)],['TASK ENGINE',ready(u.health?.components?.task_engine)],['VISION',ready(u.ai?.vision)],['AUDIO',u.native?(u.muted?'MUTED':u.nativeState):'N/A']];
  const chipsRight=[['AI CORE',ready(u.health?.components?.brain)],['NEURAL LINK',ready(u.ai?.connected)],['TOOLS',u.connected?`${u.tools.filter(t=>t.status==='READY').length} READY`:'N/A'],['PLUGINS',u.plugins?`${u.plugins.length} LOADED`:'N/A'],['MONITOR',u.system?'LIVE':'N/A']];
  const disabledSend=busy||!u.connected&&model!=='native';
  const footer=[['Web Tarayıcı',Globe,()=>open('Browser')],['Dosya İşlemleri',Files,()=>open('Dosyalar')],['Terminal',Terminal,()=>open('Terminal')],['Ekran Yakalama',Scan,()=>{open('Vizyon');void run('/api/actions/screenshot',{});}],['OCR',ScanText,()=>{open('Vizyon');void run('/api/merged/tool',{name:'screen_ocr',arguments:{}});}],['Planlayıcı',Calendar,()=>open('Görevler')],['Kod Asistanı',Code,()=>{setMode('coding');open('Kod Asistanı');}],['Sistem Monitörü',Activity,()=>open('Sistem Monitörü')]] as const;
- return <div className="viewport"><div className={'ultron-app '+(compact?'compact':'')} style={{transform:`translate(-50%,-50%) scale(${scale})`}}>
+ return <div className="viewport"><div className={'ultron-app voice-first '+(compact?'compact':'')} style={{transform:`translate(-50%,-50%) scale(${scale})`}}>
  <header className="main-header metal-frame"><Brand/><nav>
  <button className={!modal?'selected':''} onClick={()=>setModal('')}><Home/>Ana Ekran</button>
  <button onClick={()=>open('Ayarlar')}><Settings/>Ayarlar</button><button onClick={()=>open('Kontroller')}><Gamepad2/>Kontroller</button>
  <button onClick={holo}><Box/>Hologram Çalışma Alanı</button><button onClick={()=>open('Dosyalar')}><Folder/>Dosyalar</button><button onClick={()=>open('Araçlar')}><Wrench/>Araçlar</button><button onClick={()=>open('Eklentiler')}><Puzzle/>Eklentiler</button><button onClick={()=>{open('Geliştir');u.native?.devRefresh?.()}}><Code/>KENDİNİ GELİŞTİR</button>
- </nav><time>{clock.toLocaleTimeString('tr-TR')}<small>{clock.toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}<br/>{clock.toLocaleDateString('tr-TR',{weekday:'long'})}</small></time><button className="power" aria-label="ULTRON'u kapat" disabled={!u.native} onClick={()=>u.native?.action('shutdown')}><Power/></button></header>
+ </nav><button className="voice-first-mic" aria-label={u.muted?'Mikrofonu aç':'Mikrofonu kapat'} disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>} {u.muted?'Mikrofon':'Dinliyor'}</button><button className="voice-first-menu" aria-label="Çalışma alanlarını aç" onClick={()=>open('Araçlar')}><Grid2X2/> Menü</button><time>{clock.toLocaleTimeString('tr-TR')}<small>{clock.toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}<br/>{clock.toLocaleDateString('tr-TR',{weekday:'long'})}</small></time><button className="power" aria-label="ULTRON'u kapat" disabled={!u.native} onClick={()=>u.native?.action('shutdown')}><Power/></button></header>
  <main className="main-grid"><SystemRail system={u.system} history={u.history} health={u.health} connected={u.connected}/>
  <section className="reactor-panel metal-frame"><CenterStage stage={u.stage} state={state} amplitude={u.amplitude} notify={notify} openNativeVideo={u.native?.videoRequest?()=>u.native?.videoRequest?.('open_file',''):undefined}/>{u.stage.mode==='core_idle'&&<><div className="subsystems left">{chipsLeft.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div><div className="subsystems right">{chipsRight.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div></>}{!u.connected&&<div className="offline" role="status">ULTRON BACKEND OFFLINE</div>}</section>
  <aside className="right-panels"><Panel title="KONUŞMA / AKTİVİTE" icon={<MessageSquare/>} className="chat-panel" extra={<button disabled={busy} onClick={()=>u.setMessages([])}><Trash2/>Temizle</button>}><div className="messages" ref={messages}>{!u.messages.length&&<p className="chat-empty">{u.connected?'ULTRON bağlantısı kuruldu. Bir komut yaz veya sor.':'Backend bağlantısı bekleniyor…'}</p>}{u.messages.map(m=><article className={'message '+m.role} key={m.id}><time>{new Date(m.time).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</time><p><b>{m.role==='user'?'You':'ULTRON'}:</b> {m.text}</p></article>)}{busy&&<p className="muted">Yanıt hazırlanıyor…</p>}</div><form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><input aria-label="Mesaj" value={input} onChange={e=>setInput(e.target.value)} placeholder="Bir komut yaz veya sor…"/><button aria-label="Gönder" disabled={disabledSend||!input.trim()}><Send/></button></form></Panel>
