@@ -1718,6 +1718,9 @@ async function refreshAutoBrain(force=false){
 localVoiceController=window.ULTRONLocalVoice?.create({
   host:window,
   onState:state=>{
+    // The local Qwen microphone is explicitly user-tapped; it takes phone
+    // speaker priority without waiting for a slow desktop presence poll.
+    if(state!=='idle'&&desktopVoiceLeader)setDesktopVoiceLeader(false);
     const listening=state==='listening'||state==='starting';
     $('#voiceBtn').classList.toggle('listening',listening);
     $('#stageVoiceText').textContent=state==='processing'?'Yanıt hazırlanıyor…':
