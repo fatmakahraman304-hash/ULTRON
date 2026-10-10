@@ -31,10 +31,19 @@ class ConversationStyleTests(unittest.TestCase):
             ("Bunun fiyatı?", "followup"),
             ("What about the price?", "followup"),
             ("Continue", "followup"),
+            ("Onu biraz daha açıkla", "followup"),
+            ("Buna örnek ver", "followup"),
+            ("Şunu tekrar anlat", "followup"),
             ("Hayır, 2009 modelini demiştim", "correction"),
             ("Yanlış anladın, mimarlığı soruyorum", "correction"),
             ("Öyle değil, başka bir örnek", "correction"),
             ("No, I meant another model", "correction"),
+            ("Yok, 2010 değil 2009 olanı", "correction"),
+            ("Yok, onu demedim", "correction"),
+            ("Aslında siyah rengini kastettim", "correction"),
+            ("Düzeltme: yarın değil bugün", "correction"),
+            ("Actually, I meant the older model", "correction"),
+            ("Yok mu acaba?", "new"),
             ("Dünya kaç yaşında?", "new"),
             ("İstanbul hakkında bilgi", "new"),
             ("Hologram nasıl yapılır?", "new"),
@@ -43,6 +52,16 @@ class ConversationStyleTests(unittest.TestCase):
         for sentence, expected in fixtures:
             with self.subTest(message=sentence):
                 self.assertEqual(classify_dialogue_act(sentence), expected)
+
+    def test_colloquial_corrections_and_pronouns_get_correct_guidance(self):
+        correction = dialogue_guidance(
+            "Yok, onu demedim; 2009 model", has_prior_turns=True)
+        self.assertIn("USER CORRECTION", correction)
+        self.assertNotIn("FOLLOW-UP:", correction)
+        pronoun = dialogue_guidance(
+            "Onu biraz daha açıkla", has_prior_turns=True)
+        self.assertIn("FOLLOW-UP:", pronoun)
+        self.assertNotIn("USER CORRECTION", pronoun)
 
     def test_short_detailed_and_casual_responses(self):
         fixtures = [

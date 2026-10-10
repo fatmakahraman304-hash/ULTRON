@@ -64,7 +64,8 @@ _DEEP = re.compile(
 )
 _FOLLOWUP = re.compile(
     r"^(?:peki\b|devam et\b|biraz daha\b|o zaman\b|"
-    r"onun(?:la|un|u|dan)?\b|bun(?:un|u|dan|larla)?\b|"
+    r"onun(?:la|un|u|dan)?\b|onu\b|buna\b|şunu\b|"
+    r"bun(?:un|u|dan|larla)?\b|"
     r"what about\b|and (?:it|that|then)\b|continue\b)",
     re.I
 )
@@ -77,8 +78,11 @@ _NEGATED_AFTER = re.compile(
 _NEGATED_BEFORE = re.compile(r"\b(?:not|no|without)\s+$", re.I)
 
 _CORRECT = re.compile(
-    r"^(?:hayır\b|yok öyle değil\b|yanlış anladın\b|"
-    r"onu demedim\b|öyle değil\b|no,?\b|that's not what i meant\b)",
+    r"^(?:hayır\b|yok\b(?!\s+(?:mu|mı|mi|mü)\b)|"
+    r"yanlış anladın\b|onu demedim\b|öyle değil\b|"
+    r"aslında\b|düzeltme\s*:|"
+    r"actually,?\s+(?:i meant|it was|i was referring)|"
+    r"no,?\b|that's not what i meant\b)",
     re.I
 )
 
