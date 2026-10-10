@@ -1,3 +1,11 @@
+## 2026-10-10 — Shared Qwen reply-length policy + accurate response-quality flag
+
+- Functional code `a7134b0f6479649434c737077b22ee08f6733434` and `ac1e9556851c9943804b838275b2e7b0ec14a2b3` on `feat/ultron-cloud-shared-memory`.
+- Extracted one pure shared TR/EN negation-aware reply-length classifier into `reply_policy.py`; Cloud persona and local Ollama use the same decision. Explicit brief max generation 96–160, normal at least 240, explicit detail at least 360, unchanged ceiling 420 and local max context 4096. The final affirmative instruction wins. Unit/mocked loopback tests show `Detaylı anlatma, kısa cevap ver` does not waste detailed generation budget, while `Kısa cevap istemiyorum, detaylı anlat` uses detail. This does not measure actual laptop speed.
+- Presentation quality flags now honor the same classifier; negated `kısa cevap istemiyorum` no longer falsely marks a long requested answer as too long. Existing finalization still does not truncate requested text. Regression tests added.
+- Exact code CI completed SUCCESS: [Cloud Queue PostgreSQL Integration #38080025754](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38080025754), [ULTRON Scene Build Check #38080025720](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38080025720). Earlier first change [Cloud 38079929332](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079929332) and [Scene 38079929341](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079929341) SUCCESS.
+- Live Qwen/Gemini model quality and inference latency, Render latest LIVE SHA, physical Windows/iPhone operation remain unverified. No Windows update or model download; no 100/100 claim.
+
 ## 2026-10-10 — Historical correction and future reminder distinction
 
 - Latest functional code `800a54d07e0159cec063c67f7555a94abe2ced48` (historic Q&A-correction commit `dc97a58`). GitHub [Cloud Queue PostgreSQL Integration 38079636700](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079636700) **SUCCESS** and [ULTRON Scene Build Check 38079636678](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38079636678) **SUCCESS**.
