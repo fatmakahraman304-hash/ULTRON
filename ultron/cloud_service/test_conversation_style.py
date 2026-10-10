@@ -64,6 +64,24 @@ class ConversationStyleTests(unittest.TestCase):
             with self.subTest(message=sentence):
                 self.assertEqual(classify_reply_mode(sentence), expected)
 
+    def test_named_recall_uses_old_answer_evidence_not_invented_memories(self):
+        present = build_system_instruction(
+            user_message="Mercedes C180 hakkında ne demiştik?",
+            has_prior_turns=True, read_only=True,
+        )
+        self.assertIn("NAMED THREAD RECALL", present)
+        self.assertIn("what was said from new inferences", present)
+        self.assertIn("READ-ONLY MODE", present)
+        absent = build_system_instruction(
+            user_message="Mercedes C180 hakkında ne demiştik?",
+            has_prior_turns=False,
+        )
+        self.assertIn("NAMED THREAD RECALL WITHOUT HISTORY", absent)
+        unrelated = build_system_instruction(
+            user_message="Mercedes C180 kaç beygir?", has_prior_turns=True,
+        )
+        self.assertNotIn("NAMED THREAD RECALL", unrelated)
+
     def test_followup_never_invents_missing_history(self):
         missing = dialogue_guidance("Peki devam et", has_prior_turns=False)
         available = dialogue_guidance("Peki devam et", has_prior_turns=True)
