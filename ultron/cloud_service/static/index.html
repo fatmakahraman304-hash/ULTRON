@@ -536,6 +536,25 @@
         <p id="readinessStatus" class="remote-note" role="status" aria-live="polite">Hangi özellik için hangi izin, bağlantı veya donanım gerektiğini gör.</p>
         <div id="readinessItems" class="memory-list" aria-label="ULTRON özellik durumları"></div>
       </div>
+      <div class="memory-form panel" id="ownerLearningPanel">
+        <div class="section-title"><h2>İZİNLİ ÖĞRENME</h2><button type="button" class="secondary" id="refreshLearning">ÖNERİLERİ GÖSTER</button></div>
+        <p class="remote-note">ULTRON bilginin hafızaya kaydedilmesini yalnızca sen ONAYLA dediğinde yapar. Öneriler kendiliğinden sohbet hafızasına eklenmez.</p>
+        <label for="learningCategory" class="settings-label">Bilgi kategorisi</label>
+        <select id="learningCategory" style="width:100%">
+          <option value="PREFERENCE">Konuşma tercihi</option>
+          <option value="GOAL">Hedef</option>
+          <option value="PROJECT">Proje</option>
+          <option value="FACT">Bilgi</option>
+          <option value="DEVICE">Cihaz</option>
+        </select>
+        <label for="learningKey" class="settings-label">Hatırlanacak başlık</label>
+        <input id="learningKey" type="text" maxlength="120" autocomplete="off" placeholder="Örn. İletişim tarzım" />
+        <label for="learningValue" class="settings-label">Önerilen bilgi</label>
+        <textarea id="learningValue" maxlength="1000" rows="2" placeholder="Örn. Kısa ve ciddi yanıtları tercih ederim."></textarea>
+        <button type="button" id="submitLearning" style="width:100%;margin-top:9px">ÖĞRENME ÖNERİSİ OLUŞTUR</button>
+        <p id="learningStatus" class="remote-note" role="status" aria-live="polite">Önce öneriyi oluştur; ardından ONAYLA veya REDDET seç.</p>
+        <div id="learningItems" class="memory-list" aria-label="Onay bekleyen ve gözden geçirilen ULTRON öğrenmeleri"></div>
+      </div>
       <div class="section-title"><h2>ORTAK HAFIZA</h2><button class="secondary" id="reloadMemory">Yenile</button></div>
       <div class="memory-form panel">
         <div class="row"><input id="memoryKey" placeholder="Anahtar"/><input id="memoryCategory" placeholder="Kategori" value="FACT"/></div>
@@ -574,6 +593,7 @@
 <script src="/static/local-voice.js"></script>
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
+<script src="/static/learning-review.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 
@@ -1531,6 +1551,7 @@ async function boot(){
 window.ULTRONDevRequests?.init();
 window.ULTRONPersonalPanel?.create({fetchJson: path => api(path), document}).init();
 window.ULTRONOwnerPlans?.create({fetchJson: (path, options) => api(path, options), document}).init();
+window.ULTRONLearningReview?.create({fetchJson: (path, options) => api(path, options), document, onMemoryChanged: () => loadMemories()}).init();
 $('#loginBtn').onclick=async()=>{
   try{
     await api('/api/login',{method:'POST',body:JSON.stringify({password:$('#password').value})});
