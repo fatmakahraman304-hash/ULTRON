@@ -627,6 +627,7 @@
 <script src="/static/dev-requests.js"></script>
 <script src="/static/local-voice.js"></script>
 <script src="/static/live-playback.js"></script>
+<script src="/static/speaker-policy.js"></script>
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
 <script src="/static/conversation-notes.js"></script>
@@ -669,6 +670,7 @@ const laptopTaskStates=new Map();
 const laptopTaskProgressCounts=new Map();
 let laptopTaskWatchPrimed=false;
 let desktopPresencePrimed=false,desktopWasOnline=false,desktopVoiceLeader=false;
+let desktopPresenceRequestSeq=0;
 let pendingIOSAction=null,voiceDevToolSaved=false;
 function closeIOSApproval(){
   pendingIOSAction=null;
@@ -896,7 +898,8 @@ function speakRemoteResult(text,status='completed'){
 
   // While Gemini Live is connected, show the remote result in chat/status only.
   // iPhone system TTS is deliberately disabled so there is never a second voice.
-  if(liveDesired||voiceListening||liveSpeaking){
+  if(liveDesired||voiceListening||liveSpeaking||desktopVoiceLeader){
+    // No second phone voice while Gemini Live OR desktop speaker owns output.
     try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
     resetRemoteResultSpeech();
     $('#stageVoiceText').textContent=
@@ -1881,17 +1884,23 @@ function setDesktopVoiceLeader(active){
   if(active){
     stopPlayback();
     try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
+    resetRemoteResultSpeech(); // A cancelled browser TTS must not gate next mic turn.
     liveSpeaking=false;
     $('#stageVoiceText').textContent='TEK SES MODU • SES LAPTOPTA';
   }else if(voiceListening){
-    $('#stageVoiceText').textContent='Gemini Live • sürekli dinliyor';
+    $('#stageVoiceText').textContent='ULTRON • dinliyor';
+  }else{
+    updateBrainModeUi();
   }
   phoneHeartbeat().catch(()=>{});
 }
 async function watchDesktopPresence(){
   if($('#app').classList.contains('hidden'))return;
+  const seq=++desktopPresenceRequestSeq;
   try{
     const d=await api('/api/device-presence');
+    // A slow old heartbeat response must never override a newer speaker state.
+    if(seq!==desktopPresenceRequestSeq)return;
     const laptop=(d.devices||[]).find(x=>x.device==='desktop');
     const online=!!laptop?.online;
     if(!liveDesired&&!voiceListening&&!localVoiceController?.active()){
@@ -1899,17 +1908,14 @@ async function watchDesktopPresence(){
       brainLastCheck=Date.now();updateBrainModeUi();
     }
     const state=laptop?.state||{};
-    // If the phone Live session is active, the phone owns audio continuously.
-    // Do not flap output between devices as the desktop speaking heartbeat
-    // changes; that was causing audible cut-outs on iPhone.
-    const phoneOwnsVoice=liveDesired||voiceListening;
-    const laptopCanSpeak=
-      !phoneOwnsVoice&&
-      online&&
-      state.speaking===true&&
-      state.voice_active===true&&
-      state.voice_output!==false&&
-      state.muted!==true;
+    // Both phone Live and its opt-in local Qwen voice turn own the microphone.
+    // Do not hand off based on a transient desktop speaking heartbeat.
+    const laptopCanSpeak=window.ULTRONSpeakerPolicy.desktopMayLead(
+      online,state,{
+        liveDesired,voiceListening,
+        localVoiceActive:localVoiceController?.active()===true
+      }
+    );
     setDesktopVoiceLeader(laptopCanSpeak);
     if(desktopPresencePrimed&&online!==desktopWasOnline){
       const msg=online?'Laptop ULTRON yeniden çevrimiçi.':'Laptop ULTRON bağlantısı kesildi.';
