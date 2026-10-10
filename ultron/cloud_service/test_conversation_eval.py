@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import hashlib
 from pathlib import Path
 import unittest
 
@@ -14,13 +15,13 @@ class EvaluationTests(unittest.TestCase):
         evaluation.validate(cases)
         self.assertEqual(len({tuple(x['turns']) for x in cases}), 100)
     def test_missing_model_runs_cannot_score(self):
-        report = {'results': [{'id':'one','category':'daily','status':'not_run'}]}
+        report = {'suite_sha256':hashlib.sha256(evaluation.DATA.read_bytes()).hexdigest(), 'results': [{'id':'daily-01','category':'daily','status':'not_run'}]}
         result = evaluation.score(report, [])
         self.assertEqual(result['passed'], 0)
         self.assertFalse(result['complete'])
     def test_partial_or_failed_review_cannot_claim_full_success(self):
-        report = {'results':[{'id':'one','category':'daily','status':'captured'}]}
-        review = {'id':'one','reviewer':'reviewer','evidence':'observed answer',
+        report = {'suite_sha256':hashlib.sha256(evaluation.DATA.read_bytes()).hexdigest(), 'results':[{'id':'daily-01','category':'daily','status':'captured','transcript':[{'role':'user','content':'Selam ULTRON, nasılsın?'},{'role':'assistant','content':'Selam! Buradayım.'}]}]}
+        review = {'id':'daily-01','reviewer':'reviewer','evidence':'observed answer',
                   'criteria': dict.fromkeys(evaluation.DIMENSIONS, True)}
         result = evaluation.score(report, [review])
         self.assertEqual(result['passed'], 1)

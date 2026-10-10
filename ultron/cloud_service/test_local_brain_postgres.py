@@ -46,8 +46,8 @@ class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
 
     async def online(self):
         await self.pool.execute(
-            "INSERT INTO device_presence(user_id,device) VALUES('ci-local','desktop')"
-            " ON CONFLICT(user_id,device) DO UPDATE SET last_seen=NOW()"
+            "INSERT INTO device_presence(user_id,device,state) VALUES('ci-local','desktop','{\"local_chat_ready\":true}'::jsonb)"
+            " ON CONFLICT(user_id,device) DO UPDATE SET last_seen=NOW(),state=EXCLUDED.state"
         )
 
     async def test_offline_does_not_fall_back_to_gemini(self):
@@ -56,6 +56,15 @@ class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("desktop_offline",response.text)
         self.assertEqual(await self.pool.fetchval(
             "SELECT COUNT(*) FROM device_commands WHERE user_id='ci-local'"),0)
+
+    async def test_online_without_ollama_readiness_rejects_before_any_write(self):
+        await self.online()
+        for state in ({}, {"local_chat_ready":False}, {"local_chat_ready":"true"}):
+            await self.pool.execute("UPDATE device_presence SET state=$1::jsonb WHERE user_id='ci-local'",json.dumps(state))
+            result=await post_local_chat(Request(self.pool,body={"message":"Merhaba"}))
+            self.assertEqual(result.status,409)
+            self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM device_commands WHERE user_id='ci-local'"),0)
+            self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM messages WHERE user_id='ci-local'"),0)
 
     async def test_exact_one_reply_persisted_after_verified_queue_result(self):
         await self.online()

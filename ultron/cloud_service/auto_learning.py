@@ -11,6 +11,7 @@ import hashlib
 import re
 
 from aiohttp import web
+from memory_safety import normalized_value, contains_common_secret
 
 # Explicit owner assertions rather than model guesses or assistant answers.
 _PATTERNS = (
@@ -43,7 +44,8 @@ def extract_owner_statement(text: object) -> tuple[str, str, str] | None:
     if (not statement or statement.startswith((">", "\"", "'", "`", "-", "#"))
             or "\n" in statement or "\r" in statement
             or _DENIED.search(statement) or _EMAIL.search(statement)
-            or _LONG_DIGITS.search(statement) or _URL.search(statement)):
+            or _LONG_DIGITS.search(statement) or _URL.search(statement)
+            or contains_common_secret(statement)):
         return None
     for category, pattern in _PATTERNS:
         match = pattern.fullmatch(statement)
@@ -53,7 +55,7 @@ def extract_owner_statement(text: object) -> tuple[str, str, str] | None:
                 return None
             if _DENIED.search(value):
                 return None
-            normalized = " ".join(value.casefold().split())
+            normalized = normalized_value(value)
             digest = hashlib.sha256((category + ":" + normalized).encode("utf-8")).hexdigest()[:20]
             return category, "autolearn:" + category.lower() + ":" + digest, value
     return None

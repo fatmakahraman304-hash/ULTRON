@@ -1,10 +1,10 @@
 # Current priority — conversational intelligence (2026-10-10)
 
-1. Verify CI and Render for the new context/quality/evaluation commit; inspect real PostgreSQL first-topic isolation tests.
-2. Fix automatic routing so desktop heartbeat alone cannot imply Ollama readiness; preserve safe pre-queue-only fallback.
-3. Strengthen opt-in memory contradiction/secret handling without silently overwriting owner memory.
-4. Run `python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json` in an authorized credential-equipped environment and the Qwen equivalent only on an available Ollama host. Independently review all 100 transcripts per provider using README rubric. Current real-provider quality is NOT MEASURED.
-5. Preserve all approval/privacy controls, no new UI controls. Windows update remains deferred.
+1. Verify latest cycle-2 SHA GitHub Cloud/PostgreSQL and Scene workflows plus Render live SHA. Local evidence: 152 Cloud Python (28 real PG), 86 Node, 6 local-brain tests passed.
+2. Real quality remains NOT MEASURED. Run `python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json` where an authorized Gemini credential is configured, and Qwen equivalent only on an available Ollama host. Independently review all 100 transcripts per provider against README criteria; report model identity limitations and latency. No Windows setup before final handoff.
+3. Important compatibility: old Windows versions without `local_chat_ready` now use Gemini. Final single Windows update must include mark_app.py and integration/local_cloud_brain.py, then test Ollama reachable/unreachable transitions and no duplicate queued request fallback.
+4. Remaining quality work: general semantic factual contradictions are not automatically resolved; only explicit reply language/length preferences are. Common secret patterns are not exhaustive classification. Measure long multi-turn dialogue and inference truncation before increasing context/model budgets. Current additional response checks are presentation-only, not semantic fact verification.
+5. Preserve all approval/privacy controls and minimal UI. A CI pass is never a live-model 100/100 score. No further JARVIS features or Windows downloads until conversational acceptance.
 
 ---
 Historical task records below; the priorities above supersede older Windows-install or non-conversation tasks.

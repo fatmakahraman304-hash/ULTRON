@@ -59,6 +59,10 @@ class AutoLearningPostgresTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(rows[0]["category"],"GOAL")
         self.assertEqual(rows[0]["updated_by_device"],"opt-in-auto-learning")
         self.assertFalse(await learn_from_owner_message(self.pool,"ci-auto-alpha",
+                     "Hedefim: İngilizce öğrenmek."))
+        self.assertFalse(await learn_from_owner_message(self.pool,"ci-auto-alpha",
+                     "Projem: sk-proj-"+"x"*24))
+        self.assertFalse(await learn_from_owner_message(self.pool,"ci-auto-alpha",
                                                 "Tercihim: parola bu bilgi gizli"))
         await set_auto_learning(Request(self.pool,method="PUT",body={"enabled":False}))
         self.assertFalse(await learn_from_owner_message(self.pool,"ci-auto-alpha",

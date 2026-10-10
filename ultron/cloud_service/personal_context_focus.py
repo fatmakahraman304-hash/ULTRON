@@ -7,6 +7,7 @@ no new learning, background processing, external requests, or tool execution.
 from __future__ import annotations
 
 import re
+from memory_safety import explicit_style_slots, normalized_value
 
 _STOP = frozenset(("benim", "bana", "bunun", "onun", "hakkında", "bunu", "nedir",
                    "nasıl", "neden", "hangi", "kadar", "için", "daha", "sonra",
@@ -65,12 +66,28 @@ def select_personal_context(memories, plans, question="", *, max_chars=3500):
             plan_lines.append(f"- [OWNER PLAN - no notification] {date.isoformat()}{time_label}: {title}")
 
     candidates = []
-    for index, record in enumerate(list(memories or [])[:100]):
+    latest_style = {}
+    seen_values = set()
+    for index, record in enumerate(list(memories or [])[:160]):
         category = _one_line(_value(record, "category", "FACT"), 30).upper()
         key = _one_line(_value(record, "key"), 100)
         value = _one_line(_value(record, "value"), 400)
         if not key or not value:
             continue
+        identity = (category, "" if category == "PREFERENCE" else key, normalized_value(value))
+        if identity in seen_values:
+            continue
+        seen_values.add(identity)
+        # Input is newest-first from the owner-scoped query. Resolve only
+        # explicit reply language/length contradictions before topical ranking.
+        # Saved rows remain editable/deletable and are never silently rewritten.
+        if category == "PREFERENCE":
+            slots = explicit_style_slots(value)
+            if any(slot in latest_style and latest_style[slot] != setting
+                   for slot, setting in slots.items()):
+                continue
+            for slot, setting in slots.items():
+                latest_style.setdefault(slot, setting)
         overlap = len(q & _terms(key+" "+value))
         # Preserve explicit preferences and profile, but prioritise a topical
         # old PROJECT/GOAL/FACT over unrelated recently saved facts.
@@ -107,10 +124,20 @@ async def load_focused_owner_context(pool, user_id: str, query: str = "") -> str
     Excludes private plan notes and user-created conversation notes. Used by
     both cloud Gemini and the paired local Qwen queue with the same filtering.
     """
+    # Fixed-size recent + standing preferences + indexed lexical retrieval.
+    # Tokens come from the current request, never arbitrary SQL/tsquery syntax.
+    terms = sorted(_terms(query))[:8]
+    search = " | ".join(term for term in terms if term.isalnum())
     rows = await pool.fetch(
-        "SELECT category,key,value FROM memories WHERE user_id=$1 "
-        "ORDER BY updated_at DESC LIMIT 100",
-        user_id,
+        "SELECT category,key,value FROM memories WHERE user_id=$1 AND key IN ("
+        "(SELECT key FROM memories WHERE user_id=$1 ORDER BY updated_at DESC,key ASC LIMIT 100) "
+        "UNION (SELECT key FROM memories WHERE user_id=$1 AND category='PREFERENCE' "
+        "ORDER BY updated_at DESC,key ASC LIMIT 20) "
+        "UNION (SELECT key FROM memories WHERE user_id=$1 AND $2 <> '' "
+        "AND to_tsvector('simple',key || ' ' || value) @@ to_tsquery('simple',$2) "
+        "ORDER BY ts_rank(to_tsvector('simple',key || ' ' || value),to_tsquery('simple',$2)) DESC, "
+        "updated_at DESC,key ASC LIMIT 40)) ORDER BY updated_at DESC,key ASC",
+        user_id, search,
     )
     plans = await pool.fetch(
         "SELECT title,scheduled_date,scheduled_time FROM owner_plans "

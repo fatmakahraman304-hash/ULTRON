@@ -2456,8 +2456,7 @@ class UltronLive:
                     print(f"[CloudRemote] claimed {len(commands)} command(s) • ids={','.join(ids)}", flush=True)
                 for item in commands:
                     print(
-                        f"[CloudRemote] handling id={item.get('id')} command={item.get('command')} "
-                        f"payload={str(item.get('payload', {}))[:240]}",
+                        f"[CloudRemote] handling id={item.get('id')} command={item.get('command')}",
                         flush=True,
                     )
                     worker = asyncio.create_task(_handle_claim(item))
@@ -2474,42 +2473,52 @@ class UltronLive:
         client = CloudClient()
         if not client.enabled:
             return
-        while True:
-            try:
-                with self._speaking_lock:
-                    speaking = bool(self._is_speaking)
-                # While a phone-originated desktop task is running, the
-                # laptop is intentionally a silent execution engine. Advertise
-                # that state so the phone remains the single speaker instead of
-                # muting itself because the desktop session merely exists.
-                remote_silent = bool(self._cloud_remote_silent)
-                voice_active = bool(
-                    self.session is not None
-                    and not self.ui.muted
-                    and not remote_silent
-                )
-                state = {
-                    "ui_state": "CONNECTED" if self.session is not None else "CONNECTING",
-                    "muted": bool(self.ui.muted),
-                    "voice_active": voice_active,
-                    "voice_output": not remote_silent,
-                    "voice": get_voice(),
-                    "speaking": speaking,
-                    "single_speaker_priority": "desktop",
-                }
-                payload = await client.heartbeat(state)
-                ok = bool(payload.get("ok"))
-                if ok and last_announced is not True:
-                    self.ui.write_log("SYS: Cloud tek-ses modu hazır • laptop ses öncelikli.")
-                    print("[CloudPresence] desktop online heartbeat active", flush=True)
-                    last_announced = True
-                elif not ok:
+        from concurrent.futures import ThreadPoolExecutor
+        from integration.local_cloud_brain import local_chat_ready
+        probe_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ultron-readiness")
+        try:
+            while True:
+                try:
+                    with self._speaking_lock:
+                        speaking = bool(self._is_speaking)
+                    # While a phone-originated desktop task is running, the
+                    # laptop is intentionally a silent execution engine. Advertise
+                    # that state so the phone remains the single speaker instead of
+                    # muting itself because the desktop session merely exists.
+                    remote_silent = bool(self._cloud_remote_silent)
+                    voice_active = bool(
+                        self.session is not None
+                        and not self.ui.muted
+                        and not remote_silent
+                    )
+                    ready = await asyncio.get_running_loop().run_in_executor(
+                        probe_executor, local_chat_ready)
+                    state = {
+                        "local_chat_ready": ready,
+                        "ui_state": "CONNECTED" if self.session is not None else "CONNECTING",
+                        "muted": bool(self.ui.muted),
+                        "voice_active": voice_active,
+                        "voice_output": not remote_silent,
+                        "voice": get_voice(),
+                        "speaking": speaking,
+                        "single_speaker_priority": "desktop",
+                    }
+                    payload = await client.heartbeat(state)
+                    ok = bool(payload.get("ok"))
+                    if ok and last_announced is not True:
+                        self.ui.write_log("SYS: Cloud tek-ses modu hazır • laptop ses öncelikli.")
+                        print("[CloudPresence] desktop online heartbeat active", flush=True)
+                        last_announced = True
+                    elif not ok:
+                        last_announced = False
+                except Exception as exc:
+                    if last_announced is not False:
+                        print(f"[CloudPresence] {type(exc).__name__}: {str(exc)[:240]}", flush=True)
                     last_announced = False
-            except Exception as exc:
-                if last_announced is not False:
-                    print(f"[CloudPresence] {type(exc).__name__}: {str(exc)[:240]}", flush=True)
-                last_announced = False
-            await asyncio.sleep(4.0)
+                await asyncio.sleep(4.0)
+
+        finally:
+            probe_executor.shutdown(wait=False, cancel_futures=True)
 
     # ── Phone audio relay ────────────────────────────────────────────────────────
 

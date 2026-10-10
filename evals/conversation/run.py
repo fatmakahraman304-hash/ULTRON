@@ -36,7 +36,12 @@ def validate(cases):
 
 def score(report, reviews):
     """Missing/error/unreviewed cases cannot earn points. Five binary criteria."""
+    cases = {case['id']: case for case in json.loads(DATA.read_text())}
+    if report.get('suite_sha256') != hashlib.sha256(DATA.read_bytes()).hexdigest():
+        raise ValueError('Report must match the exact versioned suite')
     expected = {row['id'] for row in report['results']}
+    if len(expected) != len(report['results']) or not expected <= cases.keys():
+        raise ValueError('Duplicate or unknown result ID')
     if len(reviews) != len({r['id'] for r in reviews}) or any(r['id'] not in expected for r in reviews):
         raise ValueError('Duplicate or unknown review ID')
     by_id = {row['id']: row for row in reviews}
@@ -44,9 +49,21 @@ def score(report, reviews):
     reviewed = 0
     categories = {}
     for row in report['results']:
+        case = cases[row['id']]
+        if row['category'] != case['category']:
+            raise ValueError('Wrong scenario category')
         review = by_id.get(row['id'])
         ok = False
         if row['status'] == 'captured' and review:
+            transcript = row.get('transcript', [])
+            if len(transcript) != 2 * len(case['turns']):
+                raise ValueError('Missing actual transcript turns')
+            for i, prompt in enumerate(case['turns']):
+                if transcript[2*i] != {'role':'user', 'content':prompt}:
+                    raise ValueError('Transcript does not match scenario')
+                answer = transcript[2*i+1]
+                if answer.get('role') != 'assistant' or not isinstance(answer.get('content'), str) or not answer['content'].strip():
+                    raise ValueError('Missing model answer')
             if (not review.get('reviewer') or not review.get('evidence') or
                 set(review.get('criteria', {})) != set(DIMENSIONS) or
                 any(type(v) is not bool for v in review['criteria'].values())):

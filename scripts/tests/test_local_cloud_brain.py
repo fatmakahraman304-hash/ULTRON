@@ -52,6 +52,17 @@ class LocalBrainTests(unittest.TestCase):
             with self.assertRaises(local.LocalBrainUnavailable):
                 local.local_chat("Merhaba","")
 
+    def test_readiness_probes_live_ollama_not_positive_cache(self):
+        local._MODELS_CACHE=(float('inf'),['qwen3:4b'])
+        with patch.object(local,"_get_json",side_effect=local.LocalBrainUnavailable("offline")):
+            self.assertFalse(local.local_chat_ready())
+        with patch.object(local,"_get_json",return_value={"models":[]}):
+            self.assertFalse(local.local_chat_ready())
+        with patch.object(local,"_get_json",return_value={"models":[{"name":"qwen3:4b"}]}) as fetch:
+            self.assertTrue(local.local_chat_ready())
+            self.assertEqual(fetch.call_args.args,('/api/tags',))
+            self.assertLessEqual(fetch.call_args.kwargs['timeout'],2)
+
     def test_only_local_fixed_endpoints_allowed(self):
         with self.assertRaises(ValueError):
             local._get_json("https://api.gemini.com")

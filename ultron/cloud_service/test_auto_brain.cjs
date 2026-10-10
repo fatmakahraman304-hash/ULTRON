@@ -5,13 +5,16 @@ const router=require("./static/auto-brain.js");
 const html=fs.readFileSync(path.join(__dirname,"static/index.html"),"utf8");
 const sw=fs.readFileSync(path.join(__dirname,"static/sw.js"),"utf8");
 test("local only for currently online paired desktop, never just stale last_seen",()=>{
+ assert.equal(router.select([{device:"desktop",online:true}]),"gemini");
+ assert.equal(router.select([{device:"desktop",online:true,state:{local_chat_ready:false}}]),"gemini");
+ assert.equal(router.select([{device:"desktop",online:true,state:{local_chat_ready:"true"}}]),"gemini");
  assert.equal(router.select([]),"gemini");
  assert.equal(router.select(null),"gemini");
  assert.equal(router.select([{device:"desktop",online:false}]),"gemini");
  assert.equal(router.select([{device:"phone",online:true}]),"gemini");
  assert.equal(router.select([{device:"desktop",online:"true"}]),"gemini");
- assert.equal(router.select([{device:"desktop",online:true}]),"local");
- assert.equal(router.select([{device:"phone",online:true},{device:"desktop",online:true}]),"local");
+ assert.equal(router.select([{device:"desktop",online:true,state:{local_chat_ready:true}}]),"local");
+ assert.equal(router.select([{device:"phone",online:true},{device:"desktop",online:true,state:{local_chat_ready:true}}]),"local");
 });
 test("fallback replays only confirmed offline rejection made before queue creation",()=>{
  assert.equal(router.safeToFallback({status:409,data:{error:"desktop_offline"}}),true);

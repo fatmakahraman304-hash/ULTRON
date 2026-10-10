@@ -59,6 +59,27 @@ def installed_models()->list[str]:
     return names
 
 
+def local_chat_ready() -> bool:
+    """Fresh loopback probe; online desktop or cached model names are not enough.
+
+    This checks service/model availability, not successful future inference or
+    available VRAM. No generation, warmup, download, tools or cloud requests.
+    """
+    try:
+        result = _get_json("/api/tags", timeout=1.5)
+        models = [item["name"] for item in result.get("models", [])
+                  if isinstance(item, dict) and isinstance(item.get("name"), str)]
+        if not models:
+            return False
+        settings = json.loads(_SETTINGS.read_text(encoding="utf-8"))["llm"]
+        policy = FastBrainPolicy(settings.get("fast_brain", {}))
+        choice = policy.choose(task=classify_text("Merhaba"), installed=models,
+                               primary=settings.get("model", "qwen3:4b"))
+        return choice.model in models
+    except (LocalBrainUnavailable, OSError, ValueError, TypeError, KeyError):
+        return False
+
+
 def local_chat(prompt:str,system:str,turns=None)->dict:
     text=str(prompt or "").strip()[:3000]
     if not text:

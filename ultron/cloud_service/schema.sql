@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS memories (
   PRIMARY KEY(user_id, key)
 );
 CREATE INDEX IF NOT EXISTS idx_memories_user_updated ON memories(user_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_memories_search ON memories
+  USING GIN (to_tsvector('simple', key || ' ' || value));
 
 CREATE TABLE IF NOT EXISTS events (
   id BIGSERIAL PRIMARY KEY,

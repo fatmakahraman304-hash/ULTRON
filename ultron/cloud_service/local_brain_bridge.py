@@ -37,14 +37,15 @@ async def post_local_chat(request: web.Request) -> web.Response:
         return web.json_response({"error": "invalid_conversation_id"}, status=400)
     pool = request.app["db"]
     online = await pool.fetchval(
-        "SELECT COALESCE(last_seen > NOW() - INTERVAL '15 seconds', FALSE) "
+        "SELECT COALESCE(last_seen > NOW() - INTERVAL '15 seconds' "
+        "AND state->'local_chat_ready' = 'true'::jsonb, FALSE) "
         "FROM device_presence WHERE user_id=$1 AND device='desktop'",
         request["user_id"]
     )
     if not online:
         return web.json_response({
             "error": "desktop_offline",
-            "detail": "Ücretsiz yerel beyin için Windows ULTRON açık olmalı. Gemini'yi istersen seçebilirsin."
+            "detail": "Yerel sohbet şu anda hazır değil."
         }, status=409)
     # A short rate limit avoids uncontrolled GPU queue accumulation.
     outstanding = await pool.fetchval(

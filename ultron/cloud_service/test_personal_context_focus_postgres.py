@@ -27,8 +27,8 @@ class PersonalContextPgTests(unittest.IsolatedAsyncioTestCase):
       "INSERT INTO memories(user_id,category,key,value) VALUES "
       "('ci-focus-a','PROJECT','Mercedes C180','Araç bakım incelemesi'),"
       "('ci-focus-a','PREFERENCE','Yanıt tarzı','Türkçe ve kısa konuş'),"
-      "('ci-focus-b','FACT','PRIVATE_OTHER_OWNER','SECRET_DONT_INCLUDE')")
-    for i in range(30):
+      "('ci-focus-b','FACT','PRIVATE_OTHER_OWNER Mercedes C180','SECRET_DONT_INCLUDE')")
+    for i in range(130):
       await self.pool.execute("INSERT INTO memories(user_id,category,key,value) "
             "VALUES('ci-focus-a','FACT',$1,$2)",f"Alakasız {i}",f"Başka konu {i}")
     await self.pool.execute(
