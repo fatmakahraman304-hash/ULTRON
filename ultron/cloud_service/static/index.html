@@ -371,6 +371,21 @@
     .brain-picker label{font-size:10px;font-weight:800;letter-spacing:.09em;color:#b7d3df}
     .brain-picker select{max-width:65%;font:11px system-ui,sans-serif;padding:7px 8px;border:1px solid #575e67;border-radius:9px;color:#fff;background:#141a21}
     .brain-picker small{display:block;font-size:9px;color:#9faeb9}
+
+  /* Voice-first ULTRON: no permanent multi-tab bar. ⋯ opens a fallback menu. */
+  .tabs:not(.panel-nav-open){opacity:0!important;pointer-events:none!important;transform:translate(-50%,12px)!important}
+  .tabs.panel-nav-open{opacity:1!important;pointer-events:auto!important;transform:translate(-50%,0)!important;grid-template-columns:repeat(3,minmax(0,1fr));bottom:calc(66px + env(safe-area-inset-bottom));z-index:30}
+  .tabs.panel-nav-open button{min-height:48px}
+  .composer{bottom:calc(10px + env(safe-area-inset-bottom))!important}
+  .top-actions #panelMenuToggle{font-weight:800;font-size:24px;border-color:#4d343d}
+  .mobile-holo-space{height:min(55vh,490px);min-height:300px;position:relative;overflow:hidden;display:grid;place-items:center;perspective:700px;margin:15px auto;border:1px solid #3f1e2c;border-radius:24px;background:radial-gradient(circle,#35131f 0,#0b0b12 55%,#040508 90%)}
+  .mobile-holo-ring{position:absolute;width:62%;aspect-ratio:1;border:2px solid #ff405c;border-radius:50%;box-shadow:0 0 20px #ff234c77,inset 0 0 25px #ff234c44;transform-style:preserve-3d;animation:ultronHoloSpin 8s linear infinite;pointer-events:none}
+  .mobile-holo-ring.ring-two{width:48%;border-color:#88d4ff;animation-duration:10s;animation-direction:reverse;transform:rotateX(70deg)}
+  .mobile-holo-ring.ring-three{width:76%;border-style:dashed;border-width:1px;animation-duration:15s}
+  .mobile-holo-core{width:32%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 45% 35%,#ff8298,#b72146 18%,#18030d 55%,#07070c);box-shadow:0 0 55px #f42a4c77;color:#fff;font:700 11px Consolas,monospace;letter-spacing:3px}
+  @keyframes ultronHoloSpin{0%{transform:rotateX(65deg) rotateY(0deg) rotateZ(0)}100%{transform:rotateX(65deg) rotateY(360deg) rotateZ(360deg)}}
+  @media(prefers-reduced-motion:reduce){.mobile-holo-ring{animation:none!important}}
+
   </style>
 </head>
 <body>
@@ -385,7 +400,7 @@
   <header class="topbar">
     <div class="brand"><div class="brand-mark"></div><div><b>ULTRON</b><small>MOBILE NEURAL LINK</small></div></div>
     <div class="online"><span class="dot" id="statusDot"></span><span id="status">Bağlantı…</span></div>
-    <div class="top-actions"><button class="round-action" id="voiceToggle" aria-label="Sesli yanıt">◖))</button></div>
+    <div class="top-actions"><button class="round-action" id="voiceToggle" aria-label="Sesli yanıt">◖))</button><button class="round-action" type="button" id="panelMenuToggle" aria-label="Çalışma alanları menüsü" aria-expanded="false" aria-controls="tabs">⋯</button></div>
   </header>
 
   <section id="login" class="panel hidden">
@@ -496,6 +511,12 @@
       <p id="devNotice" role="status" aria-live="polite"></p><div id="devAnnounce" class="dev-done" aria-live="polite"></div>
       <div id="devRequestsList"></div>
     </section>
+    <section id="hologramView" class="view" aria-label="Mobil hologram önizleme"><div class="memory-form panel" style="text-align:center">
+      <div class="section-title"><h2>ULTRON • HOLOGRAM LAB</h2><button id="closeMobileHologram" type="button" class="secondary">KAPAT</button></div>
+      <p class="remote-note">Ekran içi holografik önizleme. Gelişmiş 3D sahne düzenleyicisi Windows'ta kullanılabilir.</p>
+      <div class="mobile-holo-space" aria-label="Dönen enerji hologramı"><div class="mobile-holo-ring ring-one"></div><div class="mobile-holo-ring ring-two"></div><div class="mobile-holo-ring ring-three"></div><div class="mobile-holo-core"><span>ULTRON</span></div></div>
+      <p class="remote-note">“Dünyayı aç”, “Hafızayı göster” veya “Ana ekrana dön” diyerek başka çalışma alanına geçebilirsin.</p>
+    </div></section>
     <section id="worldView" class="view">
       <div class="world-embed"><iframe id="worldFrame" title="ULTRON World canlı harita" src="/static/world.html" loading="lazy" allow="geolocation"></iframe></div>
     </section>
@@ -587,6 +608,7 @@
   <button class="active" data-view="chat">SOHBET <span id="chatBadge" class="tab-badge">0</span></button>
   <button data-view="remote">UZAKTAN <span class="tab-badge" id="remoteBadge">0</span></button>
   <button data-view="memory">HAFIZA</button>
+  <button data-view="hologram">HOLOGRAM</button>
   <button data-view="world">DÜNYA</button>
   <button data-view="develop">GELİŞTİR</button>
 </nav>
@@ -597,6 +619,7 @@
 <script src="/static/local-voice.js"></script>
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
+<script src="/static/panel-intents.js"></script>
 <script src="/static/learning-review.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -1312,7 +1335,7 @@ async function openLiveSocket(){
     }
     if(d.type==='input_transcript'&&d.text){
       const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
-      worldVoiceIntent(heard);
+      handlePanelIntent(heard);
       // Streaming Gemini transcripts may be partial. Record development only
       // on the full turn_complete input or on the explicit Gemini tool call.
       if(cameraStream&&/(şuna bak|buna bak|ne görüyorsun|kamerada|gösterdiğim)/i.test(heard))captureCameraFrame(heard,false);
@@ -1542,14 +1565,27 @@ function worldVoiceIntent(text){
  if(/(?:hava durumu|weather)/.test(t))sendWorldCommand({type:'ultron_world',action:'layer',value:'weather'});
  return true;
 }
+function handlePanelIntent(text){
+ const intent=window.ULTRONPanelIntents?.resolve(text);
+ if(!intent)return false;
+ if(intent.view==='world'){
+   if(!worldVoiceIntent(text))showView('world');
+   return true;
+ }
+ showView(intent.view);
+ return true;
+}
 function showView(name){
   setAttachMenu(false);currentView=name;
+ $('#tabs').classList.remove('panel-nav-open');
+ $('#panelMenuToggle')?.setAttribute('aria-expanded','false');
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
   $('#'+name+'View').classList.add('active');
   if(name==='memory')loadMemories().catch(()=>{});
   if(name==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{});$('#stageVoiceText').textContent='“Son görev ne oldu?” diyebilirsin'}
   if(name==='world'){$('#stageVoiceText').textContent='ULTRON WORLD • gerçek harita ve canlı katmanlar'}
+ if(name==='hologram'){$('#stageVoiceText').textContent='ULTRON HOLOGRAM • ekran içi önizleme'}
   if(name==='develop'){window.ULTRONDevRequests?.refresh().catch(()=>{});$('#stageVoiceText').textContent='ChatGPT geliştirme isteği • onay bekliyor'}
   if(name==='chat'){setUnread(0);setTimeout(()=>{scrollChatToBottom(false);$('#message').focus()},60)}
 }
@@ -1678,10 +1714,10 @@ async function send(fromVoice=false){
   const text=$('#message').value.trim();if(!text)return;
   $('#message').value='';clearDraft();
   rememberPendingVoice('user',text);addMessage('user',text);
+  const panelHandled=handlePanelIntent(text);
+  if(panelHandled){toast('ULTRON çalışma alanı açıldı.');return}
   const devHandled=await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
   if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
-  const worldHandled=worldVoiceIntent(text);
-  if(worldHandled){toast('ULTRON WORLD açıldı.');return}
   const directHandled=runDirectPhoneCommand(text);
   if(directHandled){
     toast('Komut uygulanıyor…');scrollChatToBottom(false);return;
@@ -1736,6 +1772,11 @@ if('speechSynthesis' in window){speechSynthesis.onvoiceschanged=()=>pickUltronVo
 $('#message').addEventListener('input',saveDraft);
 $('#message').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}});
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+$('#panelMenuToggle').onclick=()=>{
+ const opened=$('#tabs').classList.toggle('panel-nav-open');
+ $('#panelMenuToggle').setAttribute('aria-expanded',String(opened));
+};
+$('#closeMobileHologram').onclick=()=>showView('chat');
 document.querySelectorAll('[data-command]').forEach(b=>b.onclick=async()=>{
   const command=b.dataset.command;b.disabled=true;
   try{await api('/api/device-commands',{method:'POST',body:JSON.stringify({target:'desktop',command})});toast('Laptop komutu gönderildi: '+b.querySelector('b').textContent)}
