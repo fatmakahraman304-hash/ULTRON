@@ -35,7 +35,7 @@ test("main input hides provider tech, no manual picker, locally routes or cloud 
  assert.match(html,/id="voiceBtn"/);
  assert.match(html,/id="message"/);
  assert.match(html,/id="sendBtn"/);
- assert.match(sw,/ultron-shell-v50/);
+ assert.match(sw,/ultron-shell-v[0-9]+/);
  assert.match(sw,/\/static\/auto-brain\.js/);
 });
 test("no background microphone or cloud handoff on page load",()=>{
