@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from datetime import date, time
 from aiohttp import web
+from personal_calendar_ics import ALLOWED_TIMEZONES, export_ics
 
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}\Z")
 _TIME = re.compile(r"(?:[01]\d|2[0-3]):[0-5]\d\Z")
@@ -79,6 +80,34 @@ async def list_plans(request):
     )
     return web.json_response({"plans": [plan_dict(row) for row in rows], "external_calendar_connected": False,
                               "notifications_enabled": False})
+
+
+async def export_owner_plans_ics(request):
+    """Owner-invoked download; no account linking, subscription or notification."""
+    _require_browser(request)
+    zone = request.query.get("tz", "Europe/Istanbul")
+    if zone not in ALLOWED_TIMEZONES:
+        return web.json_response({"error": "unsupported_timezone"}, status=400)
+    rows = await request.app["db"].fetch(
+        "SELECT id,title,scheduled_date,scheduled_time,is_done "
+        "FROM owner_plans WHERE user_id=$1 AND is_done=FALSE "
+        "ORDER BY scheduled_date ASC, scheduled_time ASC NULLS LAST,id ASC LIMIT 100",
+        request["user_id"],
+    )
+    try:
+        ics = export_ics(rows, owner_id=request["user_id"], timezone_name=zone)
+    except ValueError:
+        return web.json_response({"error": "ambiguous_or_invalid_calendar_time"}, status=400)
+    return web.Response(
+        body=ics,
+        content_type="text/calendar",
+        charset="utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="ultron-planlar.ics"',
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 async def create_plan(request):
@@ -154,6 +183,7 @@ async def delete_plan(request):
 
 def register_routes(app):
     app.router.add_get("/api/owner-plans", list_plans)
+    app.router.add_get("/api/owner-plans/calendar.ics", export_owner_plans_ics)
     app.router.add_post("/api/owner-plans", create_plan)
     app.router.add_put("/api/owner-plans/{id}", update_plan)
     app.router.add_patch("/api/owner-plans/{id}", set_plan_done)
