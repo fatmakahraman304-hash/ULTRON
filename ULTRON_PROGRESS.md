@@ -227,3 +227,10 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Added a separate confirmation-gated HAFIZADAN SİL control to shared memory entries to revoke learned information; deleting the proposal itself does not delete a previously approved memory.
 - Tests: offline validators, disposable PostgreSQL cross-owner consent/privacy/duplicate/conflict scenarios, and mobile Node safe DOM/explicit-click tests wired to Cloud and Scene CI. No native device or LLM quality claims.
 - The ten-capability readiness API now reports available reviewed learning but honestly marks general autonomous learning only partial.
+
+## 2026-10-10 — Opt-in auto-learning implementation
+- Implemented auto_learning.py with default-off owner_auto_learning PostgreSQL table and authenticated GET/PUT /api/auto-learning (JSON + same-origin write). An atomic FOR UPDATE check guards writes against switch-off races.
+- Supports deterministic high-confidence owner-declared preference/goal/project chat statements, normalizes and hashes per-value key, and INSERT ... ON CONFLICT DO NOTHING so existing memories are never silently overwritten. Excludes common secrets, sensitive phrases, emails, long numbers, URLs, control chars and multiline requests.
+- Attached to accepted /api/chat (Gemini) and /api/local-chat (Windows Qwen bridge). No network model extractor, background observer, assistant-message learning or unrestricted continuous retraining.
+- Added HAFIZA one-click status fetch followed by explicit confirmation to enable, reversible OFF and honest scope/exclusions text; PWA shell v48.
+- Added offline Python extraction/owner-scope tests, disposable PostgreSQL on/off/cross-owner/no-overwrite tests and Node manual-toggle tests. Wired GitHub CI; statuses verified separately. iPhone/Windows real hardware not tested.

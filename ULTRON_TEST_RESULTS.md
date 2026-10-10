@@ -217,3 +217,9 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 - Node test_learning_review_ui.cjs covers no automatic fetch/write, separate propose+approve click, rejection, confirmation-gated deletion, safe textContent, PWA/HTML wiring and existing-memory delete approval contract.
 - GitHub workflow cloud-queue-postgres.yml runs both Python contracts (offline and real PostgreSQL), scene-check.yml runs UI tests. Earlier commit 7a65bcbee Cloud run 38036171181 failed a *test string whitespace assumption* for existing owner-memory SQL; corrected at 02be84c8. Its cloud CI run 38036212147 SUCCESS; Scene Build Check 38036212168 SUCCESS. The new memory deletion UI commit has its own CI pending and must be checked before claiming latest HEAD is tested.
 - Real iPhone microphone, learning panel interactions, Windows installation, model behaviours and hardware remain NOT RUN here.
+
+## 2026-10-10 — Auto learning regression plan (check latest CI)
+- test_auto_learning.py: only explicit owner-written statements, deterministic keys, sensitive/URL/email/multiline exclusion, per-user SQL and Gemini/Qwen integration contract.
+- test_auto_learning_postgres.py: default off, authenticated owner-toggle PUT, same-origin JSON requirement, rejection of device/cross-site calls, owner-scoped learning, idempotent saves, on/off and existing-key non-overwrite with a disposable Postgres.
+- test_auto_learning_ui.cjs: initial no-network, opt-in confirmation, cancel and toggle-off, mobile UI wiring. GitHub workflow steps added.
+- Scope disclaimer: These tests do NOT prove limitless general intelligence, model training or free infinite persistent storage. Real iPhone and Windows device behavior not tested. Check exact CI and Render before claiming a working release.

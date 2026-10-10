@@ -205,3 +205,10 @@ Bu belge `MARK-ULTRON-MERGED` kaynak ağacına dayanır. **Test edilmemiş özel
 9. Calendar/email: manual plans and .ics export exist; email and calendar OAuth provider connections, permissions and delivery receipts absent.
 10. Smart home: connector concepts/adapters only; actual user-owned devices, authenticated LAN/cloud adapters and explicit device-change approval required.
 All ten are *workstream requirements*; not all are implemented or physically achievable through software alone.
+
+## 2026-10-10 — Optional automatic personal learning (bounded, user-controlled)
+- Distinguish ordinary owner-approved inbox from opt-in auto-learning of explicit *owner-written* chat statements. Per-user database setting DEFAULT OFF, explicit browser toggle and reversible disable.
+- Eligible exact-prefix expressions: "Tercihim:", "Hedefim:", "Projem:" and simple English equivalents. Stores only preference/goal/project value as owner-scoped memories; no model retraining, hidden scraping or app/microphone surveillance.
+- Sensitive-pattern, email, long-number, URL and multiline rejects; bounded single message length/value and duplicate-key hash. No arbitrary "infinite storage" promise; actual storage and server resources are finite.
+- Both Gemini Cloud and free paired Windows Qwen text chats can learn accepted owner messages after enabled, without weakening Approval Gate. Non-owner messages, replies and tool results must not be sources.
+- Actual model-side autonomous omniscient learning, OS control while PC is powered off, unrestricted iOS Siri, free-air hologram and unpaired smart-home physical control remain unsupported.

@@ -37,6 +37,8 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_plans.py' -v
       - name: Owner-approved learning field and memory boundaries
         run: python -m unittest discover -s ultron/cloud_service -p 'test_approved_learning.py' -v
+      - name: Opt-in owner chat automatic learning and secret filters
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_auto_learning.py' -v
       - name: Desktop respectful personality regression
         env:
           PYTHONPATH: ultron/backend
@@ -81,6 +83,10 @@ jobs:
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
         run: python -m unittest discover -s ultron/cloud_service -p 'test_approved_learning_postgres.py' -v
+      - name: Real PostgreSQL default-off auto learning and owner isolation
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_auto_learning_postgres.py' -v
       - name: Real PostgreSQL free local-brain conversation, privacy and reply persistence
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test

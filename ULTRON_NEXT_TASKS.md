@@ -273,3 +273,10 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. Connect model to *strictly validated* user-selected tone without treating untrusted saved memory as executable system instructions; optional playful/serious mode and test no humour in serious situations.
 4. Add an optional explicitly consented language-model suggestion extraction step for review inbox (never auto-approve); bound privacy, prompt injection, rate and data retention.
 5. For remaining capabilities: Apple/Google OAuth with minimum scopes, true reminder delivery receipts, iPhone native entitlements/hardware, local voice latency, powered-off computer wake hardware, optional IoT device adapters and safe updates/rollbacks. Never invent real hologram hardware or human consciousness.
+
+## Next after optional auto-learning
+1. Inspect GitHub Cloud Queue PostgreSQL Integration + Scene Build Check on latest auto-learning HEAD, fix any failing test, verify Render live commit. Do not mark successful without evidence.
+2. iPhone Safari HAFIZA > SOHBETTEN OTOMATİK ÖĞRENME: tap status, explicitly enable, switch to chat and type "Tercihim: Kısa Türkçe yanıt". Check ORTAK HAFIZA, then disable and verify new phrases no longer save. Delete saved item using HAFIZADAN SİL.
+3. Confirm account A's opt-in and stored facts are not accessible by B. Confirm direct Gemini and free Qwen text accepted. Verify no background audio/camera/email/calendar collection.
+4. For smarter extraction beyond direct statements: separate approval inbox for low-confidence AI-suggested memories with source excerpts and PII redaction, no silent automatic approval. Add preferences for retention/export and limits; no unlimited database promise.
+5. Other JARVIS goals: least-privilege calendar/email OAuth, native iOS entitlements/device build, Wake-on-LAN hardware, real smart-home enrollment, measured local Whisper/Piper voice and safe desktop self-updating, external holo hardware.
