@@ -4,7 +4,7 @@ export function resolvePanelIntent(input:string):Workspace|null {
  const t=String(input||'').toLocaleLowerCase('tr-TR').replace(/[’']/g,"'").replace(/\s+/g,' ').trim();
  if(!t||t.length>400)return null;
  if(/^(?:ana ekrana dön|ana ekrana don|sohbete dön|sohbete don|paneli kapat|ekranı kapat|ekrani kapat|close panel|back to chat|ultron ana ekran)$/.test(t))return 'chat';
- if(!/(?:^|\\s)(?:aç|ac|göster|goster|getir|çıkart|cikart|geç|gec|bak|izle|başlat|baslat|open|show|bring)(?=$|\\s|[.!?])/.test(t))return null;
+ if(!/(?:^|\s)(?:aç|ac|göster|goster|getir|çıkart|cikart|geç|gec|bak|izle|başlat|baslat|open|show|bring)(?=$|\s|[.!?])/.test(t))return null;
  if(/(?:hologram\s*(?:lab|laboratuvar|çalışma alanı|calisma alani)|hologram laboratuvarı|hologram laboratuvari|hologram tasarım|hologram tasarim)/.test(t))return 'hologram';
  if(/(?:dünya|dunya|world|harita|earth watch|uçak|ucak|deprem|hava durumu|weather)/.test(t))return 'world';
  if(/(?:hafıza|hafiza|hatıra|hatira|öğrenme|ogrenme|takvim|planlarım|planlarim)/.test(t))return 'memory';
