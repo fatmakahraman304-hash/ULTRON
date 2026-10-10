@@ -1,3 +1,12 @@
+## 2026-10-10 — Long historical answer final-correction coverage
+
+- **Functional SHA:** `4a196658820aa38f747cb6cd1e74a12714c59eaf`.
+- GitHub Cloud Queue PostgreSQL Integration [38072623731](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38072623731): **SUCCESS** (including a new long-history + tenant isolation regression).
+- GitHub ULTRON Scene Build Check [38072623801](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38072623801): **SUCCESS** (synthetic question/answer ending preservation and unchanged frontend build).
+- Historical matched messages no longer lose a trailing conclusion merely because the old exchange was long; the code selects the start and end within the prior character quota. Includes tests of model-visible prior question, final answer, recent dialogue, total token-related character budget, and absence of other owner/thread content.
+- The earlier `064a9f6` release fixed incidental-recent-mention suppression of old Q&A; these tests add protection for the final statements within that evidence.
+- The 100-scenario real Gemini/Qwen assessment and Render live commit for this newer code remain **NOT VERIFIED**. No model quality score, no claimed production/hardware validation and no Windows download/install.
+
 ## 2026-10-10 — Named historical recall and late-correction quality regressions
 
 - Functional HEAD: `1e5e11002a471d041023e5c8efd95047b733442b`; prior context commit `d9d1f9ac33d75fd558671a2f3fafc7ab376dd5af`.

@@ -1,3 +1,10 @@
+## 2026-10-10 — Historical Q&A conclusions preserved under context caps
+
+- Functional code commit: `4a196658820aa38f747cb6cd1e74a12714c59eaf`, following named-recall improvements at `064a9f6efbea16f5a71bb474f35e27300584d26c`.
+- The generic old-topic selector previously sliced matched historic messages from the beginning only, which could discard a final decision, user correction or important response conclusion. It now uses the same bounded beginning/ending excerpting applied elsewhere, preserving both portions without extra inference calls, new memory writes, or bigger context budgets.
+- Tests: deterministic old long-question/long-answer finale recovery, plus real disposable PostgreSQL 110+ unrelated intervening-message named recall and cross-user/cross-conversation isolation. Exact-commit Cloud/PostgreSQL [38072623731](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38072623731) **SUCCESS**; Scene/Frontend [38072623801](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38072623801) **SUCCESS**.
+- Not verified: real Gemini/Qwen 100-case quality, real model inference latency, deployment on Render of this SHA, Windows/iPhone hardware. No 100/100 conversational claim; keep the final Windows update on hold.
+
 ## 2026-10-10 — Conversational intelligence: historical topic retrieval and corrected long messages
 
 - Code SHAs: `d9d1f9ac33d75fd558671a2f3fafc7ab376dd5af` (context and targeted retrieval), then `1e5e11002a471d041023e5c8efd95047b733442b` (grounded named-recall system guidance).

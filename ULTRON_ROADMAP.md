@@ -1,3 +1,11 @@
+## Conversation quality — final historical statement retrieval (2026-10-10)
+
+- [x] Recall original same-thread Q&A older than 80 messages, even with later incidental mentions of the topic (previous commit `064a9f6`).
+- [x] Preserve the **final decision/correction** in long historical Q&A snippets within the existing fixed history cap. Synthetic regression and real disposable PostgreSQL long-thread isolation tests passed on code `4a196658820aa38f747cb6cd1e74a12714c59eaf`.
+- [x] Existing Cloud/PostgreSQL CI `38072623731` and Scene/Frontend CI `38072623801` successful.
+- [ ] Run authorized real Gemini and reachable Qwen/Ollama 100-scenario transcripts with independent reviews and latency measurements; model accuracy NOT MEASURED.
+- [ ] Verify Render exact live commit and on-device iPhone/Windows inference and voice. Single Windows update intentionally deferred.
+
 ## Conversational milestone — named recall beyond recent context (2026-10-10)
 
 - [x] Explicit old-topic recall past 80 messages, authenticated-thread lexical match with adjacent Q&A and bounded history prompt.

@@ -1,3 +1,12 @@
+# Current priority — natural conversation acceptance (2026-10-10)
+
+1. **Latest verified functional code:** `4a196658820aa38f747cb6cd1e74a12714c59eaf`. [Cloud/PostgreSQL CI 38072623731](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38072623731) and [Scene/Frontend CI 38072623801](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38072623801) both completed successfully at this exact SHA. This follows `064a9f6efbea16f5a71bb474f35e27300584d26c` (older Q&A retrieved even when topic is incidentally mentioned recently).
+2. **What changed:** older matched question/answer excerpts in `select_contextual_turns` now use bounded opening+ending excerpt selection rather than taking only the first characters. This retains an explicit conclusion or correction at the end of a long previous message, within unchanged model context/turn limits. New deterministic and real 110+ message disposable PostgreSQL regression checks prove historical ending survives, recent dialogue remains, and no other tenant/thread data leaks.
+3. **NEXT TASK:** Real Gemini and locally reachable Qwen 100-scenario transcripts with independent correctness/context/style/honesty/privacy reviews, model identity and latency measurement. A CI PASS is NOT a 100/100 conversational model score. Do not use or disclose production credentials to bypass authorization.
+4. **Still pending:** Exact Render live deployment verification for this latest SHA, actual iPhone and Windows microphone/Ollama inference tests, and the deliberately postponed one-time final Windows update. Keep existing safety approvals, minimal UI and conservative online/offline routing.
+
+---
+
 # Current priority — verified conversation continuation (2026-10-10)
 
 1. **Latest verified functional HEAD:** `1e5e11002a471d041023e5c8efd95047b733442b`, following `d9d1f9ac33d75fd558671a2f3fafc7ab376dd5af`. Both CI paths PASS at this exact HEAD: [Cloud/PostgreSQL 38071243972](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071243972) and [Scene/Frontend 38071243961](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38071243961).
