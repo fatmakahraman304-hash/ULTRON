@@ -523,6 +523,19 @@
         <p id="briefingStatus" class="remote-note" role="status" aria-live="polite">Yalnızca sen dokunduğunda kayıtlı ULTRON hafızan okunur. Takvim ve e-posta otomatik bağlanmaz.</p>
         <div id="briefingItems" class="memory-list" aria-label="Kayıtlı kişisel hedefler"></div>
       </div>
+      <div class="memory-form panel" id="conversationNotesPanel">
+        <div class="section-title"><h2>SOHBET NOTLARI</h2><button class="secondary" type="button" id="refreshConversationNotes">NOTLARI GÖSTER</button></div>
+        <p class="remote-note">“Sohbet notu hazırla” diyerek bu konuşmadan bir taslak al. Eksik veya özel bilgileri kontrol et; sen KAYDET demeden not saklanmaz ve otomatik hafızaya eklenmez.</p>
+        <button id="previewConversationNote" type="button" class="secondary" style="width:100%">SOHBETTEN TASLAK HAZIRLA</button>
+        <label for="conversationNoteTitle" class="settings-label">Not başlığı</label>
+        <input id="conversationNoteTitle" maxlength="140" placeholder="Bu sohbetin notu" autocomplete="off" />
+        <label for="conversationNoteBody" class="settings-label">Düzenlenebilir not</label>
+        <textarea id="conversationNoteBody" maxlength="3000" rows="5" placeholder="Yalnızca kaydetmek istediğin bilgileri bırak."></textarea>
+        <button id="saveConversationNote" type="button" style="width:100%;margin-top:9px">NOTU KAYDET</button>
+        <button id="cancelConversationNote" type="button" class="secondary" style="width:100%;margin-top:7px">DÜZENLEMEYİ İPTAL ET</button>
+        <p class="remote-note" id="conversationNotesStatus" role="status" aria-live="polite">İsteğin üzerine taslak hazırlanır; otomatik kayıt yapılmaz.</p>
+        <div id="conversationNotesList" class="memory-list" aria-label="Yalnızca bu sohbete ait notlar"></div>
+      </div>
       <div class="memory-form panel" id="ownerPlansPanel">
         <div class="section-title"><h2>KİŞİSEL TAKVİM VE PLANLAR</h2><button class="secondary" type="button" id="refreshOwnerPlans">PLANLARI GÖSTER</button></div>
         <p class="remote-note">ULTRON'un kendi plan defteri. Google/Apple Takvim bağlantısı veya otomatik telefon bildirimi değildir.</p>
@@ -615,6 +628,7 @@
 <script src="/static/local-voice.js"></script>
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
+<script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
 <script src="/static/panel-intents.js"></script>
 <script src="/static/learning-review.js"></script>
@@ -1564,6 +1578,7 @@ function worldVoiceIntent(text){
  return true;
 }
 function handlePanelIntent(text){
+ if(conversationNotesController?.runCommand(text))return true;
  const intent=window.ULTRONPanelIntents?.resolve(text);
  if(!intent)return false;
  if(intent.view==='world'){
@@ -1602,6 +1617,13 @@ async function boot(){
 window.ULTRONDevRequests?.init();
 window.ULTRONPersonalPanel?.create({fetchJson: path => api(path), document}).init();
 window.ULTRONOwnerPlans?.create({fetchJson: (path, options) => api(path, options), document}).init();
+const conversationNotesController=window.ULTRONConversationNotes?.create({
+  document,
+  fetchJson: (path, options) => api(path, options),
+  getConversationId: () => conversationId,
+  openMemory: () => showView('memory')
+});
+conversationNotesController?.init();
 window.ULTRONLearningReview?.create({fetchJson: (path, options) => api(path, options), document, onMemoryChanged: () => loadMemories()}).init();
 $('#loginBtn').onclick=async()=>{
   try{
