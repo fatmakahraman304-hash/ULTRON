@@ -31,6 +31,8 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_capability_readiness.py' -v
       - name: Personal briefing privacy and grounding tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_briefing.py' -v
+      - name: Owner iCalendar privacy, timezone and format contracts
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_calendar_ics.py' -v
       - name: Manual calendar validation and memory-briefing safety
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_plans.py' -v
       - name: Desktop respectful personality regression
