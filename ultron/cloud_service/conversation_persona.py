@@ -158,7 +158,7 @@ def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
 # their contents must not close our framing tags or impersonate another section.
 # Escape only the framing tags, leaving Turkish prose and ordinary code intact.
 _CONTEXT_MARKER = re.compile(
-    r"<\\s*/?\\s*(?:SAVED\\s+MEMORY|RECENT\\s+CHAT)\\s*>", re.I
+    r"<[ /]*(?:SAVED[ ]+MEMORY|RECENT[ ]+CHAT)[ ]*>", re.I
 )
 
 
