@@ -276,26 +276,38 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     if style_hint and len(effective_system)+len(style_hint)+1 <= 5400:
         effective_system += "\n" + style_hint
     # Ollama may finish slowly on CPU offload; Cloud worker renews the lease.
-    result=_get_json("/api/chat",{
+    # Keep the same prompt, model, privacy boundary and disabled-thinking
+    # option for a bounded retry. Only a confirmed token-budget cutoff is
+    # retryable: an interrupted/foreign-model response is never accepted.
+    request={
         "model":choice.model,
         "messages":ollama_messages(effective_system, turns or [], text),
         **config,
-    },timeout=70)
-    # A malformed or interrupted Ollama response is not a successful answer.
-    # Do not stringify arbitrary JSON as if it were model-generated prose or
-    # claim a configured model produced a reply labeled as another model.
-    actual_model=result.get("model")
-    if actual_model is not None and actual_model != choice.model:
-        raise LocalBrainUnavailable("Ollama beklenmeyen modelden yanıt döndürdü.")
-    if result.get("done") is False:
-        raise LocalBrainUnavailable("Ollama tamamlanmamış yanıt döndürdü.")
-    # Ollama may set done=true even when generation stopped at num_predict.
-    # In that case the final sentence/code can be cut off. Never silently
-    # publish that response as a complete conversation answer.
-    if result.get("done_reason") == "length":
-        raise LocalBrainUnavailable(
-            "Yerel yanıt uzunluk sınırında kesildi; tamamlanmış sayılmadı."
-        )
+    }
+    result=_get_json("/api/chat",request,timeout=70)
+    for attempt in range(2):
+        # A malformed or interrupted Ollama response is not a successful answer.
+        # Do not stringify arbitrary JSON as model-generated prose or trust
+        # a reply labeled as an unexpected model.
+        actual_model=result.get("model")
+        if actual_model is not None and actual_model != choice.model:
+            raise LocalBrainUnavailable("Ollama beklenmeyen modelden yanıt döndürdü.")
+        if result.get("done") is False:
+            raise LocalBrainUnavailable("Ollama tamamlanmamış yanıt döndürdü.")
+        if result.get("done_reason") != "length":
+            break
+        # Ollama sets done=true for num_predict exhaustion, including short
+        # user requests when the small first-pass budget runs out. Restart
+        # inference at most once with a bounded larger token budget; do not
+        # append the truncated model text to conversation history or report
+        # a partial answer as completed.
+        if attempt:
+            raise LocalBrainUnavailable(
+                "Yerel yanıt daha geniş uzunluk sınırında da kesildi; tamamlanmış sayılmadı."
+            )
+        expanded=min(768,max(512,int(runtime["num_predict"])*2))
+        retry={**request,"options":{**runtime,"num_predict":expanded}}
+        result=_get_json("/api/chat",retry,timeout=70)
     message=result.get("message")
     if not isinstance(message,dict) or not isinstance(message.get("content"),str):
         raise LocalBrainUnavailable("Ollama yanıtının metin biçimi geçersiz.")

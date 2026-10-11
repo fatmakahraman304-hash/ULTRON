@@ -334,7 +334,11 @@ class LocalConversationTests(unittest.TestCase):
                      patch.object(local,"_get_json",side_effect=fake_request):
                     with self.assertRaises(local.LocalBrainUnavailable):
                         local.local_chat("Selam","ULTRON",[])
-                self.assertEqual(len(calls),1)
+                # Only an explicitly completed-but-length-limited response
+                # gets one bounded re-inference. No other malformed result
+                # may consume extra requests or be published.
+                expected=2 if response.get("done_reason")=="length" else 1
+                self.assertEqual(len(calls),expected)
                 self.assertFalse(calls[0].get("tools"))
 
         valid=(
@@ -356,6 +360,66 @@ class LocalConversationTests(unittest.TestCase):
                 self.assertEqual(got["reply"],"Merhaba!")
                 self.assertEqual(got["model"],"qwen3:4b")
                 self.assertEqual(got["provider"],"local-ollama")
+
+    def test_length_cutoff_retries_once_without_publishing_partial_text(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b","fast_brain":{
+                "enabled":True,"conversation_models":["qwen3:4b"],"speech_tokens":192}}}))
+        packets=[]
+        def fake_ollama(path,payload=None,**kwargs):
+            self.assertEqual(path,"/api/chat")
+            packets.append(payload)
+            if len(packets)==1:
+                return {"model":"qwen3:4b","done":True,"done_reason":"length",
+                        "message":{"content":"Yarım kalan taslak"}}
+            return {"model":"qwen3:4b","done":True,"done_reason":"stop",
+                    "message":{"content":"Platin 846"}}
+        with patch.object(local,"_SETTINGS",settings), \
+             patch.object(local,"installed_models",return_value=["qwen3:4b"]), \
+             patch.object(local,"_get_json",side_effect=fake_ollama):
+            out=local.local_chat(
+                'ULTRON, yerel Qwen testimiz. Sadece "Platin 846" yaz.',
+                "Trusted personal assistant",[])
+        self.assertEqual(out["reply"],"Platin 846")
+        self.assertEqual(out["provider"],"local-ollama")
+        self.assertEqual(out["model"],"qwen3:4b")
+        self.assertEqual(len(packets),2)
+        first,second=packets
+        self.assertEqual(first["model"],second["model"])
+        self.assertEqual(first["messages"],second["messages"])
+        self.assertEqual(first["keep_alive"],second["keep_alive"])
+        self.assertIs(first["think"],False)
+        self.assertIs(second["think"],False)
+        self.assertFalse(first["stream"])
+        self.assertFalse(second["stream"])
+        self.assertLessEqual(first["options"]["num_predict"],160)
+        self.assertGreaterEqual(second["options"]["num_predict"],512)
+        self.assertLessEqual(second["options"]["num_predict"],768)
+        self.assertNotIn("Yarım kalan taslak",str(second["messages"]))
+
+    def test_length_retry_never_accepts_wrong_model_or_unfinished_reply(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b","fast_brain":{"enabled":True}}}))
+        for second in (
+            {"model":"llava:7b","done":True,"done_reason":"stop",
+             "message":{"content":"Different model"}},
+            {"model":"qwen3:4b","done":False,
+             "message":{"content":"Interrupted"}},
+        ):
+            with self.subTest(second=second):
+                packets=[]
+                def fake_ollama(path,payload=None,**kwargs):
+                    packets.append(payload)
+                    if len(packets)==1:
+                        return {"done":True,"done_reason":"length",
+                                "message":{"content":"Partial"}}
+                    return second
+                with patch.object(local,"_SETTINGS",settings), \
+                     patch.object(local,"installed_models",return_value=["qwen3:4b"]), \
+                     patch.object(local,"_get_json",side_effect=fake_ollama):
+                    with self.assertRaises(local.LocalBrainUnavailable):
+                        local.local_chat("Selam","ULTRON",[])
+                self.assertEqual(len(packets),2)
 
     def test_previous_turns_are_actual_model_messages(self):
         msg=self.run_local("Peki fiyatı?",[
