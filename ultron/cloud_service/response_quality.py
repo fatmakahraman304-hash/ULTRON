@@ -6,7 +6,13 @@ Code blocks and requested verbatim text are left untouched.
 from __future__ import annotations
 import re
 
-from ultron.cloud_service.reply_policy import classify_reply_mode
+# Render launches `python app.py` with ultron/cloud_service as the working
+# directory; the repository root is not importable as `ultron` there.
+# Local desktop/tests may import this module through the package instead.
+if __package__:
+    from .reply_policy import classify_reply_mode
+else:
+    from reply_policy import classify_reply_mode
 
 _LITERAL = re.compile(r'\b(?:aynen|harfi harfine|verbatim|exactly|repeat|tekrarla|şiir|poem)\b', re.I)
 
