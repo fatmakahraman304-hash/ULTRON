@@ -312,8 +312,41 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     if not isinstance(message,dict) or not isinstance(message.get("content"),str):
         raise LocalBrainUnavailable("Ollama yanıtının metin biçimi geçersiz.")
     answer=strip_qwen_thinking(message["content"])
+    answered_by=choice.model
     if not answer:
-        raise LocalBrainUnavailable(
-            "Yerel model yalnızca tamamlanmamış düşünme metni döndürdü."
-        )
-    return {"reply":finalize_response(answer[:12000], prompt=text),"model":choice.model,"provider":"local-ollama"}
+        # HTTP 200 may contain only an incomplete Qwen thinking channel.
+        # Recover once with another *installed* Qwen model, preserving the
+        # exact same trusted system prompt and bounded conversation turns.
+        # No Gemini, downloads, public Ollama endpoint or desktop tools.
+        candidates=[name for name in chat_models if name != choice.model]
+        if not candidates:
+            raise LocalBrainUnavailable(
+                "Yerel model yalnızca tamamlanmamış düşünme metni döndürdü."
+            )
+        backup=policy.choose(task=task,installed=candidates,
+                             primary=candidates[0]).model
+        if backup not in candidates or not is_qwen_model(backup):
+            raise LocalBrainUnavailable("Yedek Qwen modeli güvenilir değil.")
+        backup_config=policy.runtime_options(backup,tools=False)
+        backup_options={**backup_config.get("options",{}), **runtime,
+                        "num_predict":min(512,max(384,int(runtime["num_predict"])))}
+        backup_request={
+            "model":backup,
+            "messages":request["messages"],
+            **backup_config,
+            "options":backup_options,
+        }
+        retry_result=_get_json("/api/chat",backup_request,timeout=70)
+        actual=retry_result.get("model")
+        if actual is not None and actual != backup:
+            raise LocalBrainUnavailable("Yedek Ollama beklenmeyen modelden yanıt döndürdü.")
+        if retry_result.get("done") is False or retry_result.get("done_reason") == "length":
+            raise LocalBrainUnavailable("Yedek Qwen tamamlanmış yanıt döndürmedi.")
+        retry_message=retry_result.get("message")
+        if not isinstance(retry_message,dict) or not isinstance(retry_message.get("content"),str):
+            raise LocalBrainUnavailable("Yedek Qwen yanıtının metin biçimi geçersiz.")
+        answer=strip_qwen_thinking(retry_message["content"])
+        if not answer:
+            raise LocalBrainUnavailable("Yedek Qwen de tamamlanmış bir yanıt üretemedi.")
+        answered_by=backup
+    return {"reply":finalize_response(answer[:12000], prompt=text),"model":answered_by,"provider":"local-ollama"}
