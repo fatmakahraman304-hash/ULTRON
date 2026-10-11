@@ -361,6 +361,30 @@ class LocalConversationTests(unittest.TestCase):
                 self.assertEqual(got["model"],"qwen3:4b")
                 self.assertEqual(got["provider"],"local-ollama")
 
+    def test_generated_qwen_thoughts_stripped_before_remote_completion(self):
+        settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
+            "llm":{"model":"qwen3:4b","fast_brain":{"enabled":True}}}))
+        for raw in (
+            'Generated private explanation\n</think>\n\nZümrüt 529',
+            '<think>\nGenerated private explanation\n</think>\nZümrüt 529',
+        ):
+            with self.subTest(raw=raw):
+                with (patch.object(local,"_SETTINGS",settings),
+                      patch.object(local,"installed_models",return_value=["qwen3:4b"]),
+                      patch.object(local,"_get_json",return_value={
+                         "model":"qwen3:4b","done":True,"done_reason":"stop",
+                         "message":{"content":raw}})):
+                    reply=local.local_chat('Sadece "Zümrüt 529" yaz.',"ULTRON",[])
+                self.assertEqual(reply["reply"],"Zümrüt 529")
+                self.assertEqual(reply["provider"],"local-ollama")
+        with (patch.object(local,"_SETTINGS",settings),
+              patch.object(local,"installed_models",return_value=["qwen3:4b"]),
+              patch.object(local,"_get_json",return_value={
+                 "model":"qwen3:4b","done":True,"done_reason":"stop",
+                 "message":{"content":"<think>\nNever finished"}})):
+            with self.assertRaises(local.LocalBrainUnavailable):
+                local.local_chat("Merhaba","ULTRON",[])
+
     def test_length_cutoff_retries_once_without_publishing_partial_text(self):
         settings=SimpleNamespace(read_text=lambda encoding:json.dumps({
             "llm":{"model":"qwen3:4b","fast_brain":{

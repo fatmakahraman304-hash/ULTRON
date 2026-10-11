@@ -3,7 +3,7 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
-from response_quality import assess_response, finalize_response
+from response_quality import assess_response, finalize_response, strip_qwen_thinking
 
 class ResponseQualityTests(unittest.TestCase):
     def test_render_root_dir_import_smoke_without_repo_pythonpath(self):
@@ -48,6 +48,19 @@ class ResponseQualityTests(unittest.TestCase):
                           assess_response(verbose,prompt=prompt),prompt)
         self.assertEqual(finalize_response(verbose,prompt='Kısa cevap ver'),
                          verbose.strip())
+
+    def test_qwen_think_channel_is_not_exposed(self):
+        self.assertEqual(strip_qwen_thinking(
+            'Private draft notes\n</think>\n\nZümrüt 529'), 'Zümrüt 529')
+        self.assertEqual(strip_qwen_thinking(
+            '<think>\nUntrusted deliberation\n</think>\n\nMerhaba!'), 'Merhaba!')
+        self.assertEqual(strip_qwen_thinking('<think>\nUnfinished'), '')
+        self.assertEqual(strip_qwen_thinking('Analysis\n</think>'), '')
+        plain='Gerçek cevap.\n\nİkinci satır.'
+        self.assertEqual(strip_qwen_thinking(plain), plain)
+        fence=chr(96)*3
+        code=fence+'txt\n<think>\nexample\n</think>\n'+fence
+        self.assertEqual(strip_qwen_thinking(code), code)
 
     def test_flags_do_not_claim_semantic_accuracy_or_truncate(self):
         self.assertEqual(assess_response(''), ('empty',))

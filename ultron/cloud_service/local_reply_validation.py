@@ -6,6 +6,7 @@ without aiohttp, databases or running Ollama.
 from __future__ import annotations
 
 from model_identity import is_qwen_model
+from response_quality import strip_qwen_thinking
 
 
 def _validated_local_reply(result: dict) -> tuple[str, str, str] | None:
@@ -37,6 +38,11 @@ def _validated_local_reply(result: dict) -> tuple[str, str, str] | None:
         # Even a legacy desktop sender must name a real Qwen family model.
         # The mobile text queue does not accept arbitrary Ollama/vision models.
         if not is_qwen_model(model):
+            return None
+        # A legacy desktop may submit unfiltered reasoning. Do not save it
+        # into the shared thread or return it as user-visible assistant text.
+        reply = strip_qwen_thinking(reply)
+        if not reply:
             return None
         source = "desktop-local-ollama"
     return reply, model.strip()[:90], source

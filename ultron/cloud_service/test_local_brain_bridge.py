@@ -66,6 +66,18 @@ class LocalFirstBridgeTests(unittest.TestCase):
         self.assertIn("reply, source", CLOUD)
         self.assertNotIn("'desktop-local-ollama')", CLOUD)
 
+    def test_cloud_filters_legacy_qwen_thoughts_before_memory_save(self):
+        raw={'provider':'local-ollama','model':'qwen3:4b',
+             'assistant_reply':'Draft internal text\n</think>\n\nZümrüt 529'}
+        reply=_validated_local_reply(raw)
+        self.assertEqual(reply,('Zümrüt 529','qwen3:4b','desktop-local-ollama'))
+        self.assertIsNone(_validated_local_reply({
+            'provider':'local-ollama','model':'qwen3:4b',
+            'assistant_reply':'<think>\nNo final answer yet'}))
+        self.assertEqual(_validated_local_reply({
+            'provider':'local-no-image','model':'',
+            'assistant_reply':'No image arrived.'})[0],'No image arrived.')
+
     def test_owner_queue_limit_and_thread_limit_use_one_transaction_lock(self):
         self.assertIn("pg_advisory_xact_lock",CLOUD)
         self.assertIn("local_chat_thread_busy",CLOUD)

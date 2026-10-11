@@ -16,7 +16,7 @@ from pathlib import Path
 
 from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
 from ultron.cloud_service.conversation_turns import ollama_messages, bounded_user_request
-from ultron.cloud_service.response_quality import finalize_response
+from ultron.cloud_service.response_quality import finalize_response, strip_qwen_thinking
 from ultron.cloud_service.reply_policy import classify_reply_mode
 from ultron.cloud_service.model_identity import is_qwen_model
 
@@ -311,7 +311,9 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
     message=result.get("message")
     if not isinstance(message,dict) or not isinstance(message.get("content"),str):
         raise LocalBrainUnavailable("Ollama yanıtının metin biçimi geçersiz.")
-    answer=message["content"].strip()
+    answer=strip_qwen_thinking(message["content"])
     if not answer:
-        raise LocalBrainUnavailable("Yerel model boş yanıt verdi.")
+        raise LocalBrainUnavailable(
+            "Yerel model yalnızca tamamlanmamış düşünme metni döndürdü."
+        )
     return {"reply":finalize_response(answer[:12000], prompt=text),"model":choice.model,"provider":"local-ollama"}
