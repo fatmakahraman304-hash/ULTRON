@@ -318,6 +318,20 @@ class CloudQueueContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(isinstance(v, HTTPConflict) for v in result))
         self.assertEqual(db.result["message"], "current")
 
+    def test_unacknowledged_retry_is_read_only_local_qwen_only(self):
+        # No destructive agent task can be replayed if the claim response
+        # disappeared. The old claim's generation is fenced on next claim.
+        tree=ast.parse(SOURCE.read_text(encoding="utf-8"))
+        claim=next(n for n in tree.body if isinstance(n,ast.AsyncFunctionDef)
+                   and n.name=="claim_device_commands")
+        sql="\n".join(n.value for n in ast.walk(claim)
+                      if isinstance(n,ast.Constant) and isinstance(n.value,str))
+        self.assertIn("payload->>'mode'='local_brain'",sql)
+        self.assertIn("retry_count < max_retries",sql)
+        self.assertIn("progress->-1->>'stage'='claimed'",sql)
+        self.assertIn("INTERVAL '12 seconds'",sql)
+        self.assertIn("delivery_attempt=delivery_attempt+1",sql)
+
     def test_progress_checkpoint_and_lease_sql_use_fencing(self):
         tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
         for name in ("append_device_command_progress", "save_device_command_checkpoint"):

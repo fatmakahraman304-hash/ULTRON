@@ -164,6 +164,22 @@ class CloudHTTPErrorTests(unittest.TestCase):
             self.simulated_http_error(404,"/health",'{"detail":"missing endpoint"}')
         self.assertNotIsInstance(captured.exception,CloudDeliveryRejected)
 
+    def test_cloud_claim_has_bounded_http_timeout(self):
+        client=CloudClient()
+        client.base_url="https://example.invalid"
+        client.device_token="test-only"
+        try:
+            # Check the actual sync request forwarded to the HTTP transport;
+            # no real network call or secret is needed.
+            with patch("urllib.request.urlopen") as urlopen:
+                response=urlopen.return_value.__enter__.return_value
+                response.read.return_value=b'{"commands":[]}'
+                client._sync_request("POST","/api/device-commands/claim",
+                                     {"target":"desktop"},timeout=10.0)
+                self.assertEqual(urlopen.call_args.kwargs.get("timeout"),10.0)
+        finally:
+            client._executor.shutdown(wait=False,cancel_futures=True)
+
     def test_503_is_transient_not_a_stale_attempt(self):
         with self.assertRaises(RuntimeError) as captured:
             self.simulated_http_error(503,"/api/device-commands/8/progress",'{"error":"unavailable"}')

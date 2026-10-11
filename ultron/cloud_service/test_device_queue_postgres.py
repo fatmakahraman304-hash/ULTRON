@@ -51,6 +51,58 @@ class DeviceQueuePostgresTests(unittest.IsolatedAsyncioTestCase):
         claimed = await self.claim()
         self.assertEqual([row["id"] for row in claimed], [agent_id])
 
+    async def test_lost_local_claim_response_retries_with_new_fence(self):
+        # The browser request exists in Postgres but never reached the
+        # laptop; only the server's initial 'claimed' progress is recorded.
+        cid = await self.pool.fetchval(
+            """INSERT INTO device_commands(user_id,target,command,payload)
+               VALUES('owner','desktop','agent_task',
+                      '{"mode":"local_brain","text":"test"}'::jsonb)
+               RETURNING id"""
+        )
+        first = (await self.claim())[0]
+        self.assertEqual(first["id"],cid)
+        self.assertEqual(first["delivery_attempt"],1)
+        await self.pool.execute(
+            "UPDATE device_commands SET delivered_at=NOW()-INTERVAL '14 seconds' WHERE id=$1",
+            cid,
+        )
+        second = (await self.claim())[0]
+        self.assertEqual(second["id"],cid)
+        self.assertEqual(second["delivery_attempt"],2)
+        row=await self.pool.fetchrow(
+            "SELECT retry_count,progress FROM device_commands WHERE id=$1",cid)
+        stages=[item["stage"] for item in row["progress"]]
+        self.assertEqual(row["retry_count"],1)
+        self.assertIn("redelivery",stages)
+        with self.assertRaises(HTTPNotFound):
+            await self.handlers["append_device_command_progress"](
+                self.req(cid,{"delivery_attempt":1,"stage":"executing"}))
+        await self.handlers["append_device_command_progress"](
+            self.req(cid,{"delivery_attempt":2,"stage":"executing","message":"started"}))
+        await self.pool.execute(
+            "UPDATE device_commands SET delivered_at=NOW()-INTERVAL '14 seconds' WHERE id=$1",
+            cid,
+        )
+        # An acknowledged (possibly running) model is never auto-requeued.
+        self.assertEqual(await self.claim(),[])
+        check=await self.pool.fetchrow(
+            "SELECT status,delivery_attempt,retry_count FROM device_commands WHERE id=$1",cid)
+        self.assertEqual((check["status"],check["delivery_attempt"],check["retry_count"]),
+                         ("delivered",2,1))
+
+    async def test_general_agent_claim_is_not_replayed(self):
+        cid=await self.add("agent_task")
+        first=(await self.claim())[0]
+        self.assertEqual(first["id"],cid)
+        await self.pool.execute(
+            "UPDATE device_commands SET delivered_at=NOW()-INTERVAL '14 seconds' WHERE id=$1",
+            cid)
+        self.assertEqual(await self.claim(),[])
+        row=await self.pool.fetchrow(
+            "SELECT status,retry_count FROM device_commands WHERE id=$1",cid)
+        self.assertEqual((row["status"],row["retry_count"]),("delivered",0))
+
     async def test_parallel_claim_keeps_single_agent_lane(self):
         await self.add();await self.add()
         first,second=await asyncio.gather(self.claim(),self.claim())

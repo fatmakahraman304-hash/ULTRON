@@ -325,6 +325,38 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 """,
                 request["user_id"], target,
             )
+            # The HTTP reply can be lost after PostgreSQL commits a claim.
+            # Only text-only local Qwen replies are safe to retry here:
+            # they cannot launch device tools or mutate the OS. Never blindly
+            # redeliver general agent commands (which might have side effects).
+            # A desktop that received the claim sends an executing progress
+            # acknowledgement before starting Qwen, while a live lease refresh
+            # keeps delivered_at recent even if the main UI is temporarily stuck.
+            # Requeue only genuinely unacknowledged, unrenewed claims. All
+            # later attempts use incrementing delivery_attempt fencing tokens.
+            await conn.execute(
+                """
+                UPDATE device_commands
+                SET status='queued',
+                    retry_count=retry_count+1,
+                    delivered_at=NULL,
+                    run_after=NOW(),
+                    progress = COALESCE(progress, '[]'::jsonb) ||
+                      jsonb_build_array(jsonb_build_object(
+                        'stage','redelivery',
+                        'message','Laptop teslim yanıtı doğrulanamadı; Qwen metin görevi tekrar kuyruğa alındı.',
+                        'percent',NULL,
+                        'at',EXTRACT(EPOCH FROM NOW())
+                      ))
+                WHERE user_id=$1 AND target=$2 AND command='agent_task'
+                  AND status='delivered'
+                  AND payload->>'mode'='local_brain'
+                  AND retry_count < max_retries
+                  AND delivered_at <= NOW() - INTERVAL '12 seconds'
+                  AND progress->-1->>'stage'='claimed'
+                """,
+                request["user_id"], target,
+            )
             # A delivered agent task owns the single-task lane only while its
             # desktop lease is alive. The desktop renews delivered_at every few
             # seconds; if that heartbeat disappears for 20 seconds the worker is

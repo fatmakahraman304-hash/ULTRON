@@ -7,6 +7,7 @@ Render/Supabase service so phone and PC see the same conversation + memory.
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import json
 import os
 import time
@@ -89,14 +90,17 @@ class CloudClient:
                 raise CloudDeliveryRejected(exc.code, str(message)) from exc
             raise RuntimeError(str(message)) from exc
 
-    async def _request(self, method: str, path: str, *, json_body: dict | None = None) -> dict[str, Any]:
+    async def _request(self, method: str, path: str, *,
+                       json_body: dict | None = None,
+                       timeout: float | None = None) -> dict[str, Any]:
         if not self.enabled:
             raise RuntimeError("ULTRON Cloud desktop bridge is not configured")
         try:
             loop = asyncio.get_running_loop()
             data = await loop.run_in_executor(
                 self._executor,
-                self._sync_request,
+                (partial(self._sync_request, timeout=timeout)
+                 if timeout is not None else self._sync_request),
                 method,
                 path,
                 json_body,
@@ -178,6 +182,10 @@ class CloudClient:
             "POST",
             "/api/device-commands/claim",
             json_body={"target": "desktop", "include_agent_tasks": include_agent_tasks},
+            # An HTTP response may disappear after the Cloud committed the
+            # claim. Do not hang for 45 s; Cloud safely requeues only unacked
+            # read-only local-chat tasks after 12 s.
+            timeout=10.0,
         )
         rows = data.get("commands", [])
         return rows if isinstance(rows, list) else []
