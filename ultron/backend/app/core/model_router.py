@@ -63,6 +63,9 @@ class ModelRouter:
         primary = self.resolve(task, models)
         general = self.resolve(TaskType.GENERAL, models)
         others = [m for m in models if m not in (primary, general)]
+        # Never route ordinary conversation/code to an image-only model.
+        if task != TaskType.VISION:
+            others = [m for m in others if not model_matches(m, TaskType.VISION)]
         fallback = general if general != primary else (others[0] if others else primary)
         return [primary] + ([fallback] if fallback != primary else [])[:max_retries]
 
@@ -114,10 +117,18 @@ class ModelRouter:
                 result = self.brain.chat(messages, tools=tools, model=model)
                 self._record(model, True, (time.time() - started) * 1000)
                 msg = result.get("message", {}) if isinstance(result, dict) else {}
-                if self.local_multi_enabled() and not msg.get("tool_calls"):
-                    chosen, _ = self.race_local_and_judge(messages=messages, task=task)
-                    if chosen and chosen.content:
-                        return {"message": {"role": "assistant", "content": chosen.content}}
+                # A second full multi-model race on every spoken sentence
+                # adds latency and load. Explicit "fast" mode returns the
+                # first local model result; "race" preserves legacy behavior.
+                strategy = (self.settings.get("llm", {}).get("local_multi_model", {}) or {}).get("chat_strategy", "race")
+                if self.local_multi_enabled() and strategy == "race" and not msg.get("tool_calls"):
+                    try:
+                        chosen, _ = self.race_local_and_judge(messages=messages, task=task)
+                        if chosen and chosen.content:
+                            return {"message": {"role": "assistant", "content": chosen.content}}
+                    except Exception:
+                        # Ranking is optional: never discard a valid initial answer.
+                        pass
                 return result
             except Exception as exc:
                 last_exc = exc
@@ -125,15 +136,20 @@ class ModelRouter:
         raise last_exc
 
     def ask(self, task, prompt, system=""):
-        if self.local_multi_enabled():
-            chosen, _ = self.race_local_and_judge(
-                messages=([{"role": "system", "content": system}] if system else []) +
-                         [{"role": "user", "content": prompt}],
-                system=system,
-                task=task,
-            )
-            if chosen and chosen.content:
-                return chosen.content
+        cfg = self.settings.get("llm", {}).get("local_multi_model", {}) or {}
+        if self.local_multi_enabled() and cfg.get("ask_strategy", "race") == "race":
+            try:
+                chosen, _ = self.race_local_and_judge(
+                    messages=([{"role": "system", "content": system}] if system else []) +
+                             [{"role": "user", "content": prompt}],
+                    system=system,
+                    task=task,
+                )
+                if chosen and chosen.content:
+                    return chosen.content
+            except Exception:
+                # Optional evaluation must not make a working model unavailable.
+                pass
         models = list(self.get_models() or [])
         last_exc = None
         for i, model in enumerate(self._attempts(task, models)):

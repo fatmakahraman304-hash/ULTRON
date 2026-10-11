@@ -24,7 +24,9 @@ def _looks_like_work(text):
         return False
     markers = ("önce", "once", "sonra", "ardından", "ardindan", "daha sonra", "sonucunu", "sonucunu söyle", "sonucunu soyle")
     if any(k in t for k in markers):
-        return True
+        # "Önce ... sonra ..." is also normal conversation. Do not hand
+        # un-actionable follow-up questions to the execution planner.
+        return _action_score(t) >= 1
     if any(k in t for k in ("hesapla", "hava durumu", "hava nasıl", "hava nasil")) and _action_score(t) < 2:
         return False
     return _action_score(t) >= 2

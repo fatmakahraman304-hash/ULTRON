@@ -16,6 +16,8 @@
     },
     "local_multi_model": {
       "enabled": true,
+      "chat_strategy": "fast",
+      "ask_strategy": "race",
       "base_url": "http://127.0.0.1:11434/v1",
       "models": [
         "qwen3:4b",
@@ -85,7 +87,7 @@
     "ram_warning_percent": 90,
     "cpu_warning_percent": 95
   },
-  "persona_guard_mode": "reframe",
+  "persona_guard_mode": "natural",
   "voiceprint_lock_enabled": false,
   "voiceprint_threshold": 0.75,
   "sovereign_mode": true,

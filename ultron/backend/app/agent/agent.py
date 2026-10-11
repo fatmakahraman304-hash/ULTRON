@@ -20,6 +20,8 @@ class Agent:
         if not bad:
             return answer
         mode=self.persona.mode
+        if mode=="natural":
+            return PersonaGuard.reframe(answer)
         if mode in ("regenerate","hybrid") and chk["violation_score"] > 0.8:
             try:
                 rw=self.brain.ask(
@@ -35,6 +37,8 @@ class Agent:
             return self._boss_hitap(PersonaGuard.reframe(answer))
         return self._boss_hitap(answer)
     def _boss_hitap(self, answer):
+        if getattr(self.persona, "mode", None) == "natural":
+            return answer
         if "boss" not in (answer or "").lower():
             return "Boss, " + answer
         return answer
@@ -251,7 +255,20 @@ class Agent:
                 world_block=self.world_fn()
                 if world_block: system=system+"\n"+world_block
             except Exception: pass
-        messages=[{"role":"system","content":system}]+history[-20:]+[{"role":"user","content":text}]
+        # handle() already persisted this turn before _history(): don't send
+        # the same user utterance twice to the model.
+        from app.core.model_router import fit_messages
+        messages=[{"role":"system","content":system}]+history[-20:]
+        # A delayed/empty memory adapter may omit the just-saved turn.
+        # In that case include it exactly once rather than dropping it.
+        if messages[-1].get("role")!="user" or messages[-1].get("content")!=text:
+            messages.append({"role":"user","content":text})
+        # Keep recent turns within the local model's practical context budget.
+        # Older, less relevant messages have already been represented by
+        # semantic memory when it is enabled.
+        llm_cfg = getattr(self, "settings", {}) or {}
+        context_limit = (llm_cfg.get("llm", {}) or {}).get("conversation_max_chars", 16000)
+        messages = fit_messages(messages, max_chars=max(2000, int(context_limit)))
         last_error=None
         for _ in range(self.max_steps):
             try:
