@@ -17,6 +17,10 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 
+class CloudTransientError(RuntimeError):
+    """Retryable HTTP failure, without exposing provider response bodies."""
+
+
 class CloudDeliveryRejected(RuntimeError):
     """Cloud says a claimed task's attempt is no longer active.
 
@@ -43,6 +47,7 @@ class CloudClient:
         # session-scoped executors during reconnects; remote task delivery must
         # keep polling through those transitions.
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ultron-cloud")
+        self._local_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ultron-qwen")
 
     @property
     def enabled(self) -> bool:
@@ -88,6 +93,8 @@ class CloudClient:
                 message = f"HTTP {exc.code}"
             if exc.code in (404, 409) and path.startswith("/api/device-commands/"):
                 raise CloudDeliveryRejected(exc.code, str(message)) from exc
+            if exc.code >= 500 or exc.code == 429:
+                raise CloudTransientError(f"Cloud HTTP {exc.code}") from exc
             raise RuntimeError(str(message)) from exc
 
     async def _request(self, method: str, path: str, *,
@@ -126,6 +133,13 @@ class CloudClient:
             {"delivery_attempt": int(delivery_attempt), "stage": "lease",
              "message": ""},
             timeout=max(0.1, float(timeout)),
+        )
+
+    async def local_chat(self, prompt: str, system: str, turns=None) -> dict:
+        """Qwen lifetime is independent of Gemini Live/default executor teardown."""
+        from integration.local_cloud_brain import local_chat
+        return await asyncio.get_running_loop().run_in_executor(
+            self._local_executor, partial(local_chat, prompt, system, turns),
         )
 
     async def health(self) -> dict[str, Any]:
@@ -250,9 +264,18 @@ class CloudClient:
         }
         if extra:
             result.update(extra)
-        return await self._request(
-            "POST",
-            f"/api/device-commands/{int(command_id)}/complete",
-            json_body={"status": "completed" if ok else "failed", "result": result,
-                       "delivery_attempt": int(delivery_attempt)},
-        )
+        body = {"status": "completed" if ok else "failed", "result": result,
+                "delivery_attempt": int(delivery_attempt)}
+        # Only read-only local completions have the server's same-attempt,
+        # same-result replay contract. Never re-execute inference or OS actions.
+        local = ok and extra and extra.get("provider") in ("local-ollama", "local-no-image")
+        for attempt in range(3 if local else 1):
+            try:
+                return await self._request(
+                    "POST", f"/api/device-commands/{int(command_id)}/complete",
+                    json_body=body, timeout=8.0 if local else None,
+                )
+            except (urllib.error.URLError, TimeoutError, OSError, CloudTransientError):
+                if not local or attempt == 2:
+                    raise
+                await asyncio.sleep(attempt + 1)

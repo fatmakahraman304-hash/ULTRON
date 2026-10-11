@@ -1,6 +1,7 @@
 name: ULTRON Scene Build Check
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feat/ultron-cloud-shared-memory

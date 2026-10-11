@@ -22,7 +22,7 @@ from typing import Any
 import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
-from local_brain_bridge import register_local_brain_routes
+from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
 from conversation_persona import build_system_instruction
 from personal_context_focus import load_focused_owner_context
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
@@ -481,11 +481,22 @@ async def complete_device_command(request: web.Request) -> web.Response:
         delivery_attempt = -1
 
     current = await request.app["db"].fetchrow(
-        "SELECT status,command,delivery_attempt,retry_count,max_retries FROM device_commands WHERE id=$1 AND user_id=$2 AND target=$3",
+        "SELECT status,command,delivery_attempt,retry_count,max_retries,payload,result FROM device_commands WHERE id=$1 AND user_id=$2 AND target=$3",
         command_id, request["user_id"], expected_target,
     )
     if not current:
         raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
+    if current["status"] == "completed" and status == "completed":
+        saved_payload, saved_result = current.get("payload"), current.get("result")
+        if isinstance(saved_payload, str):
+            saved_payload = json.loads(saved_payload)
+        if isinstance(saved_result, str):
+            saved_result = json.loads(saved_result)
+        if (isinstance(saved_payload, dict) and saved_payload.get("mode") == "local_brain"
+                and current["command"] == "agent_task" and delivery_attempt > 0
+                and delivery_attempt == current["delivery_attempt"] and saved_result == result):
+            return web.json_response({"ok":True,"replayed":True,
+                "command":{"id":command_id,"status":"completed","delivery_attempt":delivery_attempt}})
     if current["status"] != "delivered":
         raise web.HTTPConflict(text=json.dumps({"error": "command_not_active"}), content_type="application/json")
     # Only agent tasks may be reclaimed/retried. Bind each worker response
@@ -860,6 +871,7 @@ async def recent_live_errors(request: web.Request) -> web.Response:
 
 
 async def list_messages(request: web.Request) -> web.Response:
+    await save_pending_local_replies(request.app["db"], request["user_id"])
     limit = min(max(int(request.query.get("limit", "80")), 1), 200)
     rows = await request.app["db"].fetch(
         """
@@ -1299,8 +1311,8 @@ async def chat(request: web.Request) -> web.Response:
             content_type="application/json",
         )
 
-    await pool.execute(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini')",
+    assistant_message_id = await pool.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini') RETURNING id",
         conv_uuid, request["user_id"], reply,
     )
     await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
@@ -1313,7 +1325,8 @@ async def chat(request: web.Request) -> web.Response:
             pass  # Never echo any message contents or secrets to logs.
 
 
-    return web.json_response({"conversation_id": str(conv_uuid), "reply": reply})
+    return web.json_response({"conversation_id": str(conv_uuid), "reply": reply,
+        "user_message_id":current_message_id, "assistant_message_id":assistant_message_id})
 
 
 
@@ -2231,6 +2244,11 @@ async def capability_readiness_api(request: web.Request) -> web.Response:
     return web.json_response(readiness(bool(desktop_online)))
 
 
+async def prevent_stale_chat_assets(request, response):
+    if request.path.startswith("/static/") and request.path.endswith(".js"):
+        response.headers["Cache-Control"] = "no-store, max-age=0"
+
+
 def build_app() -> web.Application:
     app = web.Application(middlewares=[auth_middleware], client_max_size=18 * 1024 * 1024)
     app.router.add_get("/", index)
@@ -2267,6 +2285,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/memories", list_memories)
     app.router.add_put("/api/memories", upsert_memory)
     app.router.add_delete("/api/memories/{key}", delete_memory)
+    app.on_response_prepare.append(prevent_stale_chat_assets)
     app.on_startup.append(init_db)
     app.on_cleanup.append(close_db)
     return app

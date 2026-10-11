@@ -8,7 +8,7 @@ from pathlib import Path
 
 try:
     import asyncpg
-    from local_brain_bridge import post_local_chat,get_local_chat
+    from local_brain_bridge import post_local_chat,get_local_chat,save_pending_local_replies
 except ImportError:
     asyncpg=None
 
@@ -51,6 +51,28 @@ class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
             "INSERT INTO device_presence(user_id,device,state) VALUES('ci-local','desktop','{\"local_chat_ready\":true}'::jsonb)"
             " ON CONFLICT(user_id,device) DO UPDATE SET last_seen=NOW(),state=EXCLUDED.state"
         )
+
+    async def test_lost_submit_response_replays_same_request_even_if_desktop_goes_offline(self):
+        await self.online()
+        body={"message":"Synthetic local test", "request_id":str(uuid.uuid4())}
+        first=await post_local_chat(Request(self.pool,body=body))
+        self.assertEqual(first.status,202)
+        await self.pool.execute("UPDATE device_presence SET last_seen=NOW()-INTERVAL '1 minute' WHERE user_id='ci-local'")
+        replay=await post_local_chat(Request(self.pool,body=body))
+        self.assertEqual(replay.status,202)
+        self.assertEqual(json.loads(first.text)["command_id"],json.loads(replay.text)["command_id"])
+        self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM messages WHERE user_id='ci-local'"),1)
+        changed=await post_local_chat(Request(self.pool,body={**body,"message":"Different text"}))
+        self.assertEqual(changed.status,409)
+        self.assertNotIn("desktop_offline",changed.text)
+
+    async def test_same_request_id_concurrent_posts_create_one_task(self):
+        await self.online()
+        body={"message":"Synthetic local test", "request_id":str(uuid.uuid4()),"conversation_id":str(uuid.uuid4())}
+        results=await asyncio.gather(*(post_local_chat(Request(self.pool,body=body)) for _ in range(2)))
+        self.assertEqual([r.status for r in results],[202,202])
+        self.assertEqual(json.loads(results[0].text)["command_id"],json.loads(results[1].text)["command_id"])
+        self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM device_commands WHERE user_id='ci-local'"),1)
 
     async def test_offline_does_not_fall_back_to_gemini(self):
         response=await post_local_chat(Request(self.pool,body={"message":"Merhaba"}))
@@ -139,8 +161,7 @@ class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
                 "provider":"local-ollama",
             }),pending,
         )
-        saved=await get_local_chat(Request(self.pool,id=pending))
-        self.assertEqual(saved.status,200)
+        # Phone stopped polling: the next submission must still recover history.
         resumed=await post_local_chat(Request(self.pool,body={
             "message":"Devam et","conversation_id":cid,
         }))
@@ -167,6 +188,20 @@ class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
             "SELECT COUNT(*) FROM messages WHERE user_id='ci-local'"),1)
         self.assertEqual(await self.pool.fetchval(
             "SELECT COUNT(*) FROM device_commands WHERE user_id='ci-local'"),1)
+
+    async def test_history_recovers_unpolled_reply_once_and_only_for_owner(self):
+        await self.online()
+        created=await post_local_chat(Request(self.pool,body={"message":"Synthetic question"}))
+        cid=json.loads(created.text)["command_id"]
+        await self.pool.execute(
+            "UPDATE device_commands SET status='completed',result=$1::jsonb WHERE id=$2",
+            json.dumps({"assistant_reply":"Synthetic delayed reply", "provider":"local-ollama", "model":"qwen3:4b"}),cid)
+        await save_pending_local_replies(self.pool,"ci-local-other")
+        self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM messages WHERE user_id='ci-local' AND role='assistant'"),0)
+        await asyncio.gather(save_pending_local_replies(self.pool,"ci-local"),save_pending_local_replies(self.pool,"ci-local"))
+        self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM messages WHERE user_id='ci-local' AND role='assistant'"),1)
+        result=json.loads((await get_local_chat(Request(self.pool,id=cid))).text)
+        self.assertIsInstance(result["assistant_message_id"],int)
 
     async def test_bad_payload_and_session_directions(self):
         wrong=Request(self.pool,body={"message":"Merhaba"})

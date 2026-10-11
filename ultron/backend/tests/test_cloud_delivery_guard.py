@@ -132,6 +132,44 @@ class LeaseGuardTests(unittest.IsolatedAsyncioTestCase):
 
 
 
+class LocalChatIsolationTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        self.client=CloudClient()
+
+    async def asyncTearDown(self):
+        self.client._executor.shutdown(wait=True, cancel_futures=True)
+        self.client._local_executor.shutdown(wait=True, cancel_futures=True)
+
+    async def test_local_inference_survives_default_executor_shutdown(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import threading
+        executor=ThreadPoolExecutor(max_workers=1)
+        asyncio.get_running_loop().set_default_executor(executor)
+        executor.shutdown(wait=True)
+        with self.assertRaises(RuntimeError):
+            await asyncio.to_thread(lambda: None)
+        with patch('integration.local_cloud_brain.local_chat', side_effect=lambda *args: threading.current_thread().name):
+            name=await self.client.local_chat('Synthetic request','Synthetic system',[])
+        self.assertTrue(name.startswith('ultron-qwen'))
+
+    async def test_completion_network_retry_reuses_result_and_fence(self):
+        from unittest.mock import AsyncMock
+        fn=AsyncMock(side_effect=[urllib.error.URLError('lost response'),{'ok':True,'replayed':True}])
+        with patch.object(self.client,'_request',fn), patch('cloud_client.asyncio.sleep',new_callable=AsyncMock):
+            result=await self.client.complete_task(12,delivery_attempt=3,ok=True,extra={'provider':'local-ollama','assistant_reply':'synthetic','model':'qwen3:4b'})
+        self.assertTrue(result['replayed'])
+        self.assertEqual(fn.await_count,2)
+        self.assertEqual(fn.await_args_list[0],fn.await_args_list[1])
+
+    async def test_nonlocal_actions_and_fenced_results_are_never_retried(self):
+        from unittest.mock import AsyncMock
+        for extra,error in [({},urllib.error.URLError('lost')),({'provider':'local-ollama'},CloudDeliveryRejected(409,'stale'))]:
+            fn=AsyncMock(side_effect=error)
+            with patch.object(self.client,'_request',fn),self.assertRaises(type(error)):
+                await self.client.complete_task(12,delivery_attempt=3,ok=True,extra=extra)
+            self.assertEqual(fn.await_count,1)
+
+
 class CloudHTTPErrorTests(unittest.TestCase):
     def setUp(self):
         self.client=CloudClient()

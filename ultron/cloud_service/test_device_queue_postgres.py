@@ -34,6 +34,22 @@ class DeviceQueuePostgresTests(unittest.IsolatedAsyncioTestCase):
     def req(self,cid,body):
         return FakeRequest(self.pool,body,command_id=str(cid))
 
+    async def test_only_identical_same_attempt_local_completion_can_replay(self):
+        cid=await self.add()
+        await self.pool.execute("UPDATE device_commands SET payload='{\"mode\":\"local_brain\"}'::jsonb WHERE id=$1",cid)
+        claimed=(await self.claim())[0]
+        body={"status":"completed","delivery_attempt":claimed["delivery_attempt"],
+              "result":{"assistant_reply":"Synthetic reply","provider":"local-ollama","model":"qwen3:4b"}}
+        complete=self.handlers["complete_device_command"]
+        await complete(self.req(cid,body))
+        self.assertTrue((await complete(self.req(cid,body)))["replayed"])
+        for bad in ({**body,"delivery_attempt":2},{**body,"result":{"assistant_reply":"changed"}}):
+            with self.assertRaises(HTTPConflict):
+                await complete(self.req(cid,bad))
+        await self.pool.execute("UPDATE device_commands SET payload='{}'::jsonb WHERE id=$1",cid)
+        with self.assertRaises(HTTPConflict):
+            await complete(self.req(cid,body))
+
     async def test_busy_desktop_can_claim_controls_without_agent(self):
         agent_id = await self.add()
         wake_id = await self.add("wake")

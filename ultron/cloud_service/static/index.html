@@ -633,11 +633,13 @@
 <script src="/static/owner-plans.js"></script>
 <script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
+<script src="/static/chat-transport.js"></script>
 <script src="/static/panel-intents.js"></script>
 <script src="/static/learning-review.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 
+let chatSending=false,chatSendVersion=0,messageLoadSeq=0;
 let conversationId=localStorage.getItem('ultronConversationId')||'';
 let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initialMessagesLoaded=false;
 const knownMessageIds=new Set();
@@ -722,16 +724,7 @@ function setUnread(count){
 }
 
 async function api(path,options={}){
-  let res;
-  try{
-    res=await fetch(path,{credentials:'include',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
-  }catch(err){
-    const e=new Error('Bağlantı geçici olarak koptu. Birkaç saniye sonra tekrar dene.');
-    e.network=true;e.cause=err;throw e;
-  }
-  let data={};try{data=await res.json()}catch{}
-  if(!res.ok){const e=new Error(data.error||('HTTP '+res.status));e.status=res.status;e.data=data;throw e}
-  return data;
+  return window.ULTRONChatTransport.request(path,options);
 }
 async function documentApi(file,question=''){
   const form=new FormData();form.append('document',file,file.name||'belge.pdf');form.append('question',question||'');
@@ -1131,15 +1124,15 @@ async function releaseVoiceWakeLock(){
   try{if(voiceWakeLock&&!voiceWakeLock.released)await voiceWakeLock.release()}catch{}
   voiceWakeLock=null;
 }
-function rememberPendingVoice(role,text){
+function rememberPendingVoice(role,text,ttl=45000){
   const clean=cleanChatText(text);
   if(!clean)return;
-  pendingVoiceMessages.push({role,text:clean,at:Date.now()});
+  pendingVoiceMessages.push({role,text:clean,at:Date.now(),ttl});
   while(pendingVoiceMessages.length>12)pendingVoiceMessages.shift();
 }
 function consumePendingVoice(role,text){
   const clean=cleanChatText(text),now=Date.now();
-  const idx=pendingVoiceMessages.findIndex(x=>x.role===role&&x.text===clean&&now-x.at<45000);
+  const idx=pendingVoiceMessages.findIndex(x=>x.role===role&&x.text===clean&&now-x.at<(x.ttl||45000));
   if(idx<0)return false;
   pendingVoiceMessages.splice(idx,1);return true;
 }
@@ -1514,28 +1507,37 @@ function addMessage(role,content,meta={}){
   if(meta.id!=null)d.dataset.cloudId=String(meta.id);
   const time=formatMessageTime(meta.created_at);
   if(time){const t=document.createElement('small');t.className='msg-time';t.textContent=time;d.appendChild(t)}
-  $('#messages').appendChild(d);
+  const later=meta.id==null?null:[...$('#messages').children].find(x=>x.dataset.cloudId&&Number(x.dataset.cloudId)>Number(meta.id));
+  $('#messages').insertBefore(d,later||null);
+  if(meta.id!=null)knownMessageIds.add(Number(meta.id));
   scrollChatToBottom(false);
+  return d;
 }
 async function loadMessages(){
+  if(chatSending)return;
+  const seq=++messageLoadSeq,version=chatSendVersion;
   const d=await api('/api/messages?limit=120');
+  if(chatSending||seq!==messageLoadSeq||version!==chatSendVersion)return;
   const items=(d.messages||[]).filter(m=>m.role==='user'||m.role==='assistant');
   const sig=items.map(m=>m.id).join(',');
   if(sig===messageSignature)return;
   const wasInitial=initialMessagesLoaded;
   let appendedAssistant=0;
   if(!initialMessagesLoaded){
-    $('#messages').innerHTML='';knownMessageIds.clear();
-    for(const m of items){knownMessageIds.add(Number(m.id));addMessage(m.role,m.content,{id:m.id,created_at:m.created_at})}
     initialMessagesLoaded=true;
-  }else{
+  }
+  {
     for(const m of items){
       const id=Number(m.id);if(knownMessageIds.has(id))continue;
       knownMessageIds.add(id);
       if(consumePendingVoice(m.role,m.content)){
         const candidates=[...$('#messages').querySelectorAll('.msg:not([data-cloud-id])')].filter(x=>x.classList.contains(m.role));
         const match=[...candidates].reverse().find(x=>cleanChatText(x.firstChild?.textContent||x.textContent)===cleanChatText(m.content));
-        if(match)match.dataset.cloudId=String(m.id);
+        if(match){
+          match.dataset.cloudId=String(m.id);
+          const later=[...$('#messages').children].find(x=>x!==match&&x.dataset.cloudId&&Number(x.dataset.cloudId)>id);
+          $('#messages').insertBefore(match,later||null);
+        }else addMessage(m.role,m.content,{id:m.id,created_at:m.created_at});
       }else{
         addMessage(m.role,m.content,{id:m.id,created_at:m.created_at});
         if(m.role==='assistant')appendedAssistant++;
@@ -1629,7 +1631,7 @@ async function boot(){
     setSplash('Oturum doğrulanıyor');
     await api('/api/session');
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');$('#tabs').classList.remove('hidden');
-    setOnline(true,'Cloud bağlı');setSplash('Ortak sohbet yükleniyor');await refreshAutoBrain(true);await loadMessages();restoreDraft();scrollChatToBottom(false);setVoiceEnabled(voiceEnabled,false);await refreshSpeakerStatus();hideSplash();
+    setOnline(true,'Cloud bağlı');setSplash('Ortak sohbet yükleniyor');await refreshAutoBrain(true).catch(()=>{});await loadMessages();restoreDraft();scrollChatToBottom(false);setVoiceEnabled(voiceEnabled,false);await refreshSpeakerStatus();hideSplash();
     // No microphone automatically starts on page load.
   }catch(e){
     hideSplash();
@@ -1704,14 +1706,17 @@ function updateBrainModeUi(){
    $('#stageVoiceText').textContent=voiceEnabled?'Mikrofona dokun ve konuş':'Sesli yanıt kapalı';
 }
 async function refreshAutoBrain(force=false){
- if(liveDesired||voiceListening||localVoiceController?.active())return brainMode;
+ if(!force&&(liveDesired||voiceListening||localVoiceController?.active()))return brainMode;
  if(!force&&Date.now()-brainLastCheck<4500)return brainMode;
- if(brainChecking)return brainChecking;
+ if(brainChecking){
+   if(!force)return brainChecking;
+   try{await brainChecking}catch(e){}
+ }
  brainChecking=(async()=>{
    try{
-     const response=await api('/api/device-presence');
+     const response=await api('/api/device-presence',{timeoutMs:6000});
      brainMode=window.ULTRONAutoBrain.select(response.devices);
-   }catch(e){brainMode='gemini'}
+   }catch(e){if(force)throw e}
    finally{brainLastCheck=Date.now();brainChecking=null;updateBrainModeUi()}
    return brainMode;
  })();
@@ -1739,68 +1744,66 @@ localVoiceController=window.ULTRONLocalVoice?.create({
     await send(true,voiceToken);
   },
 });
-async function localBrainAnswer(text){
-  const submitted=await api('/api/local-chat',{
-    method:'POST',
-    body:JSON.stringify({message:text,conversation_id:conversationId||undefined})
+async function localBrainAnswer(text,userBubble){
+  // Generate once per accepted UI send; lost POST responses reuse this key.
+  const body={message:text,conversation_id:conversationId||undefined,request_id:crypto.randomUUID()};
+  return window.ULTRONChatTransport.localAnswer(api,body,{
+    onSubmitted:submitted=>{
+      conversationId=submitted.conversation_id||conversationId;
+      localStorage.setItem('ultronConversationId',conversationId);
+      if(userBubble&&submitted.user_message_id){
+        userBubble.dataset.cloudId=String(submitted.user_message_id);
+        knownMessageIds.add(Number(submitted.user_message_id));
+        consumePendingVoice('user',text);
+      }
+    },
+    onWaiting:()=>{$('#busy').textContent='Yanıt bekleniyor; mesajın kaydı korunuyor…'},
   });
-  if(!submitted.command_id)throw new Error('Yerel Ollama görevi oluşturulamadı.');
-  if(submitted.conversation_id){
-    conversationId=submitted.conversation_id;
-    localStorage.setItem('ultronConversationId',conversationId);
-  }
-  const id=encodeURIComponent(submitted.command_id);
-  for(let step=0;step<70;step++){
-    await new Promise(resolve=>setTimeout(resolve,1000));
-    const res=await api('/api/local-chat/'+id);
-    if(res.status==='completed'&&typeof res.reply==='string'&&res.reply.trim())return res;
-    if(['failed','expired','cancelled'].includes(res.status)){
-      throw new Error(res.detail||'Yerel Ollama cevabı tamamlanamadı.');
-    }
-  }
-  throw new Error('Laptop yanıtı gecikti. Aynı mesajı tekrar göndermeden önce durumu kontrol et.');
 }
 async function send(fromVoice=false,voiceToken=null){
-  if(pendingImage){await sendImage();return}
-  if(pendingPdf){await sendPdf();return}
-  const text=$('#message').value.trim();if(!text)return;
-  if(!fromVoice)voiceTurnGuard.cancel();
-  $('#message').value='';clearDraft();
-  rememberPendingVoice('user',text);addMessage('user',text);
-  const panelHandled=handlePanelIntent(text);
-  if(panelHandled){toast('ULTRON çalışma alanı açıldı.');return}
-  const devHandled=await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
-  if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
-  const directHandled=runDirectPhoneCommand(text);
-  if(directHandled){
-    toast('Komut uygulanıyor…');scrollChatToBottom(false);return;
-  }
-  $('#busy').textContent='ULTRON düşünüyor…';$('#sendBtn').disabled=true;
+  if(chatSending)return;
+  const text=$('#message').value.trim();if(!text&&!pendingImage&&!pendingPdf)return;
+  chatSending=true;chatSendVersion++;$('#sendBtn').disabled=true;
+  let userBubble;
   try{
-    const cloud=()=>api('/api/chat',{method:'POST',body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
+    if(pendingImage){await sendImage();return}
+    if(pendingPdf){await sendPdf();return}
+    if(!fromVoice)voiceTurnGuard.cancel();
+    $('#message').value='';clearDraft();
+    rememberPendingVoice('user',text,180000);userBubble=addMessage('user',text);
+    const panelHandled=handlePanelIntent(text);
+    if(panelHandled){toast('ULTRON çalışma alanı açıldı.');return}
+    const devHandled=await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
+    if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
+    const directHandled=runDirectPhoneCommand(text);
+    if(directHandled){toast('Komut uygulanıyor…');return}
+    $('#busy').textContent='ULTRON düşünüyor…';
+    const cloud=()=>api('/api/chat',{method:'POST',timeoutMs:120000,body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
     const preferred=await refreshAutoBrain(true);
     let d;
     if(preferred==='local'){
-      try{d=await localBrainAnswer(text)}
+      try{d=await localBrainAnswer(text,userBubble)}
       catch(e){
-        // Only explicit desktop_offline rejection occurs before local queue
-        // insertion, so this is the sole safe transparent cloud retry.
+        // Only a confirmed rejection before creation permits cloud fallback.
         if(!window.ULTRONAutoBrain.safeToFallback(e))throw e;
         brainMode='gemini';brainLastCheck=Date.now();
         d=await cloud();
       }
     }else d=await cloud();
+    if(typeof d.reply!=='string'||!d.reply.trim())throw new Error('Yanıt boş geldi.');
     conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);
-    rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply);
+    if(d.user_message_id&&userBubble){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id));consumePendingVoice('user',text)}
+    rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply,{id:d.assistant_message_id});
+    if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
     messageSignature='';
-    // A mic cancel/mute/background action invalidates a previous voice reply;
-    // the successful text response remains available in chat.
     if((!fromVoice||voiceTurnGuard.current(voiceToken))&&
        (!fromVoice||!document.hidden)&&(fromVoice||voiceEnabled))speakUltron(d.reply);
   }catch(e){
-    const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir.':(e.data?.detail||e.message);
+    const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir; sohbeti yenileyerek kontrol et.':(e.data?.detail||e.message);
     addMessage('assistant','Hata: '+msg);
-  }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;scrollChatToBottom(false)}
+  }finally{
+    chatSending=false;chatSendVersion++;$('#busy').textContent='';$('#sendBtn').disabled=false;scrollChatToBottom(false);
+  }
 }
 $('#sendBtn').onclick=()=>send(false);
 updateBrainModeUi();
@@ -2168,7 +2171,7 @@ messageObserver.observe($('#messages'),{childList:true,subtree:true});
 boot().then(()=>{phoneHeartbeat();setTimeout(()=>watchLaptopTasks(),700);setTimeout(()=>watchDesktopPresence(),900)});
 window.addEventListener('online',()=>{setOnline(true,'Cloud bağlı');if(liveDesired&&!voiceListening)scheduleLiveReconnect()});
 window.addEventListener('offline',()=>{setOnline(false,'Çevrimdışı');if(liveDesired){clearLiveReconnect();liveStatus('İnternet bekleniyor…',true);$('#stageVoiceText').textContent='Ses bağlantısı beklemede'}});
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/static/sw.js').catch(()=>{}))}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/static/sw.js',{updateViaCache:'none'}).then(r=>r.update()).catch(()=>{}))}
 </script>
 </body>
 </html>

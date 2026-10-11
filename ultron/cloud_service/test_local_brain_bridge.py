@@ -63,7 +63,7 @@ class LocalFirstBridgeTests(unittest.TestCase):
             with self.subTest(payload=payload):
                 self.assertIsNone(_validated_local_reply(payload))
         self.assertIn("VALUES($1,$2,'assistant',$3,$4)", CLOUD)
-        self.assertIn("reply,source", CLOUD)
+        self.assertIn("reply, source", CLOUD)
         self.assertNotIn("'desktop-local-ollama')", CLOUD)
 
     def test_owner_queue_limit_and_thread_limit_use_one_transaction_lock(self):
@@ -91,7 +91,9 @@ class LocalFirstBridgeTests(unittest.TestCase):
     def test_owner_does_not_receive_dangerous_remote_tools(self):
         self.assertIn('"mode":"local_brain"',CLOUD)
         self.assertIn('if payload.get("mode") == "local_brain":',MARK)
-        self.assertIn('from integration.local_cloud_brain import local_chat',MARK)
+        self.assertIn('await client.local_chat(',MARK)
+        self.assertIn('from integration.local_cloud_brain import local_chat',
+                      (ROOT.parent/'backend'/'cloud_client.py').read_text())
         self.assertIn('if lease_guard.lost.is_set():',MARK)
         self.assertNotIn("subprocess",DESKTOP)
         self.assertNotIn("send_laptop_task",DESKTOP)
@@ -103,10 +105,10 @@ class LocalFirstBridgeTests(unittest.TestCase):
     def test_mobile_auto_selects_live_local_or_cloud_without_manual_picker(self):
         self.assertIn("let brainMode='gemini';",PWA)
         self.assertIn("async function refreshAutoBrain(force=false)",PWA)
-        self.assertIn("await api('/api/device-presence')",PWA)
+        self.assertIn("await api('/api/device-presence',{timeoutMs:6000})",PWA)
         self.assertIn("window.ULTRONAutoBrain.select(response.devices)",PWA)
         self.assertIn("const preferred=await refreshAutoBrain(true)",PWA)
-        self.assertIn("await localBrainAnswer(text)",PWA)
+        self.assertIn("await localBrainAnswer(text,userBubble)",PWA)
         self.assertIn("await cloud()",PWA)
         self.assertIn("window.ULTRONAutoBrain.safeToFallback(e)",PWA)
         self.assertIn("localVoiceController?.toggle()",PWA)

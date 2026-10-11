@@ -1,3 +1,14 @@
+## 2026-10-11 — Qwen mobile connection repair (baseline `ad2b07f`)
+
+- Reproduced defects: forced typed-chat presence refresh was skipped during Live/microphone activity; HTTP/body reads had no deadline; lost accepted POST responses had no request idempotency; concurrent sends/history refresh could race. Desktop Qwen still used the default executor despite isolated Cloud I/O.
+- Implemented fresh forced routing, bounded transport (6s presence, 15s local submit × at most 3 with SAME UUID/body, 8s poll, 150s local total budget), early send lock, server message-ID reconciliation/order and retained optimistic messages. No Gemini fallback after acceptance or ambiguous network failure; only explicit pre-creation offline rejection permits it.
+- Owner-scoped PostgreSQL submission deduplication, identical same-attempt local completion replay, bounded completion transport retry without repeating inference, isolated Qwen executor, late reply recovery via history and before next-turn context. Device side-effect retries, fencing and Approval Gate unchanged.
+- JavaScript assets now no-store, service worker v56 bypasses HTTP cache on update/fetch. Current server baseline matched GitHub; stale cache on the actual iPhone was NOT established as the incident cause.
+- Verified locally: **215/215 Cloud Python tests with PostgreSQL (45 actual DB cases, no skips); 93/93 JS; 17/17 Cloud client/lease tests; 6/6 local runtime contracts; 6/6 Chromium HTTP/PostgreSQL/desktop-handler scenarios; frontend npm ci/build, 6/6 Earth JS and 5/5 Earth Python; py_compile and diff check.** Chromium providers are synthetic, not live Qwen/Gemini.
+- Browser cases: Live flags + double submit + next-turn context; lost POST and completion responses (one inference); offline fallback; 22s inference across lease window + poll disconnect; old v55 cache replacement; page closure with delayed reply recovery. Actual task result metadata checked `completed`, `local-ollama`, `qwen3:4b` **under a fake Ollama HTTP server**.
+- CI and Render verification for the new commit: pending push at this checkpoint; append exact evidence after verification. No Windows install, model swap/download, production chat readout or secret logging.
+- Physical iPhone → Render → Windows Qwen and real Gemini inference remain **NOT VERIFIED**; no credentials/VPN/hardware access in this environment. Historical WinError10054/10060 and Live1008 were not reproduced on the user's devices. A closed-default-executor failure was reproduced synthetically and the new independent Qwen executor passed.
+
 ## 2026-10-10 — Explicit historic user correction and real reminder-intent separation
 
 - Verified code commits `dc97a58cf327e4d9c77880d934b845aef5bed9c0` (topic-nameless historical owner correction preserved after retrieved Q&A) and `800a54d07e0159cec063c67f7555a94abe2ced48` (future reminders no longer falsely handled as historical recall, no invented notification state).

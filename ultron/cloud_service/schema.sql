@@ -135,6 +135,12 @@ CREATE TABLE IF NOT EXISTS local_chat_requests (
   reply_saved BOOLEAN NOT NULL DEFAULT FALSE
 );
 CREATE INDEX IF NOT EXISTS idx_local_chat_requests_user ON local_chat_requests(user_id, command_id DESC);
+ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS request_id UUID;
+ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS user_message_id BIGINT;
+ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS assistant_message_id BIGINT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_local_chat_request_id
+  ON local_chat_requests(user_id, request_id) WHERE request_id IS NOT NULL;
+
 
 
 -- Explicit owner-created manual plans. Not an external calendar sync or alarm queue.
