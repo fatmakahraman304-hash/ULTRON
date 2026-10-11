@@ -72,7 +72,8 @@ class DeviceQueuePostgresTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(second["delivery_attempt"],2)
         row=await self.pool.fetchrow(
             "SELECT retry_count,progress FROM device_commands WHERE id=$1",cid)
-        stages=[item["stage"] for item in row["progress"]]
+        progress = json.loads(row["progress"]) if isinstance(row["progress"], str) else row["progress"]
+        stages=[item["stage"] for item in progress]
         self.assertEqual(row["retry_count"],1)
         self.assertIn("redelivery",stages)
         with self.assertRaises(HTTPNotFound):
