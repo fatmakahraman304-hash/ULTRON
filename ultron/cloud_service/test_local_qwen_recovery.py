@@ -37,7 +37,7 @@ class LocalQwenRecoveryTests(unittest.TestCase):
         def fake(path, payload, timeout):
             calls.append((path, payload))
             if len(calls) == 1:
-                return completion("qwen3:8b", "<think>\\nNot finished")
+                return completion("qwen3:8b", "<think>\nNot finished")
             return completion("qwen3:4b", "Tamam, analiz burada.")
         reply = self.run_chat(["qwen3:8b", "qwen3:4b"], fake)
         self.assertEqual(reply["model"], "qwen3:4b")
@@ -62,7 +62,7 @@ class LocalQwenRecoveryTests(unittest.TestCase):
         calls = []
         def fake(path, payload, timeout):
             calls.append(payload["model"])
-            return completion("qwen3:8b", "<think>\\nUnfinished")
+            return completion("qwen3:8b", "<think>\nUnfinished")
         with self.assertRaises(worker.LocalBrainUnavailable):
             self.run_chat(["qwen3:8b", "llava:7b"], fake)
         self.assertEqual(calls, ["qwen3:8b"])
@@ -72,7 +72,7 @@ class LocalQwenRecoveryTests(unittest.TestCase):
         def fake(path, payload, timeout):
             calls.append(payload["model"])
             if len(calls) == 1:
-                return completion("qwen3:8b", "<think>\\nUnfinished")
+                return completion("qwen3:8b", "<think>\nUnfinished")
             return completion("not-installed:7b", "Forged answer")
         with self.assertRaisesRegex(worker.LocalBrainUnavailable, "beklenmeyen model"):
             self.run_chat(["qwen3:8b", "qwen3:4b"], fake)
@@ -83,7 +83,7 @@ class LocalQwenRecoveryTests(unittest.TestCase):
         def fake(path, payload, timeout):
             calls.append(payload["model"])
             if len(calls) == 1:
-                return completion("qwen3:8b", "<think>\\nUnfinished")
+                return completion("qwen3:8b", "<think>\nUnfinished")
             return completion("qwen3:4b", "Partial", done_reason="length")
         with self.assertRaises(worker.LocalBrainUnavailable):
             self.run_chat(["qwen3:8b", "qwen3:4b"], fake)
