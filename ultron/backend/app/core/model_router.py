@@ -115,8 +115,13 @@ class ModelRouter:
             started = time.time()
             try:
                 result = self.brain.chat(messages, tools=tools, model=model)
-                self._record(model, True, (time.time() - started) * 1000)
                 msg = result.get("message", {}) if isinstance(result, dict) else {}
+                # HTTP 200 with empty text and no tool call is not a real
+                # completed answer (some Ollama models return only thinking).
+                # Fail over to the next installed text model if available.
+                if not msg.get("tool_calls") and not str(msg.get("content") or "").strip():
+                    raise ValueError(f"Empty local model response: {model}")
+                self._record(model, True, (time.time() - started) * 1000)
                 # A second full multi-model race on every spoken sentence
                 # adds latency and load. Explicit "fast" mode returns the
                 # first local model result; "race" preserves legacy behavior.
@@ -158,6 +163,8 @@ class ModelRouter:
             started = time.time()
             try:
                 out = self.brain.ask(prompt, system=system, model=model)
+                if not str(out or "").strip():
+                    raise ValueError(f"Empty local model response: {model}")
                 self._record(model, True, (time.time() - started) * 1000)
                 return out
             except Exception as exc:

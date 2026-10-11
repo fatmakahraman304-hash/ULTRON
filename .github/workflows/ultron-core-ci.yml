@@ -41,4 +41,4 @@ jobs:
         env:
           PYTHONPATH: ultron/backend
         run: |
-          python -m pytest -q             ultron/backend/tests/test_conversation_prompt_continuity.py             ultron/backend/tests/test_ultron_natural_dialogue.py ultron/backend/tests/test_ultron_adaptive_dialogue.py ultron/backend/tests/test_ultron_semantic_context.py             ultron/backend/tests/test_model_router.py             ultron/backend/tests/test_hybrid_integration.py
+          python -m pytest -q             ultron/backend/tests/test_conversation_prompt_continuity.py             ultron/backend/tests/test_ultron_natural_dialogue.py ultron/backend/tests/test_ultron_adaptive_dialogue.py ultron/backend/tests/test_ultron_empty_local_response.py ultron/backend/tests/test_ultron_semantic_context.py             ultron/backend/tests/test_model_router.py             ultron/backend/tests/test_hybrid_integration.py
