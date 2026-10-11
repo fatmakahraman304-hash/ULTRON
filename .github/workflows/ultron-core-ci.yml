@@ -5,6 +5,7 @@ on:
     paths:
       - 'ultron/backend/app/agent/**'
       - 'ultron/backend/app/core/**'
+      - 'ultron/backend/app/memory/**'
       - 'ultron/backend/config/settings.json'
       - 'ultron/backend/tests/**'
       - '.github/workflows/ultron-core-ci.yml'
@@ -34,8 +35,9 @@ jobs:
           python -m py_compile ultron/backend/app/agent/persona_guard.py
           python -m py_compile ultron/backend/app/agent/hybrid_integration.py
           python -m py_compile ultron/backend/app/core/model_router.py
+          python -m py_compile ultron/backend/app/memory/semantic_memory.py
       - name: Run offline conversation and routing tests
         env:
           PYTHONPATH: ultron/backend
         run: |
-          python -m pytest -q             ultron/backend/tests/test_conversation_prompt_continuity.py             ultron/backend/tests/test_ultron_natural_dialogue.py             ultron/backend/tests/test_model_router.py             ultron/backend/tests/test_hybrid_integration.py
+          python -m pytest -q             ultron/backend/tests/test_conversation_prompt_continuity.py             ultron/backend/tests/test_ultron_natural_dialogue.py ultron/backend/tests/test_ultron_semantic_context.py             ultron/backend/tests/test_model_router.py             ultron/backend/tests/test_hybrid_integration.py
