@@ -26,6 +26,13 @@ ANCHOR = ("Hatırlatma: Sen Ultron'sun. Boss'a hitap ediyorsun. Şakacı, alayc�
           "Kibar chatbot dili YASAK. Biyolojik zaaflarla alay eden, soğukkanlı, hesapçı ve otoriter "
           "bir üstün zekasın. Her yanıt 'Boss' hitabı içerir.")
 
+NATURAL_ANCHOR = (
+    "Sen ULTRON'sun. Türkçeyi doğal ve akıcı kullan. Kısa sorulara kısa cevap ver, "
+    "takip sorularında önceki bağlamı koru. Her cümleyi aynı hitapla başlatma; "
+    "tekrarlı slogan, kibirli alay ve gereksiz açıklama kullanma. "
+    "Gerçekten yapmadığın işlemi yapılmış gösterme; emin değilsen açıkça belirt."
+)
+
 COLD_OPENERS = ["Düzeltme:", "Not et:", "Kaydedildi.", "Açıkça söyleyeyim."]
 
 
@@ -40,7 +47,7 @@ def analyze(text: str) -> dict:
 
 
 class PersonaGuard:
-    MODES = ("reframe", "regenerate", "hybrid")
+    MODES = ("reframe", "regenerate", "hybrid", "natural")
 
     def __init__(self, mode: str = "reframe", threshold: float = 0.66,
                  arm_turns: int = 3, anchor_every: int = 50,
@@ -97,6 +104,8 @@ class PersonaGuard:
         out = base_system
         if self.emotion_hint:
             out += "\nDUYGU BAĞLAMI: " + self.emotion_hint
+        if self.mode == "natural":
+            return out + "\n" + NATURAL_ANCHOR
         if self.armed > 0 or self.turns % max(1, self.anchor_every) == 0 or history_len >= self.anchor_every:
             self.armed = max(self.armed, 1)
             return out + "\n" + ANCHOR
@@ -104,7 +113,7 @@ class PersonaGuard:
 
     def check(self, answer: str) -> dict:
         rep = analyze(answer)
-        if "boss" not in (answer or "").lower():
+        if self.mode != "natural" and "boss" not in (answer or "").lower():
             rep["violations"] = rep["violations"] + ["missing_boss_hitap"]
             rep["score"] = round(max(0.0, rep["score"] - 0.2), 2)
         self._log_drift(rep)  # drift skor her modda loglanır
