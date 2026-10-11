@@ -3,6 +3,7 @@ import asyncio
 import io
 import json
 import sys
+import time
 import unittest
 import urllib.error
 from pathlib import Path
@@ -30,7 +31,56 @@ class FakeClient:
         return {"ok": True}
 
 
+class SyncLeaseClient:
+    def __init__(self, outcomes=()):
+        self.outcomes = list(outcomes)
+        self.calls = []
+
+    def renew_lease_sync(self, command_id, *, delivery_attempt, timeout):
+        self.calls.append((command_id, delivery_attempt, timeout))
+        if self.outcomes:
+            outcome = self.outcomes.pop(0)
+            if isinstance(outcome, Exception):
+                raise outcome
+        return {"ok": True}
+
+
 class LeaseGuardTests(unittest.IsolatedAsyncioTestCase):
+    async def test_dedicated_lease_renews_even_while_event_loop_blocked(self):
+        client = SyncLeaseClient()
+        guard = RemoteLeaseGuard(
+            client, 161, 2, interval=.015, request_timeout=.08,
+            max_unconfirmed=.18,
+        )
+        task = asyncio.create_task(guard.run())
+        await asyncio.sleep(.025)
+        # A synchronous GUI/voice stall would prevent an asyncio-only lease.
+        time.sleep(.10)
+        self.assertGreaterEqual(len(client.calls), 4)
+        self.assertFalse(guard.lost.is_set())
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+
+    async def test_dedicated_lease_fences_rejected_attempt(self):
+        client = SyncLeaseClient([CloudDeliveryRejected(409, "stale_delivery_attempt")])
+        guard = RemoteLeaseGuard(client, 161, 1, interval=.01)
+        await asyncio.wait_for(guard.run(), .5)
+        self.assertTrue(guard.lost.is_set())
+        self.assertIn("stale_delivery_attempt", guard.reason)
+        self.assertEqual(client.calls[0][:2], (161, 1))
+
+    async def test_dedicated_lease_gives_up_after_network_failure(self):
+        client = SyncLeaseClient([RuntimeError("offline")] * 200)
+        guard = RemoteLeaseGuard(
+            client, 161, 2, interval=.01, request_timeout=.03,
+            max_unconfirmed=.07,
+        )
+        await asyncio.wait_for(guard.run(), .5)
+        self.assertTrue(guard.lost.is_set())
+        self.assertIn("unconfirmed", guard.reason)
+
+
     async def test_conflict_stops_worker_and_preserves_claim_identity(self):
         client=FakeClient([CloudDeliveryRejected(409,"stale_delivery_attempt")])
         guard=RemoteLeaseGuard(client,42,3,interval=.01,request_timeout=.04,max_unconfirmed=.15)

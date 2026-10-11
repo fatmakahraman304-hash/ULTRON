@@ -54,7 +54,7 @@ class CloudClient:
             "Content-Type": "application/json",
         }
 
-    def _sync_request(self, method: str, path: str, json_body: dict | None = None) -> dict[str, Any]:
+    def _sync_request(self, method: str, path: str, json_body: dict | None = None, *, timeout: float | None = None) -> dict[str, Any]:
         url = self.base_url + path
         payload = None
         if json_body is not None:
@@ -66,7 +66,7 @@ class CloudClient:
             method=method,
         )
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+            with urllib.request.urlopen(req, timeout=self.timeout_s if timeout is None else timeout) as resp:
                 raw = resp.read().decode("utf-8", errors="replace")
                 try:
                     data = json.loads(raw) if raw else {}
@@ -107,6 +107,22 @@ class CloudClient:
         except Exception as exc:
             self.last_error = str(exc)[:500]
             raise
+
+    def renew_lease_sync(self, command_id: int, *, delivery_attempt: int,
+                         timeout: float = 8.0) -> dict[str, Any]:
+        """Keep an in-flight command leased even if voice/GUI blocks asyncio.
+
+        Dedicated daemon heartbeat thread calls this directly rather than
+        sharing the Cloud request executor or the audio event loop.
+        """
+        if not self.enabled:
+            raise RuntimeError("ULTRON Cloud desktop bridge is not configured")
+        return self._sync_request(
+            "POST", f"/api/device-commands/{int(command_id)}/progress",
+            {"delivery_attempt": int(delivery_attempt), "stage": "lease",
+             "message": ""},
+            timeout=max(0.1, float(timeout)),
+        )
 
     async def health(self) -> dict[str, Any]:
         if not self.enabled:

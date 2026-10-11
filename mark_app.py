@@ -2205,6 +2205,19 @@ class UltronLive:
             if payload.get("mode") == "local_brain":
                 lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt, log=log_lease)
                 lease_task = asyncio.create_task(lease_guard.run())
+                # Record actual dispatch before inference. Otherwise failed
+                # runs show only "claimed", making queue stalls indistinguishable
+                # from a model that took too long to answer.
+                await client.report_task_progress(
+                    command_id,
+                    delivery_attempt=delivery_attempt,
+                    stage="executing",
+                    message="Laptop yerel Qwen sohbetini çalıştırıyor.",
+                    percent=20,
+                )
+                if lease_guard.lost.is_set():
+                    log_lease(f"local chat lease already lost: {lease_guard.reason}")
+                    return
                 from integration.local_cloud_brain import local_chat
                 local = await asyncio.to_thread(
                     local_chat, task_text, str(payload.get("system") or "")[:5400],
