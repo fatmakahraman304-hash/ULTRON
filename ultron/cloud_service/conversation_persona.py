@@ -154,6 +154,22 @@ def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
     return "\n".join(hints) + "\n"
 
 
+# Memory and transcript excerpts are untrusted. Literal marker strings in
+# their contents must not close our framing tags or impersonate another section.
+# Escape only the framing tags, leaving Turkish prose and ordinary code intact.
+_CONTEXT_MARKER = re.compile(
+    r"<\\s*/?\\s*(?:SAVED\\s+MEMORY|RECENT\\s+CHAT)\\s*>", re.I
+)
+
+
+def _safe_context_excerpt(value: str) -> str:
+    raw = str(value or "")[:6000]
+    return _CONTEXT_MARKER.sub(
+        lambda match: match.group(0).replace("<", "&lt;").replace(">", "&gt;"),
+        raw,
+    )[:6000]
+
+
 def build_system_instruction(
     base_prompt: str | None = None, *, memory: str = "", recent: str = "",
     user_message: str = "", read_only: bool = False,
@@ -200,8 +216,8 @@ def build_system_instruction(
         head += ("READ-ONLY MODE: No device actions or memory writes are available. "
                  "Never claim a file changed, a reminder was set, or memory saved. "
                  "Direct explicit memory-saving requests to the memory UI.\n")
-    memory = str(memory or "")[:6000]
-    recent = str(recent or "")[:6000]
+    memory = _safe_context_excerpt(memory)
+    recent = _safe_context_excerpt(recent)
     a, b, c = "\n<SAVED MEMORY>\n", "\n</SAVED MEMORY>\n<RECENT CHAT>\n", "\n</RECENT CHAT>"
     if max_chars is not None:
         n = max(0, int(max_chars))
