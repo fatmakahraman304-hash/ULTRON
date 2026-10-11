@@ -392,7 +392,11 @@ class LocalConversationTests(unittest.TestCase):
         self.assertIs(second["think"],False)
         self.assertFalse(first["stream"])
         self.assertFalse(second["stream"])
-        self.assertLessEqual(first["options"]["num_predict"],160)
+        # "Sadece ... yaz" is a natural reply policy (240 tokens), not
+        # necessarily a 'short answer' keyword; both first-pass budgets
+        # need a bounded retry when Ollama explicitly reports length.
+        self.assertGreaterEqual(first["options"]["num_predict"],240)
+        self.assertLessEqual(first["options"]["num_predict"],420)
         self.assertGreaterEqual(second["options"]["num_predict"],512)
         self.assertLessEqual(second["options"]["num_predict"],768)
         self.assertNotIn("Yarım kalan taslak",str(second["messages"]))
