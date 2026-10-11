@@ -2463,7 +2463,9 @@ class UltronLive:
 
         while True:
             try:
-                commands = await client.claim_desktop_commands()
+                commands = await client.claim_desktop_commands(
+                    include_agent_tasks=not agent_lock.locked()
+                )
                 backoff = 0.8
                 if commands:
                     ids = [str(item.get("id", "?")) for item in commands]

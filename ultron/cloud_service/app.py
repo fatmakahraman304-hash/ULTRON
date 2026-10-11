@@ -296,6 +296,12 @@ async def claim_device_commands(request: web.Request) -> web.Response:
             text=json.dumps({"error": "device_direction_not_allowed"}),
             content_type="application/json",
         )
+    include_agent_tasks = body.get("include_agent_tasks", True)
+    if not isinstance(include_agent_tasks, bool):
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "invalid_include_agent_tasks"}),
+            content_type="application/json",
+        )
 
     async with request.app["db"].acquire() as conn:
         async with conn.transaction():
@@ -360,6 +366,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                     AND d.command='agent_task'
                     AND d.created_at > NOW() - INTERVAL '24 hours'
                     AND COALESCE(d.run_after, d.created_at) <= NOW()
+                    AND $3::boolean
                     AND NOT EXISTS (
                       SELECT 1 FROM device_commands active
                       WHERE active.user_id=d.user_id
@@ -395,7 +402,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 WHERE d.id=picked.id
                 RETURNING d.id,d.target,d.command,d.payload,d.source_device,d.progress,d.checkpoint,d.retry_count,d.max_retries,d.delivery_attempt,d.created_at
                 """,
-                request["user_id"], target,
+                request["user_id"], target, include_agent_tasks,
             )
     commands = []
     for row in rows:

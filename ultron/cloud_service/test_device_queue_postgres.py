@@ -34,6 +34,23 @@ class DeviceQueuePostgresTests(unittest.IsolatedAsyncioTestCase):
     def req(self,cid,body):
         return FakeRequest(self.pool,body,command_id=str(cid))
 
+    async def test_busy_desktop_can_claim_controls_without_agent(self):
+        agent_id = await self.add()
+        wake_id = await self.add("wake")
+        result = await self.handlers["claim_device_commands"](
+            FakeRequest(self.pool, {"target": "desktop", "include_agent_tasks": False})
+        )
+        self.assertEqual([row["id"] for row in result["commands"]], [wake_id])
+        row = await self.pool.fetchrow(
+            "SELECT status, delivery_attempt FROM device_commands WHERE id=$1",
+            agent_id,
+        )
+        self.assertEqual(row["status"], "queued")
+        self.assertEqual(row["delivery_attempt"], 0)
+        # A free local agent can subsequently claim that waiting task.
+        claimed = await self.claim()
+        self.assertEqual([row["id"] for row in claimed], [agent_id])
+
     async def test_parallel_claim_keeps_single_agent_lane(self):
         await self.add();await self.add()
         first,second=await asyncio.gather(self.claim(),self.claim())

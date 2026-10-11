@@ -168,11 +168,16 @@ class CloudClient:
             json_body={"state": state or {}},
         )
 
-    async def claim_desktop_commands(self) -> list[dict[str, Any]]:
+    async def claim_desktop_commands(
+        self, *, include_agent_tasks: bool = True,
+    ) -> list[dict[str, Any]]:
+        # When this desktop is already executing an agent task, keep
+        # polling lightweight controls without prematurely claiming another
+        # agent task whose lease cannot start until the first has finished.
         data = await self._request(
             "POST",
             "/api/device-commands/claim",
-            json_body={"target": "desktop"},
+            json_body={"target": "desktop", "include_agent_tasks": include_agent_tasks},
         )
         rows = data.get("commands", [])
         return rows if isinstance(rows, list) else []

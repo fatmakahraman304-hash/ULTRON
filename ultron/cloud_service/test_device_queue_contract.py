@@ -181,6 +181,10 @@ class ClaimDB:
         self.sql.append(sql)
         if "NOT EXISTS" not in sql or "FOR UPDATE SKIP LOCKED" not in sql:
             raise AssertionError("claim SQL must preserve lane/row protection")
+        if "$3::boolean" not in sql:
+            raise AssertionError("agent claim must honor local worker availability")
+        if _args[-1] is False:
+            return []
         if any(status == "delivered" for status in self.command_status.values()):
             return []
         for command_id, status in self.command_status.items():
@@ -246,6 +250,27 @@ class CloudQueueContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(sum(db.attempts.values()), 1)
         claimed = first["commands"] or second["commands"]
         self.assertEqual(claimed[0]["delivery_attempt"], 1)
+
+    async def test_busy_desktop_does_not_claim_another_agent_task(self):
+        db = ClaimDB()
+        blocked = await self.handlers["claim_device_commands"](
+            FakeRequest(db, {"target": "desktop", "include_agent_tasks": False})
+        )
+        self.assertEqual(blocked["commands"], [])
+        self.assertEqual(sum(db.attempts.values()), 0)
+        # Claiming is still possible once the local agent is actually idle.
+        allowed = await self.handlers["claim_device_commands"](
+            FakeRequest(db, {"target": "desktop", "include_agent_tasks": True})
+        )
+        self.assertEqual(len(allowed["commands"]), 1)
+
+    async def test_agent_filter_requires_real_boolean(self):
+        db = ClaimDB()
+        with self.assertRaises(HTTPBadRequest):
+            await self.handlers["claim_device_commands"](
+                FakeRequest(db, {"target": "desktop", "include_agent_tasks": "false"})
+            )
+        self.assertEqual(db.advisory_calls, 0)
 
     async def test_claim_direction_guard(self):
         db = ClaimDB()
