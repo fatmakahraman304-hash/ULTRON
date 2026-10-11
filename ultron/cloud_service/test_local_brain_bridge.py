@@ -1,5 +1,6 @@
 """Safety contracts for default-free ULTRON local text chat from iPhone."""
 import unittest
+import sys
 from pathlib import Path
 
 ROOT=Path(__file__).parent
@@ -9,9 +10,50 @@ MARK=(ROOT.parent.parent/"mark_app.py").read_text(encoding="utf-8")
 DESKTOP=(ROOT.parent.parent/"integration"/"local_cloud_brain.py").read_text(encoding="utf-8")
 PWA=(ROOT/"static"/"index.html").read_text(encoding="utf-8")
 SCHEMA=(ROOT/"schema.sql").read_text(encoding="utf-8")
+sys.path.insert(0, str(ROOT))
+from local_brain_bridge import _validated_local_reply
 
 
 class LocalFirstBridgeTests(unittest.TestCase):
+    def test_completed_reply_origin_is_factual_and_not_raw_json(self):
+        ollama = _validated_local_reply({
+            "assistant_reply": "  Tamam, devam ediyorum.  ",
+            "model": "qwen3:4b",
+            "provider": "local-ollama",
+        })
+        self.assertEqual(ollama,
+                         ("Tamam, devam ediyorum.", "qwen3:4b",
+                          "desktop-local-ollama"))
+        no_image = _validated_local_reply({
+            "assistant_reply": "Görsel ulaşmadı",
+            "model": "",
+            "provider": "local-no-image",
+        })
+        self.assertEqual(no_image,
+                         ("Görsel ulaşmadı", "", "desktop-local-no-image"))
+        # Compatibility with older paired desktop workers that omitted the
+        # provider but returned a genuine model message is intentional.
+        legacy = _validated_local_reply({
+            "assistant_reply": "Merhaba", "model":"qwen3:4b",
+        })
+        self.assertEqual(legacy[2], "desktop-local-ollama")
+        for payload in (
+            {}, {"assistant_reply":""},
+            {"assistant_reply":{"content":"not text"}},
+            {"assistant_reply":["not text"]},
+            {"assistant_reply":123},
+            {"assistant_reply":"Hello","provider":"totally-other"},
+            {"assistant_reply":"Hello","provider":"/tmp/injected-path"},
+            {"assistant_reply":"No image","provider":"local-no-image",
+             "model":"qwen3:4b"},
+            {"assistant_reply":"Hello","model":{"key":"not-model"}},
+        ):
+            with self.subTest(payload=payload):
+                self.assertIsNone(_validated_local_reply(payload))
+        self.assertIn("VALUES($1,$2,'assistant',$3,$4)", CLOUD)
+        self.assertIn("reply,source", CLOUD)
+        self.assertNotIn("'desktop-local-ollama')", CLOUD)
+
     def test_cloud_requires_web_owner_session(self):
         self.assertIn('request.get("auth_kind") != "web"',CLOUD)
         self.assertIn('request["user_id"]',CLOUD)

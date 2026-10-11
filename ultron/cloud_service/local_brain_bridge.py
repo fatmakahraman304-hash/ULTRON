@@ -17,6 +17,36 @@ from conversation_turns import load_contextual_thread_turns
 from auto_learning import learn_from_owner_message
 
 
+def _validated_local_reply(result: dict) -> tuple[str, str, str] | None:
+    """Accept only genuine text and known local-response provenance.
+
+    Desktop can return a no-image notice without ever invoking Ollama.
+    That must not be stored as a model-generated answer in conversation logs.
+    No network or database access; never stringify arbitrary JSON as prose.
+    """
+    if not isinstance(result, dict):
+        return None
+    content = result.get("assistant_reply")
+    if not isinstance(content, str):
+        return None
+    reply = content.strip()[:12000]
+    if not reply:
+        return None
+    provider = result.get("provider", "local-ollama")
+    model = result.get("model") or ""
+    if not isinstance(model, str) or provider not in (
+        "local-ollama", "local-no-image",
+    ):
+        return None
+    if provider == "local-no-image":
+        if model:
+            return None
+        source = "desktop-local-no-image"
+    else:
+        source = "desktop-local-ollama"
+    return reply, model[:90], source
+
+
 async def post_local_chat(request: web.Request) -> web.Response:
     if request.get("auth_kind") != "web":
         raise web.HTTPForbidden(text='{"error":"web_session_required"}',
@@ -144,9 +174,12 @@ async def get_local_chat(request: web.Request) -> web.Response:
             "provider":"local",
         }, status=200)
 
-    reply=str(result.get("assistant_reply") or "").strip()[:12000]
-    if not reply:
-        return web.json_response({"status":"failed","error":"empty_model_reply"},status=502)
+    details = _validated_local_reply(result)
+    if details is None:
+        return web.json_response(
+            {"status":"failed","error":"invalid_local_reply"}, status=502,
+        )
+    reply, model, source = details
     # Save reply exactly once, protected by Postgres row lock.
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -157,8 +190,8 @@ async def get_local_chat(request: web.Request) -> web.Response:
             if pending and not pending["reply_saved"]:
                 await conn.execute(
                     "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
-                    "VALUES($1,$2,'assistant',$3,'desktop-local-ollama')",
-                    pending["conversation_id"],request["user_id"],reply,
+                    "VALUES($1,$2,'assistant',$3,$4)",
+                    pending["conversation_id"],request["user_id"],reply,source,
                 )
                 await conn.execute(
                     "UPDATE local_chat_requests SET reply_saved=TRUE WHERE command_id=$1",
@@ -166,7 +199,7 @@ async def get_local_chat(request: web.Request) -> web.Response:
                 )
     return web.json_response({
         "status":"completed","provider":"local",
-        "reply":reply,"model":str(result.get("model") or "")[:90],
+        "reply":reply,"model":model,
         "conversation_id":str(row["conversation_id"]),
     })
 
