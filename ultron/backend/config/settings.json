@@ -16,6 +16,8 @@
     },
     "local_multi_model": {
       "enabled": true,
+      "chat_strategy": "fast",
+      "ask_strategy": "race",
       "base_url": "http://127.0.0.1:11434/v1",
       "models": [
         "qwen3:4b",
