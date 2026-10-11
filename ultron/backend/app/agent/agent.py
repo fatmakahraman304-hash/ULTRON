@@ -274,7 +274,12 @@ class Agent:
             try:
                 if self.router is not None:
                     from app.core.model_router import TaskType as _TT
-                    response=self.router.chat(_TT.GENERAL,messages,tools=self.registry.ollama_tools(include_dangerous=True))
+                    from app.core.dialogue_routing import classify_dialogue
+                    task=classify_dialogue(text)
+                    # Greetings/thanks never need computer tools: reduce prompt
+                    # cost, and avoid sending irrelevant dangerous tool specs.
+                    turn_tools=[] if task==_TT.FAST else self.registry.ollama_tools(include_dangerous=True)
+                    response=self.router.chat(task,messages,tools=turn_tools)
                 else:
                     response=self.brain.chat(messages,tools=self.registry.ollama_tools(include_dangerous=True))
             except Exception as e:
