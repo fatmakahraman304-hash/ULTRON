@@ -7,7 +7,7 @@
 - This evidence verifies code, synthetic HTTP/queue/model-boundary behavior and deployed assets. It does **not** verify physical iPhone → Render → Windows → real Qwen, real Gemini inference, real model latency/quality, or the historical Windows socket/Live1008 incident cause. Desktop installation/download intentionally not performed. Required next step remains the single physical smoke check described below.
 - This documentation-only follow-up preserves the exact tested runtime; its own CI/Render state will be checked separately and reported in the final response.
 
-## 2026-10-11 — Qwen connection repair: current handoff
+## Next tasks — 2026-10-11 Qwen connection repair
 
 1. Code push, both CI checks and Render LIVE are verified above. Check the documentation-only final HEAD with manual workflow dispatch; then physical verification is the remaining dependency. Browser CI is in `cloud-queue-postgres.yml`.
 2. Physical validation remains required after the final desktop update (not installed here): with laptop ULTRON + Ollama running, reload the phone conversation and send “2009 C180 hakkında konuşalım”; verify the new command is completed with `result.provider=local-ollama` and Qwen model. Do not infer real inference from synthetic browser/DB tests. No real cloud/device credentials available here; don't request or log raw secrets/history.
