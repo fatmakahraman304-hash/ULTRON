@@ -316,6 +316,8 @@ class LocalConversationTests(unittest.TestCase):
             {"message":{"content":None}},
             {"message":{"content":"  "}},
             {"message":{"content":"A partial answer"},"done":False},
+            {"message":{"content":"Incomplete due to token budget"},
+             "done":True,"done_reason":"length"},
             {"model":"llava:7b",
              "message":{"content":"Different model output"},"done":True},
         )
@@ -338,6 +340,8 @@ class LocalConversationTests(unittest.TestCase):
         valid=(
             {"message":{"content":"  Merhaba!  "}},
             {"model":"qwen3:4b","done":True,
+             "message":{"content":"  Merhaba!  "}},
+            {"model":"qwen3:4b","done":True,"done_reason":"stop",
              "message":{"content":"  Merhaba!  "}},
         )
         for response in valid:

@@ -289,6 +289,13 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
         raise LocalBrainUnavailable("Ollama beklenmeyen modelden yanıt döndürdü.")
     if result.get("done") is False:
         raise LocalBrainUnavailable("Ollama tamamlanmamış yanıt döndürdü.")
+    # Ollama may set done=true even when generation stopped at num_predict.
+    # In that case the final sentence/code can be cut off. Never silently
+    # publish that response as a complete conversation answer.
+    if result.get("done_reason") == "length":
+        raise LocalBrainUnavailable(
+            "Yerel yanıt uzunluk sınırında kesildi; tamamlanmış sayılmadı."
+        )
     message=result.get("message")
     if not isinstance(message,dict) or not isinstance(message.get("content"),str):
         raise LocalBrainUnavailable("Ollama yanıtının metin biçimi geçersiz.")
