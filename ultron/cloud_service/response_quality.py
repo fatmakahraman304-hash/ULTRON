@@ -17,64 +17,8 @@ else:
 _LITERAL = re.compile(r'\b(?:aynen|harfi harfine|verbatim|exactly|repeat|tekrarla|şiir|poem)\b', re.I)
 
 
-_QWEN_THINK_START = re.compile(r'(?im)^[ \t]*<think>[ \t]*\r? -> tuple[str, ...]:
-    if not isinstance(text, str) or not text.strip():
-        return ('empty',)
-    flags = []
-    if '```' not in text and not _LITERAL.search(prompt):
-        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text.strip())]
-        if any(a == b and len(a) >= 40 for a, b in zip(paragraphs, paragraphs[1:])):
-            flags.append('adjacent_duplicate')
-    # A negated style phrase ("kısa cevap istemiyorum") is not a brief
-    # request. Use the exact same style decision as the model's runtime.
-    if classify_reply_mode(prompt) == 'brief' and len(text) > 1800:
-        flags.append('possibly_too_long')
-    # Signals for evaluation only: these are not reliable semantic verdicts.
-    return tuple(flags)
-
-
-def finalize_response(text: str, *, prompt: str = '') -> str:
-    """Only remove identical, adjacent prose paragraphs; never truncate an answer."""
-    answer = text.strip()
-    if 'adjacent_duplicate' not in assess_response(answer, prompt=prompt):
-        return answer
-    kept = []
-    for paragraph in re.split(r'\n\s*\n', answer):
-        paragraph = paragraph.strip()
-        if kept and len(paragraph) >= 40 and paragraph == kept[-1]:
-            continue
-        kept.append(paragraph)
-    return '\n\n'.join(kept)
-)
-_QWEN_THINK_END = re.compile(r'(?im)^[ \t]*</think>[ \t]*\r? -> tuple[str, ...]:
-    if not isinstance(text, str) or not text.strip():
-        return ('empty',)
-    flags = []
-    if '```' not in text and not _LITERAL.search(prompt):
-        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text.strip())]
-        if any(a == b and len(a) >= 40 for a, b in zip(paragraphs, paragraphs[1:])):
-            flags.append('adjacent_duplicate')
-    # A negated style phrase ("kısa cevap istemiyorum") is not a brief
-    # request. Use the exact same style decision as the model's runtime.
-    if classify_reply_mode(prompt) == 'brief' and len(text) > 1800:
-        flags.append('possibly_too_long')
-    # Signals for evaluation only: these are not reliable semantic verdicts.
-    return tuple(flags)
-
-
-def finalize_response(text: str, *, prompt: str = '') -> str:
-    """Only remove identical, adjacent prose paragraphs; never truncate an answer."""
-    answer = text.strip()
-    if 'adjacent_duplicate' not in assess_response(answer, prompt=prompt):
-        return answer
-    kept = []
-    for paragraph in re.split(r'\n\s*\n', answer):
-        paragraph = paragraph.strip()
-        if kept and len(paragraph) >= 40 and paragraph == kept[-1]:
-            continue
-        kept.append(paragraph)
-    return '\n\n'.join(kept)
-)
+_QWEN_THINK_START = re.compile(r'(?im)^[ \t]*<think>[ \t]*\r?$')
+_QWEN_THINK_END = re.compile(r'(?im)^[ \t]*</think>[ \t]*\r?$')
 
 
 def strip_qwen_thinking(text: str) -> str:
@@ -82,14 +26,15 @@ def strip_qwen_thinking(text: str) -> str:
 
     Some Ollama/Qwen versions return a thought preamble in message.content
     despite think=False, sometimes without an opening <think> marker.
-    Never publish an unfinished think block. A literal fenced code sample
-    with such markers is not a generated thinking preamble.
+    Never publish an unfinished think block. Fenced code is preserved.
     """
     if not isinstance(text, str):
         return ""
     answer = text.strip()
+
     def outside_fence(pos: int) -> bool:
         return answer[:pos].count(chr(96) * 3) % 2 == 0
+
     closing = [m for m in _QWEN_THINK_END.finditer(answer)
                if outside_fence(m.start())]
     if closing:
