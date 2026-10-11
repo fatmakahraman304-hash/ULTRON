@@ -27,10 +27,10 @@ class LocalQwenRecoveryTests(unittest.TestCase):
     prompt = "Detaylı analiz yap"
 
     def run_chat(self, installed, fake_api):
-        with patch.object(worker, "_SETTINGS", Settings()), \\
-             patch.object(worker, "installed_models", return_value=installed), \\
-             patch.object(worker, "_get_json", side_effect=fake_api):
-            return worker.local_chat(self.prompt, "You are ULTRON.", turns=[])
+        with patch.object(worker, "_SETTINGS", Settings()):
+            with patch.object(worker, "installed_models", return_value=installed):
+                with patch.object(worker, "_get_json", side_effect=fake_api):
+                    return worker.local_chat(self.prompt, "You are ULTRON.", turns=[])
 
     def test_incomplete_thinking_recovers_using_installed_backup(self):
         calls = []
