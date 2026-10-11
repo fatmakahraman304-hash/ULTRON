@@ -37,6 +37,12 @@ class LocalFirstBridgeTests(unittest.TestCase):
             "assistant_reply": "Merhaba", "model":"qwen3:4b",
         })
         self.assertEqual(legacy[2], "desktop-local-ollama")
+        named_qwen = _validated_local_reply({
+            "assistant_reply":"İşte yanıt.",
+            "model":"team/qwen2.5-coder:7b",
+            "provider":"local-ollama",
+        })
+        self.assertEqual(named_qwen[1], "team/qwen2.5-coder:7b")
         for payload in (
             {}, {"assistant_reply":""},
             {"assistant_reply":{"content":"not text"}},
@@ -47,6 +53,12 @@ class LocalFirstBridgeTests(unittest.TestCase):
             {"assistant_reply":"No image","provider":"local-no-image",
              "model":"qwen3:4b"},
             {"assistant_reply":"Hello","model":{"key":"not-model"}},
+            {"assistant_reply":"Hello","model":""},
+            {"assistant_reply":"Hello","model":"llava:7b"},
+            {"assistant_reply":"Hello","model":"llama3:8b",
+             "provider":"local-ollama"},
+            {"assistant_reply":"Hello","model":"qwenish:7b"},
+            {"assistant_reply":"Hello","model":"../../qwenish:8b"},
         ):
             with self.subTest(payload=payload):
                 self.assertIsNone(_validated_local_reply(payload))

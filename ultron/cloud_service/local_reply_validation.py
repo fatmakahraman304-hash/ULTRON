@@ -5,6 +5,8 @@ without aiohttp, databases or running Ollama.
 """
 from __future__ import annotations
 
+from model_identity import is_qwen_model
+
 
 def _validated_local_reply(result: dict) -> tuple[str, str, str] | None:
     """Accept only genuine text and known local-response provenance.
@@ -32,6 +34,10 @@ def _validated_local_reply(result: dict) -> tuple[str, str, str] | None:
             return None
         source = "desktop-local-no-image"
     else:
+        # Even a legacy desktop sender must name a real Qwen family model.
+        # The mobile text queue does not accept arbitrary Ollama/vision models.
+        if not is_qwen_model(model):
+            return None
         source = "desktop-local-ollama"
-    return reply, model[:90], source
+    return reply, model.strip()[:90], source
 
