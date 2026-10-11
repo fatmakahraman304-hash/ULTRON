@@ -170,6 +170,62 @@ def is_explicit_turn_correction(text: str) -> bool:
     )
 
 
+# Only bare continuation commands get the extended, same-thread lookback.
+# Commands containing a new task ("devam et ve sil") are intentionally excluded.
+_BARE_CONTINUATION = re.compile(
+    r"^(?:kaldığın yerden devam et|aynı şekilde devam et|devam et böyle|"
+    r"böyle devam et|devam et|devam|continue like that|continue|"
+    r"keep going|go on)(?:\s+(?:lütfen|lutfen|please))?[\s.!?]*$",
+    re.I,
+)
+
+
+def is_bare_continuation(question: str) -> bool:
+    return (isinstance(question, str) and len(question) <= 180
+            and _BARE_CONTINUATION.fullmatch(question.strip()) is not None)
+
+
+def select_continuation_turns(rows, *, max_chars: int = 3200,
+                              max_turns: int = 14) -> list[dict[str, str]]:
+    """Pin the latest substantive user task beside recent continuation turns.
+
+    No history is elevated to system instructions, no cross-thread context,
+    no new memories, and no additional LLM call. Keep the anchor among the
+    final ten messages for the Windows Qwen worker's continuation classifier.
+    """
+    cap = max(0, min(int(max_chars), 7200))
+    count = max(0, min(int(max_turns), 20))
+    if not cap or not count:
+        return []
+    clean = [
+        {"role": row.get("role"), "content": row.get("content")}
+        for row in rows
+        if hasattr(row, "get")
+        and row.get("role") in ("user", "assistant")
+        and isinstance(row.get("content"), str)
+        and row.get("content").strip()
+    ]
+    recent_count = min(8, max(1, count - 1))
+    recent = clean[-recent_count:]
+    anchor_index = next((
+        i for i in range(len(clean) - 1, -1, -1)
+        if clean[i]["role"] == "user"
+        and not is_bare_continuation(clean[i]["content"])
+    ), None)
+    if anchor_index is None or anchor_index >= len(clean) - len(recent):
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+    # The anchor is a user's request, not an inferred summary. Budget it
+    # separately so a long last answer cannot displace the user's goal.
+    anchor = prepare_turns(
+        [clean[anchor_index]], max_chars=min(1000, cap // 3), max_turns=1,
+    )
+    if not anchor:
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+    remaining = cap - sum(len(item["content"]) for item in anchor)
+    return anchor + prepare_turns(recent, max_chars=remaining,
+                                  max_turns=min(recent_count, count - len(anchor)))
+
+
 def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
                             max_turns: int = 14) -> list[dict[str, str]]:
     """Keep immediate chat plus a small chronological selection of older matches.
@@ -379,6 +435,22 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
         return await load_thread_turns(
             pool, user_id, conversation_id, before_id=before_id,
             max_chars=max_chars, limit=n,
+        )
+    if is_bare_continuation(question):
+        # Repeated "devam et" turns can push the original task out of the
+        # ordinary 12-turn context. Inspect at most 200 same-owner/thread
+        # turns, then return only a bounded original task and recent replies.
+        window = max(n, min(200, max(40, int(lookback) * 2)))
+        rows = await pool.fetch(
+            "SELECT id,role,content FROM messages "
+            "WHERE user_id=$1 AND conversation_id=$2 "
+            "AND ($3::bigint IS NULL OR id < $3) "
+            "AND role IN ('user','assistant') "
+            "ORDER BY id DESC LIMIT $4",
+            user_id, conversation_id, before_id, window,
+        )
+        return select_continuation_turns(
+            list(reversed(rows)), max_chars=max_chars, max_turns=n,
         )
     if is_first_topic_return(question):
         # Explicit first-topic requests need the true start, even beyond 80 rows.
