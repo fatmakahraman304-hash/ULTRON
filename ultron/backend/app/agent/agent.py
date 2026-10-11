@@ -251,7 +251,13 @@ class Agent:
                 world_block=self.world_fn()
                 if world_block: system=system+"\n"+world_block
             except Exception: pass
-        messages=[{"role":"system","content":system}]+history[-20:]+[{"role":"user","content":text}]
+        # handle() already persisted this turn before _history(): don't send
+        # the same user utterance twice to the model.
+        messages=[{"role":"system","content":system}]+history[-20:]
+        # A delayed/empty memory adapter may omit the just-saved turn.
+        # In that case include it exactly once rather than dropping it.
+        if messages[-1].get("role")!="user" or messages[-1].get("content")!=text:
+            messages.append({"role":"user","content":text})
         last_error=None
         for _ in range(self.max_steps):
             try:
