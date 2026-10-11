@@ -11,7 +11,7 @@ DESKTOP=(ROOT.parent.parent/"integration"/"local_cloud_brain.py").read_text(enco
 PWA=(ROOT/"static"/"index.html").read_text(encoding="utf-8")
 SCHEMA=(ROOT/"schema.sql").read_text(encoding="utf-8")
 sys.path.insert(0, str(ROOT))
-from local_brain_bridge import _validated_local_reply
+from local_reply_validation import _validated_local_reply
 
 
 class LocalFirstBridgeTests(unittest.TestCase):
@@ -97,7 +97,7 @@ class LocalFirstBridgeTests(unittest.TestCase):
         self.assertNotIn("ollama pull",DESKTOP)
         self.assertIn("if not answer:",DESKTOP)
         self.assertIn("answer[:12000]",DESKTOP)
-        self.assertIn("if not reply:",CLOUD)
+        self.assertIn("_validated_local_reply(result)",CLOUD)
         self.assertIn("status=202",CLOUD)
 
 
