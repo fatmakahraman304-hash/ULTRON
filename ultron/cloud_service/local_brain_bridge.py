@@ -48,17 +48,9 @@ async def post_local_chat(request: web.Request) -> web.Response:
             "error": "desktop_offline",
             "detail": "Yerel sohbet şu anda hazır değil."
         }, status=409)
-    # A short rate limit avoids uncontrolled GPU queue accumulation.
-    outstanding = await pool.fetchval(
-        "SELECT COUNT(*) FROM device_commands WHERE user_id=$1 AND target='desktop' "
-        "AND command='agent_task' AND payload->>'mode'='local_brain' "
-        "AND status IN ('queued','delivered')",
-        request["user_id"],
-    )
-    if int(outstanding or 0) >= 3:
-        return web.json_response({"error":"local_brain_busy",
-            "detail":"Yerel beyin meşgul; önceki yanıtı bekle."},status=429)
-
+    # Queue limits are enforced atomically inside the later owner-locked
+    # database transaction. Checking before that lock is racy: two concurrent
+    # HTTP submissions can both see an empty queue.
     # Bound shared memory/history to protect 4GB consumer GPU.
     memory = (await request.app["local_memory_context"](pool, request["user_id"], text))[:2400]
     turns = await load_contextual_thread_turns(
@@ -73,6 +65,43 @@ async def post_local_chat(request: web.Request) -> web.Response:
 
     async with pool.acquire() as conn:
         async with conn.transaction():
+            # Serialize local-chat submissions from this owner. This lock is
+            # transaction-scoped, not a held connection or GPU lock. Avoid
+            # racing two queued requests against the same conversation, and
+            # enforce the existing three-job owner cap atomically.
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
+                "ultron-local-chat:" + request["user_id"],
+            )
+            outstanding = await conn.fetchval(
+                "SELECT COUNT(*) FROM device_commands "
+                "WHERE user_id=$1 AND target='desktop' "
+                "AND command='agent_task' AND payload->>'mode'='local_brain' "
+                "AND status IN ('queued','delivered')",
+                request["user_id"],
+            )
+            if int(outstanding or 0) >= 3:
+                return web.json_response(
+                    {"error":"local_brain_busy",
+                     "detail":"Yerel beyin meşgul; önceki yanıtı bekle."},
+                    status=429,
+                )
+            pending_thread = await conn.fetchval(
+                "SELECT COUNT(*) FROM local_chat_requests l "
+                "JOIN device_commands c ON c.id=l.command_id "
+                "WHERE l.user_id=$1 AND l.conversation_id=$2 "
+                "AND c.user_id=$1 AND c.target='desktop' "
+                "AND c.command='agent_task' "
+                "AND c.payload->>'mode'='local_brain' "
+                "AND c.status IN ('queued','delivered')",
+                request["user_id"], conversation,
+            )
+            if pending_thread:
+                return web.json_response(
+                    {"error":"local_chat_thread_busy",
+                     "detail":"Bu sohbetin önceki yanıtını bekle."},
+                    status=429,
+                )
             claimed = await conn.fetchval(
                 "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
                 "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "

@@ -1,7 +1,9 @@
 """Real disposable PostgreSQL tests for free iPhone <-> desktop chat lifecycle."""
+import asyncio
 import json
 import os
 import unittest
+import uuid
 from pathlib import Path
 
 try:
@@ -95,6 +97,76 @@ class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.pool.fetchval(
             "SELECT COUNT(*) FROM messages WHERE user_id='ci-local' "
             "AND device_id='desktop-local-ollama'"),1)
+
+    async def test_one_pending_request_per_thread_preserves_reply_order(self):
+        await self.online()
+        cid=str(uuid.uuid4())
+        first=await post_local_chat(Request(self.pool,body={
+            "message":"Python kodu yaz, detaylı anlat",
+            "conversation_id":cid,
+        }))
+        self.assertEqual(first.status,202)
+        pending=json.loads(first.text)["command_id"]
+        blocked=await post_local_chat(Request(self.pool,body={
+            "message":"Devam et","conversation_id":cid,
+        }))
+        self.assertEqual(blocked.status,429)
+        self.assertEqual(json.loads(blocked.text)["error"],"local_chat_thread_busy")
+        self.assertEqual(await self.pool.fetchval(
+            "SELECT COUNT(*) FROM messages WHERE user_id='ci-local'"),1)
+
+        # Other threads can still use the remaining slots.
+        separate=await post_local_chat(Request(self.pool,body={
+            "message":"Mimarlık sorusu","conversation_id":str(uuid.uuid4()),
+        }))
+        self.assertEqual(separate.status,202)
+        third=await post_local_chat(Request(self.pool,body={
+            "message":"Bir başka soru","conversation_id":str(uuid.uuid4()),
+        }))
+        self.assertEqual(third.status,202)
+        full=await post_local_chat(Request(self.pool,body={
+            "message":"Dördüncü soru","conversation_id":str(uuid.uuid4()),
+        }))
+        self.assertEqual(full.status,429)
+        self.assertEqual(json.loads(full.text)["error"],"local_brain_busy")
+
+        # The completed response becomes visible to the next same-thread turn.
+        await self.pool.execute(
+            "UPDATE device_commands SET status='completed',result=$1::jsonb "
+            "WHERE id=$2",json.dumps({
+                "assistant_reply":"Kodun ilk bölümü hazır.",
+                "model":"qwen3:4b",
+                "provider":"local-ollama",
+            }),pending,
+        )
+        saved=await get_local_chat(Request(self.pool,id=pending))
+        self.assertEqual(saved.status,200)
+        resumed=await post_local_chat(Request(self.pool,body={
+            "message":"Devam et","conversation_id":cid,
+        }))
+        self.assertEqual(resumed.status,202)
+        new_command=json.loads(resumed.text)["command_id"]
+        payload=await self.pool.fetchval(
+            "SELECT payload FROM device_commands WHERE id=$1",new_command,
+        )
+        self.assertIn("Kodun ilk bölümü hazır.",str(payload))
+
+    async def test_simultaneous_same_thread_posts_are_atomically_serialized(self):
+        await self.online()
+        cid=str(uuid.uuid4())
+        async def submit(n):
+            return await post_local_chat(Request(self.pool,body={
+                "message":f"Konuşma mesajı {n}", "conversation_id":cid,
+            }))
+        responses=await asyncio.wait_for(
+            asyncio.gather(submit(1),submit(2)),timeout=15,
+        )
+        statuses=sorted(r.status for r in responses)
+        self.assertEqual(statuses,[202,429])
+        self.assertEqual(await self.pool.fetchval(
+            "SELECT COUNT(*) FROM messages WHERE user_id='ci-local'"),1)
+        self.assertEqual(await self.pool.fetchval(
+            "SELECT COUNT(*) FROM device_commands WHERE user_id='ci-local'"),1)
 
     async def test_bad_payload_and_session_directions(self):
         wrong=Request(self.pool,body={"message":"Merhaba"})

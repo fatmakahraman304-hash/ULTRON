@@ -54,6 +54,15 @@ class LocalFirstBridgeTests(unittest.TestCase):
         self.assertIn("reply,source", CLOUD)
         self.assertNotIn("'desktop-local-ollama')", CLOUD)
 
+    def test_owner_queue_limit_and_thread_limit_use_one_transaction_lock(self):
+        self.assertIn("pg_advisory_xact_lock",CLOUD)
+        self.assertIn("local_chat_thread_busy",CLOUD)
+        self.assertIn("l.conversation_id=$2",CLOUD)
+        self.assertIn("AND c.user_id=$1",CLOUD)
+        self.assertIn("AND c.status IN ('queued','delivered')",CLOUD)
+        self.assertIn("local_brain_busy",CLOUD)
+        self.assertIn("async with conn.transaction()",CLOUD)
+
     def test_cloud_requires_web_owner_session(self):
         self.assertIn('request.get("auth_kind") != "web"',CLOUD)
         self.assertIn('request["user_id"]',CLOUD)
