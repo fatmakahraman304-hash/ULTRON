@@ -20,6 +20,8 @@ class Agent:
         if not bad:
             return answer
         mode=self.persona.mode
+        if mode=="natural":
+            return PersonaGuard.reframe(answer)
         if mode in ("regenerate","hybrid") and chk["violation_score"] > 0.8:
             try:
                 rw=self.brain.ask(
@@ -35,6 +37,8 @@ class Agent:
             return self._boss_hitap(PersonaGuard.reframe(answer))
         return self._boss_hitap(answer)
     def _boss_hitap(self, answer):
+        if getattr(self.persona, "mode", None) == "natural":
+            return answer
         if "boss" not in (answer or "").lower():
             return "Boss, " + answer
         return answer
