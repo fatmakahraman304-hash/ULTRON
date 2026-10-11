@@ -1,0 +1,41 @@
+name: ULTRON Core Regression
+
+on:
+  pull_request:
+    paths:
+      - 'ultron/backend/app/agent/**'
+      - 'ultron/backend/app/core/**'
+      - 'ultron/backend/config/settings.json'
+      - 'ultron/backend/tests/**'
+      - '.github/workflows/ultron-core-ci.yml'
+  push:
+    branches:
+      - 'fix/ultron-conversation-duplicate-turn-20261011'
+
+permissions:
+  contents: read
+
+jobs:
+  conversation-and-router:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install targeted test dependency
+        run: python -m pip install 'pytest>=8,<10'
+      - name: Syntax-check modified runtime
+        run: |
+          python -m py_compile ultron/backend/app/agent/agent.py
+          python -m py_compile ultron/backend/app/agent/persona_guard.py
+          python -m py_compile ultron/backend/app/agent/hybrid_integration.py
+          python -m py_compile ultron/backend/app/core/model_router.py
+      - name: Run offline conversation and routing tests
+        env:
+          PYTHONPATH: ultron/backend
+        run: |
+          python -m pytest -q             ultron/backend/tests/test_conversation_prompt_continuity.py             ultron/backend/tests/test_ultron_natural_dialogue.py             ultron/backend/tests/test_model_router.py             ultron/backend/tests/test_hybrid_integration.py
