@@ -26,17 +26,20 @@ class SemanticMemory:
         if query.lower() in content.lower(): score += 0.45
         return min(score, 1.0)
 
-    def search(self, query, limit=5, kinds=None):
+    def search(self, query, limit=5, kinds=None, exclude_kinds=None):
         rows = self.memory.recent(self.max_candidates)
+        excluded = {str(k).casefold() for k in (exclude_kinds or ())}
         scored=[]
         for kind, content, created in rows:
             if kinds and kind not in kinds: continue
+            if str(kind).casefold() in excluded: continue
             s=self._score(query, content)
             if s > 0: scored.append((s, kind, content, created))
         scored.sort(key=lambda x: (x[0], x[3]), reverse=True)
         return scored[:limit]
 
     def context(self, query, limit=5):
-        hits=self.search(query, limit)
+        # Conversation history is already in the prompt; only retrieve facts.
+        hits=self.search(query, limit, exclude_kinds=("conversation",))
         if not hits: return ''
         return '\n'.join(f'[{kind}] {content}' for _,kind,content,_ in hits)
