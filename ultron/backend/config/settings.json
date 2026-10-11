@@ -87,7 +87,7 @@
     "ram_warning_percent": 90,
     "cpu_warning_percent": 95
   },
-  "persona_guard_mode": "reframe",
+  "persona_guard_mode": "natural",
   "voiceprint_lock_enabled": false,
   "voiceprint_threshold": 0.75,
   "sovereign_mode": true,
