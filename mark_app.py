@@ -2198,6 +2198,40 @@ class UltronLive:
                 await finish(False, "Laptop görevi boş geldi.")
                 return
 
+            # Only this explicit no-tools mode is accepted for hour-long
+            # listening analysis; older agents must never interpret it as
+            # a general-purpose desktop command.
+            if payload.get("mode") == "local_listening_analysis":
+                stage = str(payload.get("stage") or "")
+                analysis_prompt = str(payload.get("text") or "")
+                system = str(payload.get("system") or "")
+                if stage not in ("map", "reduce", "final") or not (1 <= len(analysis_prompt) <= 14500) or not (1 <= len(system) <= 2100):
+                    await finish(False, "Geçersiz salt-okunur Qwen analiz isteği.")
+                    return
+                lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt, log=log_lease)
+                lease_task = asyncio.create_task(lease_guard.run())
+                await client.report_task_progress(
+                    command_id, delivery_attempt=delivery_attempt,
+                    stage="executing",
+                    message="Laptop yerel Qwen konuşma analizini yürütüyor.",
+                    percent=20,
+                )
+                if lease_guard.lost.is_set():
+                    return
+                local = await client.local_listening_analysis(analysis_prompt, system, stage)
+                if lease_guard.lost.is_set():
+                    return
+                await finish(
+                    True, "Yerel konuşma analizi tamamlandı.",
+                    extra={"analysis": local["analysis"], "model": local["model"],
+                           "provider": local["provider"], "stage": stage},
+                )
+                return
+
+            if payload.get("mode") not in (None, "", "local_brain"):
+                await finish(False, "Desteklenmeyen agent_task modu; güvenli olarak reddedildi.")
+                return
+
             # No-tools local brain: iPhone's free default chat uses installed
             # Ollama/Qwen independently of the Gemini Live voice session.
             # A separate bounded queue response returns text only; never send
@@ -2510,6 +2544,7 @@ class UltronLive:
                         probe_executor, local_chat_ready)
                     state = {
                         "local_chat_ready": ready,
+                        "local_listening_analysis_ready": ready,
                         "ui_state": "CONNECTED" if self.session is not None else "CONNECTING",
                         "muted": bool(self.ui.muted),
                         "voice_active": voice_active,
