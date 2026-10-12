@@ -2,7 +2,7 @@
 (function(root){
   'use strict';
   var MAX_MS=60*60*1000, MAX_LOCAL_CHARS=24000;
-  var START=/^(?:ultron[, ]*)?(?:(?:1|bir)\s*saat\s*(?:boyunca\s*)?(?:beni\s*)?dinle|beni\s*(?:1|bir)\s*saat\s*(?:boyunca\s*)?dinle)(?:\s*(?:lütfen|lutfen))?[\s.!?]*$/i;
+  var START=/^(?:ultron[, ]*)?(?:(?:1|bir)\s*saat\s*(?:boyunca\s*)?(?:beni\s*)?dinle(?:\s*beni)?|beni\s*(?:1|bir)\s*saat\s*(?:boyunca\s*)?dinle)(?:\s*(?:lütfen|lutfen))?[\s.!?]*$/i;
   var ANSWER=/^(?:ultron[, ]*)?(?:(?:şimdi|artik|artık)\s*)?cevap ver(?:\s*(?:artık|lütfen|lutfen))?[\s.!?]*$/i;
   function clean(s){return String(s||'').trim();}
   function isStart(s){return START.test(clean(s));}
