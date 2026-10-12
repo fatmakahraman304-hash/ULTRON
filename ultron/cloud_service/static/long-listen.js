@@ -40,8 +40,13 @@
       var message='';
       if(text.length<=2350&&!dropped){message=text;}
       else{
-        var front=text.slice(0,1050),tail=text.slice(-1100);
-        message=front+'\n[Uzun oturum: aradaki konuşmalar bu isteğe dahil edilmedi.]\n'+tail;
+        // Sample opening, midpoint and conclusion instead of silently
+        // losing every event between the first and last minute.
+        var mid=Math.floor(text.length/2);
+        var front=text.slice(0,680),middle=text.slice(Math.max(0,mid-340),mid+340);
+        var tail=text.slice(-680);
+        message='[Başlangıç]\n'+front+'\n[Orta bölümden örnek]\n'+middle+
+          '\n[Uzun oturum: aradaki konuşmalar bu isteğe dahil edilmedi.]\n[Son]\n'+tail;
       }
       // This prompt is intentionally truthful about omitted text. The browser
       // may have processed speech remotely, but ULTRON only sees this excerpt.
@@ -143,7 +148,8 @@
       hasSession:function(){return status==='listening'||status==='ready'||status==='interrupted';},
       state:function(){return status;},supported:function(){return !!Constructor;},
       isStart:isStart,isAnswer:isAnswer,
-      transcript:function(){return noteChunks.join('\n');}};
+      transcript:function(){return noteChunks.join('\n');},
+      omitted:function(){return dropped;}};
   }
   root.ULTRONLongListen={create:create,isStart:isStart,isAnswer:isAnswer};
   if(typeof module!=='undefined'&&module.exports)module.exports=root.ULTRONLongListen;
