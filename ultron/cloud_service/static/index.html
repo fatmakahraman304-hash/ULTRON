@@ -687,7 +687,7 @@ const longListenController=window.ULTRONLongListen.create({
       :'iPhone ekranı kilitliyken veya uygulama arka plandayken dinleme sürmez.';
     $('#longListenBegin').classList.toggle('hidden',!longListenAwaitingTap);
     $('#longListenAnswer').classList.toggle('hidden',longListenAwaitingTap||s.status==='unsupported');
-    $('#longListenCancel').classList.toggle('hidden',s.status==='unsupported');
+    $('#longListenCancel').classList.remove('hidden');
     if(s.status==='listening')$('#stageVoiceText').textContent='Dinleniyor • '+mm+':'+ss;
   },
   onAnswer:prompt=>{
