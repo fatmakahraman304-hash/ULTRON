@@ -667,6 +667,7 @@ const longListenAnalyzer=window.ULTRONListeningAnalysis.create({
   onProgress:status=>{
     const title=$('#longListenStatus');
     if(title)title.textContent=status.status+' • '+status.completed+'/'+status.total;
+    $('#longListenStopAnalysis')?.classList.toggle('hidden',!longListenAnalyzer.active());
     const hint=$('#longListenHint');
     if(hint)hint.textContent='İzin verdiğin konuşma metni Gemini Cloud ile parça parça analiz ediliyor. Ara notlar kalıcı olarak saklanmaz.';
   }
@@ -746,6 +747,8 @@ const longListenController=window.ULTRONLongListen.create({
 });
 function showLongListenTap(){
   longListenAnalyzer.clear();
+  $('#longListenSaveMemory').disabled=false;
+  $('#longListenSaveMemory').textContent='Özeti hafızaya kaydet';
   $('#longListenReport').textContent='';
   $('#longListenReportWrap').classList.add('hidden');
   longListenAwaitingTap=true;
@@ -1896,6 +1899,11 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(pendingPdf){await sendPdf();return}
     if(!fromVoice)voiceTurnGuard.cancel();
     if(window.ULTRONLongListen.isStart(text)){
+      longListenAnalyzer.clear();
+      $('#longListenReport').textContent='';
+      $('#longListenReportWrap').classList.add('hidden');
+      $('#longListenSaveMemory').disabled=false;
+      $('#longListenSaveMemory').textContent='Özeti hafızaya kaydet';
       $('#message').value='';clearDraft();addMessage('user',text);
       if(fromVoice){showLongListenTap();return;}
       if(liveDesired||voiceListening)await stopLiveVoice();
@@ -2003,7 +2011,7 @@ $('#longListenSaveMemory').onclick=async()=>{
   }catch(err){toast('Hafızaya kaydetme başarısız: '+err.message);button.disabled=false;}
 };
 $('#longListenAnswer').onclick=()=>longListenController.finish(true);
-$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();longListenAnalyzer.clear();$('#longListenReport').textContent='';$('#longListenReportWrap').classList.add('hidden');$('#longListenPanel').classList.add('hidden');};
+$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();longListenAnalyzer.clear();$('#longListenSaveMemory').disabled=false;$('#longListenSaveMemory').textContent='Özeti hafızaya kaydet';$('#longListenReport').textContent='';$('#longListenReportWrap').classList.add('hidden');$('#longListenPanel').classList.add('hidden');};
 $('#voiceBtn').onclick=async()=>{
  if(longListenController.active()){toast('Uzun dinleme açık. “Cevap ver” dediğinde yanıtlayacağım.');return;}
  if(liveDesired||voiceListening){await stopLiveVoice();return}
