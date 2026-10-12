@@ -40,7 +40,9 @@ def _validated_analysis(result, stage: str) -> tuple[str, str] | None:
     if not isinstance(content, str) or len(content) > 9500:
         return None
     answer = strip_qwen_thinking(content).strip()
-    if not answer:
+    if not answer or answer.lower().startswith("<think>"):
+        # Malformed escape-encoded thinking tags must never be shown as a
+        # finished Qwen answer (the sanitizer handles real newlines).
         return None
     return answer, model
 
