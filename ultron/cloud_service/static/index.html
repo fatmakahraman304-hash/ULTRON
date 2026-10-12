@@ -384,8 +384,9 @@
 
     .long-listen-panel{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px;margin-bottom:8px;border:1px solid rgba(255,50,75,.7);border-radius:14px;background:#17060b;color:#fff;font-size:12px}
     .long-listen-panel small{display:block;max-width:100%;opacity:.78;font-size:11px}
-    .long-listen-panel .listen-controls{display:flex;gap:6px}
+    .long-listen-panel .listen-controls{display:flex;gap:6px;flex-wrap:wrap}
     .long-listen-panel button{min-height:38px;font-size:11px;padding:8px 12px;border-radius:12px}
+    @media(max-width:430px){.composer .voice-btn{display:flex!important;align-items:center;justify-content:center}.long-listen-panel{align-items:flex-start;flex-direction:column}.long-listen-panel .listen-controls{width:100%}}
   </style>
 </head>
 <body>
@@ -683,7 +684,7 @@ const longListenController=window.ULTRONLongListen.create({
     $('#longListenStatus').textContent=s.status==='listening'
       ?'Dinleniyor • '+mm+':'+ss:(longListenAwaitingTap?'1 saat dinlemeyi başlat':s.message||'Dinleme bitti');
     $('#longListenHint').textContent=s.status==='listening'
-      ?'Metin yalnız bu sekmede • ekran açık kalmalı • '+s.charCount+' karakter • tarayıcı ses tanıma servisi kullanabilir'
+      ?'Geçici metin: '+s.charCount+' karakter'+(s.dropped?' • '+s.dropped+' orta bölüm sınır nedeniyle çıkarıldı':'')+' • ekran açık kalmalı • ses tanıma servisi kullanılabilir'
       :'iPhone ekranı kilitliyken veya uygulama arka plandayken dinleme sürmez.';
     $('#longListenBegin').classList.toggle('hidden',!longListenAwaitingTap);
     $('#longListenPause').classList.toggle('hidden',s.status!=='listening');
@@ -1915,7 +1916,10 @@ $('#longListenResume').onclick=()=>{if(!longListenController.resume())toast('Din
 $('#longListenExport').onclick=()=>{
   const transcript=longListenController.transcript();
   if(!transcript){toast('İndirilecek konuşma metni yok.');return;}
-  const file=new Blob([transcript],{type:'text/plain;charset=utf-8'});
+  const note=longListenController.omitted()
+    ?'[Not: Bellek sınırı aşıldı. Bazı eski orta bölümler çıkarıldı. İndirilen metin eksik olabilir.]\n\n'
+    :'';
+  const file=new Blob([note,transcript],{type:'text/plain;charset=utf-8'});
   const objectUrl=URL.createObjectURL(file);
   const link=document.createElement('a');
   link.href=objectUrl;
