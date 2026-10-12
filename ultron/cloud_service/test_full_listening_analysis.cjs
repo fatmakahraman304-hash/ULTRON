@@ -84,3 +84,31 @@ test('invalid response and abandoned local analysis produce no false success',as
   assert.equal(worker.clear(),true);
   assert.equal(worker.checkpoint(),null);
 });
+
+test('user can stop lengthy analysis without sending remaining chunks',async()=>{
+  const text='konuşma '.repeat(7000);
+  let release,requests=[];
+  const first=new Promise(resolve=>{release=resolve;});
+  const worker=analysis.create({
+    async request(payload){requests.push(payload);if(requests.length===1)await first;return {stage:payload.stage,analysis:'not'};}
+  });
+  const promise=worker.run(text);
+  assert.equal(worker.active(),true);
+  assert.equal(worker.clear(),false);
+  assert.equal(worker.stop(),true);
+  release();
+  await assert.rejects(promise,/kullanıcı tarafından durduruldu/);
+  assert.equal(worker.active(),false);
+  assert.equal(requests.length,1);
+  assert.equal(worker.checkpoint().mapped,0);
+  const resumed=await worker.run(text);
+  assert.equal(resumed.chunksAnalyzed,analysis.split(text).length);
+  assert.equal(worker.clear(),true);
+});
+test('UI exposes manual memory save, stopped analysis and readonly authenticated endpoint',()=>{
+  const fs=require('node:fs');
+  const html=fs.readFileSync(__dirname+'/static/index.html','utf8');
+  for(const needle of ['longListenStopAnalysis','longListenSaveMemory','ULTRONListeningAnalysis.create',
+                       "/api/listening-analysis", "window.confirm(", "category:'NOTE'",
+                       "longListenAnalyzer.run(meta.transcript)"])assert.ok(html.includes(needle),needle);
+});
