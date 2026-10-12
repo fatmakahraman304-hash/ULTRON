@@ -8,13 +8,15 @@ function harness(available=true){
   const sent=[];
   const document={hidden:false, events:{}, addEventListener(name,fn){this.events[name]=fn;}};
   class Recognition {
-    constructor(){recognizer=this;this.started=false;this.stopped=false;}
+    constructor(){recognizer=this;this.started=false;this.stopped=false;this.results=[];}
     start(){this.started=true;}
     stop(){this.stopped=true;}
     deliver(text,final=true){
       const record=[{transcript:text}];
       record.isFinal=final;
-      this.onresult({resultIndex:0,results:[record]});
+      const index=this.results.length;
+      this.results.push(record);
+      this.onresult({resultIndex:index,results:this.results});
     }
   }
   const ctrl=moduleUnderTest.create({
