@@ -737,7 +737,7 @@ const longListenController=window.ULTRONLongListen.create({
         toast('Bir mesaj veya dosya bekliyor. Sesli oturum metni korundu.');
         return;
       }
-      if(meta?.transcript?.length>2350){
+      if(meta?.transcript?.length>2350||$('#longListenProvider').value==='local'){
         try{
           // Provider stays fixed across a failed/retried session; do not
           // silently migrate any queued confidential chunk to Gemini.
