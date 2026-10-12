@@ -116,7 +116,7 @@ test('very long transcripts are explicitly labelled excerpts within provider lim
   h.ctrl.finish(true);
   assert.equal(h.sent.length,1);
   assert.ok(h.sent[0].length<3000);
-  assert.match(h.sent[0],/ar[a-d]aki konuşmalar bu isteğe dahil edilmedi/i);
+  assert.match(h.sent[0],/aradaki konuşmalar bu isteğe dahil edilmedi/i);
 });
 test('permission error stops listening and does not send transcript',()=>{
   const h=harness();h.ctrl.start();
