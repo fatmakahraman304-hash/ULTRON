@@ -121,6 +121,11 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
         await self.page.locator("#sendBtn").click()
         await self.page.wait_for_function(
             "!document.querySelector('#longListenPanel').classList.contains('hidden')")
+        # The one-hour command may start dictation immediately. Pause it first
+        # because Qwen diagnostic intentionally cannot share a live recording.
+        if await self.page.evaluate("longListenController.active()"):
+            await self.page.locator("#longListenPause").click()
+            await self.page.wait_for_function("!longListenController.active()")
         await self.page.locator("#longListenProviderWrap summary").click()
 
     async def test_live_qwen_probe_checks_actual_completion_with_only_example_text(self):
