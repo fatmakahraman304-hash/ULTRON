@@ -56,7 +56,7 @@
       // it automatically a second time without the owner's explicit action.
       status='submitting';
       emit('Yanıt bekleniyor • konuşma metni geçici olarak korunuyor.');
-      try{if(opts.onAnswer)opts.onAnswer(prompt);}
+      try{if(opts.onAnswer)opts.onAnswer(prompt,{transcript:text,dropped:dropped});}
       catch(error){failDelivery('Gönderim başlatılamadı. Metin korunuyor.');return false;}
       return true;
     }
