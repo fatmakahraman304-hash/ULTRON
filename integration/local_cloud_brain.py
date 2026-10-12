@@ -344,6 +344,7 @@ def local_listening_analysis(prompt: str, system: str, stage: str) -> dict:
     request = {
         "model": selected,
         "stream": False,
+        "think": False,
         "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": prompt}],
         "options": {"num_ctx": 8192, "num_predict": budgets[stage],
@@ -352,7 +353,7 @@ def local_listening_analysis(prompt: str, system: str, stage: str) -> dict:
     result = _get_json("/api/chat", request, timeout=150)
     if result.get("model") != selected:
         raise LocalBrainUnavailable("Yerel analiz beklenmeyen Qwen modeli döndürdü.")
-    if result.get("done") is False or result.get("done_reason") == "length":
+    if result.get("done") is not True or result.get("done_reason") == "length":
         raise LocalBrainUnavailable("Qwen analizi tamamlanmadan kesildi.")
     message = result.get("message")
     if not isinstance(message, dict) or not isinstance(message.get("content"), str):
