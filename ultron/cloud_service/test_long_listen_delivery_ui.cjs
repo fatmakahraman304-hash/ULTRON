@@ -16,6 +16,7 @@ function makeUI({message='Sesli oturumdan önemli talimat',fail=false,voiceError
     console,chatSending:false,chatSendVersion:0,
     pendingImage:null,pendingPdf:null,voiceEnabled:true,
     document:{hidden:false},conversationId:'thread-test',
+    longListenController:{hasSession:()=>false,active:()=>false},
     knownMessageIds:new Set(),messageSignature:'',brainMode:'gemini',brainLastCheck:0,
     localStorage:{setItem(){}},voiceTurnGuard:{cancel(){},current:()=>true},
     $:selector=>selector==='#message'?box:selector==='#busy'?busy:selector==='#sendBtn'?button:undefined,
