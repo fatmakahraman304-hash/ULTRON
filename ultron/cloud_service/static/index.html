@@ -2011,6 +2011,18 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(longListenController.active()){
       toast('ULTRON dinliyor; bitirmek için “Cevap ver” veya “İptal” kullan.');return;
     }
+    // Explicit connection check uses synthetic text only, never speech input.
+    // Guard any paused or pending recording so the probe cannot erase notes.
+    if(!options.forceChat&&window.ULTRONLocalListeningProbe.isRequest(text)){
+      if(longListenController.hasSession()||longListenAnalyzer.active()){
+        toast('Önce açık dinleme oturumunu tamamla veya iptal et.');return false;
+      }
+      $('#message').value='';clearDraft();addMessage('user',text);
+      showLongListenTap();
+      $('#longListenProviderWrap').open=true;
+      $('#longListenQwenProbe').click();
+      return true;
+    }
     $('#message').value='';clearDraft();
     rememberPendingVoice('user',text,180000);userBubble=addMessage('user',text);
     // Scene intents are deliberate interactions; never reinterpret an owner-approved
