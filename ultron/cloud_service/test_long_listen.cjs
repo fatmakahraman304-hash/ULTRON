@@ -60,7 +60,10 @@ test('one hour receives transcript locally, answers only after spoken command',(
   assert.doesNotMatch(h.ctrl.transcript(),/tamamlanmadı/);
   h.rec.deliver('Şimdi cevap ver');
   assert.equal(h.rec.stopped,true);
-  assert.equal(h.ctrl.state(),'ready');
+  assert.equal(h.ctrl.state(),'submitted');
+  assert.equal(h.sent.length,1);
+  assert.equal(h.ctrl.transcript(),'');
+  assert.equal(h.ctrl.finish(true),false);
   assert.equal(h.sent.length,1);
   assert.match(h.sent[0],/mimarlık çizimimi/);
   assert.doesNotMatch(h.sent[0],/Şimdi cevap ver/);
