@@ -30,14 +30,16 @@
   }
   function create({request,onProgress=()=>{}}){
     if(typeof request!=='function')throw new Error('Analiz isteği göndericisi gerekli.');
-    let state=null,working=false;
+    let state=null,working=false,stopRequested=false;
     function progress(status,completed,total){
       onProgress({status,completed,total,parts:state?state.parts.length:0});
     }
     async function ask(stage,text,part,total){
+      if(stopRequested)throw new Error('Analiz kullanıcı tarafından durduruldu.');
       const body={stage,text};
       if(stage==='map'){body.part=part;body.total=total;}
       const response=await request(body);
+      if(stopRequested)throw new Error('Analiz kullanıcı tarafından durduruldu.');
       if(!response||response.stage!==stage||typeof response.analysis!=='string'||!response.analysis.trim())
         throw new Error('Analiz sunucusundan doğrulanmamış cevap geldi.');
       if(response.analysis.length>9500)throw new Error('Analiz cevabı beklenenden uzun.');
@@ -49,6 +51,7 @@
         state={text,parts:split(text),mapped:[],phase:'map',round:[],next:[],
           group:0,roundNumber:0,result:null};
       }
+      stopRequested=false;
       working=true;
       try{
         while(true){
@@ -96,8 +99,9 @@
         throw err;
       }finally{working=false;}
     }
-    function clear(){if(working)return false;state=null;return true;}
-    return {run,clear,active:()=>working,checkpoint:()=>state
+    function stop(){if(!working)return false;stopRequested=true;return true;}
+    function clear(){if(working)return false;state=null;stopRequested=false;return true;}
+    return {run,clear,stop,active:()=>working,checkpoint:()=>state
       ?{stage:state.phase,parts:state.parts.length,mapped:state.mapped.length,group:state.group}
       :null};
   }
