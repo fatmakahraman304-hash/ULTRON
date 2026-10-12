@@ -142,6 +142,14 @@ class CloudClient:
             self._local_executor, partial(local_chat, prompt, system, turns),
         )
 
+    async def local_listening_analysis(self, prompt: str, system: str, stage: str) -> dict:
+        """Private no-tools Qwen transcript analysis; never desktop automation."""
+        from integration.local_cloud_brain import local_listening_analysis
+        return await asyncio.get_running_loop().run_in_executor(
+            self._local_executor,
+            partial(local_listening_analysis, prompt, system, stage),
+        )
+
     async def health(self) -> dict[str, Any]:
         if not self.enabled:
             return {"ok": False, "enabled": False, "error": "not configured"}
