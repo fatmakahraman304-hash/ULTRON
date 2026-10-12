@@ -657,9 +657,25 @@ let brainMode='gemini';
 let brainLastCheck=0,brainChecking=null;
 let localVoiceController=null;
 let longListenAwaitingTap=false;
+let longListenWakeLock=null,longListenWakeRequest=false;
+function syncLongListenScreenLock(listening){
+  if(listening&&navigator.wakeLock?.request&&!document.hidden){
+    if(!longListenWakeLock&&!longListenWakeRequest){
+      longListenWakeRequest=true;
+      navigator.wakeLock.request('screen').then(lock=>{
+        if(!longListenController.active()){lock.release().catch(()=>{});return;}
+        longListenWakeLock=lock;
+        lock.addEventListener('release',()=>{if(longListenWakeLock===lock)longListenWakeLock=null;});
+      }).catch(()=>{}).finally(()=>{longListenWakeRequest=false;});
+    }
+  }else if(longListenWakeLock){
+    const lock=longListenWakeLock;longListenWakeLock=null;lock.release().catch(()=>{});
+  }
+}
 const longListenController=window.ULTRONLongListen.create({
   host:window,document:document,
   onState:s=>{
+    syncLongListenScreenLock(s.status==='listening');
     const panel=$('#longListenPanel');if(!panel)return;
     const show=s.status==='listening'||s.status==='ready'||s.status==='interrupted'||longListenAwaitingTap||s.status==='unsupported';
     panel.classList.toggle('hidden',!show);
