@@ -664,6 +664,7 @@ let brainLastCheck=0,brainChecking=null;
 let localVoiceController=null;
 let longListenAwaitingTap=false;
 let longListenAnalysisProvider=null;
+let longListenRequestedChoice=null;
 const localListeningClient=window.ULTRONLocalListening.create({api});
 const longListenAnalyzer=window.ULTRONListeningAnalysis.create({
   request:body=>{
@@ -736,7 +737,7 @@ const longListenController=window.ULTRONLongListen.create({
         try{
           const requested=$('#longListenProvider').value;
           if(longListenAnalysisProvider){
-            const permitted=requested==='auto'||requested===longListenAnalysisProvider;
+            const permitted=requested===longListenRequestedChoice;
             if(!permitted)
               throw Error('Devam eden oturumun analiz modeli değiştirilemez. Önceki modeli seç.');
           }else{
@@ -756,6 +757,8 @@ const longListenController=window.ULTRONLongListen.create({
             }
             // Pin choice only AFTER consent. No automatic fallback mid-session.
             longListenAnalysisProvider=chosen;
+            longListenRequestedChoice=requested;
+            $('#longListenProvider').disabled=true;
             toast(chosen==='local'?'Laptop Qwen analizi onaylandı.':'Gemini Cloud analizi onaylandı.');
           }
           const report=await longListenAnalyzer.run(meta.transcript);
@@ -786,6 +789,7 @@ const longListenController=window.ULTRONLongListen.create({
 function showLongListenTap(){
   $('#longListenProvider').disabled=false;
   longListenAnalysisProvider=null;
+  longListenRequestedChoice=null;
   localListeningClient.clear();
   longListenAnalyzer.clear();
   $('#longListenSaveMemory').disabled=false;
@@ -1940,7 +1944,11 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(pendingPdf){await sendPdf();return}
     if(!fromVoice)voiceTurnGuard.cancel();
     if(window.ULTRONLongListen.isStart(text)){
+      if(longListenAnalyzer.active()||longListenController.state()==='submitting'){
+        toast('Önce devam eden dinleme analizini tamamla veya durdur.');return false;
+      }
       longListenAnalysisProvider=null;
+      longListenRequestedChoice=null;
       $('#longListenProvider').disabled=false;
       localListeningClient.clear();
       longListenAnalyzer.clear();
@@ -2055,7 +2063,7 @@ $('#longListenSaveMemory').onclick=async()=>{
   }catch(err){toast('Hafızaya kaydetme başarısız: '+err.message);button.disabled=false;}
 };
 $('#longListenAnswer').onclick=()=>longListenController.finish(true);
-$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();longListenAnalysisProvider=null;$('#longListenProvider').disabled=false;localListeningClient.clear();longListenAnalyzer.clear();$('#longListenSaveMemory').disabled=false;$('#longListenSaveMemory').textContent='Özeti hafızaya kaydet';$('#longListenReport').textContent='';$('#longListenReportWrap').classList.add('hidden');$('#longListenPanel').classList.add('hidden');};
+$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();longListenAnalysisProvider=null;longListenRequestedChoice=null;$('#longListenProvider').disabled=false;localListeningClient.clear();longListenAnalyzer.clear();$('#longListenSaveMemory').disabled=false;$('#longListenSaveMemory').textContent='Özeti hafızaya kaydet';$('#longListenReport').textContent='';$('#longListenReportWrap').classList.add('hidden');$('#longListenPanel').classList.add('hidden');};
 $('#voiceBtn').onclick=async()=>{
  if(longListenController.active()){toast('Uzun dinleme açık. “Cevap ver” dediğinde yanıtlayacağım.');return;}
  if(liveDesired||voiceListening){await stopLiveVoice();return}
