@@ -26,6 +26,7 @@ from local_brain_bridge import register_local_brain_routes, save_pending_local_r
 from conversation_persona import build_system_instruction
 from personal_context_focus import load_focused_owner_context
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
+from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
 from response_quality import finalize_response
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
@@ -1242,6 +1243,46 @@ async def camera_frame(request: web.Request) -> web.Response:
     return web.json_response({"ok": True, "reply": reply})
 
 
+async def listening_analysis_api(request: web.Request) -> web.Response:
+    """Authenticated, stateless and read-only chunk analysis.
+
+    Unlike /api/chat, intermediate chunks never enter messages, memories,
+    events, command queues or owner-learning pipelines. No tool execution.
+    The user must explicitly request the final reply from the phone UI.
+    """
+    if request.get("auth_kind") != "web":
+        raise web.HTTPForbidden(text='{"error":"web_session_required"}',
+                                content_type="application/json")
+    try:
+        body = await request.json()
+        stage, prompt, cap = build_request(body)
+    except (ValueError, TypeError, ListeningPayloadError):
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "invalid_listening_analysis_input"}),
+            content_type="application/json",
+        )
+    try:
+        response = await asyncio.to_thread(_gemini_reply, prompt, (
+            "Read-only listening analysis only. " + ANALYST_SYSTEM
+        ))
+        answer = checked_analysis(response, cap)
+    except ListeningPayloadError:
+        raise web.HTTPBadGateway(
+            text='{"error":"empty_listening_analysis"}',
+            content_type="application/json",
+        )
+    except Exception:
+        # Never print or persist raw transcript or model error containing
+        # owner speech; use a generic short failure message.
+        raise web.HTTPBadGateway(
+            text=json.dumps({"error": "listening_analysis_unavailable",
+                             "detail": "Analiz şu anda tamamlanamadı. Metin telefonda korunuyor."},
+                            ensure_ascii=False),
+            content_type="application/json",
+        )
+    return web.json_response({"stage": stage, "analysis": answer, "saved": False})
+
+
 async def chat(request: web.Request) -> web.Response:
     body = await request.json()
     text = str(body.get("message", "")).strip()
@@ -2269,6 +2310,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/messages", list_messages)
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat", chat)
+    app.router.add_post("/api/listening-analysis", listening_analysis_api)
     app.router.add_post("/api/vision", vision)
     app.router.add_post("/api/document", document)
     app.router.add_post("/api/camera-frame", camera_frame)
