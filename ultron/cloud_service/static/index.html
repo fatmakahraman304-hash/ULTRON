@@ -382,6 +382,11 @@
   @keyframes ultronHoloSpin{0%{transform:rotateX(65deg) rotateY(0deg) rotateZ(0)}100%{transform:rotateX(65deg) rotateY(360deg) rotateZ(360deg)}}
   @media(prefers-reduced-motion:reduce){.mobile-holo-ring{animation:none!important}}
 
+    .long-listen-panel{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px;margin-bottom:8px;border:1px solid rgba(255,50,75,.7);border-radius:14px;background:#17060b;color:#fff;font-size:12px}
+    .long-listen-panel small{display:block;max-width:100%;opacity:.78;font-size:11px}
+    .long-listen-panel .listen-controls{display:flex;gap:6px;flex-wrap:wrap}
+    .long-listen-panel button{min-height:38px;font-size:11px;padding:8px 12px;border-radius:12px}
+    @media(max-width:430px){.composer .voice-btn{display:flex!important;align-items:center;justify-content:center}.long-listen-panel{align-items:flex-start;flex-direction:column}.long-listen-panel .listen-controls{width:100%}}
   </style>
 </head>
 <body>
@@ -414,6 +419,10 @@
     <section id="chatView" class="view active">
       <div id="messages"></div>
       <div class="composer">
+        <div id="longListenPanel" class="long-listen-panel hidden" role="status" aria-live="polite">
+          <div><b id="longListenStatus">1 saat dinleme</b><small id="longListenHint">Mikrofon açıkken konuşma metni yalnız bu sekmede tutulur. Tarayıcı ses tanıma servisi kullanabilir.</small></div>
+          <div class="listen-controls"><button type="button" id="longListenBegin" class="hidden">Başlat</button><button type="button" id="longListenPause" class="secondary hidden">Duraklat</button><button type="button" id="longListenResume" class="secondary hidden">Devam et</button><button type="button" id="longListenExport" class="secondary hidden">Metni indir</button><button type="button" id="longListenAnswer">Cevap ver</button><button type="button" id="longListenCancel" class="secondary">İptal</button></div>
+        </div>
         
         <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON mikrofonu" title="Konuşmak için dokun">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="ULTRON'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
         <input id="imageInput" type="file" accept="image/*" class="hidden" />
@@ -626,6 +635,7 @@
 <script src="/static/mobile-action-guard.js"></script>
 <script src="/static/dev-requests.js"></script>
 <script src="/static/local-voice.js"></script>
+<script src="/static/long-listen.js"></script>
 <script src="/static/voice-turn-guard.js"></script>
 <script src="/static/live-playback.js"></script>
 <script src="/static/speaker-policy.js"></script>
@@ -647,6 +657,67 @@ let voiceEnabled=localStorage.getItem('ultronVoiceEnabled')!=='0';
 let brainMode='gemini';
 let brainLastCheck=0,brainChecking=null;
 let localVoiceController=null;
+let longListenAwaitingTap=false;
+let longListenWakeLock=null,longListenWakeRequest=false;
+function syncLongListenScreenLock(listening){
+  if(listening&&navigator.wakeLock?.request&&!document.hidden){
+    if(!longListenWakeLock&&!longListenWakeRequest){
+      longListenWakeRequest=true;
+      navigator.wakeLock.request('screen').then(lock=>{
+        if(!longListenController.active()){lock.release().catch(()=>{});return;}
+        longListenWakeLock=lock;
+        lock.addEventListener('release',()=>{if(longListenWakeLock===lock)longListenWakeLock=null;});
+      }).catch(()=>{}).finally(()=>{longListenWakeRequest=false;});
+    }
+  }else if(longListenWakeLock){
+    const lock=longListenWakeLock;longListenWakeLock=null;lock.release().catch(()=>{});
+  }
+}
+const longListenController=window.ULTRONLongListen.create({
+  host:window,document:document,
+  onState:s=>{
+    syncLongListenScreenLock(s.status==='listening');
+    const panel=$('#longListenPanel');if(!panel)return;
+    const show=s.status==='listening'||s.status==='ready'||s.status==='interrupted'||longListenAwaitingTap||s.status==='unsupported';
+    panel.classList.toggle('hidden',!show);
+    const mm=Math.floor(s.secondsLeft/60),ss=String(s.secondsLeft%60).padStart(2,'0');
+    $('#longListenStatus').textContent=s.status==='listening'
+      ?'Dinleniyor • '+mm+':'+ss:(longListenAwaitingTap?'1 saat dinlemeyi başlat':s.message||'Dinleme bitti');
+    $('#longListenHint').textContent=s.status==='listening'
+      ?'Geçici metin: '+s.charCount+' karakter'+(s.dropped?' • '+s.dropped+' orta bölüm sınır nedeniyle çıkarıldı':'')+' • ekran açık kalmalı • ses tanıma servisi kullanılabilir'
+      :'iPhone ekranı kilitliyken veya uygulama arka plandayken dinleme sürmez.';
+    $('#longListenBegin').classList.toggle('hidden',!longListenAwaitingTap);
+    $('#longListenPause').classList.toggle('hidden',s.status!=='listening');
+    $('#longListenResume').classList.toggle('hidden',s.status!=='interrupted');
+    $('#longListenExport').classList.toggle('hidden',!s.charCount);
+    $('#longListenAnswer').classList.toggle('hidden',longListenAwaitingTap||s.status==='unsupported');
+    $('#longListenCancel').classList.remove('hidden');
+    if(s.status==='listening')$('#stageVoiceText').textContent='Dinleniyor • '+mm+':'+ss;
+  },
+  onAnswer:prompt=>{
+    longListenAwaitingTap=false;
+    setTimeout(()=>{
+      // A busy network/chat must not silently discard a full-hour transcript.
+      $('#message').value=prompt;
+      if(chatSending){toast('Önceki yanıt tamamlanınca metni Gönder ile ilet.');return;}
+      send(false);
+    },0);
+  }
+});
+function showLongListenTap(){
+  longListenAwaitingTap=true;
+  $('#longListenPanel').classList.remove('hidden');
+  $('#longListenBegin').classList.remove('hidden');
+  $('#longListenStatus').textContent='1 saat dinlemeyi başlat';
+  $('#longListenHint').textContent='Mikrofon izni verip sayfayı açık tutman gerekir. Tarayıcı tanıma servisi kullanabilir.';
+  $('#longListenPause').classList.add('hidden');
+  $('#longListenResume').classList.add('hidden');
+  $('#longListenExport').classList.add('hidden');
+  $('#longListenAnswer').classList.add('hidden');
+  $('#longListenCancel').classList.remove('hidden');
+}
+setInterval(()=>longListenController.tick(),1000);
+
 let liveSocket=null,micStream=null,micContext=null,micSource=null,micProcessor=null,playContext=null,playCursor=0,voiceListening=false,liveSpeaking=false,suppressOutput=false,bargeBlocks=0,lastSpokenReply='';
 let liveDesired=false,liveReconnectTimer=null,liveReconnectAttempts=0,intentionalVoiceStop=false,silentActionTurn=false,remoteResultSpeaking=false,remoteResultWatchdog=null;
 let liveSessionId=localStorage.getItem('ultronLiveSessionId')||'';
@@ -1356,6 +1427,12 @@ async function openLiveSocket(){
       toast('Geliştirme isteği kaydedildi. ChatGPT’ye aktarma onayı gerekiyor.');
     }
     if(d.type==='input_transcript'&&d.text){
+      if(window.ULTRONLongListen.isStart(d.text)&&!longListenController.active()){
+        void stopLiveVoice();
+        showLongListenTap();
+        toast('Uzun dinleme için Başlat’a dokun.');
+        return;
+      }
       const heard=String(d.text);liveStatus('Sen: '+heard.slice(-90),true);
       handlePanelIntent(heard);
       // Streaming Gemini transcripts may be partial. Record development only
@@ -1738,6 +1815,11 @@ localVoiceController=window.ULTRONLocalVoice?.create({
   onError:msg=>{toast(msg);liveStatus(msg,false)},
   onTranscript:async text=>{
     if(brainMode!=='local'||liveDesired||voiceListening)return;
+    if(window.ULTRONLongListen.isStart(text)){
+      localVoiceController?.stop();
+      showLongListenTap();
+      return;
+    }
     // A cancelled user-tapped mic turn must not play a late reply.
     const voiceToken=voiceTurnGuard.begin();
     $('#message').value=text;
@@ -1769,6 +1851,22 @@ async function send(fromVoice=false,voiceToken=null){
     if(pendingImage){await sendImage();return}
     if(pendingPdf){await sendPdf();return}
     if(!fromVoice)voiceTurnGuard.cancel();
+    if(window.ULTRONLongListen.isStart(text)){
+      $('#message').value='';clearDraft();addMessage('user',text);
+      if(fromVoice){showLongListenTap();return;}
+      if(liveDesired||voiceListening)await stopLiveVoice();
+      if(localVoiceController?.active())localVoiceController.stop();
+      longListenAwaitingTap=false;
+      if(!longListenController.start())addMessage('assistant','Bu tarayıcı uzun dinlemeyi başlatamadı. iPhone’da Safari ses tanıma desteği ve mikrofon izni gerekir.');
+      return;
+    }
+    if(longListenController.hasSession()&&window.ULTRONLongListen.isAnswer(text)){
+      $('#message').value='';clearDraft();addMessage('user',text);
+      longListenController.finish(true);return;
+    }
+    if(longListenController.active()){
+      toast('ULTRON dinliyor; bitirmek için “Cevap ver” veya “İptal” kullan.');return;
+    }
     $('#message').value='';clearDraft();
     rememberPendingVoice('user',text,180000);userBubble=addMessage('user',text);
     const panelHandled=handlePanelIntent(text);
@@ -1807,7 +1905,32 @@ async function send(fromVoice=false,voiceToken=null){
 }
 $('#sendBtn').onclick=()=>send(false);
 updateBrainModeUi();
+$('#longListenBegin').onclick=async()=>{
+  longListenAwaitingTap=false;
+  if(liveDesired||voiceListening)await stopLiveVoice();
+  if(localVoiceController?.active())localVoiceController.stop();
+  if(!longListenController.start())toast('Bu iPhone tarayıcısı uzun süreli ses tanımayı başlatamadı.');
+};
+$('#longListenPause').onclick=()=>longListenController.pause();
+$('#longListenResume').onclick=()=>{if(!longListenController.resume())toast('Dinleme yeniden başlatılamadı.');};
+$('#longListenExport').onclick=()=>{
+  const transcript=longListenController.transcript();
+  if(!transcript){toast('İndirilecek konuşma metni yok.');return;}
+  const note=longListenController.omitted()
+    ?'[Not: Bellek sınırı aşıldı. Bazı eski orta bölümler çıkarıldı. İndirilen metin eksik olabilir.]\n\n'
+    :'';
+  const file=new Blob([note,transcript],{type:'text/plain;charset=utf-8'});
+  const objectUrl=URL.createObjectURL(file);
+  const link=document.createElement('a');
+  link.href=objectUrl;
+  link.download='ULTRON-dinleme-'+new Date().toISOString().slice(0,10)+'.txt';
+  document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+};
+$('#longListenAnswer').onclick=()=>longListenController.finish(true);
+$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();$('#longListenPanel').classList.add('hidden');};
 $('#voiceBtn').onclick=async()=>{
+ if(longListenController.active()){toast('Uzun dinleme açık. “Cevap ver” dediğinde yanıtlayacağım.');return;}
  if(liveDesired||voiceListening){await stopLiveVoice();return}
  if(localVoiceController?.active()){
    voiceTurnGuard.cancel();
@@ -2149,7 +2272,7 @@ setInterval(phoneHeartbeat,5000);
 setInterval(watchDesktopPresence,5000);
 setInterval(()=>{if(currentView==='remote')loadRemoteState().catch(()=>{})},3000);
 setInterval(watchLaptopTasks,2500);
-window.addEventListener('pagehide',()=>{voiceTurnGuard.cancel();localVoiceController?.stop();try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
+window.addEventListener('pagehide',()=>{longListenController.interrupt('Sayfa kapandı; uzun dinleme durdu.');voiceTurnGuard.cancel();localVoiceController?.stop();try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
 window.addEventListener('pageshow',()=>{void refreshAutoBrain(true)});
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){voiceTurnGuard.cancel();localVoiceController?.stop();try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}stopPhoneCamera();releaseVoiceWakeLock().catch(()=>{});return}
