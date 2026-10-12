@@ -1,7 +1,9 @@
 /* ULTRON one-hour foreground dictation; no automatic cloud submission. */
 (function(root){
   'use strict';
-  var MAX_MS=60*60*1000, MAX_LOCAL_CHARS=24000;
+  // Keep up to roughly an hour of recognized text in temporary tab memory.
+  // The model request is still capped separately; full notes are exportable.
+  var MAX_MS=60*60*1000, MAX_LOCAL_CHARS=300000;
   var START=/^(?:ultron[, ]*)?(?:(?:1|bir)\s*saat\s*(?:boyunca\s*)?(?:beni\s*)?dinle(?:\s*beni)?|beni\s*(?:1|bir)\s*saat\s*(?:boyunca\s*)?dinle)(?:\s*(?:lütfen|lutfen))?[\s.!?]*$/i;
   var ANSWER=/^(?:ultron[, ]*)?(?:(?:şimdi|artik|artık)\s*)?cevap ver(?:\s*(?:artık|lütfen|lutfen))?[\s.!?]*$/i;
   function clean(s){return String(s||'').trim();}
@@ -107,14 +109,36 @@
       beginEngine(token);
       return status==='listening';
     }
+    function resume(){
+      if(status!=='interrupted')return false;
+      if(doc&&doc.hidden){emit('Devam etmek için uygulamayı ön plana getir.');return false;}
+      if(Clock()>=deadline){finish(false);return false;}
+      clearTimers();stopEngine();generation++;failures=0;
+      var token=generation;
+      status='listening';
+      deadlineTimer=setLater(function(){if(token===generation)finish(false);},Math.max(0,deadline-Clock()));
+      emit('Dinleme yeniden başladı. Kalan süre ilk başlangıçtan hesaplanır.');
+      beginEngine(token);
+      return status==='listening';
+    }
+    function pause(){
+      if(status!=='listening')return false;
+      interrupt('Dinleme duraklatıldı. Devam et veya Cevap ver seç.');
+      return true;
+    }
     function cancel(){clearTimers();generation++;stopEngine();status='idle';noteChunks=[];noteSize=0;dropped=0;deadline=0;emit('Dinleme iptal edildi; konuşma metni silindi.');}
-    function tick(){if(status==='listening'){if(Clock()>=deadline)finish(false);else emit('Dinleniyor.');}}
+    function tick(){
+      if(status==='listening'||status==='interrupted'){
+        if(Clock()>=deadline)finish(false);
+        else if(status==='listening')emit('Dinleniyor.');
+      }
+    }
     if(doc&&doc.addEventListener){
       doc.addEventListener('visibilitychange',function(){
         if(doc.hidden)interrupt('Ekran kapandı veya uygulama arka plana geçti; dinleme durdu.');
       });
     }
-    return {start:start,finish:finish,cancel:cancel,interrupt:interrupt,tick:tick,
+    return {start:start,resume:resume,pause:pause,finish:finish,cancel:cancel,interrupt:interrupt,tick:tick,
       active:function(){return status==='listening';},
       hasSession:function(){return status==='listening'||status==='ready'||status==='interrupted';},
       state:function(){return status;},supported:function(){return !!Constructor;},
