@@ -836,6 +836,11 @@ async def recent_device_commands(request: web.Request) -> web.Response:
                 item[key] = value if isinstance(value, list) else []
             else:
                 item[key] = value if isinstance(value, dict) else {}
+        # Read-only owner task dashboards never need the raw hourly speech.
+        # Worker claim APIs still carry it only while the job is running.
+        if item.get("payload", {}).get("mode") == "local_listening_analysis":
+            item["payload"] = {key: value for key, value in item["payload"].items()
+                               if key not in ("text", "system")}
         items.append(item)
     return web.json_response({"commands": items}, dumps=_json_dumps)
 
