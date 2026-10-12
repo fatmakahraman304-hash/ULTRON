@@ -60,13 +60,22 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
             viewport={"width":390,"height":844},service_workers="block")
         await self.context.add_init_script(script=MIC_STUB)
         self.api_calls=[]
+        self.worker_ready=False
         async def api(route):
             request=route.request
             path=request.url.split("/api/",1)[-1].split("?",1)[0]
             body=request.post_data_json if request.method=="POST" else None
             self.api_calls.append((path,body))
             if path=="device-presence":
-                value={"devices":[]}
+                value={"devices":[{"device":"desktop","online":True,
+                    "state":{"local_listening_analysis_ready":True}}]
+                    if self.worker_ready else []}
+            elif path=="local-listening-analysis" and request.method=="POST":
+                value={"id":501,"status":"queued","provider":"local-ollama"}
+            elif path=="local-listening-analysis/501":
+                value={"status":"completed","stage":"map",
+                       "analysis":"Bu test gerçek kullanıcı konuşması içermiyor.",
+                       "model":"qwen3:4b","provider":"local-ollama"}
             elif path=="listening-analysis":
                 value={"stage":body["stage"],
                        "analysis": "Not: iş uygulanmadı" if body["stage"]=="map" else "Özet: tasarım kararı. Hiçbir işlem uygulanmadı.",
@@ -106,6 +115,39 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([x for x in self.api_calls if x[0]=="listening-analysis"],[])
         self.assertEqual(await self.page.locator("#longListenStatus").count(),1)
         return text
+
+    async def show_probe(self):
+        await self.page.locator("#message").fill("1 saat dinle beni")
+        await self.page.locator("#sendBtn").click()
+        await self.page.wait_for_function(
+            "!document.querySelector('#longListenPanel').classList.contains('hidden')")
+        await self.page.locator("#longListenProviderWrap summary").click()
+
+    async def test_live_qwen_probe_checks_actual_completion_with_only_example_text(self):
+        self.worker_ready=True
+        await self.show_probe()
+        await self.page.locator("#longListenQwenProbe").click()
+        await self.page.wait_for_function(
+            "document.querySelector('#longListenQwenProbeStatus').textContent.includes('Gerçek Qwen yanıtı alındı')")
+        post=[body for path,body in self.api_calls
+              if path=="local-listening-analysis" and body is not None]
+        self.assertEqual(len(post),1)
+        self.assertEqual(post[0]["stage"],"map")
+        self.assertEqual(post[0]["part"],1)
+        self.assertIn("sentetik bir not",post[0]["text"])
+        self.assertNotIn("mimarlık projesi",post[0]["text"])
+        self.assertEqual([x for x in self.api_calls if x[0]=="listening-analysis"],[])
+        self.assertIn("qwen3:4b",await self.page.locator("#longListenQwenProbeStatus").inner_text())
+        self.assertEqual(self.errors,[])
+
+    async def test_live_qwen_probe_refuses_offline_worker_without_any_analysis_upload(self):
+        await self.show_probe()
+        await self.page.locator("#longListenQwenProbe").click()
+        await self.page.wait_for_function(
+            "document.querySelector('#longListenQwenProbeStatus').textContent.includes('Laptop ULTRON çevrimiçi değil')")
+        self.assertFalse(any(path.startswith("local-listening-analysis")
+                             or path=="listening-analysis" for path,_ in self.api_calls))
+        self.assertEqual(self.errors,[])
 
     async def test_explicit_consent_before_gemini_upload_and_preserve_scene(self):
         await self.arm_and_emit()
