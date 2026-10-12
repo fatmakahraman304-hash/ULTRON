@@ -109,6 +109,7 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_explicit_consent_before_gemini_upload_and_preserve_scene(self):
         await self.arm_and_emit()
+        await self.page.locator("#longListenProviderWrap summary").click()
         await self.page.locator("#longListenProvider").select_option("gemini")
         await self.page.locator("#longListenAnswer").click()
         await self.page.wait_for_function("longListenController.state()==='submitted'")
@@ -124,6 +125,7 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_denied_consent_never_uploads_and_keeps_transcript(self):
         text=await self.arm_and_emit()
+        await self.page.locator("#longListenProviderWrap summary").click()
         await self.page.locator("#longListenProvider").select_option("gemini")
         await self.page.evaluate("window.__testApproved=false")
         await self.page.locator("#longListenAnswer").click()
@@ -135,6 +137,7 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_local_only_never_leaks_to_gemini_when_worker_unavailable(self):
         text=await self.arm_and_emit()
+        await self.page.locator("#longListenProviderWrap summary").click()
         await self.page.locator("#longListenProvider").select_option("local")
         await self.page.locator("#longListenAnswer").click()
         await self.page.wait_for_function("longListenController.state()==='ready'")
