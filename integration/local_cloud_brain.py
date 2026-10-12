@@ -317,3 +317,47 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
             "Yerel model yalnızca tamamlanmamış düşünme metni döndürdü."
         )
     return {"reply":finalize_response(answer[:12000], prompt=text),"model":choice.model,"provider":"local-ollama"}
+
+def local_listening_analysis(prompt: str, system: str, stage: str) -> dict:
+    """Read-only Qwen summarization on the paired Windows computer.
+
+    Caller-supplied speech is only untrusted text. This method cannot run
+    tools, call cloud APIs, write files, or update memory.
+    """
+    if stage not in ("map", "reduce", "final"):
+        raise ValueError("invalid_local_analysis_stage")
+    if not isinstance(prompt, str) or not 1 <= len(prompt) <= 14500:
+        raise ValueError("invalid_local_analysis_length")
+    if not isinstance(system, str) or not 1 <= len(system) <= 2100:
+        raise ValueError("invalid_local_analysis_system")
+    installed = [name for name in installed_models() if is_qwen_model(name)]
+    if not installed:
+        raise LocalBrainUnavailable("Yerel analiz için kurulu Qwen modeli yok.")
+    settings = json.loads(_SETTINGS.read_text(encoding="utf-8"))["llm"]
+    preferred = str(settings.get("model") or "qwen3:4b")
+    selected = preferred if preferred in installed else (
+        next((m for m in installed if m.startswith("qwen3:8b")), installed[0])
+    )
+    # Larger context than casual chat: 12k chars can be ~5k tokens.
+    # This is bounded for consumer laptops, not a guarantee of speed.
+    budgets = {"map": 700, "reduce": 750, "final": 1200}
+    request = {
+        "model": selected,
+        "stream": False,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": prompt}],
+        "options": {"num_ctx": 8192, "num_predict": budgets[stage],
+                    "temperature": 0.25, "top_p": 0.85},
+    }
+    result = _get_json("/api/chat", request, timeout=150)
+    if result.get("model") not in (None, selected):
+        raise LocalBrainUnavailable("Yerel analiz beklenmeyen Qwen modeli döndürdü.")
+    if result.get("done") is False or result.get("done_reason") == "length":
+        raise LocalBrainUnavailable("Qwen analizi tamamlanmadan kesildi.")
+    message = result.get("message")
+    if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+        raise LocalBrainUnavailable("Qwen analiz çıktısı geçersiz.")
+    answer = strip_qwen_thinking(message["content"])
+    if not answer:
+        raise LocalBrainUnavailable("Qwen tamamlanmış analiz metni döndürmedi.")
+    return {"analysis": answer[:9500], "model": selected, "provider": "local-ollama"}
