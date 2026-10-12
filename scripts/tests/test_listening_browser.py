@@ -117,21 +117,17 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
         return text
 
     async def show_probe(self):
-        await self.page.locator("#message").fill("1 saat dinle beni")
+        # Direct owner command opens diagnostics WITHOUT opening the microphone.
+        await self.page.locator("#message").fill("Qwen bağlantısını test et")
         await self.page.locator("#sendBtn").click()
         await self.page.wait_for_function(
             "!document.querySelector('#longListenPanel').classList.contains('hidden')")
-        # The one-hour command may start dictation immediately. Pause it first
-        # because Qwen diagnostic intentionally cannot share a live recording.
-        if await self.page.evaluate("longListenController.active()"):
-            await self.page.locator("#longListenPause").click()
-            await self.page.wait_for_function("!longListenController.active()")
-        await self.page.locator("#longListenProviderWrap summary").click()
+        self.assertEqual(await self.page.evaluate("longListenController.state()"),"idle")
+        self.assertIsNone(await self.page.evaluate("window.__testSpeech.instance"))
 
     async def test_live_qwen_probe_checks_actual_completion_with_only_example_text(self):
         self.worker_ready=True
         await self.show_probe()
-        await self.page.locator("#longListenQwenProbe").click()
         await self.page.wait_for_function(
             "document.querySelector('#longListenQwenProbeStatus').textContent.includes('Gerçek Qwen yanıtı alındı')")
         post=[body for path,body in self.api_calls
@@ -147,7 +143,6 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_live_qwen_probe_refuses_offline_worker_without_any_analysis_upload(self):
         await self.show_probe()
-        await self.page.locator("#longListenQwenProbe").click()
         await self.page.wait_for_function(
             "document.querySelector('#longListenQwenProbeStatus').textContent.includes('Laptop ULTRON çevrimiçi değil')")
         self.assertFalse(any(path.startswith("local-listening-analysis")
