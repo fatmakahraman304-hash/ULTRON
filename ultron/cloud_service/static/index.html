@@ -691,7 +691,9 @@ const longListenController=window.ULTRONLongListen.create({
     $('#longListenResume').classList.toggle('hidden',s.status!=='interrupted');
     $('#longListenExport').classList.toggle('hidden',!s.charCount);
     $('#longListenAnswer').classList.toggle('hidden',longListenAwaitingTap||s.status==='unsupported'||s.status==='submitting');
-    $('#longListenCancel').classList.remove('hidden');
+    // Clearing a recording cannot undo an already-running HTTP request.
+    // Disable the misleading "Cancel" affordance while delivery is pending.
+    $('#longListenCancel').classList.toggle('hidden',s.status==='submitting');
     if(s.status==='listening')$('#stageVoiceText').textContent='Dinleniyor • '+mm+':'+ss;
   },
   onAnswer:prompt=>{
@@ -1904,7 +1906,11 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
     messageSignature='';
     if((!fromVoice||voiceTurnGuard.current(voiceToken))&&
-       (!fromVoice||!document.hidden)&&(fromVoice||voiceEnabled))speakUltron(d.reply);
+       (!fromVoice||!document.hidden)&&(fromVoice||voiceEnabled)){
+      // Voice playback is optional; a speaker exception cannot retroactively
+      // turn a successfully delivered chat reply into a failed submission.
+      try{speakUltron(d.reply)}catch(e){console.warn('Voice playback skipped');}
+    }
     return true;
   }catch(e){
     const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir; sohbeti yenileyerek kontrol et.':(e.data?.detail||e.message);
