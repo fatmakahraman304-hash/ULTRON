@@ -113,5 +113,86 @@ class FakeOllamaConfigTests(unittest.TestCase):
                 worker.local_listening_analysis("söz", "Trusted system rules.")
 
 
+class FakeRequest:
+    def __init__(self, pool, ident=24, auth="web"):
+        self.app = {"db": pool}
+        self.match_info = {"id": str(ident)}
+        self.auth_kind = auth
+        self.user_id = "owner-1"
+
+    def get(self, name, default=None):
+        return self.auth_kind if name == "auth_kind" else default
+
+    def __getitem__(self, name):
+        if name == "user_id":
+            return self.user_id
+        raise KeyError(name)
+
+
+class FakeFinishedQueue:
+    def __init__(self, data):
+        self.data = data
+        self.calls = []
+
+    async def fetchrow(self, sql, *args):
+        self.calls.append(("read", sql, args))
+        return self.data
+
+    async def execute(self, sql, *args):
+        self.calls.append(("scrub", sql, args))
+        return "UPDATE 1"
+
+
+class LocalAnalysisReplyIsolationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_completed_reply_is_owner_scoped_and_chunk_scrubbed(self):
+        import json
+        from local_listening_bridge import get_local_listening
+        row = {
+            "status": "completed",
+            "payload": {"mode": "local_listening_analysis", "stage": "map",
+                        "text": "privately spoken words"},
+            "result": {"assistant_reply": "Konuşma hakkında analiz",
+                       "provider": "local-ollama", "model": "qwen3:4b"},
+        }
+        db = FakeFinishedQueue(row)
+        response = await get_local_listening(FakeRequest(db))
+        output = json.loads(response.text)
+        self.assertEqual(output["status"], "completed")
+        self.assertEqual(output["stage"], "map")
+        self.assertEqual(output["provider"], "local-ollama")
+        self.assertNotIn("privately spoken words", response.text)
+        self.assertEqual(len(db.calls), 2)
+        read, read_sql, read_args = db.calls[0]
+        self.assertEqual(read, "read")
+        self.assertIn("id=$1 AND user_id=$2", read_sql)
+        self.assertIn("payload->>'mode'='local_listening_analysis'", read_sql)
+        self.assertEqual(read_args, (24, "owner-1"))
+        scrub, scrub_sql, scrub_args = db.calls[1]
+        self.assertEqual(scrub, "scrub")
+        self.assertIn("payload=payload-'text'-'system'", scrub_sql)
+        self.assertEqual(scrub_args, (24, "owner-1"))
+
+    async def test_failed_analysis_is_not_reported_as_success(self):
+        import json
+        from local_listening_bridge import get_local_listening
+        row = {"status": "failed", "payload": {"stage": "reduce"},
+               "result": {"assistant_reply": "fake", "provider": "local-ollama",
+                          "model": "qwen3:4b"}}
+        db = FakeFinishedQueue(row)
+        response = await get_local_listening(FakeRequest(db))
+        output = json.loads(response.text)
+        self.assertEqual(output["status"], "failed")
+        self.assertEqual(len(db.calls), 2)
+        self.assertNotIn("fake", response.text)
+
+    async def test_other_auth_types_denied_before_database_query(self):
+        from aiohttp import web
+        from local_listening_bridge import get_local_listening
+        db = FakeFinishedQueue(None)
+        with self.assertRaises(web.HTTPForbidden):
+            await get_local_listening(FakeRequest(db, auth="device"))
+        self.assertEqual(db.calls, [])
+
+
 if __name__ == "__main__":
     unittest.main()
