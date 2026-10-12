@@ -29,6 +29,11 @@ function harness(available=true){
   return {ctrl,document,state,sent,timers,
     get rec(){return recognizer;},
     advance(ms){clock+=ms;},
+    runDelay(delay){
+      const found=[...timers.entries()].find(([,entry])=>entry.ms===delay);
+      if(!found)throw Error('Timer '+delay+' missing');
+      timers.delete(found[0]);found[1].fn();
+    },
     runTimers(){
       const scheduled=[...timers.entries()];
       scheduled.forEach(([id,entry])=>{if(timers.has(id)){timers.delete(id);entry.fn();}});
@@ -122,5 +127,41 @@ test('permission error stops listening and does not send transcript',()=>{
   const h=harness();h.ctrl.start();
   h.rec.onerror({error:'not-allowed'});
   assert.equal(h.ctrl.state(),'interrupted');
+  assert.equal(h.sent.length,0);
+});
+
+test('speech service auto-end restarts within session and keeps earlier notes',()=>{
+  const h=harness();
+  h.ctrl.start();
+  h.rec.deliver('Önce planı konuşacağız');
+  const first=h.rec;
+  first.onend();
+  assert.ok([...h.timers.values()].some(t=>t.ms===600));
+  h.runDelay(600);
+  assert.notEqual(h.rec,first);
+  assert.equal(h.rec.started,true);
+  h.rec.deliver('Sonra maliyetleri');
+  h.rec.deliver('Cevap ver');
+  assert.equal(h.sent.length,1);
+  assert.match(h.sent[0],/Önce planı konuşacağız/);
+  assert.match(h.sent[0],/Sonra maliyetleri/);
+});
+test('repeated service resets without recognized speech stop rather than looping forever',()=>{
+  const h=harness();
+  h.ctrl.start();
+  for(let i=0;i<9;i++){
+    h.rec.onend();
+    if(i<8)h.runDelay(600);
+  }
+  assert.equal(h.ctrl.state(),'interrupted');
+  assert.equal(h.sent.length,0);
+});
+test('spoken cancel command erases transcript and does not contact assistant',()=>{
+  const h=harness();
+  h.ctrl.start();
+  h.rec.deliver('Kaydedilmiş bilgi');
+  h.rec.deliver('Dinlemeyi durdur');
+  assert.equal(h.ctrl.state(),'idle');
+  assert.equal(h.ctrl.transcript(),'');
   assert.equal(h.sent.length,0);
 });
