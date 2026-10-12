@@ -9,7 +9,7 @@
   function isRequest(text){
     if(typeof text!=='string')return false;
     const normalized=text.trim().toLocaleLowerCase('tr-TR').replace(/\s+/g,' ');
-    return /^(?:ultron[,! ]+)?qwen(?:'in)? bağlantısını test et(?:er misin)?[.!?]*$/.test(normalized);
+    return /^(?:ultron[,! ]+)?qwen(?:'in)? bağlantısını test (?:et|eder misin)[.!?]*$/.test(normalized);
   }
   function create({presence,request,id=()=>crypto.randomUUID(),now=()=>Date.now(),onStatus=()=>{}}){
     if(typeof presence!=='function'||typeof request!=='function')
