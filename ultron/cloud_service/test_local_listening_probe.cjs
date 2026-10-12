@@ -111,3 +111,17 @@ test('mobile UI includes probe without a permanent main-screen navigation button
   assert.ok(html.slice(start,end).includes('id="longListenQwenProbe"'));
   assert.ok(html.includes('id="sceneCanvas"')); // production 3D intact
 });
+
+test('explicit Turkish request opens the synthetic Qwen diagnostic, not general chat',()=>{
+  for(const phrase of ['Qwen bağlantısını test et','ULTRON, Qwen bağlantısını test et!',
+    'qwen bağlantısını test eder misin?'])
+    assert.equal(probe.isRequest(phrase),true,phrase);
+  for(const phrase of ['Qwen bağlantısını test etme','Qwen bağlantısı nasıl?',
+    'Qwen bağlantısını test etmek için yöntem anlat','Gemini bağlantısını test et',
+    '","qwen bağlantısını test et"',null,''])
+    assert.equal(probe.isRequest(phrase),false,String(phrase));
+  const html=fs.readFileSync(__dirname+'/static/index.html','utf8');
+  assert.match(html,/!options\.forceChat&&window\.ULTRONLocalListeningProbe\.isRequest\(text\)/);
+  assert.ok(html.includes("if(longListenController.hasSession()||longListenAnalyzer.active())"));
+  assert.ok(html.includes("$('#longListenQwenProbe').click()"));
+});
