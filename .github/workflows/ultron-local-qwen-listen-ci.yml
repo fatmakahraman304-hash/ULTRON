@@ -1,0 +1,60 @@
+name: ULTRON Local Qwen Listening Analysis
+
+on:
+  push:
+    branches:
+      - feat/ultron-local-qwen-long-listening-20261012
+  pull_request:
+    branches:
+      - feat/ultron-full-session-map-reduce-20261012
+    paths:
+      - 'integration/local_cloud_brain.py'
+      - 'ultron/backend/cloud_client.py'
+      - 'mark_app.py'
+      - 'ultron/cloud_service/**'
+      - '.github/workflows/ultron-local-qwen-listen-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  qwen-listening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install lightweight endpoint test dependency
+        run: python -m pip install 'aiohttp>=3.10,<4'
+      - name: Static syntax and UI registration
+        run: |
+          python -m py_compile \
+            integration/local_cloud_brain.py \
+            ultron/backend/cloud_client.py \
+            mark_app.py \
+            ultron/cloud_service/app.py \
+            ultron/cloud_service/local_listening_bridge.py \
+            ultron/cloud_service/test_local_listening_bridge.py \
+            ultron/cloud_service/test_local_listening_qwen.py
+          node --check ultron/cloud_service/static/local-listening.js
+          node -e "const fs=require('node:fs'),vm=require('node:vm');const h=fs.readFileSync('ultron/cloud_service/static/index.html','utf8');const m=h.match(/<script>([\\s\\S]*?)<\\/script>/);if(!m)throw Error('inline JS missing');new vm.Script(m[1]);if(!h.includes('/static/local-listening.js'))throw Error('Qwen client not loaded')"
+      - name: Read-only Qwen queue and worker tests
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m unittest -q \
+            ultron.cloud_service.test_local_listening_bridge \
+            ultron.cloud_service.test_local_listening_qwen \
+            ultron.cloud_service.test_full_listening_analysis
+      - name: Full local / Gemini mobile analysis regression
+        run: |
+          node --test \
+            ultron/cloud_service/test_local_listening_transport.cjs \
+            ultron/cloud_service/test_full_listening_analysis.cjs \
+            ultron/cloud_service/test_long_listen.cjs \
+            ultron/cloud_service/test_long_listen_delivery_ui.cjs
