@@ -85,3 +85,21 @@ jobs:
             ultron/cloud_service/test_full_listening_analysis.cjs \
             ultron/cloud_service/test_long_listen.cjs \
             ultron/cloud_service/test_long_listen_delivery_ui.cjs
+      - name: Build real production 3D browser assets
+        working-directory: ultron/frontend
+        run: |
+          npm ci
+          npm run build
+      - name: Verify generated WebGL bundles keep production 3D scene
+        run: |
+          node scripts/build_scene_browser.mjs
+          git diff --exit-code -- ultron/cloud_service/static/scene-control.js ultron/cloud_service/static/scene-intents.js
+      - name: Install real Chromium browser driver for mobile viewport testing
+        run: |
+          python -m pip install 'playwright>=1.50,<2'
+          python -m playwright install --with-deps chromium
+      - name: Actual mobile page: synthetic mic, explicit consent and 3D scene
+        run: |
+          python scripts/tests/test_listening_browser.py
+          python scripts/tests/test_scene_browser.py
+
