@@ -1,0 +1,48 @@
+name: ULTRON Full Listening Analysis
+
+on:
+  push:
+    branches:
+      - feat/ultron-full-session-map-reduce-20261012
+  pull_request:
+    branches:
+      - feat/mobile-long-listen-delivery-recovery-20261012
+    paths:
+      - 'ultron/cloud_service/listening_analysis.py'
+      - 'ultron/cloud_service/app.py'
+      - 'ultron/cloud_service/static/**'
+      - 'ultron/cloud_service/test_full_listening_analysis.*'
+      - 'ultron/cloud_service/test_long_listen*'
+      - '.github/workflows/ultron-full-listen-analysis-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  full-listening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate all modified Python and JavaScript
+        run: |
+          python -m py_compile ultron/cloud_service/app.py ultron/cloud_service/listening_analysis.py
+          node --check ultron/cloud_service/static/listening-analysis.js
+          node --check ultron/cloud_service/static/long-listen.js
+          node --check ultron/cloud_service/test_full_listening_analysis.cjs
+          node -e "const fs=require('node:fs'),vm=require('node:vm');const h=fs.readFileSync('ultron/cloud_service/static/index.html','utf8');const s=h.match(/<script>([\\s\\S]*?)<\\/script>/);if(!s)throw Error('inline script not found');new vm.Script(s[1]);if(!h.includes('/static/listening-analysis.js'))throw Error('analysis client not loaded');"
+      - name: Test fully bounded analysis and legacy voice
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m unittest -q ultron.cloud_service.test_full_listening_analysis
+          node --test \
+            ultron/cloud_service/test_long_listen.cjs \
+            ultron/cloud_service/test_long_listen_delivery_ui.cjs \
+            ultron/cloud_service/test_full_listening_analysis.cjs

@@ -24,7 +24,8 @@ test("ordinary chat remains chat and never launches tools or panels",()=>{
 });
 test("mobile routes typed messages and Live voice transcripts into same UI dispatcher",()=>{
   assert.match(html,/handlePanelIntent\(heard\)/);
-  assert.match(html,/const panelHandled=handlePanelIntent\(text\)/);
+  assert.match(html,/const panelHandled=!options\.forceChat&&handlePanelIntent\(text\)/);
+  assert.match(html,/if\(!options\.forceChat&&await handleSceneIntent\(text\)\)return true;/);
   assert.match(html,/if\(!worldVoiceIntent\(text\)\)showView\('world'\)/);
   assert.match(html,/<section id="hologramView"/);
   assert.match(html,/id="closeMobileHologram"/);
