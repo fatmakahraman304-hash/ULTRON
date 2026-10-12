@@ -422,6 +422,7 @@
         <div id="longListenPanel" class="long-listen-panel hidden" role="status" aria-live="polite">
           <div><b id="longListenStatus">1 saat dinleme</b><small id="longListenHint">Mikrofon açıkken konuşma metni yalnız bu sekmede tutulur. Tarayıcı ses tanıma servisi kullanabilir.</small></div>
           <div class="listen-controls"><button type="button" id="longListenBegin" class="hidden">Başlat</button><button type="button" id="longListenPause" class="secondary hidden">Duraklat</button><button type="button" id="longListenResume" class="secondary hidden">Devam et</button><button type="button" id="longListenExport" class="secondary hidden">Metni indir</button><button type="button" id="longListenAnswer">Cevap ver</button><button type="button" id="longListenCancel" class="secondary">İptal</button></div>
+          <details id="longListenReportWrap" class="hidden"><summary>Dinleme analizi — aç / kopyala</summary><pre id="longListenReport" style="white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;font-size:12px"></pre><small>Geçici sonuç: sohbet geçmişine veya kalıcı hafızaya yazılmaz.</small></details>
         </div>
         
         <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON mikrofonu" title="Konuşmak için dokun">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="ULTRON'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
@@ -636,6 +637,7 @@
 <script src="/static/dev-requests.js"></script>
 <script src="/static/local-voice.js"></script>
 <script src="/static/long-listen.js"></script>
+<script src="/static/listening-analysis.js"></script>
 <script src="/static/voice-turn-guard.js"></script>
 <script src="/static/live-playback.js"></script>
 <script src="/static/speaker-policy.js"></script>
@@ -658,6 +660,17 @@ let brainMode='gemini';
 let brainLastCheck=0,brainChecking=null;
 let localVoiceController=null;
 let longListenAwaitingTap=false;
+const longListenAnalyzer=window.ULTRONListeningAnalysis.create({
+  request:body=>api('/api/listening-analysis',{
+    method:'POST',timeoutMs:120000,body:JSON.stringify(body)
+  }),
+  onProgress:status=>{
+    const title=$('#longListenStatus');
+    if(title)title.textContent=status.status+' • '+status.completed+'/'+status.total;
+    const hint=$('#longListenHint');
+    if(hint)hint.textContent='İzin verdiğin konuşma metni Gemini Cloud ile parça parça analiz ediliyor. Ara notlar kalıcı olarak saklanmaz.';
+  }
+});
 let longListenWakeLock=null,longListenWakeRequest=false;
 function syncLongListenScreenLock(listening){
   if(listening&&navigator.wakeLock?.request&&!document.hidden){
@@ -678,13 +691,13 @@ const longListenController=window.ULTRONLongListen.create({
   onState:s=>{
     syncLongListenScreenLock(s.status==='listening');
     const panel=$('#longListenPanel');if(!panel)return;
-    const show=s.status==='listening'||s.status==='ready'||s.status==='interrupted'||s.status==='submitting'||longListenAwaitingTap||s.status==='unsupported';
+    const show=s.status==='listening'||s.status==='ready'||s.status==='interrupted'||s.status==='submitting'||longListenAwaitingTap||s.status==='unsupported'||(s.status==='submitted'&&!!$('#longListenReport').textContent);
     panel.classList.toggle('hidden',!show);
     const mm=Math.floor(s.secondsLeft/60),ss=String(s.secondsLeft%60).padStart(2,'0');
     $('#longListenStatus').textContent=s.status==='listening'
       ?'Dinleniyor • '+mm+':'+ss:(longListenAwaitingTap?'1 saat dinlemeyi başlat':s.message||'Dinleme bitti');
     $('#longListenHint').textContent=s.status==='listening'
-      ?'Geçici metin: '+s.charCount+' karakter'+(s.dropped?' • '+s.dropped+' orta bölüm sınır nedeniyle çıkarıldı':'')+' • ekran açık kalmalı • ses tanıma servisi kullanılabilir'
+      ?'Geçici metin: '+s.charCount+' karakter'+(s.dropped?' • '+s.dropped+' bölüm sınır nedeniyle çıkarıldı':'')+' • ekran açık kalmalı • Cevap ver sonrası uzun metin Gemini Cloud üzerinde analiz edilir'
       :'iPhone ekranı kilitliyken veya uygulama arka plandayken dinleme sürmez.';
     $('#longListenBegin').classList.toggle('hidden',!longListenAwaitingTap);
     $('#longListenPause').classList.toggle('hidden',s.status!=='listening');
@@ -696,14 +709,29 @@ const longListenController=window.ULTRONLongListen.create({
     $('#longListenCancel').classList.toggle('hidden',s.status==='submitting');
     if(s.status==='listening')$('#stageVoiceText').textContent='Dinleniyor • '+mm+':'+ss;
   },
-  onAnswer:prompt=>{
+  onAnswer:(prompt,meta)=>{
     longListenAwaitingTap=false;
     setTimeout(async()=>{
-      // Do not overwrite another drafted message or a pending attachment.
-      // The full transcription stays in the controller until success.
       if(chatSending||pendingImage||pendingPdf||$('#message').value.trim()){
-        longListenController.failDelivery('Gönderim bekletildi. Önce mevcut mesajı bitir, ardından Cevap ver.');
-        toast('Mevcut mesaj/ek bekliyor; dinleme metni korundu.');
+        longListenController.failDelivery('Gönderim bekletildi. Mevcut mesajı tamamlayıp Cevap ver.');
+        toast('Bir mesaj veya dosya bekliyor. Sesli oturum metni korundu.');
+        return;
+      }
+      if(meta?.transcript?.length>2350){
+        try{
+          const report=await longListenAnalyzer.run(meta.transcript);
+          const omission=meta.dropped
+            ?'Not: Bellek sınırı nedeniyle bazı bölümler hiç analiz edilemedi.\n\n':'';
+          const output=omission+report.answer;
+          $('#longListenReport').textContent=output;
+          $('#longListenReportWrap').classList.remove('hidden');
+          addMessage('assistant',output);
+          longListenController.confirmDelivered();
+          toast(report.parts+' konuşma bölümü analiz edildi. Sonuç geçicidir; istersen kopyalayabilirsin.');
+        }catch(err){
+          longListenController.failDelivery('Analiz tamamlanamadı; konuşma ve işlenmiş bölüm notları bu sekmede korunuyor. Cevap ver ile devam et.');
+          toast('Analiz kesildi: '+(err?.message||'Bağlantı sorunu'));
+        }
         return;
       }
       $('#message').value=prompt;
@@ -716,6 +744,9 @@ const longListenController=window.ULTRONLongListen.create({
   }
 });
 function showLongListenTap(){
+  longListenAnalyzer.clear();
+  $('#longListenReport').textContent='';
+  $('#longListenReportWrap').classList.add('hidden');
   longListenAwaitingTap=true;
   $('#longListenPanel').classList.remove('hidden');
   $('#longListenBegin').classList.remove('hidden');
@@ -1949,7 +1980,7 @@ $('#longListenExport').onclick=()=>{
   setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
 };
 $('#longListenAnswer').onclick=()=>longListenController.finish(true);
-$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();$('#longListenPanel').classList.add('hidden');};
+$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();longListenAnalyzer.clear();$('#longListenReport').textContent='';$('#longListenReportWrap').classList.add('hidden');$('#longListenPanel').classList.add('hidden');};
 $('#voiceBtn').onclick=async()=>{
  if(longListenController.active()){toast('Uzun dinleme açık. “Cevap ver” dediğinde yanıtlayacağım.');return;}
  if(liveDesired||voiceListening){await stopLiveVoice();return}
