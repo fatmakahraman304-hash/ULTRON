@@ -1,0 +1,59 @@
+name: ULTRON Local Qwen Listening
+
+on:
+  push:
+    branches:
+      - feat/local-qwen-listening-analysis-20261012
+  pull_request:
+    branches:
+      - feat/ultron-full-session-map-reduce-20261012
+    paths:
+      - 'ultron/cloud_service/local_listening_bridge.py'
+      - 'ultron/cloud_service/static/local-listening-transport.js'
+      - 'integration/local_cloud_brain.py'
+      - 'mark_app.py'
+      - 'ultron/cloud_service/app.py'
+      - 'ultron/cloud_service/static/index.html'
+      - 'ultron/cloud_service/test_local_listening_analysis.py'
+      - 'ultron/cloud_service/test_local_listening_transport.cjs'
+      - '.github/workflows/ultron-local-listening-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  local-listening:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install minimal aiohttp dependency for route contract
+        run: python -m pip install --quiet 'aiohttp>=3.10,<4'
+      - name: Validate source and integrated mobile script
+        run: |
+          python -m py_compile \
+            ultron/cloud_service/app.py \
+            ultron/cloud_service/local_listening_bridge.py \
+            integration/local_cloud_brain.py \
+            mark_app.py
+          node --check ultron/cloud_service/static/local-listening-transport.js
+          node --check ultron/cloud_service/test_local_listening_transport.cjs
+          node -e "const fs=require('node:fs'),vm=require('node:vm');const h=fs.readFileSync('ultron/cloud_service/static/index.html','utf8');const s=h.match(/<script>([\\s\\S]*?)<\\/script>/);if(!s)throw Error('inline UI script not found');new vm.Script(s[1]);for(const x of ['/static/local-listening-transport.js','longListenProvider'])if(!h.includes(x))throw Error(x+' missing');"
+      - name: Offline local Qwen, queue and voice regression tests
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m unittest -q \
+            ultron.cloud_service.test_local_listening_analysis \
+            ultron.cloud_service.test_full_listening_analysis
+          node --test \
+            ultron/cloud_service/test_local_listening_transport.cjs \
+            ultron/cloud_service/test_full_listening_analysis.cjs \
+            ultron/cloud_service/test_long_listen.cjs \
+            ultron/cloud_service/test_long_listen_delivery_ui.cjs
