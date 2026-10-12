@@ -350,7 +350,7 @@ def local_listening_analysis(prompt: str, system: str, stage: str) -> dict:
                     "temperature": 0.25, "top_p": 0.85},
     }
     result = _get_json("/api/chat", request, timeout=150)
-    if result.get("model") not in (None, selected):
+    if result.get("model") != selected:
         raise LocalBrainUnavailable("Yerel analiz beklenmeyen Qwen modeli döndürdü.")
     if result.get("done") is False or result.get("done_reason") == "length":
         raise LocalBrainUnavailable("Qwen analizi tamamlanmadan kesildi.")
@@ -360,4 +360,7 @@ def local_listening_analysis(prompt: str, system: str, stage: str) -> dict:
     answer = strip_qwen_thinking(message["content"])
     if not answer:
         raise LocalBrainUnavailable("Qwen tamamlanmış analiz metni döndürmedi.")
-    return {"analysis": answer[:9500], "model": selected, "provider": "local-ollama"}
+    from ultron.cloud_service.listening_analysis import checked_analysis
+    cap = {"map": 1900, "reduce": 2000, "final": 9500}[stage]
+    return {"analysis": checked_analysis(answer, cap), "model": selected,
+            "provider": "local-ollama"}
