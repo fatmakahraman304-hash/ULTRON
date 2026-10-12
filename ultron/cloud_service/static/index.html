@@ -678,7 +678,7 @@ const longListenController=window.ULTRONLongListen.create({
   onState:s=>{
     syncLongListenScreenLock(s.status==='listening');
     const panel=$('#longListenPanel');if(!panel)return;
-    const show=s.status==='listening'||s.status==='ready'||s.status==='interrupted'||longListenAwaitingTap||s.status==='unsupported';
+    const show=s.status==='listening'||s.status==='ready'||s.status==='interrupted'||s.status==='submitting'||longListenAwaitingTap||s.status==='unsupported';
     panel.classList.toggle('hidden',!show);
     const mm=Math.floor(s.secondsLeft/60),ss=String(s.secondsLeft%60).padStart(2,'0');
     $('#longListenStatus').textContent=s.status==='listening'
@@ -690,17 +690,28 @@ const longListenController=window.ULTRONLongListen.create({
     $('#longListenPause').classList.toggle('hidden',s.status!=='listening');
     $('#longListenResume').classList.toggle('hidden',s.status!=='interrupted');
     $('#longListenExport').classList.toggle('hidden',!s.charCount);
-    $('#longListenAnswer').classList.toggle('hidden',longListenAwaitingTap||s.status==='unsupported');
-    $('#longListenCancel').classList.remove('hidden');
+    $('#longListenAnswer').classList.toggle('hidden',longListenAwaitingTap||s.status==='unsupported'||s.status==='submitting');
+    // Clearing a recording cannot undo an already-running HTTP request.
+    // Disable the misleading "Cancel" affordance while delivery is pending.
+    $('#longListenCancel').classList.toggle('hidden',s.status==='submitting');
     if(s.status==='listening')$('#stageVoiceText').textContent='Dinleniyor • '+mm+':'+ss;
   },
   onAnswer:prompt=>{
     longListenAwaitingTap=false;
-    setTimeout(()=>{
-      // A busy network/chat must not silently discard a full-hour transcript.
+    setTimeout(async()=>{
+      // Do not overwrite another drafted message or a pending attachment.
+      // The full transcription stays in the controller until success.
+      if(chatSending||pendingImage||pendingPdf||$('#message').value.trim()){
+        longListenController.failDelivery('Gönderim bekletildi. Önce mevcut mesajı bitir, ardından Cevap ver.');
+        toast('Mevcut mesaj/ek bekliyor; dinleme metni korundu.');
+        return;
+      }
       $('#message').value=prompt;
-      if(chatSending){toast('Önceki yanıt tamamlanınca metni Gönder ile ilet.');return;}
-      send(false);
+      const ok=await send(false,null,{forceChat:true,restoreOnFailure:true});
+      if(ok)longListenController.confirmDelivered();
+      else longListenController.failDelivery(
+        'Yanıt doğrulanamadı. Konuşma metni korunuyor. Tekrar göndermeden önce sohbet geçmişini kontrol et.'
+      );
     },0);
   }
 });
@@ -1842,9 +1853,9 @@ async function localBrainAnswer(text,userBubble){
     onWaiting:()=>{$('#busy').textContent='Yanıt bekleniyor; mesajın kaydı korunuyor…'},
   });
 }
-async function send(fromVoice=false,voiceToken=null){
-  if(chatSending)return;
-  const text=$('#message').value.trim();if(!text&&!pendingImage&&!pendingPdf)return;
+async function send(fromVoice=false,voiceToken=null,options={}){
+  if(chatSending)return false;
+  const text=$('#message').value.trim();if(!text&&!pendingImage&&!pendingPdf)return false;
   chatSending=true;chatSendVersion++;$('#sendBtn').disabled=true;
   let userBubble;
   try{
@@ -1869,11 +1880,11 @@ async function send(fromVoice=false,voiceToken=null){
     }
     $('#message').value='';clearDraft();
     rememberPendingVoice('user',text,180000);userBubble=addMessage('user',text);
-    const panelHandled=handlePanelIntent(text);
+    const panelHandled=!options.forceChat&&handlePanelIntent(text);
     if(panelHandled){toast('ULTRON çalışma alanı açıldı.');return}
-    const devHandled=await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
+    const devHandled=options.forceChat?false:await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
     if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
-    const directHandled=runDirectPhoneCommand(text);
+    const directHandled=!options.forceChat&&runDirectPhoneCommand(text);
     if(directHandled){toast('Komut uygulanıyor…');return}
     $('#busy').textContent='ULTRON düşünüyor…';
     const cloud=()=>api('/api/chat',{method:'POST',timeoutMs:120000,body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
@@ -1895,10 +1906,20 @@ async function send(fromVoice=false,voiceToken=null){
     if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
     messageSignature='';
     if((!fromVoice||voiceTurnGuard.current(voiceToken))&&
-       (!fromVoice||!document.hidden)&&(fromVoice||voiceEnabled))speakUltron(d.reply);
+       (!fromVoice||!document.hidden)&&(fromVoice||voiceEnabled)){
+      // Voice playback is optional; a speaker exception cannot retroactively
+      // turn a successfully delivered chat reply into a failed submission.
+      try{speakUltron(d.reply)}catch(e){console.warn('Voice playback skipped');}
+    }
+    return true;
   }catch(e){
     const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir; sohbeti yenileyerek kontrol et.':(e.data?.detail||e.message);
     addMessage('assistant','Hata: '+msg);
+    if(options.restoreOnFailure&&!$('#message').value.trim()){
+      $('#message').value=text;
+      toast('Gönderim doğrulanamadı. Metin taslakta korundu; yeniden göndermeden önce sohbeti kontrol et.');
+    }
+    return false;
   }finally{
     chatSending=false;chatSendVersion++;$('#busy').textContent='';$('#sendBtn').disabled=false;scrollChatToBottom(false);
   }

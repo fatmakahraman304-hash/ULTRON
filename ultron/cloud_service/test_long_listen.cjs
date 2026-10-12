@@ -65,10 +65,13 @@ test('one hour receives transcript locally, answers only after spoken command',(
   assert.doesNotMatch(h.ctrl.transcript(),/tamamlanmadı/);
   h.rec.deliver('Şimdi cevap ver');
   assert.equal(h.rec.stopped,true);
-  assert.equal(h.ctrl.state(),'submitted');
+  assert.equal(h.ctrl.state(),'submitting');
   assert.equal(h.sent.length,1);
-  assert.equal(h.ctrl.transcript(),'');
+  assert.match(h.ctrl.transcript(),/mimarlık çizimimi/);
   assert.equal(h.ctrl.finish(true),false);
+  assert.equal(h.ctrl.confirmDelivered(),true);
+  assert.equal(h.ctrl.state(),'submitted');
+  assert.equal(h.ctrl.transcript(),'');
   assert.equal(h.sent.length,1);
   assert.match(h.sent[0],/mimarlık çizimimi/);
   assert.doesNotMatch(h.sent[0],/Şimdi cevap ver/);
@@ -218,6 +221,8 @@ test('full exported draft has higher cap and clearly reports memory omissions',(
   assert.match(h.sent[0],/\[Orta bölümden örnek\]/);
   assert.match(h.sent[0],/aradaki konuşmalar bu isteğe dahil edilmedi/);
   assert.ok(h.sent[0].length<=3000);
+  assert.ok(h.ctrl.omitted()>0);
+  assert.equal(h.ctrl.confirmDelivered(),true);
   assert.equal(h.ctrl.omitted(),0);
 });
 test('pausing and resuming never auto-answers or repeats a finished submission',()=>{
@@ -229,8 +234,51 @@ test('pausing and resuming never auto-answers or repeats a finished submission',
   assert.deepEqual(h.sent,[]);
   h.rec.deliver('Cevap ver');
   assert.equal(h.sent.length,1);
-  assert.equal(h.ctrl.state(),'submitted');
+  assert.equal(h.ctrl.state(),'submitting');
   assert.equal(h.ctrl.resume(),false);
   assert.equal(h.ctrl.finish(true),false);
+  assert.equal(h.ctrl.confirmDelivered(),true);
+  assert.equal(h.ctrl.state(),'submitted');
   assert.equal(h.sent.length,1);
+});
+
+test('offline/timeout leaves hour-long recording available for explicit retry',()=>{
+  const h=harness();h.ctrl.start();
+  h.rec.deliver('Önemli tasarım verisi');
+  assert.equal(h.ctrl.finish(true),true);
+  assert.equal(h.ctrl.state(),'submitting');
+  assert.equal(h.ctrl.start(),false);
+  assert.equal(h.ctrl.finish(true),false);
+  assert.match(h.ctrl.transcript(),/Önemli tasarım verisi/);
+  assert.equal(h.ctrl.failDelivery('Sunucu yanıt vermedi.'),true);
+  assert.equal(h.ctrl.state(),'ready');
+  assert.match(h.ctrl.transcript(),/Önemli tasarım verisi/);
+  assert.equal(h.sent.length,1);
+  assert.equal(h.ctrl.finish(true),true);
+  assert.equal(h.sent.length,2); // only an explicit owner retry
+  assert.equal(h.ctrl.confirmDelivered(),true);
+  assert.equal(h.ctrl.transcript(),'');
+  assert.equal(h.ctrl.finish(true),false);
+});
+test('late acknowledgments after cancellation cannot revive a cleared recording',()=>{
+  const h=harness();h.ctrl.start();
+  h.rec.deliver('Gizli not');
+  h.ctrl.finish(true);
+  h.ctrl.cancel();
+  assert.equal(h.ctrl.confirmDelivered(),false);
+  assert.equal(h.ctrl.failDelivery(),false);
+  assert.equal(h.ctrl.state(),'idle');
+  assert.equal(h.ctrl.transcript(),'');
+});
+test('a failed start or an unanswered empty session never emits an API command',()=>{
+  const h=harness();h.ctrl.start();
+  assert.equal(h.ctrl.finish(true),false);
+  assert.equal(h.ctrl.state(),'ready');
+  assert.equal(h.sent.length,0);
+  assert.equal(h.ctrl.start(),true);
+  h.rec.deliver('Yeni deneme');
+  assert.equal(h.ctrl.finish(true),true);
+  assert.equal(h.sent.length,1);
+  assert.equal(h.ctrl.confirmDelivered(),true);
+  assert.equal(h.ctrl.confirmDelivered(),false);
 });
