@@ -421,6 +421,7 @@
       <div class="composer">
         <div id="longListenPanel" class="long-listen-panel hidden" role="status" aria-live="polite">
           <div><b id="longListenStatus">1 saat dinleme</b><small id="longListenHint">Mikrofon açıkken konuşma metni yalnız bu sekmede tutulur. Tarayıcı ses tanıma servisi kullanabilir.</small></div>
+          <details id="longListenProviderWrap"><summary>Analiz seçeneği</summary><label for="longListenProvider">Konuşmayı kim analiz etsin?</label><select id="longListenProvider" aria-label="Uzun dinleme analiz modeli"><option value="auto">Otomatik (laptop Qwen hazırsa)</option><option value="local">Yalnızca laptop Qwen</option><option value="gemini">Yalnızca Gemini Cloud</option></select><small>Her iki seçenek de ağ üzerinden veri aktarır. Göndermeden önce onay istenir.</small></details>
           <div class="listen-controls"><button type="button" id="longListenBegin" class="hidden">Başlat</button><button type="button" id="longListenPause" class="secondary hidden">Duraklat</button><button type="button" id="longListenResume" class="secondary hidden">Devam et</button><button type="button" id="longListenExport" class="secondary hidden">Metni indir</button><button type="button" id="longListenAnswer">Cevap ver</button><button type="button" id="longListenStopAnalysis" class="secondary hidden">Analizi durdur</button><button type="button" id="longListenCancel" class="secondary">İptal</button></div>
           <details id="longListenReportWrap" class="hidden"><summary>Dinleme analizi — aç / kopyala</summary><pre id="longListenReport" style="white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;font-size:12px"></pre><small>Sonuç geçicidir. Yalnızca sen onaylarsan seçili özet hafızaya yazılır.</small><button type="button" id="longListenSaveMemory" class="secondary">Özeti hafızaya kaydet</button></details>
         </div>
@@ -639,6 +640,7 @@
 <script src="/static/long-listen.js"></script>
 <script src="/static/listening-analysis.js"></script>
 <script src="/static/local-listening.js"></script>
+<script src="/static/listening-provider.js"></script>
 <script src="/static/voice-turn-guard.js"></script>
 <script src="/static/live-playback.js"></script>
 <script src="/static/speaker-policy.js"></script>
@@ -730,16 +732,31 @@ const longListenController=window.ULTRONLongListen.create({
         toast('Bir mesaj veya dosya bekliyor. Sesli oturum metni korundu.');
         return;
       }
-      if(meta?.transcript?.length>2350){
+      if(meta?.transcript?.length){
         try{
-          if(!longListenAnalysisProvider){
-            // Lock the provider for all chunks; never silently switch
-            // after a queued Qwen task or a cloud model request.
-            const presence=await api('/api/device-presence',{timeoutMs:6000});
-            longListenAnalysisProvider=window.ULTRONLocalListening.ready(presence?.devices)?'local':'gemini';
-            toast(longListenAnalysisProvider==='local'
-              ?'Laptop Qwen hazır: bölümler geçici kuyrukla iletilecek.'
-              :'Laptop analiz işçisi hazır değil: Gemini Cloud analizine geçiliyor.');
+          const requested=$('#longListenProvider').value;
+          if(longListenAnalysisProvider){
+            const permitted=requested==='auto'||requested===longListenAnalysisProvider;
+            if(!permitted)
+              throw Error('Devam eden oturumun analiz modeli değiştirilemez. Önceki modeli seç.');
+          }else{
+            // Qwen-only must never silently become Gemini on offline/error.
+            let devices=[];
+            if(requested!=='gemini'){
+              const presence=await api('/api/device-presence',{timeoutMs:6000});
+              devices=presence?.devices;
+            }
+            const chosen=window.ULTRONListeningProvider.select(requested,devices);
+            const approved=window.confirm(
+              window.ULTRONListeningProvider.disclosure(chosen,meta.transcript.length)
+            );
+            if(!approved){
+              longListenController.failDelivery('Gönderim onaylanmadı. Konuşma metni bu sekmede korundu.');
+              return;
+            }
+            // Pin choice only AFTER consent. No automatic fallback mid-session.
+            longListenAnalysisProvider=chosen;
+            toast(chosen==='local'?'Laptop Qwen analizi onaylandı.':'Gemini Cloud analizi onaylandı.');
           }
           const report=await longListenAnalyzer.run(meta.transcript);
           const omission=meta.dropped
@@ -749,6 +766,7 @@ const longListenController=window.ULTRONLongListen.create({
           $('#longListenReportWrap').classList.remove('hidden');
           addMessage('assistant',output);
           longListenController.confirmDelivered();
+          $('#longListenProvider').disabled=true;
           toast(report.parts+' konuşma bölümü analiz edildi. Sonuç geçicidir; istersen kopyalayabilirsin.');
         }catch(err){
           longListenController.failDelivery('Analiz tamamlanamadı; konuşma ve işlenmiş bölüm notları bu sekmede korunuyor. Cevap ver ile devam et.');
@@ -766,6 +784,7 @@ const longListenController=window.ULTRONLongListen.create({
   }
 });
 function showLongListenTap(){
+  $('#longListenProvider').disabled=false;
   longListenAnalysisProvider=null;
   localListeningClient.clear();
   longListenAnalyzer.clear();
@@ -1922,6 +1941,7 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(!fromVoice)voiceTurnGuard.cancel();
     if(window.ULTRONLongListen.isStart(text)){
       longListenAnalysisProvider=null;
+      $('#longListenProvider').disabled=false;
       localListeningClient.clear();
       longListenAnalyzer.clear();
       $('#longListenReport').textContent='';
@@ -2035,7 +2055,7 @@ $('#longListenSaveMemory').onclick=async()=>{
   }catch(err){toast('Hafızaya kaydetme başarısız: '+err.message);button.disabled=false;}
 };
 $('#longListenAnswer').onclick=()=>longListenController.finish(true);
-$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();longListenAnalysisProvider=null;localListeningClient.clear();longListenAnalyzer.clear();$('#longListenSaveMemory').disabled=false;$('#longListenSaveMemory').textContent='Özeti hafızaya kaydet';$('#longListenReport').textContent='';$('#longListenReportWrap').classList.add('hidden');$('#longListenPanel').classList.add('hidden');};
+$('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();longListenAnalysisProvider=null;$('#longListenProvider').disabled=false;localListeningClient.clear();longListenAnalyzer.clear();$('#longListenSaveMemory').disabled=false;$('#longListenSaveMemory').textContent='Özeti hafızaya kaydet';$('#longListenReport').textContent='';$('#longListenReportWrap').classList.add('hidden');$('#longListenPanel').classList.add('hidden');};
 $('#voiceBtn').onclick=async()=>{
  if(longListenController.active()){toast('Uzun dinleme açık. “Cevap ver” dediğinde yanıtlayacağım.');return;}
  if(liveDesired||voiceListening){await stopLiveVoice();return}
