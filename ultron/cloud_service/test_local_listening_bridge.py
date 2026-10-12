@@ -84,7 +84,7 @@ class LocalListenQueueTests(unittest.IsolatedAsyncioTestCase):
         payload=db.saved["payload"]
         self.assertEqual(payload["mode"],"local_listening_analysis")
         self.assertEqual(payload["stage"],"map")
-        self.assertIn("Konuşma",payload["text"] if "Konuşma" in payload["text"] else "Konuşma")
+        self.assertIn("proje hakkında konuşma",payload["text"].lower())
         self.assertIn("READ-ONLY",payload["system"])
         self.assertEqual(payload["request_id"],self.body["request_id"])
         insert=[q for q in db.queries if "INSERT INTO" in q[1]]
