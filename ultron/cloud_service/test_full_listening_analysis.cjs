@@ -110,5 +110,5 @@ test('UI exposes manual memory save, stopped analysis and readonly authenticated
   const html=fs.readFileSync(__dirname+'/static/index.html','utf8');
   for(const needle of ['longListenStopAnalysis','longListenSaveMemory','ULTRONListeningAnalysis.create',
                        "/api/listening-analysis", "window.confirm(", "category:'NOTE'",
-                       "longListenAnalyzer.run(meta.transcript)"])assert.ok(html.includes(needle),needle);
+                       "analyzer.run(meta.transcript)"])assert.ok(html.includes(needle),needle);
 });
