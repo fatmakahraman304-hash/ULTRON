@@ -117,6 +117,8 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([x[1]["stage"] for x in calls],["map","final"])
         self.assertGreater(await self.page.evaluate("window.__testConfirmCount"),0)
         self.assertIn("Gemini Cloud",await self.page.evaluate("window.__testLastConsent"))
+        # Reports live inside a collapsed details element; explicitly open it.
+        await self.page.locator("#longListenReportWrap summary").click()
         self.assertIn("Özet:",await self.page.locator("#longListenReport").inner_text())
         self.assertEqual(await self.page.evaluate("longListenController.transcript()"),"")
         self.assertEqual(await self.page.locator("#sceneCanvas").count(),1)
