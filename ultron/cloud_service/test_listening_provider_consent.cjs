@@ -45,5 +45,7 @@ test('UI loads consent policy and checks approval before sending any chunk',()=>
   const positionProviderLock=html.indexOf('longListenAnalysisProvider=chosen;');
   const positionUpload=html.indexOf('const report=await longListenAnalyzer.run(meta.transcript);');
   assert.ok(positionConsent<positionProviderLock&&positionProviderLock<positionUpload);
-  assert.ok(html.includes("const permitted=requested==='auto'||requested===longListenAnalysisProvider"));
+  assert.ok(html.includes("const permitted=requested===longListenRequestedChoice")); 
+  assert.ok(html.includes("$('#longListenProvider').disabled=true;"));
+  assert.ok(html.includes("longListenAnalyzer.active()||longListenController.state()==='submitting'"));
 });
