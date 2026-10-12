@@ -44,6 +44,9 @@
       // This prompt is intentionally truthful about omitted text. The browser
       // may have processed speech remotely, but ULTRON only sees this excerpt.
       var prompt='Dinleme oturumunda söylediklerime, yalnızca aşağıdaki yazıya dayanarak yanıt ver. Eksik bölümleri duymuş gibi davranma:\n'+message;
+      // Single-use: the same transcript cannot be uploaded twice by tapping
+      // "Cevap ver" again. Release the text after constructing the prompt.
+      status='submitted';noteChunks=[];noteSize=0;dropped=0;
       emit('Dinleme durdu • seçilmiş konuşma metni gönderiliyor.');
       if(opts.onAnswer)opts.onAnswer(prompt);
       return true;
