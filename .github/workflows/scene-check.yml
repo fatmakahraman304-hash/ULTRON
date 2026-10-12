@@ -2,6 +2,15 @@ name: ULTRON Scene Build Check
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+    paths:
+      - "ultron/cloud_service/**"
+      - "mark_app.py"
+      - "integration/**"
+      - "scripts/tests/test_listening_browser.py"
+      - ".github/workflows/scene-check.yml"
   push:
     branches:
       - feat/ultron-cloud-shared-memory
