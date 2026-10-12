@@ -24,6 +24,7 @@ function makeUI({message='Sesli oturumdan önemli talimat',fail=false,voiceError
     rememberPendingVoice(){},
     consumePendingVoice(){},
     addMessage(role,text){logs.messages.push({role,text});return {dataset:{}};},
+    async handleSceneIntent(){logs.scene=(logs.scene||0)+1;return false;},
     handlePanelIntent(){logs.panel++;return true;},
     runDirectPhoneCommand(){logs.direct++;return true;},
     window:{
@@ -46,6 +47,7 @@ test('long-listen text cannot be treated as a phone command or development task'
   const ui=makeUI();
   assert.equal(await ui.send(false,null,{forceChat:true,restoreOnFailure:true}),true);
   assert.equal(ui.logs.api,1);
+  assert.equal(ui.logs.scene||0,0);
   assert.equal(ui.logs.panel,0);
   assert.equal(ui.logs.dev,0);
   assert.equal(ui.logs.direct,0);
@@ -69,6 +71,7 @@ test('speaker playback failure does not undo a confirmed text response',async()=
 test('normal chat retains native panel-intent handling',async()=>{
   const ui=makeUI();
   await ui.send(false);
+  assert.equal(ui.logs.scene,1);
   assert.equal(ui.logs.panel,1);
   assert.equal(ui.logs.api,0);
 });
