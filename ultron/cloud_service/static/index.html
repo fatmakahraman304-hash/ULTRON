@@ -420,7 +420,7 @@
       <div class="composer">
         <div id="longListenPanel" class="long-listen-panel hidden" role="status" aria-live="polite">
           <div><b id="longListenStatus">1 saat dinleme</b><small id="longListenHint">Mikrofon açıkken konuşma metni yalnız bu sekmede tutulur. Tarayıcı ses tanıma servisi kullanabilir.</small></div>
-          <div class="listen-controls"><button type="button" id="longListenBegin" class="hidden">Başlat</button><button type="button" id="longListenAnswer">Cevap ver</button><button type="button" id="longListenCancel" class="secondary">İptal</button></div>
+          <div class="listen-controls"><button type="button" id="longListenBegin" class="hidden">Başlat</button><button type="button" id="longListenPause" class="secondary hidden">Duraklat</button><button type="button" id="longListenResume" class="secondary hidden">Devam et</button><button type="button" id="longListenExport" class="secondary hidden">Metni indir</button><button type="button" id="longListenAnswer">Cevap ver</button><button type="button" id="longListenCancel" class="secondary">İptal</button></div>
         </div>
         
         <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="ULTRON mikrofonu" title="Konuşmak için dokun">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="ULTRON'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
@@ -686,6 +686,9 @@ const longListenController=window.ULTRONLongListen.create({
       ?'Metin yalnız bu sekmede • ekran açık kalmalı • '+s.charCount+' karakter • tarayıcı ses tanıma servisi kullanabilir'
       :'iPhone ekranı kilitliyken veya uygulama arka plandayken dinleme sürmez.';
     $('#longListenBegin').classList.toggle('hidden',!longListenAwaitingTap);
+    $('#longListenPause').classList.toggle('hidden',s.status!=='listening');
+    $('#longListenResume').classList.toggle('hidden',s.status!=='interrupted');
+    $('#longListenExport').classList.toggle('hidden',!s.charCount);
     $('#longListenAnswer').classList.toggle('hidden',longListenAwaitingTap||s.status==='unsupported');
     $('#longListenCancel').classList.remove('hidden');
     if(s.status==='listening')$('#stageVoiceText').textContent='Dinleniyor • '+mm+':'+ss;
@@ -693,8 +696,9 @@ const longListenController=window.ULTRONLongListen.create({
   onAnswer:prompt=>{
     longListenAwaitingTap=false;
     setTimeout(()=>{
-      if(chatSending){toast('Önceki mesajın bitmesini bekle.');return;}
+      // A busy network/chat must not silently discard a full-hour transcript.
       $('#message').value=prompt;
+      if(chatSending){toast('Önceki yanıt tamamlanınca metni Gönder ile ilet.');return;}
       send(false);
     },0);
   }
@@ -705,6 +709,9 @@ function showLongListenTap(){
   $('#longListenBegin').classList.remove('hidden');
   $('#longListenStatus').textContent='1 saat dinlemeyi başlat';
   $('#longListenHint').textContent='Mikrofon izni verip sayfayı açık tutman gerekir. Tarayıcı tanıma servisi kullanabilir.';
+  $('#longListenPause').classList.add('hidden');
+  $('#longListenResume').classList.add('hidden');
+  $('#longListenExport').classList.add('hidden');
   $('#longListenAnswer').classList.add('hidden');
   $('#longListenCancel').classList.remove('hidden');
 }
@@ -1902,6 +1909,19 @@ $('#longListenBegin').onclick=async()=>{
   if(liveDesired||voiceListening)await stopLiveVoice();
   if(localVoiceController?.active())localVoiceController.stop();
   if(!longListenController.start())toast('Bu iPhone tarayıcısı uzun süreli ses tanımayı başlatamadı.');
+};
+$('#longListenPause').onclick=()=>longListenController.pause();
+$('#longListenResume').onclick=()=>{if(!longListenController.resume())toast('Dinleme yeniden başlatılamadı.');};
+$('#longListenExport').onclick=()=>{
+  const transcript=longListenController.transcript();
+  if(!transcript){toast('İndirilecek konuşma metni yok.');return;}
+  const file=new Blob([transcript],{type:'text/plain;charset=utf-8'});
+  const objectUrl=URL.createObjectURL(file);
+  const link=document.createElement('a');
+  link.href=objectUrl;
+  link.download='ULTRON-dinleme-'+new Date().toISOString().slice(0,10)+'.txt';
+  document.body.appendChild(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
 };
 $('#longListenAnswer').onclick=()=>longListenController.finish(true);
 $('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();$('#longListenPanel').classList.add('hidden');};
