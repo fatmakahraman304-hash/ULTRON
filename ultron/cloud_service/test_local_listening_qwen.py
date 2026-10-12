@@ -36,6 +36,7 @@ class LocalListeningQwenTests(unittest.TestCase):
         self.assertEqual(path,"/api/chat")
         self.assertEqual(payload["model"],"qwen3:4b")
         self.assertFalse(payload["stream"])
+        self.assertIs(payload["think"],False)
         self.assertNotIn("tools",payload)
         self.assertEqual(payload["options"]["num_ctx"],8192)
         self.assertEqual([x["role"] for x in payload["messages"]],["system","user"])
@@ -44,6 +45,7 @@ class LocalListeningQwenTests(unittest.TestCase):
     def test_thinking_without_final_and_incomplete_results_rejected(self):
         for case in [
             {"model":"qwen3:4b","done":False,"message":{"content":"Partial"}},
+            {"model":"qwen3:4b","message":{"content":"Missing explicit completion"}},
             {"model":"qwen3:4b","done":True,"done_reason":"length",
              "message":{"content":"Incomplete"}},
             {"model":"llava:7b","done":True,"message":{"content":"Wrong"}},
