@@ -82,6 +82,10 @@ jobs:
         run: |
           node --check ultron/cloud_service/static/voice-turn-guard.js
           node --test ultron/cloud_service/test_voice_turn_guard.cjs
+      - name: Owner-triggered synthetic Qwen connectivity probe contracts
+        run: |
+          node --check ultron/cloud_service/static/local-listening-probe.js
+          node --test ultron/cloud_service/test_local_listening_probe.cjs
       - name: Single ULTRON speaker arbitration on phone and laptop
         run: |
           node --check ultron/cloud_service/static/speaker-policy.js
