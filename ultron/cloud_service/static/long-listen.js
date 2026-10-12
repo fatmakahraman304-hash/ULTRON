@@ -51,11 +51,25 @@
       // This prompt is intentionally truthful about omitted text. The browser
       // may have processed speech remotely, but ULTRON only sees this excerpt.
       var prompt='Dinleme oturumunda söylediklerime, yalnızca aşağıdaki yazıya dayanarak yanıt ver. Eksik bölümleri duymuş gibi davranma:\n'+message;
-      // Single-use: the same transcript cannot be uploaded twice by tapping
-      // "Cevap ver" again. Release the text after constructing the prompt.
+      // Keep the original transcription until the server confirms a reply.
+      // Network timeouts can mean "accepted but response lost"; never submit
+      // it automatically a second time without the owner's explicit action.
+      status='submitting';
+      emit('Yanıt bekleniyor • konuşma metni geçici olarak korunuyor.');
+      try{if(opts.onAnswer)opts.onAnswer(prompt);}
+      catch(error){failDelivery('Gönderim başlatılamadı. Metin korunuyor.');return false;}
+      return true;
+    }
+    function confirmDelivered(){
+      if(status!=='submitting')return false;
       status='submitted';noteChunks=[];noteSize=0;dropped=0;
-      emit('Dinleme durdu • seçilmiş konuşma metni gönderiliyor.');
-      if(opts.onAnswer)opts.onAnswer(prompt);
+      emit('Yanıt doğrulandı • geçici konuşma metni temizlendi.');
+      return true;
+    }
+    function failDelivery(reason){
+      if(status!=='submitting')return false;
+      status='ready';
+      emit(reason||'Yanıt doğrulanamadı. Konuşma metni korundu; tekrar göndermeden önce sohbeti kontrol et.');
       return true;
     }
     function interrupt(reason){
@@ -106,6 +120,7 @@
     }
     function start(){
       if(status==='listening')return true;
+      if(status==='submitting'){emit('Yanıt hâlâ bekleniyor; bu sırada kayıt sıfırlanamaz.');return false;}
       if(!Constructor){status='unsupported';emit('Bu tarayıcı uzun süreli konuşmayı metne çevirmeyi desteklemiyor.');return false;}
       clearTimers();stopEngine();generation++;var token=generation;
       status='listening';deadline=Clock()+MAX_MS;noteChunks=[];noteSize=0;dropped=0;failures=0;
@@ -143,9 +158,11 @@
         if(doc.hidden)interrupt('Ekran kapandı veya uygulama arka plana geçti; dinleme durdu.');
       });
     }
-    return {start:start,resume:resume,pause:pause,finish:finish,cancel:cancel,interrupt:interrupt,tick:tick,
+    return {start:start,resume:resume,pause:pause,finish:finish,
+      confirmDelivered:confirmDelivered,failDelivery:failDelivery,
+      cancel:cancel,interrupt:interrupt,tick:tick,
       active:function(){return status==='listening';},
-      hasSession:function(){return status==='listening'||status==='ready'||status==='interrupted';},
+      hasSession:function(){return status==='listening'||status==='ready'||status==='interrupted'||status==='submitting';},
       state:function(){return status;},supported:function(){return !!Constructor;},
       isStart:isStart,isAnswer:isAnswer,
       transcript:function(){return noteChunks.join('\n');},
