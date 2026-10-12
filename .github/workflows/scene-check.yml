@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/ultron-listen-prod-compat-20261012
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -172,3 +173,5 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Mobile and desktop actual 3D scene interactions
         run: python scripts/tests/test_scene_browser.py
+      - name: Mobile listening consent and full-summary browser interaction
+        run: python scripts/tests/test_listening_browser.py
