@@ -23,6 +23,7 @@ import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
+from local_listening_bridge import register_local_listening_routes
 from conversation_persona import build_system_instruction
 from personal_context_focus import load_focused_owner_context
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
@@ -2297,6 +2298,7 @@ def build_app() -> web.Application:
     add_world_routes(app)
     register_development_routes(app)
     register_local_brain_routes(app,_memory_context,_recent_context)
+    register_local_listening_routes(app)
     register_personal_plan_routes(app)
     register_learning_routes(app)
     register_conversation_note_routes(app)
