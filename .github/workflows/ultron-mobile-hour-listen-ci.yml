@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feat/mobile-hour-listen-consent-20261012
+      - feat/mobile-long-listen-delivery-recovery-20261012
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/mobile-hour-listen-consent-20261012
     paths:
       - 'ultron/cloud_service/static/index.html'
       - 'ultron/cloud_service/static/long-listen.js'
