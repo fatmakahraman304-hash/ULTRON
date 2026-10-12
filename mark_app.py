@@ -2198,6 +2198,39 @@ class UltronLive:
                 await finish(False, "Laptop görevi boş geldi.")
                 return
 
+            # Dedicated, read-only Qwen transcription analyst. Guarded on
+            # the Cloud side by a recent explicit desktop capability flag;
+            # older workers must never receive this mode as a normal agent task.
+            if payload.get("mode") == "local_listening_analysis":
+                if len(task_text) > 14000 or str(payload.get("stage") or "") not in ("map", "reduce", "final"):
+                    await finish(False, "Geçersiz dinleme analiz bölümü.")
+                    return
+                from integration.local_cloud_brain import local_listening_analysis
+                lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt, log=log_lease)
+                lease_task = asyncio.create_task(lease_guard.run())
+                await client.report_task_progress(
+                    command_id,
+                    delivery_attempt=delivery_attempt,
+                    stage="executing",
+                    message="Laptop Qwen yalnızca konuşma bölümünü analiz ediyor.",
+                    percent=20,
+                )
+                if lease_guard.lost.is_set():
+                    return
+                result = await asyncio.to_thread(
+                    local_listening_analysis,
+                    task_text, str(payload.get("system") or "")[:3000],
+                )
+                if lease_guard.lost.is_set():
+                    log_lease("Listening analysis result discarded: lease lost")
+                    return
+                await finish(True, "Yerel konuşma analizi hazır.", extra={
+                    "assistant_reply": result["reply"],
+                    "model": result["model"],
+                    "provider": "local-ollama",
+                })
+                return
+
             # No-tools local brain: iPhone's free default chat uses installed
             # Ollama/Qwen independently of the Gemini Live voice session.
             # A separate bounded queue response returns text only; never send
@@ -2510,6 +2543,9 @@ class UltronLive:
                         probe_executor, local_chat_ready)
                     state = {
                         "local_chat_ready": ready,
+                        # Only upgraded workers advertise their dedicated
+                        # no-tool transcript analysis queue handler.
+                        "listening_analysis_ready": ready,
                         "ui_state": "CONNECTED" if self.session is not None else "CONNECTING",
                         "muted": bool(self.ui.muted),
                         "voice_active": voice_active,
