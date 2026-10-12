@@ -23,6 +23,7 @@ import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
+from local_listening_bridge import register_local_listening_analysis_routes
 from conversation_persona import build_system_instruction
 from personal_context_focus import load_focused_owner_context
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
@@ -313,6 +314,22 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 "SELECT pg_advisory_xact_lock(hashtext($1::text || ':' || $2::text))",
                 str(request["user_id"]), target,
             )
+            # Transcript queue is ephemeral: expire unclaimed/unfinished
+            # Qwen listening jobs after 30m and remove the raw text and prompt
+            # before an old device can claim them.
+            await conn.execute(
+                """
+                UPDATE device_commands SET status='expired',
+                    completed_at=NOW(),
+                    result='{"message":"Dinleme analizi oturumu sona erdi."}'::jsonb,
+                    payload=payload - 'text' - 'system'
+                WHERE user_id=$1 AND target=$2
+                  AND command='agent_task'
+                  AND payload->>'mode'='local_listening_analysis'
+                  AND status IN ('queued','delivered')
+                  AND created_at < NOW() - INTERVAL '30 minutes'
+                """, request["user_id"], target,
+            )
             # Never execute a forgotten remote command days later. Old queued
             # work is made visible as expired instead of silently lingering.
             await conn.execute(
@@ -564,6 +581,22 @@ async def complete_device_command(request: web.Request) -> web.Response:
         # The row existed at the initial lookup, but another worker/HTTP
         # request won the transition. Keep the original result intact.
         raise web.HTTPConflict(text=json.dumps({"error": "command_not_active"}), content_type="application/json")
+    if expected_target == "desktop" and current["command"] == "agent_task":
+        saved_mode = current.get("payload")
+        if isinstance(saved_mode, str):
+            try:
+                saved_mode = json.loads(saved_mode)
+            except ValueError:
+                saved_mode = {}
+        if isinstance(saved_mode, dict) and saved_mode.get("mode") == "local_listening_analysis":
+            # Scrub transient microphone-derived text as soon as worker
+            # acknowledges completion. The reply remains queryable by ID.
+            await request.app["db"].execute(
+                "UPDATE device_commands SET payload=payload - 'text' - 'system' "
+                "WHERE id=$1 AND user_id=$2 AND target='desktop' "
+                "AND status IN ('completed','failed','expired','cancelled')",
+                command_id, request["user_id"],
+            )
     output = dict(row)
     for key in ("result", "progress"):
         if isinstance(output.get(key), str):
@@ -2297,6 +2330,7 @@ def build_app() -> web.Application:
     add_world_routes(app)
     register_development_routes(app)
     register_local_brain_routes(app,_memory_context,_recent_context)
+    register_local_listening_analysis_routes(app)
     register_personal_plan_routes(app)
     register_learning_routes(app)
     register_conversation_note_routes(app)
