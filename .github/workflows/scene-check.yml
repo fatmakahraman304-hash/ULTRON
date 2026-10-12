@@ -160,3 +160,15 @@ jobs:
       - name: Earth Watch geographic regression tests
         working-directory: ultron/frontend
         run: npm run test:earth
+      - name: Natural 3D scene grammar and saved-project transforms
+        run: |
+          node scripts/test_scene_intents.mjs
+          node scripts/test_hologram_project.mjs
+          node scripts/build_scene_browser.mjs
+          git diff --exit-code -- ultron/cloud_service/static/scene-control.js ultron/cloud_service/static/scene-intents.js
+      - name: Install actual WebGL browser verification
+        run: |
+          python -m pip install aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Mobile and desktop actual 3D scene interactions
+        run: python scripts/tests/test_scene_browser.py

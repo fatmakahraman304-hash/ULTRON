@@ -1,3 +1,4 @@
+import {sceneIntent} from '../spatial/intents';
 import {lazy,Suspense,useEffect,useRef,useState,type CSSProperties} from 'react';
 import {Home,Settings,Gamepad2,Box,Folder,Wrench,Puzzle,Power,Globe,Files,Terminal,Scan,ScanText,Calendar,Code,Activity,Grid2X2,PanelsTopLeft,Mic,MicOff,Send,Square,Trash2,MessageSquare,Command,ShieldCheck,X,Bell} from 'lucide-react';
 import {useUltron,request,type CoreState} from './runtime';
@@ -8,6 +9,7 @@ import CenterStage from './CenterStage';
 import './dashboard.css';
 const HologramLab=lazy(()=>import('../hologram/HologramLab'));
 export default function Dashboard(){
+ const [sceneRequest,setSceneRequest]=useState<{id:number;text:string}>();
  const u=useUltron(),[devDraft,setDevDraft]=useState(''),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[scale,setScale]=useState(1),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general');
  const messages=useRef<HTMLDivElement>(null),abort=useRef<AbortController|null>(null),errorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
  const voiceRouteSeen=useRef<string|null>(''),typedRouteSeen=useRef('');
@@ -351,6 +353,7 @@ export default function Dashboard(){
  };
  const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
    typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();
+   if(sceneIntent(text,hologram)){u.add('user',text);setHologram(true);setModal('');setSceneRequest(prev=>({id:(prev?.id||0)+1,text}));return;}
    if(resolvePanelIntent(text)){
      u.add('user',text);
      try{const reply=await workspaceIntent(text);if(reply)u.add('assistant',reply);}catch(e){notify((e as Error).message);}
@@ -380,6 +383,7 @@ export default function Dashboard(){
    if(voiceRouteSeen.current===id)return;
    voiceRouteSeen.current=id;
    if(latest.text.toLocaleLowerCase('tr-TR').trim()===typedRouteSeen.current){typedRouteSeen.current='';return;}
+   if(sceneIntent(latest.text,hologram)){setHologram(true);setModal('');setSceneRequest(prev=>({id:(prev?.id||0)+1,text:latest.text}));return;}
    if(!resolvePanelIntent(latest.text))return;
    void workspaceIntent(latest.text).then(reply=>{if(reply)u.add('assistant',reply)}).catch(e=>notify((e as Error).message));
  },[u.messages]);
@@ -424,6 +428,6 @@ export default function Dashboard(){
  </div></section></div>}
  {(u.pending||u.patch)&&<div className="modal-shade approval-shade"><section className="work-dialog metal-frame" role="dialog" aria-label="İşlem onayı"><header><h2><ShieldCheck/> İşlem onayı gerekiyor</h2></header><div className="dialog-content"><pre>{JSON.stringify(u.pending??u.patch,null,2)}</pre><p>Yalnız inceleyip kabul ettiğiniz işlemi onaylayın.</p><button onClick={()=>review(u.pending?'/api/task/reject':'/api/codegen/reject',(u.pending??u.patch)!.id)}>Reddet</button><button onClick={()=>review(u.pending?'/api/task/approve':'/api/codegen/apply',(u.pending??u.patch)!.id)}>İnceledim, onayla</button></div></section></div>}
  {u.notice&&<div className="toast" role="alert">{u.notice}<button aria-label="Uyarıyı kapat" onClick={()=>u.setNotice('')}>×</button></div>}
- {hologram&&<Suspense fallback={<div className="modal-shade">Hologram yükleniyor…</div>}><HologramLab accent="#ff3047" onClose={()=>setHologram(false)} onAsk={send}/></Suspense>}
+ {hologram&&<Suspense fallback={<div className="modal-shade">Hologram yükleniyor…</div>}><HologramLab initialCommand={sceneRequest} onCommandResult={reply=>{u.add('assistant',reply);setSceneRequest(undefined)}} accent="#ff3047" onClose={()=>{setSceneRequest(undefined);setHologram(false)}} onAsk={send}/></Suspense>}
  </div></div>;
 }

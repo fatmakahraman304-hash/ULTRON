@@ -1,3 +1,11 @@
+## Next tasks — 2026-10-12 natural 3D controls
+
+1. Verify the new scene functional commit in Scene/WebGL and Cloud/Qwen CI plus exact Render LIVE runtime. Append concrete run/deploy evidence after push. Sources: `ultron/frontend/src/spatial/`, `hologram/HologramScene.ts`, `HologramLab.tsx`, `dashboard/Dashboard.tsx`, mobile `static/index.html`; generated JS rebuilt by `node scripts/build_scene_browser.mjs` after frontend npm ci.
+2. Remaining physical check, after the final Windows update: ask “Bir motorun 3D modelini göster”, then “onu sağa taşı”, “onu döndür”, “Piston 1 seç”, “onu yok et”, “geri al”. This creates a conceptual model; arbitrary manufacturer models require the owner's GLB file. No Windows install/download was performed here.
+3. Qwen production runtime fix `72ffb35` was LIVE and both workflows at final Qwen documentation SHA `aff9ee4` passed: Cloud #38132832978, Scene #38132830817; logs read. New scene work re-ran all six Qwen browser/queue tests successfully. Real physical phone → Render → Windows Qwen and real Gemini inference are still not verified; no credentials/VPN available here. Keep that validation separate from WebGL tests.
+4. Test scene updates with `node scripts/test_scene_intents.mjs`, `node scripts/test_hologram_project.mjs`, frontend build and `python scripts/tests/test_scene_browser.py` (Playwright Chromium + aiohttp). Run `scripts/tests/test_qwen_browser.py` only with a disposable `ULTRON_QUEUE_TEST_DATABASE_URL`. Do not turn synthetic provider replies into real-model quality claims.
+5. Keep UI command scope explicit: no file deletion, tool/OS actions, automatic model downloads or default camera access. Ambiguous lift/remove requests need clarification. Future expansion beyond the bounded built-in library requires actual assets or measured generation integration, not invented success.
+
 ## 2026-10-11 — Verified release evidence, Qwen connection repair
 
 - Functional commit: `72ffb35744465626718df83010e73ad36d20c0c7` pushed to `feat/ultron-cloud-shared-memory`; no `main` update.
@@ -7,7 +15,7 @@
 - This evidence verifies code, synthetic HTTP/queue/model-boundary behavior and deployed assets. It does **not** verify physical iPhone → Render → Windows → real Qwen, real Gemini inference, real model latency/quality, or the historical Windows socket/Live1008 incident cause. Desktop installation/download intentionally not performed. Required next step remains the single physical smoke check described below.
 - This documentation-only follow-up preserves the exact tested runtime; its own CI/Render state will be checked separately and reported in the final response.
 
-## Next tasks — 2026-10-11 Qwen connection repair
+## Archived next tasks — 2026-10-11 Qwen connection repair
 
 1. Code push, both CI checks and Render LIVE are verified above. Check the documentation-only final HEAD with manual workflow dispatch; then physical verification is the remaining dependency. Browser CI is in `cloud-queue-postgres.yml`.
 2. Physical validation remains required after the final desktop update (not installed here): with laptop ULTRON + Ollama running, reload the phone conversation and send “2009 C180 hakkında konuşalım”; verify the new command is completed with `result.provider=local-ollama` and Qwen model. Do not infer real inference from synthetic browser/DB tests. No real cloud/device credentials available here; don't request or log raw secrets/history.

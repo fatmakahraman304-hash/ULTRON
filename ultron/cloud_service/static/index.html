@@ -509,9 +509,11 @@
     </section>
     <section id="hologramView" class="view" aria-label="Mobil hologram önizleme"><div class="memory-form panel" style="text-align:center">
       <div class="section-title"><h2>ULTRON • HOLOGRAM LAB</h2><button id="closeMobileHologram" type="button" class="secondary">KAPAT</button></div>
-      <p class="remote-note">Ekran içi holografik önizleme. Gelişmiş 3D sahne düzenleyicisi Windows'ta kullanılabilir.</p>
-      <div class="mobile-holo-space" aria-label="Dönen enerji hologramı"><div class="mobile-holo-ring ring-one"></div><div class="mobile-holo-ring ring-two"></div><div class="mobile-holo-ring ring-three"></div><div class="mobile-holo-core"><span>ULTRON</span></div></div>
-      <p class="remote-note">“Dünyayı aç”, “Hafızayı göster” veya “Ana ekrana dön” diyerek başka çalışma alanına geçebilirsin.</p>
+      <p class="remote-note">Modeli iste, sonra döndür veya taşı. Parçaya dokunarak seçebilirsin.</p>
+      <div id="sceneCanvas" style="height:52dvh;min-height:300px;position:relative;touch-action:none" aria-label="Etkileşimli 3D sahne"></div>
+      <p id="sceneNotice" role="status" aria-live="polite">“Bir motorun 3D modelini göster” diyebilirsin.</p>
+      <form id="sceneForm" class="row"><input id="sceneCommand" class="grow" aria-label="Sahne komutu" placeholder="Onu sağa taşı…"><button type="submit">Uygula</button><button id="sceneMic" type="button" aria-label="Sahneye sesli komut">◉</button></form>
+      <button id="sceneUpload" type="button" class="secondary">GLB yükle</button>
     </div></section>
     <section id="worldView" class="view">
       <div class="world-embed"><iframe id="worldFrame" title="ULTRON World canlı harita" src="/static/world.html" loading="lazy" allow="geolocation"></iframe></div>
@@ -634,6 +636,7 @@
 <script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
 <script src="/static/chat-transport.js"></script>
+<script src="/static/scene-intents.js"></script>
 <script src="/static/panel-intents.js"></script>
 <script src="/static/learning-review.js"></script>
 <script>
@@ -1387,7 +1390,8 @@ async function openLiveSocket(){
       if(!voiceDevToolSaved&&input){window.ULTRONDevRequests?.fromSpeech(input).catch(()=>{})}
       voiceDevToolSaved=false;
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
-      if(output){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
+      const sceneHandled=input&&await handleSceneIntent(input);
+      if(output&&!sceneHandled){rememberPendingVoice('assistant',output);addMessage('assistant',output)}
       messageSignature='';setWakeUi(false);
       liveStatus(liveSpeaking?'ULTRON konuşuyor…':'Seni dinliyorum…',true);
       $('#stageVoiceText').textContent=liveSpeaking?'ULTRON konuşuyor':'ULTRON • dinliyor';
@@ -1480,6 +1484,7 @@ function startVoice(){startLiveVoice()}
 function scrollChatToBottom(smooth=false){
   if(currentView!=='chat')return;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    if(currentView!=='chat')return;
     const last=$('#messages')?.lastElementChild;
     if(!last)return;
     const viewportH=window.visualViewport?.height||window.innerHeight;
@@ -1601,10 +1606,34 @@ function worldVoiceIntent(text){
  if(/(?:hava durumu|weather)/.test(t))sendWorldCommand({type:'ultron_world',action:'layer',value:'weather'});
  return true;
 }
+let spatialController=null,spatialLoading=null,sceneGeneration=0;
+async function loadSpatialController(){
+ if(spatialController)return spatialController;
+ if(!spatialLoading)spatialLoading=new Promise((resolve,reject)=>{
+   const script=document.createElement('script');script.src='/static/scene-control.js';
+   const timer=setTimeout(()=>{script.remove();reject(new Error('3D sahne yüklenemedi. Yeniden deneyebilirsin.'))},15000);
+   script.onload=()=>{clearTimeout(timer);resolve()};script.onerror=()=>{clearTimeout(timer);script.remove();reject(new Error('3D sahne yüklenemedi.'))};document.head.append(script);
+ }).then(()=>{spatialController=window.ULTRONScene.create({host:$('#sceneCanvas'),open:()=>showView('hologram'),notice:text=>{$('#sceneNotice').textContent=text}});return spatialController}).catch(e=>{spatialLoading=null;throw e});
+ return spatialLoading;
+}
+async function handleSceneIntent(text){
+ const intent=window.ULTRONSceneIntents.resolve(text,currentView==='hologram');
+ if(!intent)return false;
+ if(intent.kind==='clarify'){addMessage('assistant',intent.reply);$('#sceneNotice').textContent=intent.reply;return true;}
+ showView('hologram');const generation=sceneGeneration;$('#sceneNotice').textContent='3D sahne hazırlanıyor…';
+ try{const controller=await loadSpatialController();if(generation!==sceneGeneration||currentView!=='hologram')return true;const reply=controller.handle(text,true);if(reply){addMessage('assistant',reply);$('#sceneNotice').textContent=reply;}}
+ catch(e){$('#sceneNotice').textContent=e.message;addMessage('assistant',e.message)}
+ return true;
+}
+let sceneCommandBusy=false;
+$('#sceneForm').onsubmit=async e=>{e.preventDefault();if(sceneCommandBusy)return;const text=$('#sceneCommand').value.trim();if(!text)return;sceneCommandBusy=true;$('#sceneCommand').value='';try{if(!await handleSceneIntent(text))$('#sceneNotice').textContent='Bu sahne komutunu anlayamadım. Örneğin “onu sağa taşı” diyebilirsin.';}finally{sceneCommandBusy=false}};
+$('#sceneUpload').onclick=async()=>{try{const controller=await loadSpatialController();controller.upload()}catch(e){$('#sceneNotice').textContent=e.message}};
+$('#sceneMic').onclick=()=>$('#voiceBtn').click();
 function handlePanelIntent(text){
  if(conversationNotesController?.runCommand(text))return true;
  const intent=window.ULTRONPanelIntents?.resolve(text);
  if(!intent)return false;
+ if(intent.view==='hologram'){showView('hologram');const generation=sceneGeneration;loadSpatialController().then(c=>{if(currentView==='hologram'&&generation===sceneGeneration)c.open()}).catch(e=>{$('#sceneNotice').textContent=e.message});return true;}
  if(intent.view==='world'){
    if(!worldVoiceIntent(text))showView('world');
    return true;
@@ -1613,6 +1642,7 @@ function handlePanelIntent(text){
  return true;
 }
 function showView(name){
+  if(currentView==='hologram'&&name!=='hologram')sceneGeneration++;
   setAttachMenu(false);currentView=name;
  $('#tabs').classList.remove('panel-nav-open');
  $('#panelMenuToggle')?.setAttribute('aria-expanded','false');
@@ -1622,7 +1652,7 @@ function showView(name){
   if(name==='memory')loadMemories().catch(()=>{});
   if(name==='remote'){loadRemoteState().catch(()=>{});loadRemoteHistory().catch(()=>{});$('#stageVoiceText').textContent='“Son görev ne oldu?” diyebilirsin'}
   if(name==='world'){$('#stageVoiceText').textContent='ULTRON WORLD • gerçek harita ve canlı katmanlar'}
- if(name==='hologram'){$('#stageVoiceText').textContent='ULTRON HOLOGRAM • ekran içi önizleme'}
+ if(name==='hologram'){$('#stageVoiceText').textContent='3D sahne • komutlarını bekliyor'}
   if(name==='develop'){window.ULTRONDevRequests?.refresh().catch(()=>{});$('#stageVoiceText').textContent='ChatGPT geliştirme isteği • onay bekliyor'}
   if(name==='chat'){setUnread(0);setTimeout(()=>{scrollChatToBottom(false);$('#message').focus()},60)}
 }
@@ -1771,6 +1801,7 @@ async function send(fromVoice=false,voiceToken=null){
     if(!fromVoice)voiceTurnGuard.cancel();
     $('#message').value='';clearDraft();
     rememberPendingVoice('user',text,180000);userBubble=addMessage('user',text);
+    if(await handleSceneIntent(text))return;
     const panelHandled=handlePanelIntent(text);
     if(panelHandled){toast('ULTRON çalışma alanı açıldı.');return}
     const devHandled=await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
