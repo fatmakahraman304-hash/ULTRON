@@ -1,3 +1,10 @@
+## Next — finish the Windows install after pulling the test fix
+
+1. In the existing ULTRON clone, run `git pull --ff-only origin feat/ultron-cloud-shared-memory`, then rerun `INSTALL.bat`; it is safe to rerun, the frontend audit fix is in the lockfile, and already-installed models should not download again.
+2. Confirm the installer reports 28 passing tests and `logs/install-result.json` has `core: PASS`. Then start with `START.bat`.
+3. Verify real local Qwen readiness and Gemini fallback, image input, and 3D scene commands on the laptop. Record actual model identity and latency; keep any unavailable provider checks `NOT_RUN`.
+4. Run the frozen bilingual evaluation only against available real providers and review actual transcripts; deterministic tests are not a model quality score.
+
 ## Next — install and validate the laptop handoff
 
 1. Download and extract the provided source package on the Windows laptop; verify the published SHA-256 before running it.

@@ -1,3 +1,7 @@
+## 2026-10-13 — Fix Windows install smoke and frontend audit findings
+
+The owner's Windows install reached the integration tests: 27 passed and one failed because `test_hologram_is_available_without_alternate_desktop` expected the retired `<title>ULTRON Hologram</title>` while the checked-in page is titled `GÖLGE Hologram`. Updated the assertion to verify the current UTF-8 title; no runtime behavior changed. The same install surfaced a high-severity `source-map-js` advisory. Updated the frontend lockfile from 1.2.1 to fixed 1.2.2; clean install, `npm audit` (zero vulnerabilities), and production build pass. The focused integration test passes locally. The Windows installer must be rerun before install success can be claimed.
+
 ## 2026-10-13 — Windows laptop handoff prepared
 
 Prepared a source-only ZIP from the current `feat/ultron-cloud-shared-memory` branch for the owner's laptop. The coding workspace is Linux and has no paired Windows execution channel or mounted laptop, so this is a verified handoff package, not a claimed laptop installation. The package excludes Git history, local dependencies, generated caches, credentials, and model weights. Real Windows install, Ollama/Qwen readiness, Gemini fallback, and device acceptance remain the next validation step.

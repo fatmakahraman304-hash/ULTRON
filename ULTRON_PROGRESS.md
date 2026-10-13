@@ -1,3 +1,9 @@
+## Windows installation smoke — title assertion and dependency correction
+
+The owner's Windows 11 install (Python 3.12.14, Node 24.19.0, npm 11.17.0) successfully built the frontend and prepared Python/voice dependencies. Its 28-test installer suite reported 27 passed and one stale assertion: expected `ULTRON Hologram`, actual current UI title `GÖLGE Hologram`. Updated the integration expectation; focused local reproduction passes 1/1. The installer has not yet been rerun on Windows, so completion remains unverified. Ollama's configured four models were already present; no Qwen model pull was needed.
+
+The frontend audit warning was traced to transitive `source-map-js` 1.2.1 (GHSA-68fv-2mgg-jv7q). Updated the lock to 1.2.2; clean `npm ci`, `npm audit` (0 findings), and Vite production build now pass. The Vite large-chunk advisory remains informational and unchanged.
+
 ## Laptop handoff — 2026-10-13
 
 The branch is clean and matches `origin/feat/ultron-cloud-shared-memory` at code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`. A source archive was prepared for Windows handoff; archive integrity checks confirm the installer, bootstrap, frontend lockfile, and backend entry point are present, with no `.git`, `node_modules`, or virtual environment. This Linux session has no direct Windows device connection, so no files were installed on the physical laptop and no real Qwen/Gemini/device tests were run. Installation remains approval-gated; no security controls were changed.

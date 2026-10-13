@@ -1,3 +1,10 @@
+## 2026-10-13 — Correct the Windows install hologram-title assertion
+
+- The owner's first Windows install used Python 3.12.14 and Node 24.19.0. TypeScript/Vite build completed successfully. Ollama reported all four configured models already installed; Whisper/Piper preparation passed. The installer test suite returned **27 passed, 1 failed** because a test expected the outdated `ULTRON Hologram` title while the served page correctly contains `GÖLGE Hologram`.
+- Reproduced the exact failure locally before changing the test, then updated it to assert the current UTF-8 title. Focused integration regression after the change: **1 passed**. No production runtime code changed.
+- Full suite on this Linux workspace: **25 passed, 3 failed** for missing `sounddevice`, an unavailable health component, and a Linux lock behavior discrepancy; this is not a Windows rerun. The corrected Windows install result remains pending.
+- Investigated the npm high-severity warning: transitive `source-map-js` 1.2.1 matched GHSA-68fv-2mgg-jv7q. Updated the frontend lockfile to 1.2.2; fresh `npm ci --no-audit --no-fund` passed, `npm audit` reports **0 vulnerabilities**, and `npm run build` passed. The >500 kB chunk advisory is informational and remains.
+
 ## 2026-10-13 — Windows laptop source handoff package
 
 - Confirmed the feature branch is clean and matches its GitHub ref at code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`.
