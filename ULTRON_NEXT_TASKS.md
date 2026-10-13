@@ -1,3 +1,14 @@
+## Completed checkpoint — natural Turkish live-voice consent
+
+Commit `86ad3922f2ae04fe630c0ea08a4d53275a6f32f2` adds common explicit Turkish save commands while keeping questions and refusals from authorizing memory writes. Local Cloud Python suite: 318 passed, 60 skipped. Scene #38452607673 and Cloud/PostgreSQL #38452607354 passed. Render deploy `dep-db783rnavr4c73euva8g` is LIVE at the same SHA; `/health` returned HTTP 200.
+
+## Next tasks — real provider and device verification
+
+1. On the real phone, verify transcription and memory behavior for explicit save requests, ordinary personal disclosures, negations, and credential-like content.
+2. Run the frozen 100-case Turkish/English suite against real Gemini and reachable local Qwen with independent review. Keep unavailable provider/device cases as NOT_RUN; this workspace has no Gemini key or Ollama endpoint.
+3. When the paired laptop is available for the already-planned final update, measure Qwen token occupancy for long Turkish/code turns within the 4,096-token interactive context before changing prompt budgets.
+4. Keep Windows installation deferred and preserve approval, privacy, and device permissions.
+
 ## Completed checkpoint — live voice consent release
 
 The live-voice memory guard and grounded tool instructions are pushed at `166ae52e4f47421329e60d1d5c474d47e8ef2a9b`. Scene #38449688028 and Cloud/PostgreSQL #38449688070 passed; Render deploy `dep-db77pougekts73dhtjpg` is LIVE at the same SHA, and public `/health` returns HTTP 200.

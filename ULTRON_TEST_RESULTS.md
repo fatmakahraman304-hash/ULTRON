@@ -1,3 +1,10 @@
+## 2026-10-13 — Natural Turkish live-voice consent variants
+
+- Test-first regression cases reproduced four false negatives: “Aklında bulunsun…”, “Bunu aklında bulundur…”, “Bunu hafızana yaz…”, and “Bunu notlarına ekle…”. They are now accepted as explicit current-turn requests. “Bunu aklında bulundurma”, “Bunu hafızana yazma”, and “Bunu aklında tutmalı mıyım?” remain non-consent. The complete focused live-voice policy suite passes **7/7**.
+- All Cloud Python tests: **318 passed, 60 skipped** for unavailable integration keys/devices/database prerequisites. Conversation dataset validates **100 scenarios: 50 Turkish + 50 English**; this validates data only and does not evaluate model quality.
+- Exact SHA `86ad3922f2ae04fe630c0ea08a4d53275a6f32f2`: Scene Build [#38452607673](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38452607673) and Cloud Queue/PostgreSQL [#38452607354](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38452607354) both **SUCCESS**. Render deploy `dep-db783rnavr4c73euva8g` is **LIVE** at the same SHA; `/health` returned HTTP 200 and reported the exact deployed commit.
+- A synthetic long-history check at the configured 2,600-character Qwen history limit retained the requested old topic, correction, answer ending, and latest turn. No context budget was changed because this workspace has no Qwen tokenizer/model to measure token occupancy. Real model output and phone transcription remain **NOT_RUN**.
+
 ## 2026-10-13 — Live voice consent and capability grounding
 
 - Test-first: new tests initially failed for absent consent policy, no server write guard, credential acceptance, invalid categories, and transcript ordering; corrected behavior passes **7/7** focused tests. They execute the actual nested `save_memory` handler with fake database and Live tool objects: a personal disclosure causes zero writes, an explicit current-turn request writes, credentials cause zero writes, and unsupported categories map to schema-safe FACT.
