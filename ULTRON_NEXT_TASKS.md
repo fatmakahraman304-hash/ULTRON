@@ -1,9 +1,16 @@
 ## Next tasks — 2026-10-13 reset follow-up
 
-1. Check exact new commit Scene/Cloud CI and Render LIVE status; read logs. Local five-case WebGL suite and mandatory build/Earth checks pass. Preserve remote listening additions at cc2ab74.
+1. Runtime 60403db is LIVE; Scene/Cloud/Frontend passed. Workflow repair 52ebff6 passed Scene #38353910646, Cloud #38353913024, Listening #38353907640; logs read. Final docs-only HEAD will receive a manual Scene check; preserve remote listening additions at cc2ab74.
 2. Physical Windows/iPhone smoke remains deferred to final device update: create engine, move, rotate, select Piston 1, remove, undo, reset and undo reset. No real Qwen/Gemini quality score is available.
 3. Baseline orientation now survives project exports. Older files retain only the orientation saved by the old exporter; original pre-edit orientation cannot be reconstructed. Test with `python scripts/tests/test_scene_browser.py` after frontend build and `node scripts/build_scene_browser.mjs`.
 4. Next coherent scene improvement: named-part command coverage and rejection of ambiguous targets; ensure rejected out-of-bounds commands do not add undo history. Keep parser limited to explicit local scene edits.
+
+## 2026-10-13 — Verified reset release
+
+- Runtime commit `60403db496d9021668afa15d68763b48df5cbd7a`: Scene #38353845104, Cloud/PostgreSQL #38353845427 and Frontend #38353845172 **SUCCESS**. Read full Scene/Cloud logs; five actual WebGL cases and six synthetic-provider Qwen Chromium/queue cases pass.
+- Repaired inherited listening workflow YAML (unquoted colon in step title at line 101); its initial run #38353843296 failed before jobs could start. Fix `52ebff6831dcf2388ed1a196f073e9c7b7276db0` quotes the title and enables manual verification. Exact fix SHA: Scene #38353910646, Cloud #38353913024 and Local Qwen Listening #38353907640 **SUCCESS**, logs read. Listening includes 17 queue/worker tests, five real disposable PostgreSQL privacy cases, three synthetic-mic browser cases and five actual WebGL cases. No failed check remains for this verified code/workflow SHA.
+- Render deployment `dep-db6sf9vavr4c73bpbgq0` is **LIVE** at runtime `60403db`, finished 2026-10-13T05:55:46Z. Public health HTTP200/ok; scene-control.js, scene-intents.js and sw.js HTTP200 and byte-for-byte match, PWA shell v62. Later workflow/document-only commits do not change the deployed runtime.
+- Physical Windows/iPhone, microphones and actual Qwen/Gemini generation remain unverified. No Windows installation or model download. Conceptual models/owner GLB only; no fabricated 100/100 model-quality result.
 
 ## 2026-10-13 — Undoable scene reset and project orientation
 
