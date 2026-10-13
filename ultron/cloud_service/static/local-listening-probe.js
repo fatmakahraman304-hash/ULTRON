@@ -9,7 +9,7 @@
   function isRequest(text){
     if(typeof text!=='string')return false;
     const normalized=text.trim().toLocaleLowerCase('tr-TR').replace(/\s+/g,' ');
-    return /^(?:ultron[,! ]+)?qwen(?:'in)? bağlantısını test (?:et|eder misin)[.!?]*$/.test(normalized);
+    return /^(?:(?:gölge|golge|ultron)[,! ]+)?qwen(?:'in)? bağlantısını test (?:et|eder misin)[.!?]*$/.test(normalized);
   }
   function create({presence,request,id=()=>crypto.randomUUID(),now=()=>Date.now(),onStatus=()=>{}}){
     if(typeof presence!=='function'||typeof request!=='function')
@@ -28,17 +28,17 @@
         const desktop=Array.isArray(data?.devices)
           ?data.devices.find(d=>d?.device==='desktop'):null;
         if(desktop?.online!==true){
-          throw new Error('Laptop ULTRON çevrimiçi değil. Laptopta ULTRON ve Cloud bağlantısını başlat.');
+          throw new Error('Laptop GÖLGE çevrimiçi değil. Laptopta GÖLGE ve Cloud bağlantısını başlat.');
         }
         if(desktop?.state?.local_listening_analysis_ready!==true){
-          throw new Error('Laptop çevrimiçi ancak yeni Qwen analiz işçisi hazır değil. Windows ULTRON sürümünü güncelle.');
+          throw new Error('Laptop çevrimiçi ancak yeni Qwen analiz işçisi hazır değil. Windows GÖLGE sürümünü güncelle.');
         }
         // A fresh generated challenge prevents a previous completed result
         // from being accidentally mistaken for an actual new device roundtrip.
         const token=String(id());
         if(!/^[a-zA-Z0-9-]{8,80}$/.test(token))
           throw new Error('Bağlantı testi kimliği geçersiz.');
-        const speech='Bu yalnızca ULTRON Qwen bağlantı testi için sentetik bir nottur. '
+        const speech='Bu yalnızca GÖLGE Qwen bağlantı testi için sentetik bir nottur. '
           +'Gerçek kullanıcı konuşması yoktur. Test kodu '+token+'. '
           +'Önemli karar: sadece bağlantı doğrulanıyor; hiçbir işlem yapılmayacak.';
         update('testing','Render üzerinden laptop Qwen modeline örnek analiz gönderildi; yanıt bekleniyor…');
@@ -58,7 +58,7 @@
         const message=String(error?.message||'Bağlantı doğrulanamadı.');
         // Never show provider response text, model prompts or authentication data.
         const known=/^Laptop |^Yerel Qwen |^Bağlantı testi/.test(message);
-        update('failure',known?message:'Qwen yanıtı alınamadı. Laptop ULTRON, Ollama ve Render bağlantısını kontrol et.');
+        update('failure',known?message:'Qwen yanıtı alınamadı. Laptop GÖLGE, Ollama ve Render bağlantısını kontrol et.');
         throw error;
       }finally{running=false;}
     }
