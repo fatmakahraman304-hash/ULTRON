@@ -36,6 +36,37 @@ def is_vague_self_development_request(text: str) -> bool:
     return bool(re.search(r"\b(?:bir sey(?:i|ini)?|bisey(?:i|ini)?|something|anything)\b", normalized))
 
 
+def resolve_pending_approval(text: str, pending: list[dict]) -> dict | None:
+    """Recognize only an explicit approval/rejection command and bind it safely.
+
+    A bare command may target a sole pending proposal. With multiple proposals,
+    the owner must include the exact proposal ID shown in the UI.
+    """
+    if not pending:
+        return None
+    normalized = unicodedata.normalize("NFKD", str(text or "").casefold().strip())
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = normalized.replace("ı", "i")
+    normalized = re.sub(r"[.!?]+$", "", normalized).strip()
+    command = re.fullmatch(
+        r"(?:(?:lutfen|please)\s+)?(onayliyorum|onay veriyorum|onayla|uygula|approve|"
+        r"reddediyorum|reddet|reject|vazgec)(?:\s+(?:patch\s+)?([a-f0-9]{10}))?"
+        r"(?:\s+(?:lutfen|please))?",
+        normalized,
+    )
+    if not command:
+        return None
+    verb, proposal_id = command.groups()
+    action = "reject" if verb in {"reddediyorum", "reddet", "reject", "vazgec"} else "approve"
+    if proposal_id:
+        match = next((item for item in pending if str(item.get("id", "")).lower() == proposal_id), None)
+        return {"action": action, "proposal_id": proposal_id, "status": "ready" if match else "not_found"}
+    if len(pending) == 1:
+        return {"action": action, "proposal_id": str(pending[0].get("id", "")), "status": "ready"}
+    return {"action": action, "status": "ambiguous",
+            "proposal_ids": [str(item.get("id", "")) for item in pending]}
+
+
 class GitHubPRPublisher:
     def __init__(self, repo_root, *, run=None):
         self.root = Path(repo_root).resolve()

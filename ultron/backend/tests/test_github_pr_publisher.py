@@ -1,4 +1,5 @@
 import sys
+import unittest
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -6,7 +7,30 @@ BACKEND = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND))
 from github_pr_publisher import (GitHubPRPublisher, BASE_BRANCH,
                                  is_self_development_request,
-                                 is_vague_self_development_request)
+                                 is_vague_self_development_request,
+                                 resolve_pending_approval)
+
+
+class ApprovalRoutingTests(unittest.TestCase):
+    """Explicitly callable regression tests for chat-to-patch approval routing."""
+
+    def test_approval_must_be_a_standalone_command(self):
+        pending = [{"id": "abc123def0"}]
+        self.assertEqual(resolve_pending_approval("Onaylıyorum", pending), {
+            "action": "approve", "proposal_id": "abc123def0", "status": "ready"})
+        self.assertIsNone(resolve_pending_approval("Bu taslağa uygula, sonra anlat", pending))
+        self.assertIsNone(resolve_pending_approval("I approve the idea, but explain first", pending))
+
+    def test_multiple_pending_proposals_require_the_exact_id(self):
+        pending = [{"id": "abc123def0"}, {"id": "123456789a"}]
+        ambiguous = resolve_pending_approval("uygula", pending)
+        self.assertEqual(ambiguous["status"], "ambiguous")
+        self.assertCountEqual(ambiguous["proposal_ids"], ["abc123def0", "123456789a"])
+        self.assertEqual(resolve_pending_approval("onaylıyorum patch 123456789a", pending), {
+            "action": "approve", "proposal_id": "123456789a", "status": "ready"})
+        self.assertEqual(resolve_pending_approval("reddet abc123def0", pending), {
+            "action": "reject", "proposal_id": "abc123def0", "status": "ready"})
+        self.assertEqual(resolve_pending_approval("onaylıyorum ffffffffff", pending)["status"], "not_found")
 
 
 def test_turkish_and_english_self_change_intents():

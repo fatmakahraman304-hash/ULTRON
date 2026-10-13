@@ -582,3 +582,9 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 - Full Cloud Python discovery: **304 passed, 58 skipped** (previous 303 plus the Gemini response payload test).
 - `node test_image_generation_ui.cjs`: **1 passed**, including save action and temporary URL cleanup; mobile chat routing: **7 passed**.
 - Python compilation and `git diff --check`: passed. Gemini provider call and real-device save behavior remain NOT RUN.
+
+## 2026-10-13 — GÖLGE code-change approval routing
+
+- `PYTHONPATH=ultron/backend python -m unittest discover -s ultron/backend/tests -p 'test_github_pr_publisher.py' -v`: approval-routing tests **2 passed**. Includes standalone commands, Turkish normalization, ambiguous multiple proposals, exact IDs, rejection, wrong IDs, and conversational false positives.
+- `python -m py_compile ultron/backend/bridge.py ultron/backend/github_pr_publisher.py`: passed. CI now runs the self-development publisher suite and compiles both files.
+- GitHub execution from the owner’s Windows laptop and a real draft PR are not yet tested.

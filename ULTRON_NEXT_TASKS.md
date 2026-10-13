@@ -663,3 +663,10 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 1. In Render UI, try one Turkish and one English image request, download the result on iPhone and laptop, then upload a photo and ask for an edit. Confirm the generated file opens and the original is not available after page reload.
 2. Confirm Gemini account access to the configured image model in a real session; offline and fake-provider tests do not establish provider availability or image quality.
 3. If editing a HEIC/HEIF photo is rejected by Gemini despite API acceptance, add a server-side safe image conversion path with explicit format and pixel limits; preserve the raw upload only in memory.
+
+## Next — complete end-to-end GÖLGE code-change verification
+
+1. After CI passes for the exact commit, confirm Render deploy health/SHA.
+2. On the owner’s Windows laptop at the final combined update, check GÖLGE’s existing GitHub authentication, create an owner-approved draft PR, and verify that no merge/deploy occurs automatically.
+3. Add an async bridge-level test for two pending patches if the codegen bridge can be instantiated without hardware; current tests cover the command resolver and publisher contract.
+4. Continue provider-backed image generation/edit checks separately; live Gemini credentials/model availability and real phone/laptop image handling have not been established by offline tests.

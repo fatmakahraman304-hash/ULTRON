@@ -541,3 +541,9 @@ Fixed uploaded photo analysis creating an unrelated conversation: `/api/vision` 
 ## 2026-10-13 — Image output improvements
 
 Added mobile-friendly download/save for generated and edited results, page-close cleanup for object URLs, incremental upload size checks, and output MIME/size validation. The Gemini SDK response extraction has a provider-free fake response test, including rejection of unsupported SVG output. No live Gemini call or uploaded-photo persistence was added.
+
+## 2026-10-13 — GÖLGE self-development approval safety
+
+- Chat approvals now require a standalone explicit command; ordinary sentences containing “uygula” or “approve” cannot run a code patch. Turkish dotless-i normalization is covered. If several proposals are waiting, the owner must include the exact proposal ID; wrong IDs leave code untouched. Reject/apply responses keep the next pending proposal visible.
+- Added approval-routing regression tests and wired them into Scene CI, with bridge/publisher Python compilation. Local tests: 2 approval-routing tests PASS; existing publisher tests are also checked with pytest.
+- This keeps code changes behind the existing local approval gate and continues to open draft PRs only; it does not merge or deploy from GÖLGE. Laptop `gh` authentication and physical draft-PR operation remain unverified.

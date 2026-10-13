@@ -49,6 +49,8 @@ jobs:
           python-version: "3.12"
       - name: Compile changed Python
         run: |
+          python -m py_compile ultron/backend/bridge.py
+          python -m py_compile ultron/backend/github_pr_publisher.py
           python -m py_compile ultron/backend/server.py
           python -m py_compile ultron/backend/app/core/fast_brain.py
           python -m py_compile scripts/ultron_fast_brain_doctor.py
@@ -83,6 +85,10 @@ jobs:
           python -m unittest discover -s scripts/tests -p 'test_mark_video_dock_qt.py' -v
       - name: Trusted code fast-forward safety tests
         run: python -m unittest discover -s scripts/tests -p 'test_safe_self_update.py' -v
+      - name: Explicit GÖLGE code-change approval routing
+        env:
+          PYTHONPATH: ultron/backend
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_github_pr_publisher.py' -v
       - name: ULTRON Fast Brain single-pass and Ollama wire regression tests
         env:
           PYTHONPATH: ultron/backend

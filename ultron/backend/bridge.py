@@ -17,7 +17,8 @@ import uuid
 
 import test_runner
 from github_pr_publisher import (GitHubPRPublisher, is_self_development_request,
-                                is_vague_self_development_request)
+                                is_vague_self_development_request,
+                                resolve_pending_approval)
 from app.agent.orchestrator import parse_plan, risk_report, should_retry, ALTERNATIVES
 from app.core.intent import vision_pattern, VISION_PROMPT
 from app.core.runtime import UltronRuntime
@@ -332,14 +333,26 @@ class UltronBridge:
         t = text.lower()
         pending = hub.codegen.pending()
 
-        # approval control from chat
-        if pending and any(k in t for k in ("onaylıyorum", "onayliyorum", "approve", "uygula")):
-            await self._apply(pending[0]["id"])
-            return True
-        if pending and any(k in t for k in ("reddet", "reject", "vazgeç")):
-            hub.codegen.reject(pending[0]["id"])
-            await agent.set_state("IDLE", "Patch rejected.")
-            await hub.broadcast({"type": "patch", "data": None})
+        # Mutation approval is a complete, explicit command; conversational
+        # phrases containing "uygula" or "approve" can never approve a patch.
+        decision = resolve_pending_approval(text, pending)
+        if decision:
+            if decision["status"] == "ambiguous":
+                ids = ", ".join(decision["proposal_ids"])
+                await agent.set_state("WAITING_APPROVAL", f"Birden fazla kod taslağı bekliyor ({ids}). Onaylamak için 'onaylıyorum <ID>' yaz.")
+                return True
+            if decision["status"] == "not_found":
+                await agent.set_state("ERROR", "Bu ID ile bekleyen bir kod taslağı yok; değişiklik uygulanmadı.")
+                await agent._schedule_idle()
+                return True
+            if decision["action"] == "approve":
+                await self._apply(decision["proposal_id"])
+                return True
+            hub.codegen.reject(decision["proposal_id"])
+            remaining = hub.codegen.pending()
+            await agent.set_state("WAITING_APPROVAL" if remaining else "IDLE",
+                                  "Kod taslağı reddedildi." if not remaining else "Taslak reddedildi; diğer onay bekleyenler korunuyor.")
+            await hub.broadcast({"type": "patch", "data": remaining[0] if remaining else None})
             await agent._schedule_idle()
             return True
         if pending and any(k in t for k in ("değişiklikleri göster", "değişiklikleri bana göster", "diff")):
@@ -502,7 +515,8 @@ class UltronBridge:
             await agent.set_state("DONE", f"Patch {pid} test edildi; taslak PR açıldı: {pr_result['pull_request']} (birleştirme ve Render yayını ayrı onay bekler).{note}")
         else:
             await agent.set_state("ERROR", f"Patch {pid} failed → rolled back: {res.get('error')}")
-        await hub.broadcast({"type": "patch", "data": None})
+        remaining = hub.codegen.pending()
+        await hub.broadcast({"type": "patch", "data": remaining[0] if remaining else None})
         await agent._schedule_idle()
 
     # ------------------------------------------------------------ tier-2 run

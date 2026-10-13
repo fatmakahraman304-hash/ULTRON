@@ -507,3 +507,7 @@ Cloud chat now keeps uploaded-image analysis and reference follow-ups in the sam
 ## 2026-10-13 — Image output usability and bounds
 
 Generated and edited images now have an explicit download/save action, with temporary object URLs revoked when the page closes. Image uploads for editing stream through an 8 MB bound; provider image outputs are limited to PNG/JPEG/WebP and 8 MB. Originals remain transient in the browser and are not persisted server-side.
+
+## Self-development reliability
+
+Require explicit standalone owner commands for chat-based patch approval. When several proposals are pending, bind approval/rejection to the displayed proposal ID, and preserve the remaining pending proposal in the UI after each decision. Continue to require local approval, tests, and draft-only GitHub PR publication; merge and Render deployment remain separate owner-controlled actions.
