@@ -1,32 +1,32 @@
 import AppIntents
 
-struct StartULTRONListeningIntent: AppIntent {
-    static var title: LocalizedStringResource = "ULTRON Dinlemeyi Başlat"
-    static var description = IntentDescription("ULTRON'un sürekli sesli dinleme oturumunu başlatır.")
+struct StartGÖLGEListeningIntent: AppIntent {
+    static var title: LocalizedStringResource = "GÖLGE Dinlemeyi Başlat"
+    static var description = IntentDescription("GÖLGE'un sürekli sesli dinleme oturumunu başlatır.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         await BackgroundVoiceController.shared.start()
-        return .result(dialog: "ULTRON dinlemeye başlıyor.")
+        return .result(dialog: "GÖLGE dinlemeye başlıyor.")
     }
 }
 
-struct StopULTRONListeningIntent: AppIntent {
-    static var title: LocalizedStringResource = "ULTRON Dinlemeyi Durdur"
-    static var description = IntentDescription("ULTRON'un sürekli sesli dinleme oturumunu durdurur.")
+struct StopGÖLGEListeningIntent: AppIntent {
+    static var title: LocalizedStringResource = "GÖLGE Dinlemeyi Durdur"
+    static var description = IntentDescription("GÖLGE'un sürekli sesli dinleme oturumunu durdurur.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         await BackgroundVoiceController.shared.stop()
-        return .result(dialog: "ULTRON dinlemeyi durdurdu.")
+        return .result(dialog: "GÖLGE dinlemeyi durdurdu.")
     }
 }
 
 /// Foreground app/microphone not required: Siri sends one authenticated HTTP
 /// command to Cloud, with the desktop retaining its own permission gate.
-struct SendULTRONDesktopTaskIntent: AppIntent {
-    static var title: LocalizedStringResource = "ULTRON Bilgisayara Görev Gönder"
-    static var description = IntentDescription("Siri veya Kestirmeler ile masaüstü ULTRON'a görev kuyruğa alır; riskli işlemler onaya tabidir.")
+struct SendGÖLGEDesktopTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "GÖLGE Bilgisayara Görev Gönder"
+    static var description = IntentDescription("Siri veya Kestirmeler ile masaüstü GÖLGE'a görev kuyruğa alır; riskli işlemler onaya tabidir.")
     // iOS 18-compatible: App Intent defaults to running without opening the app.
     static var openAppWhenRun = false
 
@@ -39,32 +39,32 @@ struct SendULTRONDesktopTaskIntent: AppIntent {
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
         let id = try await CloudSession.shared.enqueueDesktopTask(task)
-        return .result(dialog: IntentDialog("Görev \(id) bilgisayardaki ULTRON kuyruğuna alındı. Henüz tamamlanmadı."))
+        return .result(dialog: IntentDialog("Görev \(id) bilgisayardaki GÖLGE kuyruğuna alındı. Henüz tamamlanmadı."))
     }
 }
 
-/// General Siri question to the shared ULTRON cloud brain. Does not
+/// General Siri question to the shared GÖLGE cloud brain. Does not
 /// control local apps or tools and does not require a live mic session.
-struct AskULTRONIntent: AppIntent {
-    static var title: LocalizedStringResource = "ULTRON'a Sor"
-    static var description = IntentDescription("Siri ile ULTRON'a soru sor, ortak Cloud hafızasından cevap al.")
+struct AskGÖLGEIntent: AppIntent {
+    static var title: LocalizedStringResource = "GÖLGE'a Sor"
+    static var description = IntentDescription("Siri ile GÖLGE'a soru sor, ortak Cloud hafızasından cevap al.")
     static var openAppWhenRun = false
 
-    @Parameter(title: "ULTRON'a sorulacak soru")
+    @Parameter(title: "GÖLGE'a sorulacak soru")
     var question: String
 
     static var parameterSummary: some ParameterSummary {
-        Summary("ULTRON'a \(\.$question) sor")
+        Summary("GÖLGE'a \(\.$question) sor")
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let reply = try await CloudSession.shared.askULTRON(question)
+        let reply = try await CloudSession.shared.askGÖLGE(question)
         return .result(dialog: IntentDialog("\(String(reply.prefix(900)))"))
     }
 }
 
-struct CheckULTRONDesktopTaskIntent: AppIntent {
-    static var title: LocalizedStringResource = "ULTRON Bilgisayar Görev Durumu"
+struct CheckGÖLGEDesktopTaskIntent: AppIntent {
+    static var title: LocalizedStringResource = "GÖLGE Bilgisayar Görev Durumu"
     static var description = IntentDescription("Son bilgisayar görevinin Cloud durumunu Siri'den öğren.")
     static var openAppWhenRun = false
 
@@ -74,10 +74,10 @@ struct CheckULTRONDesktopTaskIntent: AppIntent {
     }
 }
 
-struct ULTRONAppShortcuts: AppShortcutsProvider {
+struct GÖLGEAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
-            intent: CheckULTRONDesktopTaskIntent(),
+            intent: CheckGÖLGEDesktopTaskIntent(),
             phrases: [
                 "\(.applicationName) bilgisayar görev durumunu söyle",
                 "\(.applicationName) son görev ne durumda"
@@ -87,17 +87,17 @@ struct ULTRONAppShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: AskULTRONIntent(),
+            intent: AskGÖLGEIntent(),
             phrases: [
                 "\(.applicationName) soru sor",
                 "\(.applicationName) bana cevap ver"
             ],
-            shortTitle: "ULTRON'a Sor",
+            shortTitle: "GÖLGE'a Sor",
             systemImageName: "brain"
         )
 
         AppShortcut(
-            intent: SendULTRONDesktopTaskIntent(),
+            intent: SendGÖLGEDesktopTaskIntent(),
             phrases: [
                 "\(.applicationName) bilgisayara görev gönder",
                 "\(.applicationName) ile bilgisayara komut gönder"
@@ -107,23 +107,23 @@ struct ULTRONAppShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: StartULTRONListeningIntent(),
+            intent: StartGÖLGEListeningIntent(),
             phrases: [
                 "\(.applicationName) dinlemeye başla",
                 "\(.applicationName) sesi aç",
                 "\(.applicationName) ile konuş"
             ],
-            shortTitle: "ULTRON Dinle",
+            shortTitle: "GÖLGE Dinle",
             systemImageName: "waveform.circle.fill"
         )
 
         AppShortcut(
-            intent: StopULTRONListeningIntent(),
+            intent: StopGÖLGEListeningIntent(),
             phrases: [
                 "\(.applicationName) dinlemeyi durdur",
                 "\(.applicationName) sesi kapat"
             ],
-            shortTitle: "ULTRON Durdur",
+            shortTitle: "GÖLGE Durdur",
             systemImageName: "stop.circle.fill"
         )
     }
