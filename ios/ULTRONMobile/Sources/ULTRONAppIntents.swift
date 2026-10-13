@@ -2,7 +2,7 @@ import AppIntents
 
 struct StartULTRONListeningIntent: AppIntent {
     static var title: LocalizedStringResource = "GÖLGE Dinlemeyi Başlat"
-    static var description = IntentDescription("GÖLGE'un sürekli sesli dinleme oturumunu başlatır.")
+    static var description = IntentDescription("GÖLGE'nin sürekli sesli dinleme oturumunu başlatır.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -13,7 +13,7 @@ struct StartULTRONListeningIntent: AppIntent {
 
 struct StopULTRONListeningIntent: AppIntent {
     static var title: LocalizedStringResource = "GÖLGE Dinlemeyi Durdur"
-    static var description = IntentDescription("GÖLGE'un sürekli sesli dinleme oturumunu durdurur.")
+    static var description = IntentDescription("GÖLGE'nin sürekli sesli dinleme oturumunu durdurur.")
     static var openAppWhenRun = true
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -26,7 +26,7 @@ struct StopULTRONListeningIntent: AppIntent {
 /// command to Cloud, with the desktop retaining its own permission gate.
 struct SendULTRONDesktopTaskIntent: AppIntent {
     static var title: LocalizedStringResource = "GÖLGE Bilgisayara Görev Gönder"
-    static var description = IntentDescription("Siri veya Kestirmeler ile masaüstü GÖLGE'a görev kuyruğa alır; riskli işlemler onaya tabidir.")
+    static var description = IntentDescription("Siri veya Kestirmeler ile masaüstü GÖLGE'ye görev kuyruğa alır; riskli işlemler onaya tabidir.")
     // iOS 18-compatible: App Intent defaults to running without opening the app.
     static var openAppWhenRun = false
 
@@ -46,15 +46,15 @@ struct SendULTRONDesktopTaskIntent: AppIntent {
 /// General Siri question to the shared GÖLGE cloud brain. Does not
 /// control local apps or tools and does not require a live mic session.
 struct AskULTRONIntent: AppIntent {
-    static var title: LocalizedStringResource = "GÖLGE'a Sor"
-    static var description = IntentDescription("Siri ile GÖLGE'a soru sor, ortak Cloud hafızasından cevap al.")
+    static var title: LocalizedStringResource = "GÖLGE'ye Sor"
+    static var description = IntentDescription("Siri ile GÖLGE'ye soru sor, ortak Cloud hafızasından cevap al.")
     static var openAppWhenRun = false
 
-    @Parameter(title: "GÖLGE'a sorulacak soru")
+    @Parameter(title: "GÖLGE'ye sorulacak soru")
     var question: String
 
     static var parameterSummary: some ParameterSummary {
-        Summary("GÖLGE'a \(\.$question) sor")
+        Summary("GÖLGE'ye \(\.$question) sor")
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
@@ -92,7 +92,7 @@ struct ULTRONAppShortcuts: AppShortcutsProvider {
                 "\(.applicationName) soru sor",
                 "\(.applicationName) bana cevap ver"
             ],
-            shortTitle: "GÖLGE'a Sor",
+            shortTitle: "GÖLGE'ye Sor",
             systemImageName: "brain"
         )
 
