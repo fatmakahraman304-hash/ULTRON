@@ -44,7 +44,7 @@ export default function HologramLab({accent,onClose,onAsk,nativeAction,initialCo
   };
   const choose=(kind:'reactor'|'arm')=>{setParts(scene.current?.demo(kind)??[]);setModel(kind==='reactor'?'ENERJİ ÇEKİRDEĞİ':'ROBOT KOLU');setIsolated(false);setWire(false);};
   const reset=()=>{scene.current?.reset();setIsolated(false);};
-  const saveProject=()=>{if(!scene.current)return;const blob=new Blob([JSON.stringify(scene.current.project(model))],{type:'application/json'});const url=URL.createObjectURL(blob);download(url,'ultron-proje.ultron.json');setTimeout(()=>URL.revokeObjectURL(url),120000);};
+  const saveProject=()=>{if(!scene.current)return;const blob=new Blob([JSON.stringify(scene.current.project(model))],{type:'application/json'});const url=URL.createObjectURL(blob);download(url,'golge-proje.golge.json');setTimeout(()=>URL.revokeObjectURL(url),120000);};
   const designBusy=useRef(false);
   const runCommand=async(raw:string)=>{const intent=sceneIntent(raw,true);if(intent){if(loading||designBusy.current){setNotice('Model yükleniyor; bitmesini bekle.');return;}if(intent.kind==='upload'){file.current?.click();return;}if(intent.kind==='design'){
     designBusy.current=true;setLoading(true);setNotice('Tarifinden model taslağı hazırlanıyor…');
