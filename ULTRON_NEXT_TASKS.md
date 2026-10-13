@@ -1,8 +1,13 @@
-## Next tasks — validate Turkish matching and provider quality
+## Next tasks — real conversation quality and device verification
 
-1. Push the diacritic-tolerant style/context change and inspect exact-SHA Actions; verify Render’s deployed SHA and served service code.
-2. Package-import correction is verified: Scene `38440168682` and Cloud Queue/PostgreSQL `38440168681` passed; Render is LIVE at `c805e1e`. On phone and laptop, test both accented and unaccented commands (“kısa cevap”/“kisa cevap”, “konuyu değiştir”/“konuyu degistir”), then verify actual Qwen/Gemini replies.
-3. Run the frozen 100-case Turkish/English evaluation with actual providers and independent human review when credentials/device access are available. Never treat deterministic routing tests as a model-quality score.
+1. On the owner’s phone and paired Windows laptop, verify accented and unaccented Turkish style/topic commands, Qwen-first routing when Ollama is actually ready, Gemini fallback, voice turn cancellation, image upload/recovery, and 3D scene edits. Record device/model versions and actual failures; do not infer hardware operation from browser mocks.
+2. Run the frozen 100-scenario evaluation against real Gemini and reachable Qwen, then obtain independent review. Keep provider transcripts, latency, and factual/style scores separate; missing credentials or unavailable devices must stay `not_run`, never pass.
+3. Measure the Vite 821.74 kB raw / 222.42 kB gzip Three.js chunk on a cold dashboard. `Dashboard.tsx` statically loads `CenterStage`, whose default `GolgeOrb` uses WebGL; the separate Hologram Lab is lazy. Add a browser timing/resource contract before considering a deferred orb or CSS fallback, and preserve the initial visual behavior unless the measured gain justifies a change.
+4. Keep Windows installation/model downloads deferred until the final consolidated owner update; preserve Approval Gate, privacy, and device permissions.
+
+## Completed checkpoint — Turkish matching release
+
+The diacritic-tolerant code and package-import correction are pushed and verified: Scene `38440168682` and Cloud Queue/PostgreSQL `38440168681` passed, Render is LIVE at `c805e1e`, and served files match the release. The remaining owner phone/laptop and real Gemini/Qwen evaluation steps are listed at the top of this file.
 
 ## Next tasks — verify latest Qwen routing recovery
 
