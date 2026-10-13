@@ -569,3 +569,11 @@ Release verification for owner-grounded suggestions: runtime code `de228a8` is i
 
 
 Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` contains the self-development routing and PR flow. Cloud/PostgreSQL Actions `38430065807`, Scene/UI `38430065886`, and WORLD smoke `38430065957` all **SUCCESS**; workflow logs inspected. Render deployment `dep-db75lruq1p3s73f2eorg` is **LIVE** and `/health` confirms exact SHA `bd09410`. This verifies the Cloud routing and repository checks. The Windows app has not been installed, and GÖLGE's own laptop `gh auth status`, actual branch push, and draft PR have not been tested.
+## 2026-10-13 — Image create/edit and uploaded-image context
+
+- `python -m unittest test_image_generation test_conversation_turns test_recent_context_isolation test_response_quality -v` from `ultron/cloud_service`: **19 passed**. Covers authentication, actual image payload contract, edit source bytes reaching provider, same-thread visual follow-up, conversation turn isolation and response policy.
+- `node test_image_generation_ui.cjs`: **1 passed**; checks Turkish/English creation intents, image edit follow-up and non-image chat routing. Inline UI script syntax check passed.
+- Full Cloud Python discovery: **303 passed, 58 skipped**; skips include tests requiring external services/provider credentials or dedicated PostgreSQL setup. Frontend `npm run build`: passed (existing large-chunk warning).
+- `python -m py_compile app.py test_image_generation.py`: passed.
+- Inline chat script `node --check`: passed; `node test_mobile_chat_flow.cjs`: **7 passed**.
+- Gemini image-generation provider call, production credentials/model availability, Render deployment, and physical iPhone behavior: **not run**. No actual generated image or live-provider success is claimed.

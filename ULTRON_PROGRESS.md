@@ -535,3 +535,6 @@ The suggestion panel is live in Render at `a0352a5`; Cloud/PostgreSQL and Scene/
 
 
 Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` contains the self-development routing and PR flow. Cloud/PostgreSQL Actions `38430065807`, Scene/UI `38430065886`, and WORLD smoke `38430065957` all **SUCCESS**; workflow logs inspected. Render deployment `dep-db75lruq1p3s73f2eorg` is **LIVE** and `/health` confirms exact SHA `bd09410`. This verifies the Cloud routing and repository checks. The Windows app has not been installed, and GÖLGE's own laptop `gh auth status`, actual branch push, and draft PR have not been tested.
+## 2026-10-13 — Cloud image creation and upload continuity
+
+Fixed uploaded photo analysis creating an unrelated conversation: `/api/vision` accepts the active conversation ID, includes its bounded prior turns, validates ownership, and returns message IDs so the UI does not duplicate server-saved messages. Follow-ups that refer to visible image content resend the in-memory image to Gemini. Added authenticated `/api/image/generate` for real Gemini image creation/editing and inline display; the client does not retain uploaded images beyond the current page session or persist image bytes. Actual Gemini image-model availability has not been tested.

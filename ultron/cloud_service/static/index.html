@@ -996,12 +996,43 @@ async function flipPhoneCamera(){
 }
 async function visionApi(file,question=''){
   const form=new FormData();form.append('image',file,file.name||'photo.jpg');form.append('question',question||'');
+  const url='/api/vision'+(conversationId?'?conversation_id='+encodeURIComponent(conversationId):'');
   let res;
-  try{res=await fetch('/api/vision',{method:'POST',credentials:'include',body:form})}
+  try{res=await fetch(url,{method:'POST',credentials:'include',body:form})}
   catch(err){const e=new Error('Görsel yüklenirken bağlantı koptu.');e.network=true;throw e}
   let data={};try{data=await res.json()}catch{}
   if(!res.ok){const e=new Error(data.detail||data.error||('HTTP '+res.status));e.data=data;throw e}
   return data;
+}
+let lastImageFile=null,lastImageConversationId='';
+async function generateImageApi(prompt,image=null){
+  const form=new FormData();form.append('prompt',prompt);if(conversationId)form.append('conversation_id',conversationId);
+  if(image)form.append('image',image,image.name||'uploaded-image.png');
+  const res=await fetch('/api/image/generate',{method:'POST',credentials:'include',body:form});
+  let data={};try{data=await res.json()}catch{}
+  if(!res.ok)throw new Error(data.detail||data.error||('HTTP '+res.status));return data;
+}
+function isImageCreationRequest(text){
+  return /(?:resim|görsel|fotoğraf|image|picture).*?(?:oluştur|üret|çiz|yarat|generate|create|draw)|(?:oluştur|üret|çiz|yarat|generate|create|draw)\s+(?:bana\s+)?(?:bir|a|an)?\s*(?:resim|görsel|fotoğraf|image|picture)|^(?:bana\s+)?(?:bir|a|an)?\s*[\w\s-]{2,100}\s+(?:çiz|oluştur|üret|yarat|draw|generate|create)\b|(?:attığım|yüklediğim|bu)\s+(?:resim\w*|görsel\w*|fotoğraf\w*)\s+(?:değiştir|düzenle|iyileştir|güzelleştir|modify|edit|improve|enhance)/i.test(text)||
+    (!!lastImageFile&&/(?:daha iyi yap|iyileştir|güzelleştir|kalitesini artır|make it better|enhance it|improve it)/i.test(text));
+}
+function isImageFollowupRequest(text){
+  return /(?:bu\s+(?:resim|görsel|fotoğraf)|(?:resimde|görselde|fotoğrafta)|onun\s+(?:rengi|üzerinde)|orada|şurada|bunda|bunu|bunun|ne\s+(?:yazıyor|var)|hangi\s+(?:renk|nesne)|kaç\s+(?:tane|kişi)|describe\s+(?:it|this)|what(?:'s| is)\s+(?:in|on)\s+(?:it|this)|what\s+color\s+is\s+it)/i.test(text);
+}
+async function sendImageCreation(text,userBubble){
+  const edit=/attığım|yüklediğim|bu\s+resim|bu\s+görsel|bu\s+fotoğraf|düzenle|iyileştir|güzelleştir|daha iyi yap|kalitesini artır|edit|improve|enhance/i.test(text);
+  const source=edit&&lastImageConversationId===conversationId?lastImageFile:null;
+  if(edit&&!source){addMessage('assistant','Düzenleyebilmem için değiştirmek istediğin resmi bu sohbete yeniden ekle.');return true}
+  $('#busy').textContent=source?'GÖLGE görseli düzenliyor…':'GÖLGE görseli oluşturuyor…';
+  const d=await generateImageApi(text,source);
+  if(d.conversation_id){conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId)}
+  if(d.user_message_id&&userBubble){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
+  const bubble=addMessage('assistant',source?'Görseli düzenledim.':'Görseli oluşturdum.',{id:d.assistant_message_id});
+  if(d.image_b64&&/^image\/(?:png|jpeg|webp)$/.test(d.mime_type||'')){
+    const img=document.createElement('img');img.alt=source?'Düzenlenmiş görsel':'Oluşturulmuş görsel';
+    img.src='data:'+d.mime_type+';base64,'+d.image_b64;img.style.cssText='display:block;max-width:min(100%,480px);max-height:65vh;margin-top:10px;border-radius:14px';bubble.appendChild(img);
+  }
+  messageSignature='';if(userBubble){}return true;
 }
 function clearPendingImage(){
   pendingImage=null;
@@ -1017,11 +1048,14 @@ async function sendImage(){
   const file=pendingImage;if(!file)return false;
   const question=$('#message').value.trim();
   $('#busy').textContent='GÖLGE görseli inceliyor…';$('#sendBtn').disabled=true;$('#plusBtn').disabled=true;
-  addMessage('user','📷 '+(question||'Bu görseli analiz et.'));
+  const userBubble=addMessage('user','📷 '+(question||'Bu görseli analiz et.'));
   try{
+    lastImageFile=file;
     const d=await visionApi(file,question);
     conversationId=d.conversation_id||conversationId;if(conversationId)localStorage.setItem('ultronConversationId',conversationId);
-    addMessage('assistant',d.reply);messageSignature='';clearPendingImage();$('#message').value='';
+    lastImageConversationId=conversationId;
+    if(d.user_message_id){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
+    addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';clearPendingImage();$('#message').value='';
     if(voiceEnabled&&!voiceListening)speakUltron(d.reply);
     toast('Görsel analiz edildi. Sesli modda bu fotoğraf hakkında soru sorabilirsin.');
     return true;
@@ -2049,6 +2083,17 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(panelHandled){toast('GÖLGE çalışma alanı açıldı.');return}
     const devHandled=options.forceChat?false:await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
     if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
+    if(!options.forceChat&&isImageCreationRequest(text))return await sendImageCreation(text,userBubble);
+    if(!options.forceChat&&lastImageFile&&lastImageConversationId===conversationId&&isImageFollowupRequest(text)){
+      $('#busy').textContent='GÖLGE yüklediğin görsele bakıyor…';
+      const d=await visionApi(lastImageFile,text);
+      if(d.user_message_id){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
+      rememberPendingVoice('assistant',d.reply);
+      addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';
+      if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
+      if(voiceEnabled&&!voiceListening)try{speakUltron(d.reply)}catch{}
+      return true;
+    }
     const directHandled=!options.forceChat&&runDirectPhoneCommand(text);
     if(directHandled){toast('Komut uygulanıyor…');return}
     $('#busy').textContent='GÖLGE düşünüyor…';

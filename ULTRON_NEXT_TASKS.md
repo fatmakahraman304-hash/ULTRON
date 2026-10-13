@@ -652,3 +652,9 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 
 
 Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL, Scene/UI and WORLD Actions passed. Remaining device work: install at the authorized final Windows update, confirm laptop `gh auth status` for this repository, then create a real draft PR from GÖLGE, inspect Actions, manually merge, and verify Render deployed SHA. No GitHub credential was placed in Cloud or chat.
+## Next — verify image creation with the configured provider
+
+1. On Render, test upload → “fotoğrafta ne var?” → “daha iyi yap” and a new prompt such as “mavi bir daire oluştur”; verify same conversation IDs, actual inline image output, and provider error reporting. Gemini API credentials remain server-side.
+2. If image output fails, inspect only the safe API error category and check Gemini account/model access; set `GEMINI_IMAGE_MODEL` in Render only to a model available to that account. Never request or paste the API key into chat.
+3. Confirm image bytes remain transient in browser memory and are absent from messages/events; test ownership isolation and reattach behavior after reload.
+4. Continue deferring Windows installation until the user's final combined update.

@@ -501,3 +501,6 @@ All ten are *workstream requirements*; not all are implemented or physically ach
 
 
 Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` contains the self-development routing and PR flow. Cloud/PostgreSQL Actions `38430065807`, Scene/UI `38430065886`, and WORLD smoke `38430065957` all **SUCCESS**; workflow logs inspected. Render deployment `dep-db75lruq1p3s73f2eorg` is **LIVE** and `/health` confirms exact SHA `bd09410`. This verifies the Cloud routing and repository checks. The Windows app has not been installed, and GÖLGE's own laptop `gh auth status`, actual branch push, and draft PR have not been tested.
+## 2026-10-13 — Upload-aware Gemini image creation and editing
+
+Cloud chat now keeps uploaded-image analysis and reference follow-ups in the same owner-scoped conversation. In the active browser session, explicit “resim oluştur/çiz”, “attığım resmi düzenle” and short “daha iyi yap” requests call Gemini's configurable image model (`GEMINI_IMAGE_MODEL`, default `gemini-2.5-flash-image`) and show only returned image bytes. Image files stay in browser memory and are uploaded only for analysis/edit requests; they are not stored in conversation rows. Provider access is not live-tested in this workspace.

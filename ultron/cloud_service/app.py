@@ -1038,6 +1038,85 @@ def _gemini_image_reply(image_bytes: bytes, mime_type: str, question: str, syste
     return text
 
 
+def _gemini_generate_image(prompt: str, image_bytes: bytes | None = None,
+                           mime_type: str | None = None) -> dict[str, str]:
+    """Generate or edit one image through Gemini; return only actual provider bytes."""
+    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
+    model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image").strip()
+    contents: list[Any] = [prompt]
+    if image_bytes is not None:
+        contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"))
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
+    )
+    for candidate in getattr(response, "candidates", []) or []:
+        for part in getattr(getattr(candidate, "content", None), "parts", []) or []:
+            inline = getattr(part, "inline_data", None)
+            data = getattr(inline, "data", None) if inline else None
+            if data:
+                raw = data if isinstance(data, bytes) else base64.b64decode(data) if isinstance(data, str) else bytes(data)
+                return {"mime_type": getattr(inline, "mime_type", None) or "image/png",
+                        "image_b64": base64.b64encode(raw).decode("ascii"), "model": model}
+    raise RuntimeError("Gemini image model returned no image")
+
+
+async def generate_image(request: web.Request) -> web.Response:
+    prompt, image_bytes, mime_type, conversation_id = "", None, None, ""
+    if request.content_type == "application/json":
+        body = await request.json()
+        prompt = str(body.get("prompt", "")).strip()[:4000]
+        conversation_id = str(body.get("conversation_id", "")).strip()
+    else:
+        reader = await request.multipart()
+        while True:
+            field = await reader.next()
+            if field is None:
+                break
+            if field.name == "prompt":
+                prompt = (await field.text()).strip()[:4000]
+            elif field.name == "conversation_id":
+                conversation_id = (await field.text()).strip()
+            elif field.name == "image":
+                mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
+                if mime_type not in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}:
+                    raise web.HTTPBadRequest(text='{"error":"supported_image_required"}', content_type="application/json")
+                data = await field.read(decode=False)
+                if len(data) > 8 * 1024 * 1024:
+                    raise web.HTTPRequestEntityTooLarge(max_size=8 * 1024 * 1024, actual_size=len(data))
+                image_bytes = data
+    if not prompt:
+        raise web.HTTPBadRequest(text='{"error":"prompt_required"}', content_type="application/json")
+    try:
+        conv_uuid = uuid.UUID(conversation_id) if conversation_id else uuid.uuid4()
+    except ValueError:
+        raise web.HTTPBadRequest(text='{"error":"invalid_conversation_id"}', content_type="application/json")
+    pool = request.app["db"]
+    claimed = await pool.fetchval(
+        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
+        "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
+        "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
+        conv_uuid, request["user_id"], prompt[:80],
+    )
+    if claimed is None:
+        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
+    try:
+        result = await asyncio.to_thread(_gemini_generate_image, prompt, image_bytes, mime_type)
+    except Exception:
+        # Provider errors may contain request details; never expose them to clients.
+        raise web.HTTPBadGateway(text=json.dumps({"error":"image_generation_failed",
+            "detail":"Görsel üretimi tamamlanamadı. Gemini görsel model erişimini kontrol et."}, ensure_ascii=False),
+            content_type="application/json")
+    user_message_id = await pool.fetchval("INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4) RETURNING id",
+                       conv_uuid, request["user_id"], prompt, request["device_id"])
+    assistant_message_id = await pool.fetchval("INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'gemini-image') RETURNING id",
+                       conv_uuid, request["user_id"], "Görsel oluşturuldu.")
+    return web.json_response({**result, "conversation_id": str(conv_uuid),
+                              "user_message_id": user_message_id,
+                              "assistant_message_id": assistant_message_id})
+
+
 async def vision(request: web.Request) -> web.Response:
     reader = await request.multipart()
     image_bytes = b""
@@ -1074,8 +1153,13 @@ async def vision(request: web.Request) -> web.Response:
         )
 
     pool = request.app["db"]
-    memory = await _memory_context(pool, request["user_id"])
-    recent = await _recent_context(pool, request["user_id"], limit=12)
+    try:
+        raw_conversation_id = request.query.get("conversation_id", "")
+        conv_uuid = uuid.UUID(raw_conversation_id) if raw_conversation_id else uuid.uuid4()
+    except ValueError:
+        raise web.HTTPBadRequest(text='{"error":"invalid_conversation_id"}', content_type="application/json")
+    memory = await _memory_context(pool, request["user_id"], query=question)
+    recent = await _recent_context(pool, request["user_id"], limit=12, conversation_id=conv_uuid if raw_conversation_id else None)
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent=recent, user_message=question,
@@ -1096,18 +1180,21 @@ async def vision(request: web.Request) -> web.Response:
             content_type="application/json",
         )
 
-    conv_uuid = uuid.uuid4()
     user_text = f"[Görsel: {filename}] " + (question or "Bu görseli analiz et.")
-    await pool.execute(
-        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3)",
+    claimed = await pool.fetchval(
+        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
+        "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
+        "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
         conv_uuid, request["user_id"], user_text[:80],
     )
-    await pool.execute(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4)",
+    if claimed is None:
+        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
+    user_message_id = await pool.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4) RETURNING id",
         conv_uuid, request["user_id"], user_text, request["device_id"],
     )
-    await pool.execute(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini-vision')",
+    assistant_message_id = await pool.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini-vision') RETURNING id",
         conv_uuid, request["user_id"], reply,
     )
     await pool.execute(
@@ -1117,6 +1204,8 @@ async def vision(request: web.Request) -> web.Response:
     return web.json_response({
         "conversation_id": str(conv_uuid),
         "reply": reply,
+        "user_message_id": user_message_id,
+        "assistant_message_id": assistant_message_id,
         "filename": filename,
         "mime_type": mime_type,
     })
@@ -2372,6 +2461,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/local-scene-design/{id}", get_scene)
     app.router.add_post("/api/listening-analysis", listening_analysis_api)
     app.router.add_post("/api/vision", vision)
+    app.router.add_post("/api/image/generate", generate_image)
     app.router.add_post("/api/document", document)
     app.router.add_post("/api/camera-frame", camera_frame)
     app.router.add_get("/api/live", live_voice)
