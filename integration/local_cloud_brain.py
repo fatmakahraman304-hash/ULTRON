@@ -104,12 +104,20 @@ _CONTINUE_ONLY = re.compile(
 )
 
 
+def _is_local_continuation(text: str) -> bool:
+    """Use shared Cloud phrasing plus backward-compatible local variations."""
+    return bool(_CONTINUE_ONLY.fullmatch(text.strip())
+                or is_bare_continuation_request(text))
+
+
 def _last_substantive_owner_request(text: str, turns) -> str:
     """Only for a bare continuation; never interpret assistant/system as user.
 
-    Already-scoped, recent history only. No additional DB/model call.
+    Cloud may put an old verified goal at the beginning of 12 selected turns.
+    Read all bounded turns rather than silently dropping the anchor.
+    No extra DB/model call, memory write or promotion of assistant text.
     """
-    if not _CONTINUE_ONLY.fullmatch(text.strip()) or not isinstance(turns, list):
+    if not _is_local_continuation(text) or not isinstance(turns, list):
         return ""
     for turn in reversed(turns[-20:]):
         if not hasattr(turn, "get") or turn.get("role") != "user":
@@ -118,8 +126,10 @@ def _last_substantive_owner_request(text: str, turns) -> str:
         if not isinstance(prior, str):
             continue
         prior = prior.strip()
-        if prior and not _CONTINUE_ONLY.fullmatch(prior):
-            return prior
+        if is_topic_switch_request(prior):
+            return ""
+        if prior and not _is_local_continuation(prior):
+            return bounded_user_request(prior, 3000)
     return ""
 
 
