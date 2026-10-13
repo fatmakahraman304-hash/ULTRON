@@ -15,16 +15,19 @@ _NEGATED_MEMORY_REQUEST = re.compile(
     r"\b(?:do not|don't|dont|never)\s+(?:remember|save|store|keep|note)\b|"
     r"\b(?:bunu|sunu|bu bilgiyi|bu tercihi)\s+"
     r"(?:hatirlama|kaydetme|saklama|not etme|"
-    r"aklinda tutma|hafizana alma|bellegine alma)\b|"
+    r"aklinda tutma|aklinda bulundurma|hafizana alma|"
+    r"hafizana yazma|notlarina ekleme|bellegine alma)\b|"
     r"\b(?:bunu|sunu)\s+(?:kaydetmeli|hatirlamali)\s+miyim\b",
     re.I,
 )
 _EXPLICIT_MEMORY_REQUEST = re.compile(
     r"\b(?:bunu|sunu|bu bilgiyi|bu tercihi|bu tercihim[i]?)\s+"
-    r"(?:hafizana\s+)?(?:hatirla|kaydet|sakla|unutma|not et)\b|"
+    r"(?:hafizana\s+)?(?:hatirla|kaydet|sakla|unutma|not et|yaz|"
+    r"aklinda\s+bulundur|notlarina\s+ekle)\b|"
     r"\b(?:hafizana|hafizaya|hafizama|bellegine|bellege|bellegime)\s+"
     r"(?:kaydet|ekle|al)\b|"
-    r"\b(?:aklinda|hafizanda|belleginde)\s+(?:tut|kalsin)\b|"
+    r"\b(?:aklinda|hafizanda|belleginde)\s+(?:tut|kalsin|bulunsun)\b|"
+    r"^\s*(?:lutfen\s+)?aklinda\s+bulunsun\b|"
     r"^\s*(?:lutfen\s+)?(?:hatirla|unutma)\b|"
     r"^\s*(?:(?:please|can you|could you)\s+)?"
     r"(?:remember|save|store|note)\s+(?:this|that|it|i|my|the fact)\b|"
