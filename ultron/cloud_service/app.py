@@ -26,7 +26,7 @@ from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
 from local_listening_bridge import register_local_listening_analysis_routes, listening_cleanup_loop
 from conversation_persona import build_system_instruction
-from personal_context_focus import load_focused_owner_context
+from personal_context_focus import load_focused_owner_context, memory_focus_question
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
 from response_quality import finalize_response
@@ -1384,11 +1384,14 @@ async def chat(request: web.Request) -> web.Response:
         conv_uuid, request["user_id"], text, request["device_id"],
     )
 
-    memory = await _memory_context(pool, request["user_id"], query=text)
     turns = await load_contextual_thread_turns(
         pool, request["user_id"], conv_uuid, question=text,
         before_id=current_message_id, max_chars=5200, limit=16,
     )
+    # Use the last real owner goal for memory search when the current message
+    # is only "continue". Context remains current-conversation and owner scoped.
+    focus_query = memory_focus_question(text, turns)
+    memory = await _memory_context(pool, request["user_id"], query=focus_query)
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",

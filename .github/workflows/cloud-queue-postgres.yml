@@ -3,6 +3,7 @@ name: Cloud Queue PostgreSQL Integration
 on:
   pull_request:
     branches:
+      - feat/ultron-cloud-shared-memory
       - feat/golge-qwen-goal-routing-20261013
     paths:
       - "ultron/cloud_service/**"
@@ -11,6 +12,7 @@ on:
     branches:
       - feat/ultron-cloud-shared-memory
       - feat/golge-temporal-memory-20261013
+      - feat/golge-memory-focus-continuity-20261013
     paths:
       - "ultron/cloud_service/**"
       - "integration/local_cloud_brain.py"
@@ -65,6 +67,8 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus.py' -v
       - name: GÖLGE temporal plan retrieval and stale-memory labeling
         run: python -m unittest discover -s ultron/cloud_service -p 'test_golge_temporal_memory.py' -v
+      - name: GÖLGE owner-goal memory focus without data cross-contamination
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_golge_memory_focus_continuity.py' -v
       - name: Ten-capability readiness truthfulness tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_capability_readiness.py' -v
       - name: Personal briefing privacy and grounding tests
@@ -131,6 +135,10 @@ jobs:
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus_postgres.py' -v
+      - name: Real PostgreSQL 36-turn goal to saved-memory recall and account isolation
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_golge_memory_focus_postgres.py' -v
       - name: Real PostgreSQL natural conversation tenant/thread isolation
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test

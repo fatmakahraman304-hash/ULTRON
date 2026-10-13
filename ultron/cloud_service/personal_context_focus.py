@@ -9,6 +9,10 @@ from __future__ import annotations
 import re
 from datetime import date
 from memory_safety import explicit_style_slots, normalized_value
+from conversation_turns import (
+    bounded_user_request, is_bare_continuation_request,
+    is_explicit_turn_correction, is_topic_switch_request,
+)
 
 _STOP = frozenset(("benim", "bana", "bunun", "onun", "hakkında", "bunu", "nedir",
                    "nasıl", "neden", "hangi", "kadar", "için", "daha", "sonra",
@@ -147,6 +151,33 @@ def select_personal_context(memories, plans, question="", *, max_chars=3500,
     if output == header:
         return "No saved GÖLGE memory or personal plans yet."
     return output.rstrip()
+
+
+def memory_focus_question(question: str, turns) -> str:
+    """Find the owner's real topic for a bare 'continue' memory lookup.
+
+    Only role-labelled turns supplied by the *authenticated, current-thread*
+    caller are considered. Never use an assistant answer as owner intent,
+    construct a system message, fetch other threads, or persist implicit facts.
+    Explicit topic switches cancel the older memory focus. The returned text
+    is only a bounded search string, never a new assistant instruction.
+    """
+    request = str(question or "").strip()
+    if not is_bare_continuation_request(request):
+        return request
+    for turn in reversed(list(turns or [])[-20:]):
+        if not hasattr(turn, "get") or turn.get("role") != "user":
+            continue
+        text = turn.get("content")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        text = text.strip()
+        if is_topic_switch_request(text):
+            return request
+        if is_bare_continuation_request(text) or is_explicit_turn_correction(text):
+            continue
+        return bounded_user_request(text, 480)
+    return request
 
 
 async def load_focused_owner_context(pool, user_id: str, query: str = "") -> str:
