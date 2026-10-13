@@ -9,7 +9,7 @@ body,body[style]{
  background-size:auto!important;
 }
 body:before,body:after{content:none!important;background:none!important}
-.shell{max-width:760px;height:100dvh;min-height:100dvh;display:flex;flex-direction:column;
+.shell:has(#chatView.active){max-width:760px;height:100dvh;min-height:100dvh;display:flex;flex-direction:column;
  padding-bottom:0!important;gap:0;overflow:hidden}
 .topbar{flex:0 0 67px;z-index:30!important;margin:0!important;padding:7px 2px!important;background:#050b11e9!important;
  border-bottom:1px solid #17303a!important;box-shadow:none!important}
@@ -21,7 +21,7 @@ body:before,body:after{content:none!important;background:none!important}
 .online .dot{width:7px!important;height:7px!important;background:#04dbad!important;box-shadow:0 0 12px #00e4a8}
 .round-action{width:40px!important;height:40px!important;border-radius:50%!important;background:#0d1b25!important;color:#e3f8fa!important;border:1px solid #274e58!important;box-shadow:none!important}
 #panelMenuToggle{background:#101d27!important;border-radius:13px!important}
-#app:not(.hidden){flex:1;min-height:0;display:flex;flex-direction:column}
+#app:not(.hidden):has(#chatView.active){flex:1;min-height:0;display:flex;flex-direction:column}
 #chatView.active{display:flex;flex-direction:column;min-height:0;flex:1;
  padding:0 0 calc(92px + env(safe-area-inset-bottom));overflow:hidden}
 #chatView .golge-welcome{flex:0 0 clamp(225px,39dvh,330px);min-height:0!important;padding:4px 4px 8px!important;
