@@ -14,6 +14,8 @@ class DesignApiTests(unittest.IsolatedAsyncioTestCase):
         self.env.start()
         app=web.Application(middlewares=[cloud.auth_middleware])
         app.router.add_post('/api/scene-design',cloud.scene_design)
+        from scene_assets import register
+        register(app)
         self.client=TestClient(TestServer(app));await self.client.start_server()
     async def asyncTearDown(self):
         await self.client.close();self.env.stop()
@@ -32,3 +34,12 @@ class DesignApiTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(cloud,'_gemini_reply',return_value='{"code":"alert(1)"}'):
             r=await self.client.post('/api/scene-design',json={'description':'masa'},headers=headers)
             self.assertEqual(r.status,502);self.assertNotIn('alert',await r.text())
+
+    async def test_asset_endpoints_keep_auth_boundary(self):
+        with patch('scene_assets.search') as search,patch('scene_assets.download') as download:
+            for path in ['/api/scene-assets?query=chair','/api/scene-assets/chair']:
+                self.assertEqual((await self.client.get(path)).status,401)
+            search.assert_not_called();download.assert_not_called()
+        with patch('scene_assets.search',return_value=[]):
+            r=await self.client.get('/api/scene-assets?query=chair',headers={'Authorization':'Bearer scene_test_only'})
+            self.assertEqual(r.status,200);self.assertEqual((await r.json())['items'],[])

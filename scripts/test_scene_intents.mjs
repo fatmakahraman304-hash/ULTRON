@@ -19,4 +19,7 @@ assert.equal(parse('bir masa modeli oluştur')?.kind,'design');
 assert.equal(parse('masa oluştur',true)?.kind,'design');
 assert.equal(parse('masa oluştur'),null);
 
-assert.equal(parse('internetten sandalye modeli bul getir',true)?.kind,'clarify');
+assert.equal(parse('internetten sandalye modeli bul getir',true)?.kind,'find');
+
+assert.equal(parse('dosyayı indir'),null);
+assert.equal(parse('Gölge, daire çiz')?.kind,'create');

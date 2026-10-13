@@ -1,3 +1,4 @@
+import {findAsset,assetCredit} from './assets';
 import {HologramScene} from '../hologram/HologramScene';
 import {requestDesign,validateDesign} from './design';
 import {sceneIntent} from './intents';
@@ -28,6 +29,13 @@ function create(options:{host:HTMLElement;open:()=>void;notice:(text:string)=>vo
      if(intent.kind==='clarify')return intent.reply;
      const engine=ensure();
      if(intent.kind==='upload'){file.click();return 'Yüklemek için bir GLB dosyası seç.';}
+     if(intent.kind==='find'){
+       loading=true;options.notice('Açık lisanslı modeller aranıyor…');
+       const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),90000);
+       try{const {asset,buffer}=await findAsset(intent.query,abort.signal);if(!isCurrent())return null;await engine.importGLB(buffer,assetCredit(asset),isCurrent);return assetCredit(asset)+' — Modeli dokusuz hologram olarak sahneye yükledim.';}
+       catch(e){if(!isCurrent())return null;return e instanceof Error?e.message:'Model yüklenemedi; önceki sahnen korunuyor.';}
+       finally{clearTimeout(timer);loading=false;}
+     }
      if(intent.kind==='design'){
        loading=true;options.notice('Tarifinden model taslağı hazırlanıyor…');
        const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),150000);

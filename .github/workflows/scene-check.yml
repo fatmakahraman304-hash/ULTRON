@@ -181,6 +181,7 @@ jobs:
           node scripts/test_scene_intents.mjs
           node scripts/test_scene_design.mjs
           PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_design.py -v
+          PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_assets.py -v
           node scripts/test_hologram_project.mjs
           node scripts/build_scene_browser.mjs
           git diff --exit-code -- ultron/cloud_service/static/scene-control.js ultron/cloud_service/static/scene-intents.js

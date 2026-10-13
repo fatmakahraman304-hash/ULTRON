@@ -2380,6 +2380,8 @@ def build_app() -> web.Application:
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/scene-design", scene_design)
+    from scene_assets import register as register_scene_assets
+    register_scene_assets(app)
     from scene_queue import post_scene, get_scene
     app.router.add_post("/api/local-scene-design", post_scene)
     app.router.add_get("/api/local-scene-design/{id}", get_scene)

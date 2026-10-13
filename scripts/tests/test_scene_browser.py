@@ -126,6 +126,22 @@ class SceneBrowserTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any('/api/scene-design' in u or u.endswith('/api/local-chat') for u in self.calls))
         self.assertEqual(self.errors,[])
 
+    async def test_catalog_asset_import_and_no_match_preserve_scene(self):
+        await self.engine()
+        item={'id':'test_chair','name':'Test Chair','source':'https://polyhaven.com/a/test_chair','license':'CC0-1.0','authors':'Test artist'}
+        await self.page.route('**/api/scene-assets?*',lambda route:route.fulfill(json={'items':[item]}))
+        await self.page.route('**/api/scene-assets/test_chair',lambda route:route.fulfill(body=glb(),content_type='model/gltf-binary'))
+        await self.command('internetten sandalye modeli bul getir')
+        loaded=await self.state();self.assertEqual(len(loaded['parts']),1)
+        self.assertIn(item['source'],await self.page.locator('#sceneNotice').inner_text())
+        self.assertIn('CC0',await self.page.locator('#sceneNotice').inner_text())
+        await self.page.unroute('**/api/scene-assets?*')
+        await self.page.route('**/api/scene-assets?*',lambda route:route.fulfill(json={'items':[]}))
+        await self.command('uzay gemisi modeli bul getir')
+        self.assertEqual(await self.state(),loaded)
+        self.assertIn('bulunamadı',await self.page.locator('#sceneNotice').inner_text())
+        self.assertEqual(self.errors,[])
+
     async def test_generated_design_does_not_replace_closed_scene(self):
         await self.engine();initial=await self.state()
         entered=asyncio.Event();release=asyncio.Event()

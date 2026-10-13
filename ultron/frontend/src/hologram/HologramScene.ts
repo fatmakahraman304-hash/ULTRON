@@ -97,7 +97,8 @@ export class HologramScene {
     this.home();this.notify();return this.list();
   }
   list(){return this.parts.filter(p=>!p.removed).map(({id,name,description,vertices,triangles,dimensions,note})=>({id,name,description,vertices,triangles,dimensions,note}));}
-  async importGLB(buffer:ArrayBuffer){
+  async importGLB(buffer:ArrayBuffer,provenance='',isCurrent:()=>boolean=()=>true){
+    if(buffer.byteLength>30*1024*1024)throw Error('Model boyut sınırını aşıyor.');
     const manager=new THREE.LoadingManager();manager.setURLModifier(url=>{if(url.startsWith('blob:')||url.startsWith('data:'))return url;throw Error('Model dış dosyalar içeriyor. Dokuları gömülü tek bir GLB kullanın.');});
     const gltf=await new GLTFLoader(manager).parseAsync(buffer,'');
     if(this.dead){this.disposeObject(gltf.scene);return [];}
@@ -106,8 +107,9 @@ export class HologramScene {
     if(!meshes.length||meshes.length>200||triangles>750000||meshes.some(m=>(m as THREE.SkinnedMesh).isSkinnedMesh)){this.disposeObject(gltf.scene);throw Error('En fazla 200 statik parça ve 750.000 üçgen içeren bir GLB seçin.');}
     if(meshes.some(m=>!m.matrixWorld.elements.every(Number.isFinite)||!Array.from(m.geometry.attributes.position.array).every(v=>Number.isFinite(v)&&Math.abs(v)<=10000))){this.disposeObject(gltf.scene);throw Error('Model geçersiz koordinatlar içeriyor.');}
     const box=new THREE.Box3().setFromObject(gltf.scene),center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());const scale=3.8/Math.max(size.x,size.y,size.z,.001);
+    if(!isCurrent()){this.disposeObject(gltf.scene);throw Error('cancelled');}
     this.clear();
-    for(const mesh of meshes){const geometry=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);geometry.translate(-center.x,-center.y,-center.z);geometry.scale(scale,scale,scale);geometry.computeBoundingBox();const local=geometry.boundingBox!.getCenter(new THREE.Vector3());geometry.translate(-local.x,-local.y,-local.z);this.add(mesh.name||`Parça ${this.parts.length+1}`,'İçe aktarılan model geometrisi. İşlev ve malzeme bilgisi dosyadan doğrulanmadı.',geometry,local);}
+    for(const mesh of meshes){const geometry=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);geometry.translate(-center.x,-center.y,-center.z);geometry.scale(scale,scale,scale);geometry.computeBoundingBox();const local=geometry.boundingBox!.getCenter(new THREE.Vector3());geometry.translate(-local.x,-local.y,-local.z);this.add(mesh.name||`Parça ${this.parts.length+1}`,provenance||'İçe aktarılan model geometrisi. İşlev ve malzeme bilgisi dosyadan doğrulanmadı.',geometry,local);}
     this.disposeObject(gltf.scene);this.home();this.notify();return this.list();
   }
   design(raw:unknown){
@@ -131,6 +133,7 @@ export class HologramScene {
     this.home();this.notify();return d.name;
   }
   command(intent:SceneIntent):string {
+    if(intent.kind==='find')return 'Model araması hazırlanmalı.';
     if(intent.kind==='design')return 'Model taslağı hazırlanmalı.';
     if(intent.kind==='clarify')return intent.reply;
     if(intent.kind==='create'){this.demo(intent.model);return intent.model==='engine'?'Kavramsal motor modelini sahnede oluşturdum.':'3D modeli sahnede oluşturdum.';}

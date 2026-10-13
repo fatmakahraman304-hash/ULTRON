@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {HologramScene,type PartInfo} from './HologramScene';
 import {GestureInterpreter,type Hand} from './gestures';
 import './hologram.css';
+import {findAsset,assetCredit} from '../spatial/assets';
 import {requestDesign} from '../spatial/design';
 import {sceneIntent} from '../spatial/intents';
 
@@ -46,7 +47,13 @@ export default function HologramLab({accent,onClose,onAsk,nativeAction,initialCo
   const reset=()=>{scene.current?.reset();setIsolated(false);};
   const saveProject=()=>{if(!scene.current)return;const blob=new Blob([JSON.stringify(scene.current.project(model))],{type:'application/json'});const url=URL.createObjectURL(blob);download(url,'golge-proje.golge.json');setTimeout(()=>URL.revokeObjectURL(url),120000);};
   const designBusy=useRef(false);
-  const runCommand=async(raw:string)=>{const intent=sceneIntent(raw,true);if(intent){if(loading||designBusy.current){setNotice('Model yükleniyor; bitmesini bekle.');return;}if(intent.kind==='upload'){file.current?.click();return;}if(intent.kind==='design'){
+  const runCommand=async(raw:string)=>{const intent=sceneIntent(raw,true);if(intent){if(loading||designBusy.current){setNotice('Model yükleniyor; bitmesini bekle.');return;}if(intent.kind==='upload'){file.current?.click();return;}if(intent.kind==='find'){
+    designBusy.current=true;setLoading(true);setNotice('Açık lisanslı modeller aranıyor…');
+    const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),90000);
+    try{const {asset,buffer}=await findAsset(intent.query,abort.signal);if(!active.current)return;await scene.current?.importGLB(buffer,assetCredit(asset),()=>active.current);if(!active.current)return;setModel(asset.name);const reply=assetCredit(asset)+' — Modeli dokusuz hologram olarak sahneye yükledim.';setNotice(reply);onCommandResult?.(reply);}
+    catch(e){if(active.current){const reply=e instanceof Error?e.message:'Model yüklenemedi.';setNotice(reply);onCommandResult?.(reply);}}
+    finally{clearTimeout(timer);designBusy.current=false;if(active.current){setLoading(false);setCommand('');}}return;
+  }if(intent.kind==='design'){
     designBusy.current=true;setLoading(true);setNotice('Tarifinden model taslağı hazırlanıyor…');
     const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),120000);
     try{const d=await requestDesign(intent.description,abort.signal);if(!active.current)return;scene.current?.design(d);setModel(d.name);const reply='Tarifinden kavramsal model oluşturdum: '+d.name+'. Bu bir üretici CAD modeli değildir.';setNotice(reply);onCommandResult?.(reply);}

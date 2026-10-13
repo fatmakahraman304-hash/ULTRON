@@ -29,7 +29,7 @@ test('manifest, foreground icon and cache use new GÖLGE app name',()=>{
  const icon=read('static/golge-icon.svg');
  assert.match(icon,/>GÖLGE<\/text>/);
  const sw=read('static/sw.js');
- assert.match(sw,/ultron-shell-v65/);
+ assert.match(sw,/ultron-shell-v66/);
  assert.match(sw,/\/static\/golge-icon.svg/);
  assert.doesNotMatch(sw,/\/static\/ultron-icon.svg/);
 });
