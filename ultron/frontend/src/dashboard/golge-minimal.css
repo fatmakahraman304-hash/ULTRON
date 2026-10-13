@@ -33,6 +33,10 @@
   background:radial-gradient(circle at 50% 43%,#0a1e2a 0%,#070d15 52%,#060b11 100%);
   border-color:#19313d;border-radius:26px}
 .golge-minimal .center-stage,.golge-minimal .core-stage{inset:0;background:transparent}
+.center-stage-loading{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:18px;color:#9cb9c2;font-size:12px;letter-spacing:.08em;text-align:center;pointer-events:none}
+.center-stage-loading::before{content:'';width:clamp(78px,10vw,126px);aspect-ratio:1;border:1px solid #62d9e544;border-radius:50%;background:radial-gradient(circle at 38% 34%,#8ef6ff55,#153340aa 38%,#07111b 72%);box-shadow:0 0 40px #54d9f033,inset 0 0 30px #59d4ed26;animation:golge-core-loading 2.4s ease-in-out infinite alternate}
+@keyframes golge-core-loading{from{transform:scale(.96);opacity:.72}to{transform:scale(1);opacity:1}}
+@media(prefers-reduced-motion:reduce){.center-stage-loading::before{animation:none}}
 .golge-minimal .center-stage:before{opacity:.18}
 .golge-minimal .core-canvas canvas{filter:hue-rotate(157deg) saturate(.65)}
 .golge-minimal .core-caption{bottom:44px;color:#a1d6d1;font-size:12px;letter-spacing:.19em}

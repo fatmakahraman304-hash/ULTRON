@@ -211,6 +211,9 @@ jobs:
       - name: TypeScript and Vite build
         working-directory: ultron/frontend
         run: npm run build
+      - name: Keep WebGL center stage out of initial dashboard bundle
+        working-directory: ultron/frontend
+        run: npm run test:bundle
       - name: Earth Watch geographic regression tests
         working-directory: ultron/frontend
         run: npm run test:earth
@@ -231,6 +234,7 @@ jobs:
           PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_assets.py -v
           PYTHONPATH=. python scripts/tests/test_scene_desktop_api.py
           python scripts/tests/test_scene_browser.py
+          python scripts/tests/test_frontend_stage_loading.py
       - name: Mobile listening consent and full-summary browser interaction
         run: python scripts/tests/test_listening_browser.py
       - name: GÖLGE private generated-image reload and download UI contract

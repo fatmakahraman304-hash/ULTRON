@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build --configLoader runner",
     "test:earth": "node --experimental-strip-types --test tests/earthMath.test.mjs",
+    "test:bundle": "node --test tests/lazyStageBundle.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

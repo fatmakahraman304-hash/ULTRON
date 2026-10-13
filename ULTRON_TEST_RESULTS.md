@@ -1,3 +1,10 @@
+## 2026-10-13 — Deferred 3D startup validation
+
+- `ultron/frontend`: production TypeScript/Vite build passed; `test:bundle` passed 1/1; Earth JS passed 6/6; combined frontend Node tests passed 10/10. Scene-intent and data-only design validators passed.
+- Browser validation with real Chromium/SwiftShader passed: scene interaction suite 9/9; new shell-first test 1/1 held the production WebGL dependency, verified chat input remains interactive before it resolves, then verified the actual `.center-stage canvas` loaded with no browser errors.
+- Production entry changed from 294.21 kB raw / 84.34 kB gzip to 105.07 kB / 30.92 kB gzip. GLTF/WebGL remains available in a deferred 620.10 kB raw / 158.73 kB gzip chunk. Vite's >500 kB advisory persists, but this chunk is no longer in the initial static entry graph.
+- GitHub Actions and Render checks for this change are pending. This frontend-only change does not modify the Render cloud service source. Real Gemini/Qwen quality is outside this frontend regression and remains unmeasured.
+
 ## 2026-10-13 — Whole-system audit at release c805e1e
 
 - Exact commit `c805e1e8fab2d5ca4bd4c8b48ff8d7e3bf7fff9f`: GitHub Cloud Queue/PostgreSQL run [#38440168681](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38440168681) and Scene Build run [#38440168682](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38440168682) both **SUCCESS**. The Cloud run includes real disposable PostgreSQL fencing/privacy cases and Chromium mobile-chat cases with explicitly synthetic providers; these do not measure model intelligence.

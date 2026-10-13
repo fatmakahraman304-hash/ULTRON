@@ -1,3 +1,10 @@
+## Next tasks — real model and device quality
+
+1. Current verified frontend improvement defers the WebGL stage until after the chat shell. Local bundle, Chromium and 3D tests pass; check the exact commit's Actions and confirm Render's backend remains healthy.
+2. Run the frozen 100-scenario Turkish/English evaluation with real Gemini and reachable local Qwen, followed by independent review. This workspace has no Gemini key or Ollama endpoint, so model quality and 100/100 remain unverified.
+3. On the paired Windows laptop and phone, test actual voice, image vision/generation, Qwen-first routing, approval-gated code changes and 3D commands. Keep Windows install deferred until the single consolidated update already requested.
+4. Preserve owner approval, privacy isolation, and explicit device permissions. No autonomy or fictional Jarvis capability should be claimed.
+
 ## Next tasks — real conversation quality and device verification
 
 1. On the owner’s phone and paired Windows laptop, verify accented and unaccented Turkish style/topic commands, Qwen-first routing when Ollama is actually ready, Gemini fallback, voice turn cancellation, image upload/recovery, and 3D scene edits. Record device/model versions and actual failures; do not infer hardware operation from browser mocks.
