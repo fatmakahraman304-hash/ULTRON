@@ -4,7 +4,7 @@ export type SceneIntent =
  | {kind:'move'|'rotate';axis:'x'|'y'|'z';amount:number;target:string}
  | {kind:'scale';factor:number;target:string}
  | {kind:'remove'|'select';target:string}
- | {kind:'undo'|'redo'|'home'|'upload'}
+ | {kind:'undo'|'redo'|'home'|'upload'|'reset'}
  | {kind:'clarify';reply:string};
 export const normalize=(s:string)=>s.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').replace(/\s+/g,' ').trim();
 export function sceneIntent(raw:string,active=false):SceneIntent|null {
@@ -17,6 +17,7 @@ export function sceneIntent(raw:string,active=false):SceneIntent|null {
  if(!active)return null;
  t=t.replace(/^(?:(onu|bunu|sunu) )?(?:kaldir|tasi) (sag |sol )?kenara$/,(_m,object,side)=>`${object?object+' ':''}${side||''}kenara al`);
  if(/^(?:bir |3d |3b )?(?:model|glb)(?:i)? (?:yukle|ice aktar)$/.test(t))return {kind:'upload'};
+ if(/^(?:sahneyi |modeli )?sifirla$/.test(t))return {kind:'reset'};
  if(t==='geri al')return {kind:'undo'};
  if(t==='ileri al')return {kind:'redo'};
  if(/^(?:modeli |gorunumu )?(?:ortala|merkeze al|odaklan)$/.test(t))return {kind:'home'};

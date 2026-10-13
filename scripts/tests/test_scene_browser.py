@@ -73,6 +73,10 @@ class SceneBrowserTests(unittest.IsolatedAsyncioTestCase):
         await self.command('Piston 1 seç');self.assertEqual((await self.state())['selected'],5)
         await self.command('onu yok et');self.assertEqual(len((await self.state())['parts']),20)
         await self.command('geri al');self.assertEqual(len((await self.state())['parts']),21)
+        await self.command('sahneyi sıfırla')
+        reset=await self.state()
+        for key in ['offsets','rotations','scales','removed']:
+            self.assertEqual(reset[key],initial[key],key)
         self.assertFalse(any(u.endswith(('/api/chat','/api/local-chat')) for u in self.calls))
         self.assertEqual(self.errors,[])
         await self.page.screenshot(path='/tmp/ultron-scene-mobile.png')
@@ -100,6 +104,34 @@ class SceneBrowserTests(unittest.IsolatedAsyncioTestCase):
         await picker.set_input_files({'name':'external.glb','mimeType':'model/gltf-binary','buffer':glb(True)})
         await self.page.wait_for_function("document.querySelector('#sceneNotice').textContent.startsWith('Model yüklenemedi')")
         self.assertEqual(await self.state(),loaded);self.assertEqual(self.errors,[])
+
+    async def test_reset_restores_geometry_and_is_undoable_after_project_reload(self):
+        await self.page.goto(self.url+'/desktop/hologram.html')
+        await self.page.locator('.holo-canvas canvas').wait_for()
+        async def save():
+            async with self.page.expect_download() as pending:
+                await self.page.get_by_role('button',name='Projeyi kaydet',exact=True).click()
+            return json.loads(Path(await (await pending.value).path()).read_text())
+        async def command(text):
+            field=self.page.locator('.holo-bottom input')
+            await field.fill(text);await field.press('Enter')
+        initial=await save()
+        for text in ['onu döndür','onu büyüt','onu sağa taşı','onu yok et']:
+            await command(text)
+        changed=await save()
+        await self.page.get_by_label('Proje dosyası').set_input_files({'name':'changed.json','mimeType':'application/json','buffer':json.dumps(changed).encode()})
+        await self.page.get_by_role('button',name='Sıfırla',exact=True).click()
+        reset=await save()
+        for key in ['offsets','rotations','scales','removed']:
+            self.assertEqual(reset['view'][key],initial['view'][key],key)
+        await command('geri al')
+        undone=await save()
+        for key in ['offsets','rotations','scales','removed']:
+            self.assertEqual(undone['view'][key],changed['view'][key],key)
+        await command('ileri al')
+        redone=await save()
+        self.assertEqual(redone['view'],reset['view'])
+        self.assertEqual(self.errors,[])
 
     async def test_desktop_command_event_drives_real_hologram(self):
         await self.page.set_viewport_size({'width':1280,'height':900})

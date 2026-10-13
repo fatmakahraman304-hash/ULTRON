@@ -1,3 +1,17 @@
+## Next tasks — 2026-10-13 reset follow-up
+
+1. Check exact new commit Scene/Cloud CI and Render LIVE status; read logs. Local five-case WebGL suite and mandatory build/Earth checks pass. Preserve remote listening additions at cc2ab74.
+2. Physical Windows/iPhone smoke remains deferred to final device update: create engine, move, rotate, select Piston 1, remove, undo, reset and undo reset. No real Qwen/Gemini quality score is available.
+3. Baseline orientation now survives project exports. Older files retain only the orientation saved by the old exporter; original pre-edit orientation cannot be reconstructed. Test with `python scripts/tests/test_scene_browser.py` after frontend build and `node scripts/build_scene_browser.mjs`.
+4. Next coherent scene improvement: named-part command coverage and rejection of ambiguous targets; ensure rejected out-of-bounds commands do not add undo history. Keep parser limited to explicit local scene edits.
+
+## 2026-10-13 — Undoable scene reset and project orientation
+
+- Reproduced a real WebGL regression: reset retained edited rotations, scale and removed parts, including after project reload. Store initial part orientation separately from current view; reset now restores position, orientation, unit scale and visibility, stops active gestures, and remains undoable/redoable. New exports preserve baseline orientation; old project files remain accepted and use their stored part orientation as their baseline (the older exporter did not retain pre-edit orientation).
+- Added mobile/desktop “sahneyi sıfırla” / “modeli sıfırla” commands, scoped to an active scene; no file/system actions. Existing scene library and owner GLB limits unchanged. Preserved remote listening additions through `cc2ab74` by fast-forward; PWA shell v62 and Qwen stale-cache test synchronized.
+- Local verification: regression failed before fix (rotations); **5/5 actual Chromium WebGL cases passed** after fix, including project reload/reset/undo/redo and mobile reset. Frontend npm ci/build, scene grammar, 18 project checks, Earth 6 JS/5 Python, py_compile passed. These are UI/code tests, not Gemini/Qwen model-quality or physical device evidence.
+- CI and Render for this new patch pending push at this checkpoint. Windows installation remains deferred.
+
 ## 2026-10-12 — Verified 3D release
 
 - Functional SHA `51e5f52a6fb205e1b805f895f2289287f3cc6e73` is pushed to `feat/ultron-cloud-shared-memory`. The remote Qwen commits through `a03d122` (bounded confirmed-length retry and thought-channel sanitization) were preserved by rebasing the unpushed scene commit, then retested.

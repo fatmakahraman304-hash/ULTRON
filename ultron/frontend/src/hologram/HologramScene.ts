@@ -6,7 +6,7 @@ import {normalize,type SceneIntent} from '../spatial/intents';
 import {validateProject,type Project,type ViewState,type V3} from './project';
 
 export type PartInfo={id:number;name:string;description:string;vertices:number;triangles:number;dimensions:V3;note:string};
-type Part=PartInfo & {mesh:THREE.Mesh;base:THREE.Vector3;direction:THREE.Vector3;offset:THREE.Vector3;removed:boolean};
+type Part=PartInfo & {mesh:THREE.Mesh;initialRotation:THREE.Euler;base:THREE.Vector3;direction:THREE.Vector3;offset:THREE.Vector3;removed:boolean};
 export class HologramScene {
   private scene=new THREE.Scene();private group=new THREE.Group();
   private camera=new THREE.PerspectiveCamera(42,1,.05,100);
@@ -26,7 +26,7 @@ export class HologramScene {
   redo(){const v=this.future.pop();if(!v)return;this.past.push(this.view());this.restore(v);this.lastEdit='';}
   section(value:number|null){this.checkpoint('section');this.cut=value;this.cutPlane.constant=value??0;this.parts.forEach(p=>p.mesh.traverse(o=>{const m=(o as THREE.Mesh).material;if(m)for(const mat of Array.isArray(m)?m:[m]){mat.clippingPlanes=value===null?[]:[this.cutPlane];mat.needsUpdate=true;}}));this.notify();}
   annotate(text:string){if(this.selected<0)return;this.checkpoint('note:'+this.selected);this.parts[this.selected].note=text.slice(0,2000);this.onSelect(this.parts[this.selected]);this.notify();}
-  project(name:string):Project{return {schema:'ultron-project-v1',name:name.slice(0,200),view:this.view(),parts:this.parts.map(p=>({name:p.name,description:p.description,positions:Array.from(p.mesh.geometry.attributes.position.array),indices:p.mesh.geometry.index?Array.from(p.mesh.geometry.index.array):null,base:p.base.toArray() as V3,rotation:[p.mesh.rotation.x,p.mesh.rotation.y,p.mesh.rotation.z]}))};}
+  project(name:string):Project{return {schema:'ultron-project-v1',name:name.slice(0,200),view:this.view(),parts:this.parts.map(p=>({name:p.name,description:p.description,positions:Array.from(p.mesh.geometry.attributes.position.array),indices:p.mesh.geometry.index?Array.from(p.mesh.geometry.index.array):null,base:p.base.toArray() as V3,rotation:[p.initialRotation.x,p.initialRotation.y,p.initialRotation.z]}))};}
   loadProject(raw:unknown){const project=validateProject(raw);const prepared=project.parts.map(p=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p.positions,3));if(p.indices)g.setIndex(p.indices);g.computeVertexNormals();return {p,g};});this.clear();prepared.forEach(({p,g})=>this.add(p.name,p.description,g,new THREE.Vector3(...p.base),new THREE.Euler(...p.rotation)));this.restore(project.view);this.past=[];this.future=[];this.notify();return {name:project.name,parts:this.list()};}
   private resources:THREE.Object3D[]=[];
   onSelect:(part:PartInfo|null)=>void=()=>{};onExplosion:(n:number)=>void=()=>{};
@@ -57,7 +57,7 @@ export class HologramScene {
     this.group.add(mesh);const id=this.parts.length;
     const direction=position.length()>.1?position.clone().normalize():new THREE.Vector3();
     const bounds=geometry.clone().applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(mesh.rotation));bounds.computeBoundingBox();const dimensions=bounds.boundingBox!.getSize(new THREE.Vector3()).toArray() as V3;bounds.dispose();
-    this.parts.push({id,name,description,dimensions,note:'',mesh,base:position.clone(),direction,offset:new THREE.Vector3(),removed:false,vertices:geometry.attributes.position.count,triangles:(geometry.index?.count??geometry.attributes.position.count)/3});mesh.userData.part=id;
+    this.parts.push({id,name,description,dimensions,note:'',mesh,initialRotation:mesh.rotation.clone(),base:position.clone(),direction,offset:new THREE.Vector3(),removed:false,vertices:geometry.attributes.position.count,triangles:(geometry.index?.count??geometry.attributes.position.count)/3});mesh.userData.part=id;
   }
   private disposeObject(obj:THREE.Object3D){obj.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();if(m.material){for(const mat of Array.isArray(m.material)?m.material:[m.material]){for(const value of Object.values(mat))if(value instanceof THREE.Texture)value.dispose();mat.dispose();}}});}
   private clear(){this.stopGesture();this.resources.forEach(o=>this.disposeObject(o));this.resources=[];this.disposeObject(this.group);this.group.clear();this.parts=[];this.past=[];this.future=[];this.lastEdit="";this.cut=null;this.renderer.clippingPlanes=[];this.wire=false;this.selected=-1;this.explosion=0;this.isolated=false;this.onSelect(null);this.onExplosion(0);}
@@ -112,6 +112,7 @@ export class HologramScene {
     if(intent.kind==='create'){this.demo(intent.model);return intent.model==='engine'?'Kavramsal motor modelini sahnede oluşturdum.':'3D modeli sahnede oluşturdum.';}
     if(intent.kind==='undo'){if(!this.past.length)return 'Geri alınacak sahne değişikliği yok.';this.undo();return 'Son sahne değişikliği geri alındı.';}
     if(intent.kind==='redo'){if(!this.future.length)return 'Yeniden uygulanacak sahne değişikliği yok.';this.redo();return 'Sahne değişikliği yeniden uygulandı.';}
+    if(intent.kind==='reset'){this.reset();return 'Sahne başlangıç durumuna döndü. Geri al diyerek değişikliklerini getirebilirsin.';}
     if(intent.kind==='home'){this.home();return 'Sahne görünümü ortalandı.';}
     if(intent.kind==='upload')return 'Yüklemek için bir GLB dosyası seç.';
     let targets=this.parts.filter(p=>!p.removed);
@@ -164,7 +165,7 @@ export class HologramScene {
   isolate(value:boolean){this.checkpoint('isolate');this.isolated=value;this.select(this.selected);}
   wireframe(value:boolean){this.checkpoint('wire');this.wire=value;this.parts.forEach(p=>(p.mesh.material as THREE.MeshStandardMaterial).wireframe=value);this.notify();}
   home(){this.syncPositions();const box=new THREE.Box3();this.parts.filter(p=>!p.removed).forEach(p=>box.expandByObject(p.mesh));const center=box.isEmpty()?new THREE.Vector3():box.getCenter(new THREE.Vector3());this.controls.target.copy(center);this.camera.position.set(6,4,8).multiplyScalar((1+this.explosion*.8)/Math.min(1,this.camera.aspect)).add(center);this.fitVisible();this.controls.update();}
-  reset(){this.checkpoint('reset');this.applying=true;this.parts.forEach(p=>p.offset.set(0,0,0));this.explode(0);this.isolated=false;this.select(-1);this.home();this.section(null);this.wireframe(false);this.applying=false;this.notify();}
+  reset(){this.checkpoint('reset');this.applying=true;this.stopGesture();this.parts.forEach(p=>{p.offset.set(0,0,0);p.mesh.rotation.copy(p.initialRotation);p.mesh.scale.set(1,1,1);p.removed=false;});this.explode(0);this.isolated=false;this.select(-1);this.home();this.section(null);this.wireframe(false);this.applying=false;this.notify();}
   focus(){const p=this.parts[this.selected];if(!p)return;this.controls.target.copy(p.mesh.position);this.camera.position.copy(p.mesh.position).add(new THREE.Vector3(2,1.5,3));this.controls.update();}
   private hit(x:number,y:number){this.ray.setFromCamera(new THREE.Vector2(x*2-1,1-y*2),this.camera);return this.ray.intersectObjects(this.parts.filter(p=>p.mesh.visible).map(p=>p.mesh),false).find(hit=>this.cut===null||this.cutPlane.distanceToPoint(hit.point)>=0);}
   private planePoint(x:number,y:number){this.ray.setFromCamera(new THREE.Vector2(x*2-1,1-y*2),this.camera);const normal=this.camera.getWorldDirection(new THREE.Vector3());const point=this.parts[this.selected]?.mesh.position??new THREE.Vector3();return this.ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(normal,point),new THREE.Vector3());}
