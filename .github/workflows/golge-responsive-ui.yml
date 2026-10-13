@@ -1,0 +1,41 @@
+name: GÖLGE Responsive Interface Check
+
+on:
+  push:
+    branches:
+      - feat/golge-minimal-responsive-ui-20261013
+  pull_request:
+    branches:
+      - feat/golge-qwen-goal-routing-20261013
+    paths:
+      - 'ultron/frontend/**'
+      - 'ultron/cloud_service/static/index.html'
+      - 'ultron/cloud_service/static/golge-minimal.css'
+      - 'ultron/cloud_service/static/sw.js'
+      - 'scripts/test_golge_minimal_ui.mjs'
+      - '.github/workflows/golge-responsive-ui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  responsive-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ultron/frontend/package-lock.json
+      - name: Assert mobile and laptop integration contracts
+        run: node scripts/test_golge_minimal_ui.mjs
+      - name: Syntax-check the PWA service worker
+        run: node --check ultron/cloud_service/static/sw.js
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ultron/frontend
+      - name: TypeScript and Vite production build
+        run: npm run build
+        working-directory: ultron/frontend
