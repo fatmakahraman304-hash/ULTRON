@@ -15,6 +15,7 @@ on:
     branches:
       - feat/ultron-cloud-shared-memory
       - feat/ultron-listen-prod-compat-20261012
+      - feat/ultron-qwen-probe-latest-live-20261013
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -82,6 +83,10 @@ jobs:
         run: |
           node --check ultron/cloud_service/static/voice-turn-guard.js
           node --test ultron/cloud_service/test_voice_turn_guard.cjs
+      - name: Validate synthetic-only Qwen owner roundtrip
+        run: |
+          node --check ultron/cloud_service/static/local-listening-probe.js
+          node --test ultron/cloud_service/test_local_listening_probe.cjs
       - name: Single ULTRON speaker arbitration on phone and laptop
         run: |
           node --check ultron/cloud_service/static/speaker-policy.js
