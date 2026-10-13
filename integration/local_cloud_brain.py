@@ -15,7 +15,10 @@ import urllib.request
 from pathlib import Path
 
 from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
-from ultron.cloud_service.conversation_turns import ollama_messages, bounded_user_request
+from ultron.cloud_service.conversation_turns import (
+    ollama_messages, bounded_user_request,
+    is_bare_continuation_request, is_topic_switch_request,
+)
 from ultron.cloud_service.response_quality import finalize_response, strip_qwen_thinking
 from ultron.cloud_service.reply_policy import classify_reply_mode
 from ultron.cloud_service.model_identity import is_qwen_model
