@@ -982,6 +982,13 @@ def _is_transient_gemini_error(exc: Exception) -> bool:
     return any(marker in message for marker in transient_markers)
 
 
+def _safe_provider_error(exc: Exception) -> str:
+    """Return a stable diagnostic category without exposing exception text."""
+    if _is_transient_gemini_error(exc):
+        return "provider_temporarily_unavailable"
+    return "provider_request_failed"
+
+
 def _generate_with_model(client: genai.Client, model: str, prompt: str,
                          system_instruction: str, turns=None) -> str:
     content = [
@@ -1257,10 +1264,10 @@ async def vision(request: web.Request) -> web.Response:
             _gemini_image_reply, image_bytes, mime_type, question, system_instruction
         )
     except Exception as exc:
-        raw = str(exc)[:1000]
+        error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_vision_error',$2,$3)",
-            request["user_id"], raw, request["device_id"],
+            request["user_id"], error_code, request["device_id"],
         )
         raise web.HTTPBadGateway(
             text=json.dumps({"error": "vision_failed", "detail": "Görsel analizi tamamlanamadı."}, ensure_ascii=False),
@@ -1370,10 +1377,10 @@ async def document(request: web.Request) -> web.Response:
             _gemini_pdf_reply, pdf_bytes, question, system_instruction
         )
     except Exception as exc:
-        raw = str(exc)[:1000]
+        error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_document_error',$2,$3)",
-            request["user_id"], raw, request["device_id"],
+            request["user_id"], error_code, request["device_id"],
         )
         raise web.HTTPBadGateway(
             text=json.dumps({"error": "document_failed", "detail": "PDF analizi tamamlanamadı."}, ensure_ascii=False),
@@ -1456,9 +1463,10 @@ async def camera_frame(request: web.Request) -> web.Response:
             _gemini_image_reply, image_bytes, mime_type, camera_prompt, system_instruction
         )
     except Exception as exc:
+        error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_camera_error',$2,$3)",
-            request["user_id"], str(exc)[:1000], request["device_id"],
+            request["user_id"], error_code, request["device_id"],
         )
         raise web.HTTPBadGateway(
             text=json.dumps({"error": "camera_failed", "detail": "Canlı kamera analizi tamamlanamadı."}, ensure_ascii=False),
@@ -1578,12 +1586,12 @@ async def chat(request: web.Request) -> web.Response:
     try:
         reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
     except Exception as exc:
-        raw_error = str(exc)[:1000]
+        error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_error',$2,$3)",
-            request["user_id"], raw_error, request["device_id"],
+            request["user_id"], error_code, request["device_id"],
         )
-        if "GEMINI_TEMPORARY_UNAVAILABLE" in raw_error or _is_transient_gemini_error(exc):
+        if error_code == "provider_temporarily_unavailable":
             raise web.HTTPServiceUnavailable(
                 text=json.dumps({
                     "error": "gemini_temporarily_unavailable",
@@ -1912,7 +1920,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             "type": "laptop_task_update",
                             "id": command_id,
                             "status": "watch_error",
-                            "message": str(exc)[:180],
+                            "message": "Laptop görev durumu şu anda okunamıyor.",
                         })
 
             await send_json({
@@ -2462,11 +2470,12 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     except asyncio.CancelledError:
         raise
     except Exception as exc:
+        error_code = _safe_provider_error(exc)
         try:
             await pool.execute(
                 "INSERT INTO events(user_id,event_type,detail,device_id) "
                 "VALUES($1,'gemini_live_error',$2,$3)",
-                user_id, str(exc)[:1000], device_id,
+                user_id, error_code, device_id,
             )
         except Exception:
             pass
@@ -2474,7 +2483,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             await send_json({
                 "type": "error",
                 "message": "Sesli GÖLGE bağlantısı geçici olarak kullanılamıyor.",
-                "detail": str(exc)[:160],
+                "detail": error_code,
             })
     finally:
         if not ws.closed:
