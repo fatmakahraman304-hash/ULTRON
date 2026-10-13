@@ -395,7 +395,7 @@ final class BackgroundVoiceController: ObservableObject {
             }
 
         case "output_transcript":
-            status = "ULTRON konuşuyor"
+            status = "GÖLGE konuşuyor"
 
         case "turn_complete":
             status = isBackground ? "Arka planda dinliyor" : "Sürekli dinleme aktif"
