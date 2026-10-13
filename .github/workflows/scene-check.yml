@@ -98,6 +98,10 @@ jobs:
         env:
           PYTHONPATH: ultron/backend
         run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
+      - name: Local model-router privacy and merged API boundary regressions
+        run: |
+          python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'aiohttp>=3.9,<4' 'Pillow>=10'
+          python -m pytest -q ultron/backend/tests/test_model_router.py
       - name: Local Qwen phone mic tap-to-interrupt and stale speech reply guard
         run: |
           node --check ultron/cloud_service/static/voice-turn-guard.js

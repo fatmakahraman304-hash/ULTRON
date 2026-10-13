@@ -1,3 +1,11 @@
+## 2026-10-13 — Desktop and Cloud provider error privacy boundaries
+
+- Test-first regressions reproduced raw provider exception exposure through model health, merged local chat, uploaded-image analysis, and CloudClient error status. The routes now retain only stable categories. Chat returns 503; image analysis returns 502; malformed user input keeps its bounded 400 response.
+- Focused model-router and Cloud-client runs: **39 passed, 4 subtests passed**. Tests include actual aiohttp requests through local chat and vision boundaries, credential-like fake values, user prompt/image fragments, transient-cause classification, and Cloud health status. `py_compile` and `git diff --check` passed.
+- Full desktop backend suite from repository root: **1,023 passed, 3 skipped, 6 subtests passed in 40.65s**. Skips require an unrecognized deterministic-parser case, a user Picovoice key, or actual Windows/microphone/screen hardware.
+- Scene CI now has a dedicated step for all 20 model-router tests, including the real aiohttp chat/image error boundaries; this workflow change is awaiting exact-SHA GitHub execution.
+- No live Gemini/Qwen call, phone/laptop acceptance, or Windows installation was performed. This change is in desktop backend files; Render's Cloud service is not modified.
+
 ## 2026-10-13 — Provider exception privacy
 
 - Reproduced raw exception exposure through a fake vision-provider failure. The handler previously wrote the provider's entire exception string to the event detail. A shared classifier now emits only `provider_request_failed` or `provider_temporarily_unavailable`; transient error detection and the chat 503 response remain intact. The desktop-task watcher also stopped forwarding raw status-fetch exception text.

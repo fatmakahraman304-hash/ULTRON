@@ -1,6 +1,7 @@
 """Model abstraction, capability routing, local multi-model evaluation and health."""
 import json
 import time
+import urllib.error
 from dataclasses import dataclass, field
 from app.core.fast_brain import FastBrainPolicy, classify_text, last_user_intent
 
@@ -17,6 +18,32 @@ CAPABILITY_HINTS = {
     TaskType.VISION: ("llava", "vision", "bakllava", "minicpm-v", "moondream", "llama3.2-vision"),
     TaskType.FAST: ("1.5b", "1b", "2b", "3b", "4b", "tiny", "small", "mini", "phi", "gemma2:2", "qwen2.5:3"),
 }
+
+
+def safe_provider_error(exc: Exception) -> str:
+    """Classify provider failures without returning exception text to callers."""
+    current = exc
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, (TimeoutError, ConnectionError)):
+            return "provider_temporarily_unavailable"
+        status = getattr(current, "status_code", None) or getattr(current, "code", None)
+        try:
+            status = int(status)
+        except (TypeError, ValueError):
+            status = None
+        if status in (408, 425, 429) or (status is not None and status >= 500):
+            return "provider_temporarily_unavailable"
+        if isinstance(current, urllib.error.HTTPError):
+            return "provider_request_failed"
+        if isinstance(current, urllib.error.URLError):
+            return "provider_temporarily_unavailable"
+        class_name = type(current).__name__.lower()
+        if any(marker in class_name for marker in ("timeout", "connecterror", "connectionerror")):
+            return "provider_temporarily_unavailable"
+        current = current.__cause__ or current.__context__
+    return "provider_request_failed"
 
 
 @dataclass
@@ -199,7 +226,9 @@ class ModelRouter:
         health = self._health.setdefault(model, ModelHealth())
         health.calls += 1; health.ok = ok; health.last_latency_ms = round(latency_ms, 1); health.last_used = time.time()
         if not ok:
-            health.failures += 1; health.last_error = (error or "")[:200]
+            health.failures += 1
+            error_exc = error if isinstance(error, BaseException) else RuntimeError(str(error or ""))
+            health.last_error = safe_provider_error(error_exc)
 
     def health(self):
         return {model: vars(h) for model, h in self._health.items()}

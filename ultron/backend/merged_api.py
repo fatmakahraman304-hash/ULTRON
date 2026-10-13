@@ -6,7 +6,7 @@ import copy
 from pathlib import Path
 from aiohttp import web
 
-from cloud_client import CloudClient
+from cloud_client import CloudClient, safe_cloud_error
 
 
 def install(app, hub):
@@ -103,7 +103,7 @@ def install(app, hub):
                 except Exception as exc:
                     # Cloud outage must never disable the desktop; fall back to local Ollama.
                     await hub.on_activity(
-                        f'Cloud unavailable; local Ollama fallback: {str(exc)[:120]}', 'warn')
+                        f'Cloud unavailable; local Ollama fallback ({safe_cloud_error(exc)})', 'warn')
                 finally:
                     await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
 
@@ -116,7 +116,7 @@ def install(app, hub):
                 return web.json_response({'ok': False, 'status': 'UNAVAILABLE',
                     'error': 'Ollama veya yerel model yok. INSTALL.bat model kurulumunu deneyebilir.'})
             mode = effective_mode
-            from app.core.model_router import ModelRouter
+            from app.core.model_router import ModelRouter, safe_provider_error
             settings = copy.deepcopy(rt.settings)
             if selected_model:
                 if not isinstance(selected_model, str) or selected_model not in models:
@@ -130,7 +130,12 @@ def install(app, hub):
                 return web.json_response({'ok': True, 'text': answer,
                                           'model': router.resolve(mode.upper()), 'source': 'local'})
             except Exception as exc:
-                return web.json_response({'ok': False, 'status': 'UNAVAILABLE', 'error': str(exc)})
+                error_code = safe_provider_error(exc)
+                message = ('Yerel model şu anda erişilemiyor; biraz sonra yeniden deneyin.'
+                           if error_code == 'provider_temporarily_unavailable'
+                           else 'Yerel model isteği tamamlanamadı.')
+                return web.json_response({'ok': False, 'status': 'UNAVAILABLE',
+                                          'error': message, 'error_code': error_code}, status=503)
             finally:
                 await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
 
@@ -187,9 +192,11 @@ def install(app, hub):
     async def image(req):
         """Bounded image adapter to the existing vision implementation; no arbitrary paths."""
         import base64
+        import binascii
         import io
         import tempfile
-        from PIL import Image
+        from PIL import Image, UnidentifiedImageError
+        from app.core.model_router import safe_provider_error
         rt = hub.bridge.runtime if hub.bridge and hub.bridge.available else None
         if rt is None or rt.vision_llm is None:
             return web.json_response({'ok': False, 'error': 'Vision unavailable'}, status=503)
@@ -212,8 +219,15 @@ def install(app, hub):
                         return rt.vision_llm.analyze(path, available_models=hub.ai_status.get('models', []))
             text = await asyncio.to_thread(analyze)
             return web.json_response({'ok': True, 'text': text})
-        except Exception as exc:
+        except (ValueError, TypeError, binascii.Error, UnidentifiedImageError) as exc:
             return web.json_response({'ok': False, 'error': str(exc)}, status=400)
+        except Exception as exc:
+            error_code = safe_provider_error(exc)
+            message = ('Görsel analizi için yerel model şu anda erişilemiyor.'
+                       if error_code == 'provider_temporarily_unavailable'
+                       else 'Görsel analizi tamamlanamadı.')
+            return web.json_response({'ok': False, 'error': message,
+                                      'error_code': error_code}, status=502)
 
     async def frontend(req):
         root = Path(__file__).resolve().parents[1] / req.match_info.get('surface', 'frontend') / 'dist'

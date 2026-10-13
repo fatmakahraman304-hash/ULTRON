@@ -10,12 +10,12 @@ Commit `5677dca638909d23d96aab2dedab2597dbd196c1` closes a dataset-validator gap
 
 Commit `f932b184eda215585a01d8d5d933b9f682611de1` ensures typed `/api/live` turns reach the current-turn memory consent guard and conversation history, with a 16,000-character input cap. Cloud Python: 319 passed, 60 skipped; browser tests: 153/153. Scene #38455888286, Cloud/PostgreSQL #38455888395 and WORLD smoke #38455888333 passed. Render deploy `dep-db78feajnfac73d01fo0` is LIVE at the same SHA; `/health` returned HTTP 200 and the exact commit.
 
-## Next tasks — real provider and device verification
+## Next tasks — release provider privacy fix and real model/device verification
 
-1. On the real phone, verify transcription and memory behavior for explicit save requests, ordinary personal disclosures, negations, and credential-like content.
-2. Run the frozen 100-case Turkish/English suite against real Gemini and reachable local Qwen with independent review. Keep unavailable provider/device cases as NOT_RUN; this workspace has no Gemini key or Ollama endpoint.
-3. When the paired laptop is available for the already-planned final update, measure Qwen token occupancy for long Turkish/code turns within the 4,096-token interactive context before changing prompt budgets.
-4. Keep Windows installation deferred and preserve approval, privacy, and device permissions.
+1. Commit and push the desktop-only provider-error privacy fix, then verify the new Scene model-router step and Cloud desktop lease tests on the exact SHA. Render uses `ultron/cloud_service/`; these backend edits should not create a new deployment. Verify the currently live Cloud SHA separately.
+2. On the paired laptop, confirm local Qwen failures and recovery show only safe status categories; test Gemini fallback and uploaded-image errors in an owner-authorized session. Keep Windows installation deferred until the final combined update.
+3. Run the frozen 100-case Turkish/English conversation suite against actual Gemini and local Qwen with independent review and latency records. Keep unavailable providers/devices NOT_RUN; do not claim 100/100 from synthetic tests.
+4. Measure Qwen token occupancy on actual hardware before changing interactive context budgets. Preserve approval, privacy, and device-permission gates.
 
 ## Completed checkpoint — live voice consent release
 
@@ -314,11 +314,10 @@ The diacritic-tolerant code and package-import correction are pushed and verifie
 
 ## Next tasks
 
-1. Latest functional SHA 78930a44f40835917337b3d7f494435a500cd94e passed Cloud/PostgreSQL CI 38070103017 and Scene CI 38070103005. Local evidence: 155 Cloud Python (28 real PG), 86 Node, 6 local-brain tests passed. Render dep-db56v7vmphoc739fq12g is LIVE at that exact functional SHA (17:03:37 UTC). Read the final verification record before new work.
-2. Real quality remains NOT MEASURED. Run `python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json` where an authorized Gemini credential is configured, and Qwen equivalent only on an available Ollama host. Independently review all 100 transcripts per provider against README criteria; report model identity limitations and latency. No Windows setup before final handoff.
-3. Important compatibility: old Windows versions without `local_chat_ready` now use Gemini. Final single Windows update must include mark_app.py and integration/local_cloud_brain.py, then test Ollama reachable/unreachable transitions and no duplicate queued request fallback.
-4. Remaining quality work: general semantic factual contradictions are not automatically resolved; only explicit reply language/length preferences are. Common secret patterns are not exhaustive classification. Measure long multi-turn dialogue and inference truncation before increasing context/model budgets. Current additional response checks are presentation-only, not semantic fact verification.
-5. Preserve all approval/privacy controls and minimal UI. A CI pass is never a live-model 100/100 score. No further JARVIS features or Windows downloads until conversational acceptance.
+1. Commit and push the current desktop-only provider-error privacy fix, then verify the new Scene model-router step and Cloud desktop lease tests on the exact SHA. Render uses `ultron/cloud_service/`; these backend edits should not create a new deployment. Verify the currently live Cloud SHA separately.
+2. On the paired laptop, confirm local Qwen failures and recovery show only safe status categories; test Gemini fallback and uploaded-image errors in an owner-authorized session. Windows installation stays deferred until the final combined update.
+3. Real quality remains NOT MEASURED. Run the frozen 100-case Turkish/English conversation suite against actual Gemini and local Qwen with independent review and latency records. Keep unavailable providers/devices NOT_RUN; do not claim 100/100 from synthetic tests.
+4. Measure Qwen token occupancy on actual hardware before changing interactive context budgets. Preserve all approval, privacy and device-permission gates.
 
 ---
 Historical task records below; the priorities above supersede older Windows-install or non-conversation tasks.

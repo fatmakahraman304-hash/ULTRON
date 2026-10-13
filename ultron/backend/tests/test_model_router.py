@@ -89,6 +89,109 @@ def test_router_chat_raises_when_all_models_fail():
         pass
 
 
+def test_router_health_never_exposes_provider_exception_text():
+    class LeakyBrain(FakeBrain):
+        def chat(self, messages, tools=None, model=None):
+            raise RuntimeError("api_key=private-provider-key user prompt fragment")
+
+    brain = LeakyBrain("a:1b")
+    r = ModelRouter(brain, {}, lambda: ["a:1b"])
+    try:
+        r.chat(TaskType.GENERAL, [{"role": "user", "content": "hi"}])
+        raise AssertionError("must raise")
+    except RuntimeError:
+        pass
+
+    health = r.health()["a:1b"]
+    assert health["last_error"] == "provider_request_failed"
+    assert "private-provider-key" not in str(health)
+    assert "user prompt fragment" not in str(health)
+
+
+def test_safe_provider_error_classifies_transient_causes_without_echoing_text():
+    from app.core.model_router import safe_provider_error
+    import urllib.error
+
+    wrapped_timeout = RuntimeError("sensitive request details")
+    wrapped_timeout.__cause__ = TimeoutError("credential=private")
+    assert safe_provider_error(wrapped_timeout) == "provider_temporarily_unavailable"
+    assert safe_provider_error(RuntimeError("api_key=private")) == "provider_request_failed"
+    assert safe_provider_error(urllib.error.HTTPError("https://host", 503, "private", {}, None)) == \
+        "provider_temporarily_unavailable"
+    assert safe_provider_error(urllib.error.HTTPError("https://host", 404, "private", {}, None)) == \
+        "provider_request_failed"
+
+
+def test_merged_local_model_failure_does_not_echo_provider_details(monkeypatch):
+    import asyncio
+    import base64
+    import io
+    from types import SimpleNamespace
+    from aiohttp import web
+    from aiohttp.test_utils import TestClient, TestServer
+    from PIL import Image
+    from merged_api import install
+
+    monkeypatch.setenv("MARK_ULTRON_TOKEN", "")
+    monkeypatch.setenv("ULTRON_CLOUD_URL", "")
+    monkeypatch.setenv("ULTRON_DEVICE_TOKEN", "")
+
+    class LeakyBrain(FakeBrain):
+        def ask(self, prompt, system="", model=None):
+            raise RuntimeError("api_key=private-provider-key prompt=private-user-text")
+
+    class LeakyVision:
+        def analyze(self, *_args, **_kwargs):
+            raise RuntimeError("api_key=private-vision-key image=private-user-image")
+
+    async def run():
+        runtime = SimpleNamespace(brain=LeakyBrain("a:1b"), settings={"llm": {}},
+                                  vision_llm=LeakyVision())
+        hub = SimpleNamespace(
+            bridge=SimpleNamespace(runtime=runtime, available=True),
+            ai_status={},
+            agent=SimpleNamespace(state="IDLE"),
+            async_check=None,
+        )
+
+        async def check_ollama():
+            return {"status": {"models": ["a:1b"]}}
+
+        async def broadcast(_event):
+            return None
+
+        hub.check_ollama = check_ollama
+        hub.broadcast = broadcast
+        app = web.Application()
+        install(app, hub)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            response = await client.post("/api/merged/invoke", json={"text": "ping", "mode": "coding"})
+            payload = await response.json()
+            assert response.status == 503
+            assert payload["error_code"] == "provider_request_failed"
+            assert "private-provider-key" not in str(payload)
+            assert "private-user-text" not in str(payload)
+
+            image = Image.new("RGB", (2, 2), color="red")
+            image_buffer = io.BytesIO()
+            image.save(image_buffer, format="PNG")
+            response = await client.post("/api/merged/image", json={
+                "data": base64.b64encode(image_buffer.getvalue()).decode("ascii"),
+                "mode": "analyze",
+            })
+            payload = await response.json()
+            assert response.status == 502
+            assert payload["error_code"] == "provider_request_failed"
+            assert "private-vision-key" not in str(payload)
+            assert "private-user-image" not in str(payload)
+        finally:
+            await client.close()
+
+    asyncio.run(run())
+
+
 def test_router_ask_json_extracts_object():
     r = make_router(["a:1b"], primary="a:1b")
     out = r.ask_json(TaskType.GENERAL, "plan", system="s")

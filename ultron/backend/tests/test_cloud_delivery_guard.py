@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from cloud_client import CloudClient, CloudDeliveryRejected
+from cloud_client import CloudClient, CloudDeliveryRejected, safe_cloud_error
 from cloud_delivery import RemoteLeaseGuard
 
 
@@ -151,6 +151,31 @@ class LocalChatIsolationTests(unittest.IsolatedAsyncioTestCase):
         with patch('integration.local_cloud_brain.local_chat', side_effect=lambda *args: threading.current_thread().name):
             name=await self.client.local_chat('Synthetic request','Synthetic system',[])
         self.assertTrue(name.startswith('ultron-qwen'))
+
+    async def test_cloud_status_error_never_contains_provider_exception_text(self):
+        self.client.base_url = "https://cloud.example"
+        self.client.device_token = "configured-device-token"
+        with patch.object(self.client, "_sync_request",
+                          side_effect=RuntimeError("api_key=private-key prompt=private-user-text")):
+            with self.assertRaisesRegex(RuntimeError, "api_key=private-key"):
+                await self.client._request("GET", "/api/chat")
+        self.assertEqual(self.client.last_error, "cloud_request_failed")
+        self.assertNotIn("private-key", self.client.last_error)
+        self.assertNotIn("private-user-text", self.client.last_error)
+        with patch.object(self.client, "_request",
+                          side_effect=RuntimeError("token=private-health-token")):
+            health = await self.client.health()
+        self.assertEqual(health["error"], "cloud_request_failed")
+        self.assertNotIn("private-health-token", str(health))
+
+    async def test_cloud_transient_error_classification_is_safe(self):
+        wrapped = RuntimeError("secret request body")
+        wrapped.__cause__ = TimeoutError("token=private")
+        self.assertEqual(safe_cloud_error(wrapped), "cloud_temporarily_unavailable")
+        self.assertEqual(safe_cloud_error(CloudDeliveryRejected(409, "private details")),
+                         "cloud_request_rejected")
+        missing = urllib.error.HTTPError("https://cloud.example", 404, "private", {}, io.BytesIO())
+        self.assertEqual(safe_cloud_error(missing), "cloud_request_rejected")
 
     async def test_completion_network_retry_reuses_result_and_fence(self):
         from unittest.mock import AsyncMock
