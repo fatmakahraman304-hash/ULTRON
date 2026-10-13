@@ -447,7 +447,7 @@ async def load_long_continuation_turns(pool, user_id: str, conversation_id,
         return prepare_turns(recent, max_chars=cap, max_turns=n)
     recovered_budget = min(cap, 1200 if original else 900, max(24, cap // 3))
     if original:
-        latest_budget = min(650, max(24, recovered_budget // 2))
+        latest_budget = min(recovered_budget, 650, max(1, recovered_budget // 2))
         earlier_budget = recovered_budget - latest_budget
         if earlier_budget:
             recovered = [
