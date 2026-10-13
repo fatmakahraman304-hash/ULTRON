@@ -73,3 +73,45 @@ button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px soli
   .composer textarea{padding:11px 9px}
 }
 @media(prefers-reduced-motion:reduce){.golge-welcome-orb,.golge-welcome-orb:before,.golge-welcome-orb:after{animation:none!important}}
+
+/* Keep the recognizable luminous core visible above the conversation, as in the approved concept. */
+.golge-welcome{min-height:clamp(250px,42dvh,430px);gap:10px}
+.golge-welcome-orb{
+  width:clamp(180px,51vw,260px);
+  background:radial-gradient(circle at 50% 63%,rgba(50,202,208,.16) 0%,transparent 53%);
+  isolation:isolate;
+  animation:golge-float 5.5s ease-in-out infinite alternate;
+}
+.golge-welcome-orb:before{
+  inset:18% -12%;border:1px solid rgba(99,222,231,.37);
+  border-radius:50%;transform:rotate(-18deg) scaleY(.44);
+  box-shadow:0 0 14px rgba(90,222,235,.14);
+}
+.golge-welcome-orb:after{
+  inset:10% -5%;border:1px solid rgba(123,234,240,.38);
+  border-radius:50%;transform:rotate(25deg) scaleY(.65);
+  box-shadow:0 0 20px rgba(70,187,207,.09);
+}
+.golge-welcome-orb i{
+  position:relative;z-index:1;width:73%;height:73%;overflow:hidden;
+  border:1px solid rgba(194,249,253,.65);
+  background:
+    radial-gradient(ellipse at 36% 13%,rgba(210,252,255,.45),transparent 19%),
+    radial-gradient(ellipse at 47% 82%,rgba(55,242,236,.85),transparent 28%),
+    radial-gradient(circle at 53% 47%,rgba(7,23,35,.3),rgba(2,12,24,.94) 67%),
+    conic-gradient(from 50deg,#123749,#071d2c,#31d4d7,#0a1b2c,#accbdb,#153746);
+  box-shadow:0 0 22px rgba(104,231,238,.36),0 0 62px rgba(29,192,209,.14),inset 0 0 35px rgba(92,230,234,.27),inset -22px -14px 25px #04121ebf;
+}
+.golge-welcome-orb i:before,.golge-welcome-orb i:after{
+ content:'';position:absolute;inset:8% -32%;border:1px solid rgba(181,248,255,.65);
+ border-radius:50%;transform:rotate(-29deg) scaleY(.28);box-shadow:0 0 12px rgba(121,241,251,.52);
+}
+.golge-welcome-orb i:after{inset:16% -35%;transform:rotate(48deg) scaleY(.43);opacity:.74}
+#chatView:has(#messages .msg) .golge-welcome{
+ display:flex;min-height:clamp(160px,29dvh,290px);padding:10px 4px 8px;gap:4px;
+}
+#chatView:has(#messages .msg) .golge-welcome-orb{width:clamp(108px,31vw,170px)}
+#chatView:has(#messages .msg) .golge-welcome h1{display:none}
+#chatView:has(#messages .msg) .golge-welcome p{font-size:11px;max-width:230px}
+@keyframes golge-float{from{translate:0 4px}to{translate:0 -5px}}
+@media(prefers-reduced-motion:reduce){.golge-welcome-orb{animation:none}}
