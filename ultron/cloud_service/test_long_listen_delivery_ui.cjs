@@ -29,6 +29,7 @@ function makeUI({message='Sesli oturumdan önemli talimat',fail=false,voiceError
     runDirectPhoneCommand(){logs.direct++;return true;},
     window:{
       ULTRONLongListen:{isStart:()=>false,isAnswer:()=>false},
+      ULTRONLocalListeningProbe:{isRequest:()=>false},
       ULTRONDevRequests:{async fromText(){logs.dev++;return true;}},
       ULTRONAutoBrain:{safeToFallback:()=>false}
     },
