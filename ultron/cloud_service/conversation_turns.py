@@ -111,6 +111,9 @@ _COMMON_TERMS = frozenset((
     "demiştik", "konuşmuştuk", "hatırlat", "söylediklerimi",
     "konuştuklarımız", "previously", "earlier", "discussed", "discuss",
     "remember", "remind", "said", "talked",
+    # Wake names are not distinctive conversation topics. Otherwise almost
+    # every historic message matches the assistant name rather than the goal.
+    "gölge", "golge", "ultron", "jarvis",
 ))
 
 # Meaningful short acronyms are worth recalling, but generic 3-4 letter
@@ -242,7 +245,7 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
 # An explicit on-demand recap spans the beginning, middle and end of only the
 # currently selected conversation. Normal follow-ups keep recency priority.
 _RECAP_PATTERNS = (
-    re.compile(r"^(?:ultron[,.!? ]+)?(?:bu |bizim )?(?:sohbeti|sohbetimizi|konuşmayı|konuşmamızı|"
+    re.compile(r"^(?:(?:gölge|golge|ultron)[,.!? ]+)?(?:bu |bizim )?(?:sohbeti|sohbetimizi|konuşmayı|konuşmamızı|"
                r"konuştuklarımızı) (?:kısaca |bana )?(?:özetle|özetler misin|özetini çıkar|"
                r"özetini çıkart)(?: lütfen| lütfen)?[.?!]*$", re.I),
     re.compile(r"^(?:az önce|bu sohbette|bu konuşmada|şimdiye kadar) "
@@ -355,6 +358,93 @@ def is_named_recall_request(question: str) -> bool:
     ) and not is_future_reminder_request(question)
 
 
+
+# Bare continuations can outlive a small Qwen 12-turn window. Recover only
+# the last substantive owner request *inside the same authenticated thread*;
+# it remains an ordinary untrusted user turn, never a system message or memory.
+_BARE_CONTINUE = re.compile(
+    r"^(?:(?:gölge|golge|ultron)[,!: ]+)?"
+    r"(?:devam(?: et| edelim| edin)?|peki devam et|"
+    r"kaldığın yerden devam et|devamını getir|"
+    r"continue|keep going|go on)(?: lütfen)?[.!?]*$",
+    re.I,
+)
+
+
+def is_bare_continuation(text: str) -> bool:
+    return (isinstance(text, str) and len(text) <= 110
+            and bool(_BARE_CONTINUE.fullmatch(" ".join(text.strip().split()))))
+
+
+async def load_long_continuation_turns(pool, user_id: str, conversation_id,
+                                       *, before_id: int | None = None,
+                                       max_chars: int = 3200, limit: int = 14,
+                                       lookback: int = 80
+                                       ) -> list[dict[str, str]]:
+    """Bounded owner/thread-scoped goal recovery, with explicit uncertainty.
+
+    No global user-memory lookup, no writes and no extra LLM. Old chat cannot
+    become a system/developer role. A topic-switch instruction blocks revival
+    of the previous goal until the user supplies a new substantive task.
+    """
+    n = max(1, min(int(limit), 20))
+    cap = max(0, min(int(max_chars), 7200))
+    if cap <= 0:
+        return []
+    scope = (
+        "WHERE user_id=$1 AND conversation_id=$2 "
+        "AND ($3::bigint IS NULL OR id < $3) "
+        "AND role IN ('user','assistant') "
+    )
+    latest = await pool.fetch(
+        "SELECT id,role,content FROM messages " + scope
+        + "ORDER BY id DESC LIMIT $4",
+        user_id, conversation_id, before_id, n,
+    )
+    recent = list(reversed(latest))
+    # There is already a usable goal in the normal context window.
+    if any(row.get("role") == "user"
+           and isinstance(row.get("content"), str)
+           and not is_bare_continuation(row["content"])
+           for row in recent):
+        return prepare_turns(recent, max_chars=cap, max_turns=n)
+    # Short or new conversations should never trigger a speculative search.
+    if len(latest) < n or n < 2:
+        return prepare_turns(recent, max_chars=cap, max_turns=n)
+    earliest = latest[-1].get("id")
+    if not isinstance(earliest, int):
+        return prepare_turns(recent, max_chars=cap, max_turns=n)
+    # Hard cap the one exceptional historical lookup. Even 100 repeated
+    # "devam et" turns with paired replies fit in this 240-record window.
+    scan = min(240, max(n, int(lookback) * 3))
+    older = await pool.fetch(
+        "SELECT id,role,content FROM messages " + scope
+        + "AND id < $4 AND role='user' ORDER BY id DESC LIMIT $5",
+        user_id, conversation_id, before_id, earliest, scan,
+    )
+    goal = None
+    for row in older:
+        content = row.get("content")
+        if not isinstance(content, str) or not content.strip():
+            continue
+        if is_bare_continuation(content):
+            continue
+        # A request to change or drop the topic is not a hidden new goal.
+        if is_topic_switch_request(content):
+            break
+        goal = content.strip()
+        break
+    if not goal:
+        return prepare_turns(recent, max_chars=cap, max_turns=n)
+    goal_budget = min(900, max(120, cap // 3))
+    original = {"role": "user", "content": _bounded_excerpt(goal, goal_budget)}
+    newest = prepare_turns(
+        recent, max_chars=max(0, cap - len(original["content"])),
+        max_turns=n - 1,
+    )
+    return [original] + newest
+
+
 async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                                        *, question: str, before_id: int | None = None,
                                        max_chars: int = 3200,
@@ -366,6 +456,11 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
     SQL LIMIT and output caps bound database and model usage.
     """
     n = max(1, min(int(limit), 20))
+    if is_bare_continuation(question):
+        return await load_long_continuation_turns(
+            pool, user_id, conversation_id, before_id=before_id,
+            max_chars=max_chars, limit=n, lookback=lookback,
+        )
     if is_future_reminder_request(question):
         # Scheduling is an action request, not an instruction to recover
         # old plans. Keep only bounded recent context; no memory writes.
