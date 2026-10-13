@@ -8,6 +8,7 @@ const dir=path.join(__dirname,'static');
 const script=fs.readFileSync(path.join(dir,'dev-requests.js'),'utf8');
 const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');
 const schema=fs.readFileSync(path.join(__dirname,'schema.sql'),'utf8');
+const livePolicy=fs.readFileSync(path.join(__dirname,'live_voice_policy.py'),'utf8');
 const sw=fs.readFileSync(path.join(dir,'sw.js'),'utf8');
 
 function helper(){
@@ -45,8 +46,8 @@ test('phone requires click to explicitly copy + open ChatGPT',()=>{
 test('self-development chat requests flow to the paired laptop tool instead of handoff interception',async()=>{
  const h=helper();
  assert.equal(await h.fromText('GÖLGE kodunu geliştir'),false);
- assert.match(fs.readFileSync(path.join(__dirname,'app.py'),'utf8'),/user must approve before files change/i);
- assert.match(fs.readFileSync(path.join(__dirname,'app.py'),'utf8'),/send_laptop_task immediately/i);
+ assert.match(livePolicy,/user must approve before files change/i);
+ assert.match(livePolicy,/send_laptop_task immediately/i);
 });
 test('verified status is retrieved from server and not client-side set to completed',()=>{
  assert.match(script,/api\('\/api\/dev-requests\/'\+encodeURIComponent\(item\.id\)\+'\/verify','POST'\)/);
