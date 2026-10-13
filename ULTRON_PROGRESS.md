@@ -526,3 +526,5 @@ Bu belge geçmişteki gerçek kod değişikliklerini ve doğrulamayı kaydeder. 
 - Completed changes: bounded paired/first-topic recall; no cross-conversation multimodal context; shared low-cost presentation checking; real local service readiness; indexed scoped memory recall; conservative preference conflict/deduplication/common-secret controls; 100-scenario independent-review harness.
 - Limits: semantic factual verification and arbitrary memory contradictions are not solved by these rules. No hardware latency/quantization benchmark, phone voice acceptance or Windows installation performed. Old Windows worker falls back to Gemini until final authorized update advertises readiness.
 - Render **LIVE** verified at the exact functional SHA `78930a44f40835917337b3d7f494435a500cd94e`, deployment `dep-db56v7vmphoc739fq12g`, finished 2026-10-10 17:03:37 UTC. Later documentation-only commits do not represent additional tested code.
+
+The suggestion panel is live in Render at `a0352a5`; Cloud/PostgreSQL and Scene/UI workflows passed for that exact merge SHA.
