@@ -137,6 +137,10 @@ jobs:
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus_postgres.py' -v
+      - name: Private generated images on real PostgreSQL, quota and tenant isolation
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_generated_images_postgres.py' -v
       - name: Real PostgreSQL 36-turn goal to saved-memory recall and account isolation
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
@@ -167,6 +171,8 @@ jobs:
         run: PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_queue_postgres.py -v
       - name: Authenticated data-only scene synthesis
         run: PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_design.py ultron/cloud_service/test_scene_design_api.py -v
+      - name: Generated image authenticated HTTP download and no-false-success API
+        run: PYTHONPATH=ultron/cloud_service python -m unittest discover -s ultron/cloud_service -p 'test_image_generation.py' -v
       - name: Chromium mobile chat with real queue and explicit fake providers
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test

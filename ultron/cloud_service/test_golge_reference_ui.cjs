@@ -45,7 +45,7 @@ test('mobile layout separates scrollable messages and fixed composer without hid
  assert.match(css,/border:1px solid #315460!important/);
 
  const sw=file('ultron/cloud_service/static/sw.js');
- assert.match(sw,/ultron-shell-v70/);
+ assert.match(sw,/ultron-shell-v71/);
  assert.match(sw,/\/static\/golge-reference-mobile\.css/);
 });
 
