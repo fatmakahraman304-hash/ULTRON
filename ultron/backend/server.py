@@ -3804,7 +3804,7 @@ def _sentinel_loop() -> None:
 
 async def on_shutdown(app: web.Application) -> None:
     # Close persistent clients before aiohttp waits for active request handlers.
-    await asyncio.gather(*(ws.close(code=1001, message=b'GÖLGE shutdown')
+    await asyncio.gather(*(ws.close(code=1001, message='GÖLGE shutdown'.encode('utf-8'))
                            for ws in list(hub.clients)), return_exceptions=True)
 
 
