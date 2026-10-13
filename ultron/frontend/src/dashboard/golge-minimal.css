@@ -1,0 +1,84 @@
+/* GÖLGE | quiet, responsive, voice-first desktop/tablet interface.
+   Specialists remain available through the existing modal and natural-language routes. */
+.viewport{width:100%;height:100dvh;min-height:0;overflow:hidden}
+.ultron-app.voice-first.golge-minimal{
+  --golge-accent:#7ce2da;--golge-ink:#e8edf2;
+  position:relative;left:auto;top:auto;width:100%;height:100dvh;min-height:0;
+  padding:clamp(10px,1.4vw,22px);gap:clamp(10px,1.5vw,20px);
+  display:grid;grid-template-rows:70px minmax(0,1fr);transform:none!important;
+  background:radial-gradient(ellipse 65% 80% at 40% 40%,#0c1a22 0%,#080e15 55%,#05080d 100%);
+  font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--golge-ink)
+}
+.golge-minimal button{transition:background-color .2s,border-color .2s,box-shadow .2s}
+.golge-minimal button:hover{box-shadow:none;border-color:#618d94}
+.golge-minimal button:focus-visible,.golge-minimal input:focus-visible{outline:2px solid var(--golge-accent);outline-offset:2px}
+.golge-minimal .metal-frame,.golge-minimal .panel{clip-path:none;background:#09121ab8;border:1px solid #24323a;border-radius:24px;padding:0;box-shadow:none;isolation:auto;--cut:0}
+.golge-minimal .metal-frame::before,.golge-minimal .metal-frame::after,
+.golge-minimal .panel::before,.golge-minimal .panel::after{display:none}
+.golge-minimal .main-header{min-height:0;padding:0 10px;background:transparent;border:0;border-bottom:1px solid #1c2933;border-radius:0;display:flex;align-items:center;gap:12px}
+.golge-brand{display:flex;align-items:center;gap:12px;font-weight:650;font-size:22px;letter-spacing:.23em;margin-right:auto;white-space:nowrap}
+.golge-brand>span:last-child{display:block}
+.golge-brand small{display:block;font:500 10px 'Segoe UI',sans-serif;letter-spacing:.12em;color:#718795;margin-top:4px}
+.golge-brand-mark{position:relative;width:28px;height:28px;border:1px solid #7bd8d15c;border-radius:50%;display:block;box-shadow:0 0 24px #3fcdc02a}
+.golge-brand-mark:after{content:'';position:absolute;inset:7px;border-radius:50%;background:#90e6e1;box-shadow:0 0 13px #6ad6cb}
+.golge-connection{font-size:12px;color:#97a9b2;display:inline-flex;gap:8px;align-items:center;border:1px solid #20343b;border-radius:999px;padding:10px 13px;background:#0a151b}
+.golge-connection i{width:7px;height:7px;border-radius:100%;background:#829099}
+.golge-connection.connected i{background:#7de8bc;box-shadow:0 0 12px #68dba8}
+.golge-minimal .main-header nav,.golge-minimal .main-header time,.golge-minimal .main-header .power,.golge-minimal .bottom-toolbar{display:none}
+.ultron-app.voice-first.golge-minimal .voice-first-mic,
+.ultron-app.voice-first.golge-minimal .voice-first-menu{min-height:42px;padding:9px 14px;font-size:12px;letter-spacing:.015em;border:1px solid #2a3c45;background:#0c171e;border-radius:13px;justify-content:center}
+.golge-minimal .main-grid{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(345px,30%);gap:clamp(10px,1.5vw,20px)}
+.golge-minimal .system-rail,.golge-minimal .subsystems,.golge-minimal .right-panels>.panel:not(.chat-panel),.golge-minimal .right-panels>.files-panel{display:none!important}
+.golge-minimal .reactor-panel{min-width:0;min-height:0;overflow:hidden;position:relative;
+  background:radial-gradient(circle at 50% 43%,#0a1e2a 0%,#070d15 52%,#060b11 100%);
+  border-color:#19313d;border-radius:26px}
+.golge-minimal .center-stage,.golge-minimal .core-stage{inset:0;background:transparent}
+.golge-minimal .center-stage:before{opacity:.18}
+.golge-minimal .core-canvas canvas{filter:hue-rotate(157deg) saturate(.65)}
+.golge-minimal .core-caption{bottom:44px;color:#a1d6d1;font-size:12px;letter-spacing:.19em}
+.golge-stage-caption{position:absolute;left:16px;right:16px;bottom:14px;pointer-events:none;text-align:center;font-size:12px;letter-spacing:.015em;color:#78949f;text-shadow:0 1px 10px #000}
+.golge-minimal .right-panels{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(0,1fr)}
+.golge-minimal .chat-panel{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden;background:#0a1219d9}
+.golge-minimal .chat-panel>header{margin:0 16px;height:59px;flex:0 0 59px;border-color:#1e2b33}
+.golge-minimal .chat-panel>header svg{color:#89ccc9;filter:none}
+.golge-minimal .chat-panel h2{font-size:13px;font-weight:600;letter-spacing:.08em}
+.golge-minimal .chat-panel>header button{background:transparent;border-color:transparent;color:#8398a4}
+.golge-minimal .chat-panel .panel-body{flex:1;height:auto!important;min-height:0;display:flex;flex-direction:column;padding:14px}
+.golge-minimal .messages{flex:1;min-height:0;padding:6px 5px 15px;overflow-y:auto;overscroll-behavior:contain}
+.golge-minimal .message{font:14px/1.65 'Segoe UI',Arial,sans-serif;line-height:1.6;border-radius:16px;padding:12px 14px;max-width:94%;background:#121d25;border:1px solid #1d2b34;margin-bottom:12px}
+.golge-minimal .message.user{margin-left:auto;background:#17323b;border-color:#225460}
+.golge-minimal .message b{color:#90d4d0;font-weight:600}
+.golge-minimal .message.user b{color:#dae7ec}
+.golge-minimal .message time{top:4px;right:8px;font-size:9px}
+.golge-minimal .chat-empty{text-align:center;margin:auto;color:#879da6;max-width:235px;font:14px/1.7 'Segoe UI',sans-serif}
+.golge-minimal .composer{display:flex;gap:9px;margin:0;flex:0 0 auto;padding:7px;border:1px solid #2a4049;border-radius:19px;background:#101c24}
+.golge-minimal .composer input{height:48px;padding:10px 12px;border:0;background:transparent;outline:none;font:15px 'Segoe UI',sans-serif}
+.golge-minimal .composer button{display:grid;place-items:center;width:45px;height:45px;flex-shrink:0;padding:0;color:#041719;background:#80dcd3;border:0;border-radius:14px;box-shadow:none}
+.golge-minimal .composer button svg{fill:none;color:#06262a;width:19px;height:19px}
+.golge-minimal .offline{top:12px;left:12px;right:12px;z-index:30;background:#26141bdc;border-color:#7f4656;border-radius:12px;font:12px 'Segoe UI',sans-serif;color:#f6bbc5}
+.golge-minimal .modal-shade{position:absolute;inset:0;z-index:50;padding:14px;overflow:auto;overscroll-behavior:contain}
+.golge-minimal .work-dialog{width:min(900px,100%);max-height:90dvh;min-height:0;overflow:hidden;background:#101b24;border:1px solid #2f4850;border-radius:20px;padding:0}
+.golge-minimal .work-dialog>header{padding:14px 18px;border-bottom:1px solid #293942}
+.golge-minimal .dialog-content{padding:18px;max-height:calc(90dvh - 65px);overflow:auto}
+.golge-minimal .toast{bottom:18px;width:min(520px,calc(100% - 24px));border-radius:12px;background:#12242b;border-color:#416269}
+@media(max-width:840px){
+ .ultron-app.voice-first.golge-minimal{padding:10px;gap:9px;grid-template-rows:54px minmax(0,1fr)}
+ .golge-minimal .main-header{padding:0 4px;gap:7px}
+ .golge-brand{font-size:18px;letter-spacing:.16em;gap:9px}
+ .golge-brand small{font-size:9px}
+ .golge-brand-mark{width:24px;height:24px}
+ .golge-minimal .golge-connection{padding:7px 9px;font-size:11px}
+ .ultron-app.voice-first.golge-minimal .voice-first-mic,.ultron-app.voice-first.golge-minimal .voice-first-menu{padding:8px;width:40px;height:40px;min-height:40px;font-size:0;gap:0}
+ .golge-minimal .main-grid{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(170px,32dvh) minmax(0,1fr);gap:9px}
+ .golge-minimal .reactor-panel{border-radius:21px}
+ .golge-minimal .core-caption{bottom:34px;font-size:10px}
+ .golge-minimal .chat-panel{border-radius:21px}
+ .golge-minimal .chat-panel>header{height:43px;flex-basis:43px;margin:0 12px}
+ .golge-minimal .chat-panel .panel-body{padding:9px}
+ .golge-minimal .message{font-size:13px;padding:8px 10px;margin-bottom:8px;max-width:95%}
+ .golge-minimal .composer{padding:4px;gap:2px;border-radius:15px}
+ .golge-minimal .composer input{height:44px;font-size:16px}
+ .golge-minimal .composer button{width:43px;height:43px;border-radius:12px}
+}
+@media(max-width:360px){.golge-brand small{display:none}.golge-connection{font-size:0!important}.golge-connection i{margin:0}}
+@media(prefers-reduced-motion:reduce){.golge-minimal *{scroll-behavior:auto!important}}
