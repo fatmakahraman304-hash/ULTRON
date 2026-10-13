@@ -64,7 +64,8 @@ class FocusedMemoryTests(unittest.TestCase):
         app=(HERE/"app.py").read_text(encoding="utf-8")
         bridge=(HERE/"local_brain_bridge.py").read_text(encoding="utf-8")
         self.assertIn("load_focused_owner_context(pool, user_id, query)",app)
-        self.assertIn('await _memory_context(pool, request["user_id"], query=text)',app)
+        self.assertIn('await _memory_context(pool, request["user_id"], query=focus_query)',app)
+        self.assertIn('focus_query = memory_focus_question(text, turns)',app)
         self.assertIn('request.app["local_memory_context"](conn, request["user_id"], text)',bridge)
         self.assertIn("WHERE user_id=$1",(HERE/"personal_context_focus.py").read_text(encoding="utf-8"))
 
