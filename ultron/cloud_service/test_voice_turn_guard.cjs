@@ -57,7 +57,7 @@ test("background, pagehide and mute invalidate turns without background mic acce
  assert.match(html,/pagehide',\(\)=>\{[^}]*voiceTurnGuard\.cancel\(\)/);
   assert.match(html,/pagehide',\(\)=>\{longListenController\.interrupt\(/);
  assert.match(html,/if\(document\.hidden\)\{voiceTurnGuard\.cancel\(\)/);
- assert.match(sw,/(?:ultron|golge)-shell-v[0-9]+/);
+ assert.match(sw,/ultron-shell-v[0-9]+/);
  assert.ok(sw.includes("'/static/voice-turn-guard.js'"));
  assert.ok(html.includes('<script src="/static/voice-turn-guard.js"></script>'));
  assert.doesNotMatch(html,/setTimeout\(\(\)=>startHandsFreeVoice\(\),250\)/);
