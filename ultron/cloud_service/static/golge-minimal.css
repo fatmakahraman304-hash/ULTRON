@@ -34,6 +34,7 @@ body:before,body:after{background:none!important;filter:none!important}
 .msg-time{color:#8297a0}
 .composer{position:fixed!important;bottom:calc(10px + env(safe-area-inset-bottom))!important;left:50%;width:min(730px,calc(100% - 20px))!important;transform:translateX(-50%);background:#0b1720f7;border:1px solid #2b454d;border-radius:21px;box-shadow:0 14px 55px #000a;backdrop-filter:blur(16px);padding:8px!important}
 .composer .row{align-items:center;gap:7px}
+.composer:has(#longListenPanel:not(.hidden)){max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain}
 .composer textarea{min-height:46px;max-height:120px;background:#0e1b23;border:1px solid #243941;border-radius:14px;color:#f0f6f7;font-size:16px;padding:12px;box-shadow:none}
 .composer textarea:focus{border-color:#72bfb9;box-shadow:0 0 0 2px #6ac6bd1d}
 .composer #sendBtn{width:46px;height:46px;background:#91e2d9;color:#092127;border:0;box-shadow:none;flex:0 0 46px;border-radius:14px}
