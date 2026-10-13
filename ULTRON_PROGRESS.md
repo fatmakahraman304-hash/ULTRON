@@ -1,3 +1,7 @@
+## 2026-10-13 — Suggestions grounded in saved goals
+
+Replaced the same generic briefing suggestion with one contextual option sourced from the nearest listed owner plan or saved GOAL/PROJECT; other saved data and empty memory receive a transparent fallback. Added a dedicated mobile panel region. Existing auth and owner scoping remain. The plan, tool, and memory systems are already implemented and were not replaced.
+
 ## 2026-10-13 — Owner corrections retained during topic recall
 
 Reproduced a dropped Turkish correction in `select_contextual_turns` before changing code. Old question/answer and adjacent owner correction are now selected atomically; insufficient turn budget omits the superseded exchange. Added Turkish/English and tight-budget regressions. Windows installation remains deferred.

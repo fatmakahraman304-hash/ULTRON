@@ -1,3 +1,7 @@
+## 2026-10-13 — Personal briefing suggestions
+
+`test_personal_briefing.py`: 5/5 pass, including plan-backed and saved-goal suggestions with no actions/reminders. Personal panel JS suggestion contract: 4 cases pass (source validation and one-item cap). Local planner and memory tests: 7 pass. Frontend production build passes (Vite reports its existing large-chunk advisory); backend py_compile and Earth config: 5/5 pass. Real device voice and Gemini/Qwen output quality remain untested.
+
 ## 2026-10-13 — Correction-aware recall regression
 
 Before fix: new correction test failed because old C180 answer survived but the owner correction did not. After fix: contextual recall 14/14, conversation turns 7/7, reference return 5/5, thread recap 7/7, Earth backend 5/5. `npm ci`, frontend build, Earth frontend tests and required Python compilation passed. These are deterministic code tests, not real Gemini/Qwen response evaluations. Release `202e4f98de3020b77ff4ef2460fa7696e765774c`: Actions Cloud/PostgreSQL `38389301592` and Scene `38389301598` both SUCCESS; full logs inspected, including 6 queue browser and 9 WebGL scenarios. Render `dep-db71706q1p3s73erimfg` LIVE; public health returns this exact commit. Frozen evaluation dataset validates 100 scenarios (50 TR / 50 EN), without inference. No new 100/100 or JARVIS percentage claimed.

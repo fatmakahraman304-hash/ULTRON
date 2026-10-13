@@ -37,15 +37,29 @@ def build_briefing(rows, *, plan_rows=(), max_items: int = 8) -> dict:
             "time": clock.strftime("%H:%M") if clock else None,
             "source": "owner_created_plan",
         })
+    # Offer one owner-grounded next step only when the owner opens the briefing.
+    # It is wording for an optional conversation, never a reminder or action.
+    if manual_plans:
+        suggestions = [f"Kayıtlı planın: {manual_plans[0]['title']}. İstersen bunu küçük adımlara bölebiliriz."]
+        suggestion_source = "owner_created_plan"
+    else:
+        focus = next((item for item in saved
+                      if item["category"].upper() in ("GOAL", "PROJECT")), None)
+        if focus:
+            suggestions = [f"Kayıtlı {focus['category'].lower()}ın: {focus['value']}. İstersen sıradaki adımı birlikte netleştirebiliriz."]
+            suggestion_source = "owner_saved_memory"
+        elif saved:
+            suggestions = ["Kayıtlı bilgilerini gözden geçirip bu konuşmada hangisini kullanmamı istersen söyleyebilirsin."]
+            suggestion_source = "owner_saved_memory"
+        else:
+            suggestions = ["İstersen bir hedefini açıkça kaydedip sonraki konuşmalarda kullanmamı sağlayabilirsin."]
+            suggestion_source = "no_saved_context"
     return {
         "type": "read_only_owner_briefing",
         "plans": manual_plans,
         "items": saved,
-        "suggestions": (
-            ["Kayıtlı hedeflerini gözden geçirip bugün için bir öncelik seç."]
-            if saved else
-            ["Bugün için tek bir hedef belirleyip istersen GÖLGE hafızasına kendin kaydet."]
-        ),
+        "suggestions": suggestions,
+        "suggestion_source": suggestion_source,
         "calendar_connected": False,
         "email_connected": False,
         "reminders_created": False,

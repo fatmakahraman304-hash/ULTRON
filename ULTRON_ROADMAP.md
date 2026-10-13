@@ -1,3 +1,7 @@
+## 2026-10-13 — Owner-grounded optional next-step suggestions
+
+The user-requested capabilities map to existing bounded systems for natural multi-turn context, validated local task planning, owner-scoped editable memory, device readiness, and a manual briefing. The briefing now surfaces at most one optional next step based on an owner-created plan or explicitly saved goal/project. The mobile memory screen renders the suggestion with textContent after the owner opens the briefing. No reminders, background monitoring, or device actions are created.
+
 ## 2026-10-13 — Correction-aware conversational recall
 
 Conversation reliability is the priority following the user’s latest request. Named-topic retrieval now preserves an immediately following explicit user correction even when it omits the topic name. No extra inference, persistence, permissions or context budget added.

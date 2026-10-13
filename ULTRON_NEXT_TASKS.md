@@ -1,3 +1,10 @@
+## Next tasks — verify device and provider quality
+
+1. The owner-grounded briefing suggestion ships in the current branch; verify its Cloud CI and Render deployment.
+2. Run the frozen 100-case TR/EN evaluation with actual Gemini and reachable local Qwen, then independent human review. Dataset validation alone does not score model quality.
+3. On Windows and phone, verify actual voice continuity, live laptop presence, approval-gated tools, memory correction/deletion, and cloud-to-device task completion. Do not install on Windows until the previously requested final consolidated update.
+4. Continue context-budget audit for verbose recent replies and recalled old-topic evidence.
+
 ## Next tasks — conversation, memory and reasoning
 
 1. Correction-aware recall release `202e4f9` is verified: both Actions workflows passed, Render LIVE and health SHA matched. Continue with the context-budget audit below.

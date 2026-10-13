@@ -44,6 +44,16 @@
       .filter(x => x.title && x.detail);
     return [...manual, ...stored].slice(0, 12);
   }
+  function suggestionEntries(payload) {
+    const allowed = new Set(["owner_created_plan", "owner_saved_memory", "no_saved_context"]);
+    const source = clean(payload && payload.suggestion_source, 40);
+    if (!allowed.has(source)) return [];
+    return (Array.isArray(payload && payload.suggestions) ? payload.suggestions : [])
+      .slice(0, 1)
+      .map(value => ({title: "İstersen sonraki adım", detail: clean(value, 220),
+        source: source === "no_saved_context" ? "Genel öneri" : "Kayıtlı bilgilerinden"}))
+      .filter(item => item.detail);
+  }
   function capabilityEntries(payload) {
     return (Array.isArray(payload && payload.capabilities) ? payload.capabilities : [])
       .slice(0, 15)
@@ -86,6 +96,7 @@
         const payload = await fetchJson("/api/personal-briefing");
         const entries = briefingEntries(payload);
         renderEntries(doc, find("briefingItems"), entries);
+        renderEntries(doc, find("briefingSuggestions"), suggestionEntries(payload));
         status.textContent = entries.length
           ? entries.length + " kayıtlı bilgi • yalnızca GÖLGE hafızası"
           : "Henüz kayıtlı bilgi yok. Aşağıdaki hafıza alanına bir hedef ekleyebilirsin.";
@@ -118,5 +129,5 @@
     }
     return {init, loadBriefing, loadReadiness};
   }
-  return {create, briefingEntries, capabilityEntries};
+  return {create, briefingEntries, suggestionEntries, capabilityEntries};
 });
