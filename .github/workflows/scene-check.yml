@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-reference-orb-ui-20261013
       - feat/golge-deep-dialog-continuity-20261013
       - feat/golge-qwen-goal-routing-20261013
     paths:
@@ -22,6 +23,7 @@ on:
       - feat/golge-deep-dialog-continuity-20261013
       - feat/golge-qwen-goal-routing-20261013
       - feat/golge-temporal-memory-20261013
+      - feat/golge-reference-orb-ui-20261013
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -220,6 +222,10 @@ jobs:
           python scripts/tests/test_scene_browser.py
       - name: Mobile listening consent and full-summary browser interaction
         run: python scripts/tests/test_listening_browser.py
+      - name: GÖLGE screenshot-matched mobile and laptop layout contracts
+        run: node --test ultron/cloud_service/test_golge_reference_ui.cjs
+      - name: GÖLGE mobile visual composition in real Chromium
+        run: python scripts/tests/test_golge_reference_browser.py
       - name: GÖLGE visible identity and legacy protocol compatibility
         run: |
           node --test ultron/cloud_service/test_golge_identity.cjs
