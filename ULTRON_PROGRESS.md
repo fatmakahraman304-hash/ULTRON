@@ -1,3 +1,7 @@
+## 2026-10-14 — First-run setup accepts typing and persists once
+
+The native Qt setup overlay was shown before the main window, leaving keyboard focus in the chat field behind it. The setup key field now claims focus after the parent window is shown, supports Enter-to-submit, and has an explicit SHOW/HIDE control. Saving setup merges the Gemini key and OS choice into the existing ignored `config/api_keys.json`, preserving local model preferences, so a completed setup is not requested again at launch. Regression tests first reproduced focus remaining in the underlying input; both setup regressions now pass. The real Windows screenshot flow remains to be retested after pull.
+
 ## Windows installation passed — 2026-10-14
 
 Owner confirmed `INSTALL.bat` completed on Windows 11 at commit `4648d70` (Python 3.12.14, Node 24.19.0, npm 11.17.0), including frontend build, pip checks, Playwright install, `pytest tests`, and `integration.doctor --quick`; the installer printed `Kurulum tamamlandi.` The console did not show pytest's summary count. Ollama already had the configured four models, so setup did not need to pull Qwen weights. `START.bat` and real chat, voice, vision, Gemini fallback and scene controls are the next hands-on checks.

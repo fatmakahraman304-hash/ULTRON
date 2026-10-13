@@ -82,6 +82,25 @@ def _read_full_config() -> dict:
         return {}
 
 
+def _setup_is_complete() -> bool:
+    """A completed first-run setup is stored in the user's ignored config."""
+    if not API_FILE.exists():
+        return False
+    try:
+        config = json.loads(API_FILE.read_text(encoding="utf-8"))
+        return bool(config.get("gemini_api_key")) and bool(config.get("os_system"))
+    except Exception:
+        return False
+
+
+def _save_setup_config(key: str, os_name: str) -> None:
+    """Save first-run values without discarding other user settings."""
+    config = _read_full_config()
+    config.update({"gemini_api_key": key, "os_system": os_name})
+    API_FILE.parent.mkdir(parents=True, exist_ok=True)
+    API_FILE.write_text(json.dumps(config, indent=4), encoding="utf-8")
+
+
 # Single source of truth for the release name — the window title, the header
 # badge and the readme must never disagree again.
 APP_VERSION  = "GÖLGE"
@@ -1446,18 +1465,38 @@ class SetupOverlay(QWidget):
         layout.addWidget(_lbl("GEMINI API KEY", 8, color=C.TEXT_DIM,
                                align=Qt.AlignmentFlag.AlignLeft))
         self._key_input = QLineEdit()
+        self._key_input.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self._key_input.setPlaceholderText("AIza…")
         self._key_input.setFont(QFont("Courier New", 10))
         self._key_input.setFixedHeight(32)
-        self._key_input.setStyleSheet(f"""
+        self._key_style = f"""
             QLineEdit {{
                 background: #000d12; color: {C.TEXT};
                 border: 1px solid {C.BORDER}; border-radius: 3px; padding: 4px 8px;
             }}
             QLineEdit:focus {{ border: 1px solid {C.PRI}; }}
+        """
+        self._key_input.setStyleSheet(self._key_style)
+        key_row = QHBoxLayout()
+        key_row.setSpacing(6)
+        key_row.addWidget(self._key_input, stretch=1)
+        self._key_visibility_btn = QPushButton("SHOW")
+        self._key_visibility_btn.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
+        self._key_visibility_btn.setFixedSize(58, 32)
+        self._key_visibility_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._key_visibility_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: #000d12; color: {C.TEXT_DIM};
+                border: 1px solid {C.BORDER}; border-radius: 3px;
+            }}
+            QPushButton:hover {{ color: {C.TEXT}; border: 1px solid {C.BORDER_B}; }}
         """)
-        layout.addWidget(self._key_input)
+        self._key_visibility_btn.clicked.connect(self._toggle_key_visibility)
+        key_row.addWidget(self._key_visibility_btn)
+        layout.addLayout(key_row)
+        self._key_input.returnPressed.connect(self._submit)
+        self._key_input.textEdited.connect(self._clear_key_error)
         layout.addSpacing(12)
 
         sep2 = QFrame(); sep2.setFrameShape(QFrame.Shape.HLine)
@@ -1500,6 +1539,31 @@ class SetupOverlay(QWidget):
         init_btn.clicked.connect(self._submit)
         layout.addWidget(init_btn)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # A child overlay can be shown before its top-level window. Defer focus
+        # until Qt has completed showing it so keyboard input cannot stay in
+        # the chat composer underneath.
+        if self.parentWidget() and self.parentWidget().isVisible():
+            QTimer.singleShot(0, self.focus_key_input)
+
+    def focus_key_input(self):
+        if self.isVisible():
+            self.raise_()
+            self._key_input.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
+
+    def _toggle_key_visibility(self):
+        visible = self._key_input.echoMode() == QLineEdit.EchoMode.Password
+        self._key_input.setEchoMode(
+            QLineEdit.EchoMode.Normal if visible else QLineEdit.EchoMode.Password
+        )
+        self._key_visibility_btn.setText("HIDE" if visible else "SHOW")
+        self._key_input.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _clear_key_error(self, _text: str = ""):
+        self._key_input.setStyleSheet(self._key_style)
+        self._key_input.setToolTip("")
+
     def _sel(self, key: str):
         self._sel_os = key
         pal = {"windows":(C.PRI,"#001a22"),"mac":(C.ACC2,"#1a1400"),"linux":(C.GREEN,"#001a0d")}
@@ -1525,9 +1589,10 @@ class SetupOverlay(QWidget):
         key = self._key_input.text().strip()
         if not key:
             self._key_input.setStyleSheet(
-                self._key_input.styleSheet() +
-                f" QLineEdit {{ border: 1px solid {C.RED}; }}"
+                self._key_style + f" QLineEdit {{ border: 1px solid {C.RED}; }}"
             )
+            self._key_input.setToolTip("A Gemini API key is required for first-time setup.")
+            self.focus_key_input()
             return
         self.done.emit(key, self._sel_os)
 
@@ -3287,6 +3352,17 @@ class MainWindow(QMainWindow):
         sc_full.activated.connect(self._toggle_fullscreen)
         sc_intr = QShortcut(QKeySequence("Escape"), self)
         sc_intr.activated.connect(self._do_interrupt)
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # During first boot the setup child is created before this window is
+        # shown. Reapply focus after the top-level window becomes visible.
+        if self._overlay is not None:
+            QTimer.singleShot(0, self._focus_setup_input)
+
+    def _focus_setup_input(self):
+        if self._overlay is not None:
+            self._overlay.focus_key_input()
 
     def _show_camera_frame(self, img_bytes: bytes):
         """Slot — display camera preview overlay (main thread)."""
@@ -5663,12 +5739,7 @@ class MainWindow(QMainWindow):
         self.hud.speaking = (state == "SPEAKING")
 
     def _check_config(self) -> bool:
-        if not API_FILE.exists(): return False
-        try:
-            d = json.loads(API_FILE.read_text(encoding="utf-8"))
-            return bool(d.get("gemini_api_key")) and bool(d.get("os_system"))
-        except Exception:
-            return False
+        return _setup_is_complete()
 
     def _show_setup(self):
         ov = SetupOverlay(self.centralWidget())
@@ -5682,13 +5753,17 @@ class MainWindow(QMainWindow):
         ov.done.connect(self._on_setup_done)
         ov.show()
         self._overlay = ov
+        QTimer.singleShot(0, self._focus_setup_input)
 
     def _on_setup_done(self, key: str, os_name: str):
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        API_FILE.write_text(
-            json.dumps({"gemini_api_key": key, "os_system": os_name}, indent=4),
-            encoding="utf-8",
-        )
+        try:
+            _save_setup_config(key, os_name)
+        except OSError:
+            self._log.append_log(
+                "ERR: Setup could not be saved. Check that the ULTRON config folder is writable."
+            )
+            self._focus_setup_input()
+            return
         self._ready = True
         if self._overlay:
             self._overlay.hide()

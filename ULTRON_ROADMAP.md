@@ -1,3 +1,7 @@
+## 2026-10-14 — First-run setup keyboard focus and one-time persistence
+
+At first boot the Qt setup overlay was created before the top-level window and did not take keyboard focus from the chat composer underneath. The setup field now focuses after the window becomes visible, accepts Enter to submit, and can explicitly show/hide the masked Gemini key. Saving setup merges into the ignored user config, preserving existing model settings; an existing valid setup continues straight to the app on later launches. Regression tests cover focus, text entry, and persisted settings. Physical Windows confirmation remains pending.
+
 ## 2026-10-14 — Windows installation passed after smoke-test correction
 
 The owner's Windows install initially hit a stale title expectation (`ULTRON Hologram` vs the current `GÖLGE Hologram`) after 27 other tests passed. The assertion now verifies the current UTF-8 title. Also updated vulnerable transitive `source-map-js` 1.2.1 to 1.2.2; fresh npm install, audit (zero vulnerabilities), build and both GitHub Actions pass. On 2026-10-14 the owner reran `INSTALL.bat` at handoff HEAD `4648d70`; it completed through `pytest tests`, `integration.doctor --quick`, and printed `Kurulum tamamlandi.` Actual desktop startup, local Qwen/Gemini inference and scene interactions remain to be tested.

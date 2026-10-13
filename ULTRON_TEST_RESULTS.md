@@ -1,3 +1,9 @@
+## 2026-10-14 — First-run setup keyboard and persistence regression
+
+- Added an offscreen Qt test for first-boot ordering: the setup child appears before the main window while another input exists underneath. Before the fix, focus remained in that underlying input; after the fix, the setup key field receives focus and accepts typed text. Setup UI and persistence regressions: **2 passed**; `python -m py_compile ui.py` and `git diff --check` passed.
+- Root integration tests with `PYTHONPATH=ultron/backend`: **25 passed, 3 failed** in this Linux workspace. Failures are missing `sounddevice`, one unavailable optional health component, and platform-specific singleton-lock behavior. These are outside the setup code. The owner previously reported `INSTALL.bat` completed on Windows; this change has not yet been tested on that laptop.
+- The persistence regression confirms existing local model preferences survive first-run setup and saved setup is recognized on the next startup. The Gemini key remains in the existing ignored local config; tests and logs do not print it. Render is unaffected by this desktop-only change.
+
 ## 2026-10-14 — Windows installation completed
 
 - Owner reran `INSTALL.bat` at handoff HEAD `4648d70` on Windows 11 (Python 3.12.14, Node 24.19.0, npm 11.17.0). The frontend compiled, all install stages including `pytest tests` and `integration.doctor --quick` returned successfully, and the installer printed **`Kurulum tamamlandi.`** The pasted terminal did not show the pytest case count. Ollama's four configured models were already present; the install did not need to download them.

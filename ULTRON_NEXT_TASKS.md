@@ -1,9 +1,9 @@
-## Next — start and smoke-test the installed Windows app
+## Next tasks — verify the fixed first-run setup on Windows
 
-1. From the installed clone at `4648d70`, run `START.bat`; confirm the desktop UI and backend open without an error.
-2. Test an ordinary local Qwen chat, temporary Ollama-unavailable Gemini fallback, image upload/analysis, and 3D create/move/remove/undo commands. Record actual results, model identity and latency; keep unavailable providers `NOT_RUN`.
-3. Check `logs/install-result.json` for `core: PASS` and keep the npm audit at zero after future dependency changes.
-4. Run the frozen bilingual evaluation only against available real providers and review actual transcripts; deterministic tests are not a model quality score.
+1. Pull the current `feat/ultron-cloud-shared-memory` branch and run `START.bat`. On first boot, confirm the Gemini key field receives keyboard input immediately; use SHOW/HIDE only as needed and submit once.
+2. Restart GÖLGE and confirm the setup screen stays closed because `config/api_keys.json` was saved. Do not paste the key into chat, logs, or a bug report. Confirm prior `llm_model`/provider settings remain in the local config.
+3. If first boot still cannot accept text, capture only the visible UI behavior and run `python -m pytest tests/test_setup_overlay.py -q`; do not include the API key or config contents in diagnostics.
+4. After startup works, continue real laptop checks for Qwen, Gemini fallback, image upload and 3D create/move/remove/undo. Keep unavailable provider/device results `NOT_RUN` and do not infer model quality from deterministic tests.
 
 ## Completed checkpoint — provider error privacy hardening
 
