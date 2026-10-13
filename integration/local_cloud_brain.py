@@ -15,7 +15,10 @@ import urllib.request
 from pathlib import Path
 
 from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
-from ultron.cloud_service.conversation_turns import ollama_messages, bounded_user_request
+from ultron.cloud_service.conversation_turns import (
+    ollama_messages, bounded_user_request,
+    is_bare_continuation_request, is_topic_switch_request,
+)
 from ultron.cloud_service.response_quality import finalize_response, strip_qwen_thinking
 from ultron.cloud_service.reply_policy import classify_reply_mode
 from ultron.cloud_service.model_identity import is_qwen_model
@@ -101,22 +104,32 @@ _CONTINUE_ONLY = re.compile(
 )
 
 
+def _is_local_continuation(text: str) -> bool:
+    """Use shared Cloud phrasing plus backward-compatible local variations."""
+    return bool(_CONTINUE_ONLY.fullmatch(text.strip())
+                or is_bare_continuation_request(text))
+
+
 def _last_substantive_owner_request(text: str, turns) -> str:
     """Only for a bare continuation; never interpret assistant/system as user.
 
-    Already-scoped, recent history only. No additional DB/model call.
+    Cloud may put an old verified goal at the beginning of 12 selected turns.
+    Read all bounded turns rather than silently dropping the anchor.
+    No extra DB/model call, memory write or promotion of assistant text.
     """
-    if not _CONTINUE_ONLY.fullmatch(text.strip()) or not isinstance(turns, list):
+    if not _is_local_continuation(text) or not isinstance(turns, list):
         return ""
-    for turn in reversed(turns[-10:]):
+    for turn in reversed(turns[-20:]):
         if not hasattr(turn, "get") or turn.get("role") != "user":
             continue
         prior = turn.get("content")
         if not isinstance(prior, str):
             continue
         prior = prior.strip()
-        if prior and not _CONTINUE_ONLY.fullmatch(prior):
-            return prior
+        if is_topic_switch_request(prior):
+            return ""
+        if prior and not _is_local_continuation(prior):
+            return bounded_user_request(prior, 3000)
     return ""
 
 

@@ -71,9 +71,10 @@ class PlanValidationTests(unittest.TestCase):
         helper = app[from_pos:until_pos]
         self.assertIn("load_focused_owner_context(pool, user_id, query)", helper)
         focused = (HERE / "personal_context_focus.py").read_text(encoding="utf-8")
-        self.assertIn("SELECT title,scheduled_date,scheduled_time FROM owner_plans", focused)
+        self.assertIn("SELECT title,scheduled_date,scheduled_time,CURRENT_DATE AS context_today", focused)
+        self.assertIn("FROM owner_plans WHERE user_id=$1 AND is_done=FALSE", focused)
         self.assertIn("WHERE user_id=$1 AND is_done=FALSE", focused)
-        self.assertIn("OWNER PLAN - no notification", focused)
+        self.assertIn("owner-entered, no notification", focused)
         self.assertNotIn("SELECT title,note", focused)
 
     def test_routes_use_scoped_user_and_browser_write(self):

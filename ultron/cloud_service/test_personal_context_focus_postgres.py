@@ -47,5 +47,29 @@ class PersonalContextPgTests(unittest.IsolatedAsyncioTestCase):
     self.assertNotIn("Araç bakım incelemesi",other)
     self.assertNotIn("Gelecek mimarlık sınavı",other)
 
+ async def test_future_not_hidden_by_overdue_backlog_and_past_request(self):
+    # Real PostgreSQL ORDER BY/LIMIT is essential: pure Python sorting cannot
+    # rescue future plans that an older SQL LIMIT already discarded.
+    await self.pool.execute(
+       "INSERT INTO owner_plans(user_id,title,scheduled_date,note) "
+       "SELECT 'ci-focus-time', 'OLD-STALLED-' || n, CURRENT_DATE - n, "
+       "'do not expose private note' FROM generate_series(1,20) AS items(n)")
+    await self.pool.execute(
+       "INSERT INTO owner_plans(user_id,title,scheduled_date,note) VALUES "
+       "('ci-focus-time','FUTURE-ARCHITECTURE-EXAM',CURRENT_DATE+2,'private'),"
+       "('ci-focus-time','FUTURE-DESIGN-REVIEW',CURRENT_DATE+3,'private')")
+    upcoming = await load_focused_owner_context(self.pool, "ci-focus-time",
+                                                 "Merhaba")
+    self.assertIn("FUTURE-ARCHITECTURE-EXAM", upcoming)
+    self.assertIn("FUTURE-DESIGN-REVIEW", upcoming)
+    self.assertNotIn("OLD-STALLED-", upcoming)
+    self.assertIn("future date", upcoming)
+    self.assertNotIn("do not expose private note", upcoming)
+    historical = await load_focused_owner_context(
+        self.pool, "ci-focus-time", "Geçmiş planlarımı göster")
+    self.assertIn("OLD-STALLED-1", historical)
+    self.assertIn("past date, not upcoming", historical)
+    self.assertNotIn("FUTURE-ARCHITECTURE-EXAM", historical)
+
 if __name__=="__main__":
     unittest.main()

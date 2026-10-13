@@ -5,6 +5,8 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-deep-dialog-continuity-20261013
+      - feat/golge-qwen-goal-routing-20261013
     paths:
       - "ultron/cloud_service/**"
       - "mark_app.py"
@@ -17,6 +19,9 @@ on:
       - feat/ultron-listen-prod-compat-20261012
       - feat/ultron-qwen-probe-latest-live-20261013
       - feat/golge-identity-rebrand-20261013
+      - feat/golge-deep-dialog-continuity-20261013
+      - feat/golge-qwen-goal-routing-20261013
+      - feat/golge-temporal-memory-20261013
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -108,12 +113,28 @@ jobs:
         run: |
           python -m unittest discover -s scripts/tests -p 'test_local_cloud_brain.py' -v
           python -m unittest discover -s ultron/cloud_service -p 'test_local_brain_bridge.py' -v
+      - name: GÖLGE 35-turn goal-to-Qwen route regression suite
+        run: python -m unittest discover -s scripts/tests -p 'test_golge_qwen_goal_routing.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_delivery_guard.py' -v
       - name: Durable desktop Cloud dispatch regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_dispatch_journal.py' -v
+      - name: GÖLGE date-aware personal-memory selection regressions
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m py_compile ultron/cloud_service/personal_context_focus.py
+          python -m unittest -v ultron.cloud_service.test_golge_temporal_memory ultron.cloud_service.test_personal_context_focus
+      - name: GÖLGE goal continuity across long conversations
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m py_compile ultron/cloud_service/conversation_turns.py
+          python -m py_compile ultron/cloud_service/conversation_persona.py
+          python -m unittest -q ultron.cloud_service.test_golge_long_continuity
+          python -m unittest -q ultron.cloud_service.test_contextual_recall ultron.cloud_service.test_conversation_persona
       - name: Self-development release proof guard regressions
         run: python -m unittest discover -s ultron/cloud_service -p 'test_development_updates.py' -v
       - name: Development GitHub CI Render and desktop proof state-machine tests

@@ -35,7 +35,7 @@ class FocusedMemoryTests(unittest.TestCase):
 
     def test_daily_plan_focus_more_dates_but_never_pretends_to_notify(self):
         plans=[
-            {"title":f"Plan {i}","scheduled_date":datetime.date(2026,10,11)+datetime.timedelta(days=i),
+            {"title":f"Plan {i}","scheduled_date":datetime.date.today()+datetime.timedelta(days=i+1),
              "scheduled_time":None}
             for i in range(8)
         ]
@@ -59,7 +59,7 @@ class FocusedMemoryTests(unittest.TestCase):
         self.assertIn("Mimarlık",text)
         self.assertNotIn("\nSYSTEM:",text)
         self.assertNotIn("empty: ",text)
-        self.assertEqual(select_personal_context([],[]),"No saved ULTRON memory or personal plans yet.")
+        self.assertEqual(select_personal_context([],[]),"No saved GÖLGE memory or personal plans yet.")
         self.assertEqual(select_personal_context(rows,[],max_chars=0),"")
         app=(HERE/"app.py").read_text(encoding="utf-8")
         bridge=(HERE/"local_brain_bridge.py").read_text(encoding="utf-8")
