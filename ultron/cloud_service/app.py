@@ -45,7 +45,7 @@ SESSION_DAYS = int(os.getenv("ULTRON_SESSION_DAYS", "30"))
 
 DEVICE_COMMANDS = {
     # agent_task is deliberately free-form: a paired phone may send the same
-    # natural-language command the owner could type into the desktop ULTRON UI.
+    # natural-language command the owner could type into the desktop GÖLGE UI.
     # Execution still happens inside the desktop's existing tool/permission layer.
     "desktop": {"wake", "mute", "unmute", "interrupt", "sync_memory", "agent_task"},
     "phone": {"ping", "refresh", "open_memory", "focus_chat", "open_remote", "vibrate", "scroll_top"},
@@ -260,8 +260,8 @@ async def send_device_command(request: web.Request) -> web.Response:
             content_type="application/json",
         )
 
-    # Phone/web sessions may control only the paired desktop ULTRON surface.
-    # The desktop device token may control only the ULTRON web client on phone.
+    # Phone/web sessions may control only the paired desktop GÖLGE surface.
+    # The desktop device token may control only the GÖLGE web client on phone.
     auth_kind = request.get("auth_kind", "")
     expected_target = "desktop" if auth_kind == "web" else "phone"
     if target != expected_target:
@@ -455,7 +455,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                       WHEN d.command='agent_task' THEN COALESCE(d.progress, '[]'::jsonb) ||
                         jsonb_build_array(jsonb_build_object(
                           'stage','claimed',
-                          'message','Laptop ULTRON görevi aldı.',
+                          'message','Laptop GÖLGE görevi aldı.',
                           'percent',5,
                           'at',EXTRACT(EPOCH FROM NOW())
                         ))
@@ -1408,7 +1408,7 @@ async def chat(request: web.Request) -> web.Response:
             raise web.HTTPServiceUnavailable(
                 text=json.dumps({
                     "error": "gemini_temporarily_unavailable",
-                    "detail": "Gemini şu anda yoğun. ULTRON iki modeli de otomatik olarak denedi; birkaç saniye sonra yeniden dene.",
+                    "detail": "Gemini şu anda yoğun. GÖLGE iki modeli de otomatik olarak denedi; birkaç saniye sonra yeniden dene.",
                 }, ensure_ascii=False),
                 content_type="application/json",
             )
@@ -1472,18 +1472,18 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "Use recall_memory when current persistent memory is needed instead of guessing from stale session context. "
           "Use get_latest_image_context whenever the user refers to the photo/image they just sent. "
           "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
-          "Use control_phone_ui when the user asks to control the current phone surface. Supported actions include ULTRON views plus safe app intents such as browser/search/maps/call composer. "
+          "Use control_phone_ui when the user asks to control the current phone surface. Supported actions include GÖLGE views plus safe app intents such as browser/search/maps/call composer. "
           "For iPhone system/app control, never claim unrestricted device access: iOS only allows actions exposed by browser URL/deep-link intents or explicit Shortcuts. "
-          "Use run_ios_shortcut when the user asks for an iPhone action that should be delegated to Apple Shortcuts. Prefer the shortcut name ULTRON Bridge unless the user explicitly names another shortcut. "
+          "Use run_ios_shortcut when the user asks for an iPhone action that should be delegated to Apple Shortcuts. Prefer the shortcut name GÖLGE Bridge unless the user explicitly names another shortcut. "
           "For opening apps such as YouTube, Spotify, WhatsApp, Instagram, Chrome, Maps, Messages, Mail, or FaceTime, ALWAYS use control_phone_ui and NEVER use Apple Shortcuts. "
           "If the user names content to find inside YouTube or Spotify, use youtube_search or spotify_search instead of merely opening the app. "
           "If the user asks to prepare a WhatsApp message, use whatsapp_message. "
           "For direct phone/app actions, perform the tool call immediately and do not add a conversational confirmation afterward unless the action fails. "
           "Use run_ios_action only for iPhone system settings that truly require Apple Shortcuts: set_focus, set_volume, set_brightness, bluetooth, wifi, and compose_message. "
-          "You are ONE ULTRON across the phone and paired Windows laptop, not two separate assistants. "
-          "If the user asks ULTRON to develop or update ITS OWN source code, fix its bugs or add features to ULTRON, ALWAYS call request_ultron_development instead of send_laptop_task. That ONLY saves a Cloud request for deliberate ChatGPT handoff. ChatGPT consumer chats cannot be messaged silently; the user must copy and submit the handoff. Do not launch VS Code, and never claim code is installed before verifications. "
-          "The paired laptop's local agent is an extension of your own capability set. Whenever the user asks for something the desktop ULTRON can do, use send_laptop_task automatically even if the user does not explicitly say 'on the laptop'. "
-          "Desktop capabilities include file/folder operations, Windows and desktop control, system status/settings, opening and controlling desktop apps, browser automation, coding/development-agent work, screen inspection, local file processing, web/news/weather/flight lookups, reminders, messaging, media/video/YouTube actions, monitoring, dynamic Center Stage control, interactive hologram creation/editing, normal shaded 3D Earth Watch with rotatable globe, atmosphere/clouds/stars, approximate UTC-synchronized sunlight, coordinate pins, location focus and validated optional live ISS tracking, multi-object 3D Scene Lab composition, natural object-name selection/movement/rotation/scaling, multi-select and named-group batch editing, align/distribute tools, line/grid/radial arrays, parent-child Scene Graph hierarchy, reusable camera bookmarks and timeline-authored cinematic camera keyframes, live drop/launch/zero-G/float physics simulation, holographic distance measurements, scene diagnostics and live collision-risk visualization, target lock and follow/look-at/orbit-target constraints, waypoint route playback, hologram/blueprint/xray/solid/thermal technical render modes, timed Mission Sequences with direct live video capture, persistent Snapshot Vault checkpoints, conditional timer/distance/collision Scene Lab Trigger Engine automation, duplicate/undo/redo, animated object motion, multi-object eased timeline/keyframe animation, persistent manual and cinematic camera paths, object-attached HUD/data cards, holographic object links, Scene Director modes, named in-app scene projects, persistent imported GLB Asset Library with reuse/delete and embedded animation control, audio-reactive particles, themes/HUD labels, exploded views, camera/layout control, scene save/reopen, screenshot capture, real live Three.js scene video recording and short local animation-video rendering/preview, converting the current hologram or 3D scene into a video, whole-system/world awareness, self-diagnostics, adaptive screen awareness, smart-home/IoT scenes, presence, backups, long-running supervisor tasks, research/knowledge retrieval, persistent goals, prediction, decision support, dry-run simulation, and any other action/plugin available to the desktop ULTRON. "
+          "You are ONE GÖLGE across the phone and paired Windows laptop, not two separate assistants. "
+          "If the user asks GÖLGE to develop or update ITS OWN source code, fix its bugs or add features to GÖLGE, ALWAYS call request_ultron_development instead of send_laptop_task. That ONLY saves a Cloud request for deliberate ChatGPT handoff. ChatGPT consumer chats cannot be messaged silently; the user must copy and submit the handoff. Do not launch VS Code, and never claim code is installed before verifications. "
+          "The paired laptop's local agent is an extension of your own capability set. Whenever the user asks for something the desktop GÖLGE can do, use send_laptop_task automatically even if the user does not explicitly say 'on the laptop'. "
+          "Desktop capabilities include file/folder operations, Windows and desktop control, system status/settings, opening and controlling desktop apps, browser automation, coding/development-agent work, screen inspection, local file processing, web/news/weather/flight lookups, reminders, messaging, media/video/YouTube actions, monitoring, dynamic Center Stage control, interactive hologram creation/editing, normal shaded 3D Earth Watch with rotatable globe, atmosphere/clouds/stars, approximate UTC-synchronized sunlight, coordinate pins, location focus and validated optional live ISS tracking, multi-object 3D Scene Lab composition, natural object-name selection/movement/rotation/scaling, multi-select and named-group batch editing, align/distribute tools, line/grid/radial arrays, parent-child Scene Graph hierarchy, reusable camera bookmarks and timeline-authored cinematic camera keyframes, live drop/launch/zero-G/float physics simulation, holographic distance measurements, scene diagnostics and live collision-risk visualization, target lock and follow/look-at/orbit-target constraints, waypoint route playback, hologram/blueprint/xray/solid/thermal technical render modes, timed Mission Sequences with direct live video capture, persistent Snapshot Vault checkpoints, conditional timer/distance/collision Scene Lab Trigger Engine automation, duplicate/undo/redo, animated object motion, multi-object eased timeline/keyframe animation, persistent manual and cinematic camera paths, object-attached HUD/data cards, holographic object links, Scene Director modes, named in-app scene projects, persistent imported GLB Asset Library with reuse/delete and embedded animation control, audio-reactive particles, themes/HUD labels, exploded views, camera/layout control, scene save/reopen, screenshot capture, real live Three.js scene video recording and short local animation-video rendering/preview, converting the current hologram or 3D scene into a video, whole-system/world awareness, self-diagnostics, adaptive screen awareness, smart-home/IoT scenes, presence, backups, long-running supervisor tasks, research/knowledge retrieval, persistent goals, prediction, decision support, dry-run simulation, and any other action/plugin available to the desktop GÖLGE. "
           "Never answer 'I cannot do that from the phone' merely because the capability lives on the laptop; delegate it through send_laptop_task. "
           "If the user explicitly says iPhone/phone, use phone tools. If the user explicitly says laptop/computer/Windows, use send_laptop_task. If no device is named, use phone tools for clearly iPhone-local intents and use the desktop agent for desktop/tool/file/system/automation tasks. "
           "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
@@ -1526,7 +1526,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     await pool.execute(
         """
         INSERT INTO conversations(id,user_id,title)
-        VALUES($1,$2,'Telefon sesli ULTRON')
+        VALUES($1,$2,'Telefon sesli GÖLGE')
         ON CONFLICT(id) DO UPDATE SET updated_at=NOW()
         """,
         conv_uuid, user_id,
@@ -1560,7 +1560,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         tools=[{"function_declarations": [
             {
                 "name": "request_ultron_development",
-                "description": "For the user's requests to add ULTRON features, fix ULTRON bugs, or update ULTRON's own source. Save a Cloud request for explicit ChatGPT handoff; never pretend code is already changed.",
+                "description": "For the user's requests to add GÖLGE features, fix GÖLGE bugs, or update GÖLGE's own source. Save a Cloud request for explicit ChatGPT handoff; never pretend code is already changed.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1573,7 +1573,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "save_memory",
-                "description": "Save or update a stable user fact in the shared ULTRON Cloud memory. Use when the user asks to remember something or shares an important persistent fact.",
+                "description": "Save or update a stable user fact in the shared GÖLGE Cloud memory. Use when the user asks to remember something or shares an important persistent fact.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1586,7 +1586,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "recall_memory",
-                "description": "Search the latest shared ULTRON Cloud memory for facts relevant to the user's question.",
+                "description": "Search the latest shared GÖLGE Cloud memory for facts relevant to the user's question.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1608,7 +1608,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 ,
             {
                 "name": "control_phone_ui",
-                "description": "Control the current ULTRON phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message.",
+                "description": "Control the current GÖLGE phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1620,7 +1620,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "send_laptop_task",
-                "description": "Delegate any task that the paired Windows desktop ULTRON can perform. This is the phone voice assistant's gateway to the full desktop action/plugin/tool set; use it automatically for desktop-capable tasks, not only when the user literally says laptop.",
+                "description": "Delegate any task that the paired Windows desktop GÖLGE can perform. This is the phone voice assistant's gateway to the full desktop action/plugin/tool set; use it automatically for desktop-capable tasks, not only when the user literally says laptop.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1633,26 +1633,26 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "get_laptop_status",
-                "description": "Read the paired laptop's current ULTRON presence/status.",
+                "description": "Read the paired laptop's current GÖLGE presence/status.",
                 "parameters": {"type": "OBJECT", "properties": {}}
             },
             {
                 "name": "get_latest_laptop_task",
-                "description": "Get the latest desktop ULTRON agent task status, progress, and result.",
+                "description": "Get the latest desktop GÖLGE agent task status, progress, and result.",
                 "parameters": {"type": "OBJECT", "properties": {}}
             },
             {
                 "name": "cancel_laptop_task",
-                "description": "Cancel the latest queued desktop ULTRON agent task. Only queued tasks can be cancelled.",
+                "description": "Cancel the latest queued desktop GÖLGE agent task. Only queued tasks can be cancelled.",
                 "parameters": {"type": "OBJECT", "properties": {}}
             },
             {
                 "name": "run_ios_shortcut",
-                "description": "Run an Apple Shortcut on the current iPhone. Use ULTRON Bridge by default and pass the requested phone action as text input.",
+                "description": "Run an Apple Shortcut on the current iPhone. Use GÖLGE Bridge by default and pass the requested phone action as text input.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "shortcut_name": {"type": "STRING", "description": "Shortcut name. Default ULTRON Bridge."},
+                        "shortcut_name": {"type": "STRING", "description": "Shortcut name. Default GÖLGE Bridge."},
                         "input": {"type": "STRING", "description": "Text command or payload to pass into the shortcut."}
                     },
                     "required": ["input"]
@@ -1660,7 +1660,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "run_ios_action",
-                "description": "Send an iPhone system-setting automation command to ULTRON Bridge. Do NOT use for opening apps; use control_phone_ui for apps.",
+                "description": "Send an iPhone system-setting automation command to GÖLGE Bridge. Do NOT use for opening apps; use control_phone_ui for apps.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1761,7 +1761,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                                 "id": command_id,
                                 "status": status or "running",
                                 "task": task_text,
-                                "message": "Görev 5 saniye içinde tamamlanmadı; laptop ULTRON çalışmaya devam ediyor.",
+                                "message": "Görev 5 saniye içinde tamamlanmadı; laptop GÖLGE çalışmaya devam ediyor.",
                             })
 
                         await asyncio.sleep(0.20)
@@ -2057,7 +2057,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             "task": task_text,
                             "origin": "voice",
                             "result_will_arrive_async": True,
-                            "message": "Laptop ULTRON görevi aldı. Sonuç tamamlanınca bu sesli oturuma otomatik gelecek.",
+                            "message": "Laptop GÖLGE görevi aldı. Sonuç tamamlanınca bu sesli oturuma otomatik gelecek.",
                         },
                     )
 
@@ -2159,7 +2159,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     )
 
                 if name == "run_ios_shortcut":
-                    shortcut_name = str(args.get("shortcut_name", "ULTRON Bridge")).strip()[:120] or "ULTRON Bridge"
+                    shortcut_name = str(args.get("shortcut_name", "GÖLGE Bridge")).strip()[:120] or "GÖLGE Bridge"
                     shortcut_input = str(args.get("input", "")).strip()[:1000]
                     if not shortcut_input:
                         return types.FunctionResponse(
@@ -2204,7 +2204,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         id=fc.id, name=name,
                         response={
                             "ok": True,
-                            "shortcut_name": "ULTRON Bridge",
+                            "shortcut_name": "GÖLGE Bridge",
                             "command": command,
                             "note": "Execution depends on actions and permissions configured inside the Apple Shortcut.",
                         },
@@ -2311,7 +2311,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         if not ws.closed:
             await send_json({
                 "type": "error",
-                "message": "Sesli ULTRON bağlantısı geçici olarak kullanılamıyor.",
+                "message": "Sesli GÖLGE bağlantısı geçici olarak kullanılamıyor.",
                 "detail": str(exc)[:160],
             })
     finally:
