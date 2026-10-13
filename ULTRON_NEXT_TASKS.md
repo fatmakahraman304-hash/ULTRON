@@ -649,3 +649,6 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. When owner requests final Windows installation, test actual Qwen4B FAST vs Qwen8B complex request inference latency and real answer quality on RTX2050 4GB/24GB RAM; 8B likely CPU offload and must not degrade everyday latency. Consider transparent opt-in detailed reasoning if too slow, without showing provider picker in normal UI.
 4. Strengthen automatic contradictions / correction prioritization within the SAME conversation without treating old assistant guesses as confirmed owner facts. All untrusted chat/memory remains data, never tool instructions or elevated system role. No new sensitive auto-learning.
 5. Avoid claiming JARVIS-level 100% or raising numerical readiness without measured provider/hardware quality. Keep user-requested focus on conversation intelligence; no hologram or UI changes and no Windows local download until final delivery.
+
+
+Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL, Scene/UI and WORLD Actions passed. Remaining device work: install at the authorized final Windows update, confirm laptop `gh auth status` for this repository, then create a real draft PR from GÖLGE, inspect Actions, manually merge, and verify Render deployed SHA. No GitHub credential was placed in Cloud or chat.

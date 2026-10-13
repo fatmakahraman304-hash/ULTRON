@@ -566,3 +566,6 @@ Yeni testler/CI sonuçları için run ID ve tam commit SHA yaz. Olmayan testi PA
 
 
 Release verification for owner-grounded suggestions: runtime code `de228a8` is included in merge commit `a0352a517c7d7221177229563cfce60ff49ec768`. Cloud/PostgreSQL Actions `38427591507` and Scene/UI Actions `38427591557` both **SUCCESS**; full logs read, including the new briefing privacy/grounding test and Chromium UI checks. Render `dep-db75df2jnfac73eluhag` **LIVE** and `/health` reports the exact `a0352a5` SHA. The frontend production build and local planner/memory tests passed. Physical laptop/phone operation and real Gemini/Qwen answer-quality scoring remain pending.
+
+
+Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` contains the self-development routing and PR flow. Cloud/PostgreSQL Actions `38430065807`, Scene/UI `38430065886`, and WORLD smoke `38430065957` all **SUCCESS**; workflow logs inspected. Render deployment `dep-db75lruq1p3s73f2eorg` is **LIVE** and `/health` confirms exact SHA `bd09410`. This verifies the Cloud routing and repository checks. The Windows app has not been installed, and GÖLGE's own laptop `gh auth status`, actual branch push, and draft PR have not been tested.
