@@ -58,7 +58,7 @@ struct AskULTRONIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
-        let reply = try await CloudSession.shared.askGÖLGE(question)
+        let reply = try await CloudSession.shared.askULTRON(question)
         return .result(dialog: IntentDialog("\(String(reply.prefix(900)))"))
     }
 }
