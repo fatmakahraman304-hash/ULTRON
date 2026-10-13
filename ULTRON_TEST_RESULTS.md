@@ -603,3 +603,5 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 - `PYTHONPATH=ultron/backend python -m unittest discover -s ultron/backend/tests -p 'test_codegen_path_boundary.py' -v`: **4 passed**. Covers sibling path prefixes, security-core paths, normalized duplicate paths, 13-file proposals, per-file overflow and total payload overflow. Each new case failed before the validation fix.
 - `PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_codegen_pipeline.py ultron/backend/tests/test_github_pr_publisher.py`: **11 passed**. Explicit approval-router unittest: **2 passed**. `py_compile` for codegen/bridge/publisher and `git diff --check`: passed.
 - No generated patch was applied and no laptop GitHub credentials/device state were touched.
+
+- Exact code SHA `4112b3ca99c850c8e286dc087002a968788c5cd7`: Scene Action [38437781712](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38437781712) **SUCCESS**; compile, approval router, proposal boundary, frontend, WebGL, mobile and identity checks passed. Render remains LIVE at Cloud SHA `54f91bb`; self-development limits are desktop-only.

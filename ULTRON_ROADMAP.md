@@ -523,3 +523,5 @@ Keep synthetic provider tests separate from actual Gemini image quality and acce
 ## GÖLGE self-development reviewable patch limits
 
 Before a generated code proposal reaches owner approval, validate resolved project ancestry, reject security-core paths and duplicate normalized targets, and bound review size to 12 files / 128 KiB per file / 512 KiB total. Keep approval, sandbox, tests, rollback and draft-only PR publication in force.
+
+Latest GÖLGE proposal-boundary release: Scene Action `38437781712` passed for `4112b3c`; the Cloud service remains at Render `54f91bb`, which contains the separate image ownership fix. No Windows installation or live-provider claim.
