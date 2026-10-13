@@ -597,3 +597,9 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 - Live Gemini image generation, production account/model availability and physical phone/laptop behavior: **not tested**.
 
 - First Cloud CI attempt for `54f91bb` exposed a test-job dependency omission (`ModuleNotFoundError: asyncpg`). After adding `asyncpg` and `google-genai`, corrected Cloud run [38437032742](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38437032742) passed, including disposable PostgreSQL and Chromium job steps. Scene [38436800737](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38436800737) and WORLD smoke [38436800759](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38436800759) passed for code SHA `54f91bbb5e061c2eb79a5ae53daca653fc55bdef`. Render `dep-db76d1bm8hqs73fe8spg` is LIVE and `/health` confirms `54f91bb`. No actual Gemini generation was performed.
+
+## 2026-10-13 — Reviewable code proposal limits
+
+- `PYTHONPATH=ultron/backend python -m unittest discover -s ultron/backend/tests -p 'test_codegen_path_boundary.py' -v`: **4 passed**. Covers sibling path prefixes, security-core paths, normalized duplicate paths, 13-file proposals, per-file overflow and total payload overflow. Each new case failed before the validation fix.
+- `PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_codegen_pipeline.py ultron/backend/tests/test_github_pr_publisher.py`: **11 passed**. Explicit approval-router unittest: **2 passed**. `py_compile` for codegen/bridge/publisher and `git diff --check`: passed.
+- No generated patch was applied and no laptop GitHub credentials/device state were touched.

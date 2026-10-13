@@ -677,3 +677,10 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 2. At the already-requested final Windows update, test GÖLGE's approved code proposal against a dirty checkout, missing `gh` login, and outside-root patch; verify all stop safely, then create an owner-approved draft PR without automatic merge.
 3. If the phone reports provider access failure, inspect only its safe error category and confirm the account's `GEMINI_IMAGE_MODEL` access without exposing API keys.
 4. Do not install Windows or download local models before the requested combined final update.
+
+## Next — verify bounded GÖLGE patch generation and Jarvis-like use
+
+1. Push this codegen proposal-limit change; verify the exact Scene Action and Render SHA. The Cloud release from `54f91bb` already contains the image ownership/failure fix.
+2. On the owner laptop during the requested final combined update, ask GÖLGE to add a concrete feature; inspect the bounded diff and test plan, approve by ID, then confirm local tests and draft-only PR. Also verify oversized/protected proposals are rejected before approval.
+3. Run real Turkish and English multimodal/voice dialogues and score the existing frozen 100-case suite using actual Gemini and installed Qwen transcripts; keep quality unscored until independent review.
+4. Continue to defer Windows installation/model downloads until the owner requests the combined final update.

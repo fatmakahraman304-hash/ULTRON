@@ -557,3 +557,9 @@ Added mobile-friendly download/save for generated and edited results, page-close
 
 - CI follow-up: the first Cloud run exposed a missing `asyncpg` dependency in the lightweight persona-policy job. Added `asyncpg` and `google-genai`; corrected Cloud run #38437032742 passed for workflow/docs SHA `7f959972a2ab581aec464b8695ebaa16b5737f64`, including the new image test. Scene #38436800737 and WORLD smoke #38436800759 passed for code SHA `54f91bbb5e061c2eb79a5ae53daca653fc55bdef`.
 - Render deployment `dep-db76d1bm8hqs73fe8spg` is LIVE at code SHA `54f91bb`; `/health` returned HTTP 200 with the same commit and configured database/Gemini/auth fields. This config check does not prove an actual image-model request succeeds. Windows and phone provider-backed tests remain pending.
+
+## 2026-10-13 — Bounded GÖLGE code proposals
+
+- Expanded the self-development gate: patches above 12 files, 128 KiB per file or 512 KiB total are rejected before approval; duplicate normalized paths and protected security-core files are rejected; project scope uses resolved path ancestry. Four regressions were first shown failing, then passed after the validator was added.
+- This is a limit on generated proposals, not a change to owner approval, sandboxing, test-before-apply, rollback or draft-only PR behavior.
+- Local validation: path-boundary suite **4 passed**, codegen pipeline and PR publisher **11 passed**, approval router **2 passed**, Python compilation and diff whitespace check passed. CI/Render verification is pending the new commit.

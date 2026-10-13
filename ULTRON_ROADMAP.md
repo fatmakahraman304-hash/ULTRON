@@ -519,3 +519,7 @@ Before image generation, validate ownership of any existing conversation without
 ## Release evidence and real-device validation
 
 Keep synthetic provider tests separate from actual Gemini image quality and accessibility. A healthy `/health` response confirms service configuration and commit only; phone image generation/download and owner laptop GÖLGE GitHub draft-PR workflow still need hands-on verification.
+
+## GÖLGE self-development reviewable patch limits
+
+Before a generated code proposal reaches owner approval, validate resolved project ancestry, reject security-core paths and duplicate normalized targets, and bound review size to 12 files / 128 KiB per file / 512 KiB total. Keep approval, sandbox, tests, rollback and draft-only PR publication in force.
