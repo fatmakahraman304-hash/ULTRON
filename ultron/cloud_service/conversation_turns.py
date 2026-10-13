@@ -7,7 +7,10 @@ Short bounded recent turns fit the small 4GB laptop GPU memory budget.
 from __future__ import annotations
 
 import re
-from text_normalization import fold_turkish, folded_regex
+if __package__:
+    from .text_normalization import fold_turkish, folded_regex
+else:
+    from text_normalization import fold_turkish, folded_regex
 
 
 def _bounded_excerpt(text: str, size: int) -> str:

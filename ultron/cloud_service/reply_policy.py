@@ -5,7 +5,10 @@ No model calls, personal data, I/O, background monitoring or memory writes.
 """
 from __future__ import annotations
 import re
-from text_normalization import fold_turkish, folded_regex
+if __package__:
+    from .text_normalization import fold_turkish, folded_regex
+else:
+    from text_normalization import fold_turkish, folded_regex
 
 _BRIEF = folded_regex(
     r"(?:\b(?:kısaca|kısa (?:cevap|anlat|tut|tutalım|yaz|söyle|olsun|özet)|özetle|tek cümle(?:yle)?|"

@@ -1,6 +1,6 @@
 ## 2026-10-13 — Diacritic-tolerant everyday Turkish controls
 
-Conversation-style and context classifiers now compare a folded copy of Turkish text, so casual inputs such as “kisa cevap”, “saka yapma”, “konuyu degistirelim”, and “hayir” follow the same brevity, serious-tone, topic-switch and correction paths as correctly accented text. Original conversation text remains unchanged for storage and provider context. This is classification robustness, not a Turkish model-quality score.
+Conversation-style and context classifiers now compare a folded copy of Turkish text, so casual inputs such as “kisa cevap”, “saka yapma”, “konuyu degistirelim”, and “hayir” follow the same brevity, serious-tone, topic-switch and correction paths as correctly accented text. Original conversation text remains unchanged for storage and provider context. This is classification robustness, not a Turkish model-quality score. Actions exposed a package-import difference between Render’s service-root launch and desktop integrations; the helper now imports correctly in both modes, with a package-import regression.
 
 ## 2026-10-13 — Local-first routing survives presence-probe failure
 

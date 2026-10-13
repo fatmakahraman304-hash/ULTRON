@@ -21,6 +21,12 @@ from conversation_turns import prepare_turns
 
 
 class ConversationStyleTests(unittest.TestCase):
+    def test_service_modules_import_as_package_for_desktop_integrations(self):
+        from ultron.cloud_service.conversation_persona import classify_tone as package_tone
+        from ultron.cloud_service.conversation_turns import is_topic_switch_request as package_switch
+        self.assertEqual(package_tone("Saka yapma"), "serious")
+        self.assertTrue(package_switch("Konuyu degistirelim"))
+
     def test_turkish_english_followups_and_corrections(self):
         fixtures = [
             ("Peki onun yakıt tüketimi?", "followup"),

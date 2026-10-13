@@ -1,10 +1,22 @@
 """Consistent GÖLGE conversation style across the cloud and local assistant."""
 from __future__ import annotations
 import re
-from reply_policy import classify_reply_mode
-from text_normalization import fold_turkish, folded_regex
-
-from conversation_turns import is_thread_recap_request, is_first_topic_return, is_named_recall_request, is_topic_switch_request, is_future_reminder_request, is_bare_continuation_request
+if __package__:
+    from .reply_policy import classify_reply_mode
+    from .text_normalization import fold_turkish, folded_regex
+    from .conversation_turns import (
+        is_thread_recap_request, is_first_topic_return,
+        is_named_recall_request, is_topic_switch_request,
+        is_future_reminder_request, is_bare_continuation_request,
+    )
+else:
+    from reply_policy import classify_reply_mode
+    from text_normalization import fold_turkish, folded_regex
+    from conversation_turns import (
+        is_thread_recap_request, is_first_topic_return,
+        is_named_recall_request, is_topic_switch_request,
+        is_future_reminder_request, is_bare_continuation_request,
+    )
 
 PERSONA = (
     "You are GÖLGE, a capable and thoughtful personal assistant. "

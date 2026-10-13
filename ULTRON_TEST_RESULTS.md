@@ -1,7 +1,7 @@
 ## 2026-10-13 — Diacritic-tolerant Turkish
 
 - Before fix, “Saka yapma, ciddi konus” was classified as balanced and “Konuyu degistirelim, mimarlik konusalim” failed topic-switch detection. After adding `text_normalization.py`, 44 targeted persona, recall, continuity and recap tests passed.
-- Full Cloud Python: 310 tests run, 60 environment-dependent skips, zero failures. Cloud browser suite: 153/153; changed Python modules compile. These deterministic checks do not evaluate live model answers. Gemini key and local Ollama are unavailable in this workspace; real provider quality remains unmeasured. Actions and Render for this commit pending push.
+- Full Cloud Python: 310 tests run, 60 environment-dependent skips, zero failures. Cloud browser suite: 153/153; changed Python modules compile. These deterministic checks do not evaluate live model answers. Gemini key and local Ollama are unavailable in this workspace; real provider quality remains unmeasured. Initial exact-SHA Scene `38439674528` and Cloud Queue PostgreSQL `38439674364` exposed a package import failure: Render imports service files from its root directory, while the desktop imports them as `ultron.cloud_service.*`. The shared helper now uses package-relative imports in package mode and local imports in service mode. The new package-import test, full Cloud Python suite, 153 browser tests, desktop local-brain suite (6), local bridge suite (8), and desktop lease/isolation suite (17) pass after the fix. Fixed-import commit and rerun Actions/Render verification pending.
 
 ## 2026-10-13 — Qwen readiness probe recovery
 
