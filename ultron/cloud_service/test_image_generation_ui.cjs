@@ -14,7 +14,11 @@ for (const prompt of ['Resim oluştur', 'Bir kedi resmi çiz', 'Mavi bir daire o
 }
 if (context.isImageCreationRequest('2009 Mercedes C180 yakıt tüketimi?')) throw new Error('ordinary chat was captured as image creation');
 if (!inline[1].includes("Görseli indir / kaydet")) throw new Error('generated image download action missing');
-if (!inline[1].includes("URL.revokeObjectURL(url)")) throw new Error('generated image URLs are not cleaned up');
+if (!inline[1].includes("'/api/image/generated/'+messageId")) throw new Error('owner-authenticated image route not used');
+if (!inline[1].includes('function attachGeneratedImage(bubble,id)')) throw new Error('saved images are not restored on reload');
+if (!inline[1].includes('has_generated_image:m.has_generated_image')) throw new Error('chat history drops image metadata');
+if (!inline[1].includes('image_unavailable:m.image_unavailable')) throw new Error('expired images falsely remain available');
+if (inline[1].includes('generatedImageUrls')) throw new Error('transient image blobs still used as sole storage');
 context.lastImageFile = {};
 if (!context.isImageCreationRequest('Daha iyi yap')) throw new Error('image improvement follow-up was not recognized');
 if (!context.isImageFollowupRequest('Fotoğrafta ne yazıyor?')) throw new Error('image question follow-up was not recognized');
