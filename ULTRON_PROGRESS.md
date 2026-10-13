@@ -1,6 +1,6 @@
 ## 2026-10-13 — Turkish without diacritics
 
-Added a shared Unicode normalization helper for matching only. The response-length/tone/persona rules and thread topic-switch, correction, continuation, recap and reminder detectors now recognize common unaccented Turkish input. Two regressions failed before the change and pass after it. Original messages are not rewritten; ownership, history scopes, safety roles and provider routing are unchanged. CI initially exposed the desktop-package import path; package-relative imports now cover both desktop and service launches.
+Added a shared Unicode normalization helper for matching only. The response-length/tone/persona rules and thread topic-switch, correction, continuation, recap and reminder detectors now recognize common unaccented Turkish input. Two regressions failed before the change and pass after it. Original messages are not rewritten; ownership, history scopes, safety roles and provider routing are unchanged. CI initially exposed the desktop-package import path; package-relative imports now cover both desktop and service launches. The fixed release passed exact-SHA Scene and Cloud/PostgreSQL Actions and is LIVE on Render.
 
 ## 2026-10-13 — Qwen readiness probe recovery
 
