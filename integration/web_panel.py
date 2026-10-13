@@ -476,7 +476,7 @@ class NativeBridge(QObject):
         # Only conversation output is mirrored. Technical logs stay in MARK's tools.
         if text.startswith('You:'):
             self.emit(kind='log', role='user', text=text.partition(':')[2].strip())
-        elif text.startswith((self.ui.assistant_name+':', 'GÖLGE:', 'GÖLGE:')):
+        elif text.startswith((self.ui.assistant_name+':', 'GÖLGE:', 'ULTRON:')):
             answer=text.partition(':')[2].strip()
             self.emit(kind='log', role='assistant', text=answer)
             if self._remote_task_ids:
@@ -636,16 +636,16 @@ def attach(ui):
         address=download.url().toString()
         png=address.startswith('data:image/png')
         blob=address.startswith('blob:')
-        project=blob and download.suggestedFileName().endswith('.ultron.json') and download.mimeType()=='application/json'
+        project=blob and download.suggestedFileName().endswith(('.ultron.json','.golge.json')) and download.mimeType()=='application/json'
         video=blob and download.suggestedFileName().lower().endswith(('.webm','.mp4')) and download.mimeType().startswith('video/')
         if not (png or project or video):download.cancel();return
         if video:
-            suggested=download.suggestedFileName() or 'ultron-animation.webm'
+            suggested=download.suggestedFileName() or 'golge-animation.webm'
             filename,_=QFileDialog.getSaveFileName(win,'GÖLGE videosunu kaydet',suggested,'Video (*.webm *.mp4)')
         elif png:
-            filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.png','PNG (*.png)')
+            filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','golge.png','PNG (*.png)')
         else:
-            filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.ultron.json','GÖLGE (*.ultron.json)')
+            filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','golge.golge.json','GÖLGE (*.ultron.json)')
         if not filename:download.cancel();return
         path=Path(filename);download.setDownloadDirectory(str(path.parent));download.setDownloadFileName(path.name);download.accept()
     profile.downloadRequested.connect(save_download)
