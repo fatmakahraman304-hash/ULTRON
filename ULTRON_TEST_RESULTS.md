@@ -595,3 +595,5 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 - Desktop: `PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_codegen_pipeline.py ultron/backend/tests/test_github_pr_publisher.py`: **11 passed**; unittest approval router: **2 passed**; `test_codegen_path_boundary.py`: **1 passed**. The new traversal-prefix regression failed before the `Path.parents` fix and now passes.
 - `py_compile` for cloud app and desktop codegen/bridge/publisher passed. `node test_image_generation_ui.cjs`, full inline chat script syntax check, and `node test_mobile_chat_flow.cjs`: **1, 7 passed** respectively.
 - Live Gemini image generation, production account/model availability and physical phone/laptop behavior: **not tested**.
+
+- First Cloud CI attempt for `54f91bb` exposed a test-job dependency omission (`ModuleNotFoundError: asyncpg`), not a product test failure. The Cloud workflow now installs the API test's declared runtime dependencies (`asyncpg`, `google-genai`) alongside aiohttp; this workflow correction is pending a new CI run.

@@ -554,3 +554,5 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - GÖLGE's code proposal path check now uses resolved path ancestry rather than a string prefix; a sibling directory named `ULTRON-private` can no longer appear to be inside the project. Regression was confirmed failing before the fix and passing after it. Approval routing remains exact-command/ID bound.
 - Cloud and Scene Actions now include the relevant image and desktop path-boundary tests. Full Cloud discovery: **306 passed, 58 skipped**. Pytest codegen/publisher: **11 passed**; approval-routing unittest **2 passed**; path-boundary unittest **1 passed**; image UI intent and mobile chat tests passed.
 - Code changes are local and awaiting commit/push and exact-SHA CI/Render verification. Live Gemini generation and physical phone/laptop interactions remain unverified.
+
+- CI follow-up: the Cloud persona-policy job initially failed when importing the new image API test because that lightweight job installed aiohttp only. The workflow now explicitly installs asyncpg and google-genai for that test. Product-code tests passed locally; rerunning exact-SHA Cloud CI.
