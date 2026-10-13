@@ -1,6 +1,6 @@
 import AppIntents
 
-struct StartGÖLGEListeningIntent: AppIntent {
+struct StartULTRONListeningIntent: AppIntent {
     static var title: LocalizedStringResource = "GÖLGE Dinlemeyi Başlat"
     static var description = IntentDescription("GÖLGE'un sürekli sesli dinleme oturumunu başlatır.")
     static var openAppWhenRun = true
@@ -11,7 +11,7 @@ struct StartGÖLGEListeningIntent: AppIntent {
     }
 }
 
-struct StopGÖLGEListeningIntent: AppIntent {
+struct StopULTRONListeningIntent: AppIntent {
     static var title: LocalizedStringResource = "GÖLGE Dinlemeyi Durdur"
     static var description = IntentDescription("GÖLGE'un sürekli sesli dinleme oturumunu durdurur.")
     static var openAppWhenRun = true
@@ -24,7 +24,7 @@ struct StopGÖLGEListeningIntent: AppIntent {
 
 /// Foreground app/microphone not required: Siri sends one authenticated HTTP
 /// command to Cloud, with the desktop retaining its own permission gate.
-struct SendGÖLGEDesktopTaskIntent: AppIntent {
+struct SendULTRONDesktopTaskIntent: AppIntent {
     static var title: LocalizedStringResource = "GÖLGE Bilgisayara Görev Gönder"
     static var description = IntentDescription("Siri veya Kestirmeler ile masaüstü GÖLGE'a görev kuyruğa alır; riskli işlemler onaya tabidir.")
     // iOS 18-compatible: App Intent defaults to running without opening the app.
@@ -45,7 +45,7 @@ struct SendGÖLGEDesktopTaskIntent: AppIntent {
 
 /// General Siri question to the shared GÖLGE cloud brain. Does not
 /// control local apps or tools and does not require a live mic session.
-struct AskGÖLGEIntent: AppIntent {
+struct AskULTRONIntent: AppIntent {
     static var title: LocalizedStringResource = "GÖLGE'a Sor"
     static var description = IntentDescription("Siri ile GÖLGE'a soru sor, ortak Cloud hafızasından cevap al.")
     static var openAppWhenRun = false
@@ -63,7 +63,7 @@ struct AskGÖLGEIntent: AppIntent {
     }
 }
 
-struct CheckGÖLGEDesktopTaskIntent: AppIntent {
+struct CheckULTRONDesktopTaskIntent: AppIntent {
     static var title: LocalizedStringResource = "GÖLGE Bilgisayar Görev Durumu"
     static var description = IntentDescription("Son bilgisayar görevinin Cloud durumunu Siri'den öğren.")
     static var openAppWhenRun = false
@@ -74,10 +74,10 @@ struct CheckGÖLGEDesktopTaskIntent: AppIntent {
     }
 }
 
-struct GÖLGEAppShortcuts: AppShortcutsProvider {
+struct ULTRONAppShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
-            intent: CheckGÖLGEDesktopTaskIntent(),
+            intent: CheckULTRONDesktopTaskIntent(),
             phrases: [
                 "\(.applicationName) bilgisayar görev durumunu söyle",
                 "\(.applicationName) son görev ne durumda"
@@ -87,7 +87,7 @@ struct GÖLGEAppShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: AskGÖLGEIntent(),
+            intent: AskULTRONIntent(),
             phrases: [
                 "\(.applicationName) soru sor",
                 "\(.applicationName) bana cevap ver"
@@ -97,7 +97,7 @@ struct GÖLGEAppShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: SendGÖLGEDesktopTaskIntent(),
+            intent: SendULTRONDesktopTaskIntent(),
             phrases: [
                 "\(.applicationName) bilgisayara görev gönder",
                 "\(.applicationName) ile bilgisayara komut gönder"
@@ -107,7 +107,7 @@ struct GÖLGEAppShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: StartGÖLGEListeningIntent(),
+            intent: StartULTRONListeningIntent(),
             phrases: [
                 "\(.applicationName) dinlemeye başla",
                 "\(.applicationName) sesi aç",
@@ -118,7 +118,7 @@ struct GÖLGEAppShortcuts: AppShortcutsProvider {
         )
 
         AppShortcut(
-            intent: StopGÖLGEListeningIntent(),
+            intent: StopULTRONListeningIntent(),
             phrases: [
                 "\(.applicationName) dinlemeyi durdur",
                 "\(.applicationName) sesi kapat"
