@@ -1,6 +1,6 @@
 ## Next tasks — conversation, memory and reasoning
 
-1. Check Actions and Render for this correction-aware recall release.
+1. Correction-aware recall release `202e4f9` is verified: both Actions workflows passed, Render LIVE and health SHA matched. Continue with the context-budget audit below.
 2. Investigate whether provider-side context recapping drops selected old evidence under verbose recent turns; reproduce before changing.
 3. Run the frozen 100-scenario conversation evaluation with real Gemini and reachable Qwen, then independent review. Provider-free tests are not model-quality scores.
 4. Validate actual laptop/phone voice and task completion when devices are available; preserve Approval Gate. No Windows installation now.
