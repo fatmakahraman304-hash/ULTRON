@@ -17,7 +17,7 @@ _STOP = frozenset(("benim", "bana", "bunun", "onun", "hakkında", "bunu", "nedir
                    "that", "with", "from", "please", "more", "next", "have"))
 _PLAN = re.compile(
     r"(?i)(?:\b(?:plan\w*|takvim\w*|program\w*|randevu\w*|sınav|ders|bugün|yarın|"
-    r"hafta|hatırlat|toplantı|deadline|calendar|schedule|appointment|"
+    r"hafta|hatırlat|toplantı|deadline|calendar|schedule|appointments?|"
     r"exam|today|tomorrow|meeting|daily briefing)\b)"
 )
 _PREFERENCE = frozenset(("PREFERENCE", "PROFILE", "IMPORTANT"))
