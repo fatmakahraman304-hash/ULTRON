@@ -30,8 +30,8 @@ class TestConversationPersona(unittest.TestCase):
 
     def test_consistent_identity(self):
         p = build_system_instruction(user_message="Merhaba")
-        self.assertIn("You are ULTRON", p)
-        self.assertIn("only the name ULTRON", p)
+        self.assertIn("You are GÖLGE", p)
+        self.assertIn("only the name GÖLGE", p)
 
     def test_no_false_feelings(self):
         p = build_system_instruction()
