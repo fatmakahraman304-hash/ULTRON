@@ -1,6 +1,7 @@
 name: ULTRON Local Qwen Listening Analysis
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feat/ultron-local-qwen-long-listening-20261012
@@ -98,7 +99,7 @@ jobs:
         run: |
           python -m pip install 'playwright>=1.50,<2'
           python -m playwright install --with-deps chromium
-      - name: Actual mobile page: synthetic mic, explicit consent and 3D scene
+      - name: "Actual mobile page: synthetic mic, explicit consent and 3D scene"
         run: |
           python scripts/tests/test_listening_browser.py
           python scripts/tests/test_scene_browser.py
