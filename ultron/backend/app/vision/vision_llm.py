@@ -49,7 +49,7 @@ class VisionLLM:
         data=self.brain._post('/api/chat',payload)
         resp_model = data.get('model', '?')
         content = (data.get('message',{}).get('content') or '').strip()
-        _log(f"response_model={resp_model} response_head={content[:120]!r}")
+        _log(f"response_model={resp_model} response_chars={len(content)}")
         if resp_model not in ('?', model) and model not in str(resp_model):
             _log(f"WARNING: request model {model} != response model {resp_model}")
         return content

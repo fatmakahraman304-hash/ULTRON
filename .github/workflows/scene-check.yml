@@ -54,6 +54,8 @@ jobs:
           python -m py_compile ultron/backend/codegen.py
           python -m py_compile ultron/backend/server.py
           python -m py_compile ultron/backend/app/core/fast_brain.py
+          python -m py_compile ultron/backend/app/agent/agent.py
+          python -m py_compile ultron/backend/app/vision/vision_llm.py
           python -m py_compile scripts/ultron_fast_brain_doctor.py
           python -m py_compile ultron/backend/app/core/model_router.py
           python -m py_compile ultron/backend/app/core/brain.py
@@ -98,7 +100,7 @@ jobs:
         env:
           PYTHONPATH: ultron/backend
         run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
-      - name: Local model-router privacy and merged API boundary regressions
+      - name: Desktop model, agent, vision and merged API privacy regressions
         run: |
           python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'aiohttp>=3.9,<4' 'Pillow>=10'
           python -m pytest -q ultron/backend/tests/test_model_router.py

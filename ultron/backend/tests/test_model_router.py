@@ -192,6 +192,80 @@ def test_merged_local_model_failure_does_not_echo_provider_details(monkeypatch):
     asyncio.run(run())
 
 
+def test_desktop_agent_does_not_echo_model_or_vision_provider_errors(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from app.agent.agent import Agent
+
+    class Memory:
+        def __init__(self):
+            self.rows = []
+        def add(self, kind, content):
+            self.rows.append((kind, content, 0))
+        def recent(self, limit):
+            return list(reversed(self.rows[-limit:]))
+
+    class Audit:
+        def write(self, *_args):
+            return None
+
+    class Registry:
+        def ollama_tools(self, **_kwargs):
+            return []
+
+    class Executor:
+        def execute(self, *_args, **_kwargs):
+            return []
+
+    class LeakyRouter:
+        fast_policy = SimpleNamespace(enabled=False)
+        def chat(self, *_args, **_kwargs):
+            raise RuntimeError("api_key=private-chat-key prompt=private-user-prompt")
+
+    class LeakyVision:
+        def resolve_model(self, _models):
+            return "llava:7b"
+        def analyze(self, *_args, **_kwargs):
+            raise RuntimeError("token=private-vision-token image=private-user-image")
+
+    class Brain:
+        model = "qwen3:4b"
+        base_url = "http://127.0.0.1:11434"
+
+    memory = Memory()
+    agent = Agent(Brain(), Executor(), memory, Registry(), {}, Audit(), None,
+                  max_steps=1, router=LeakyRouter(), vision_llm=LeakyVision())
+
+    answer = agent.handle("Bana kısa bir masal anlat.")
+    assert "private-chat-key" not in answer
+    assert "private-user-prompt" not in answer
+    assert "İsteğini tamamlayamadım" in answer
+
+    image_path = tmp_path / "screen.png"
+    image_path.write_bytes(b"synthetic image")
+    monkeypatch.setattr("app.tools.ollama_tools.ollama_status",
+                        lambda *_args: {"models": ["llava:7b"]})
+    vision_answer = agent._vision_pipeline(f"Ekranımda ne var? {image_path}")
+    assert "private-vision-token" not in vision_answer
+    assert "private-user-image" not in vision_answer
+    assert "Görsel analizi tamamlanamadı" in vision_answer
+
+
+def test_vision_debug_does_not_log_analyzed_user_text(monkeypatch, tmp_path, capsys):
+    import app.vision.vision_llm as vision_module
+    monkeypatch.setattr(vision_module, "DEBUG", True)
+
+    class Brain:
+        base_url = "http://127.0.0.1:11434"
+        def _post(self, *_args, **_kwargs):
+            return {"model": "llava:7b", "message": {"content": "private screenshot contents"}}
+
+    image_path = tmp_path / "screen.png"
+    image_path.write_bytes(b"synthetic image")
+    vision_module.VisionLLM(Brain(), {"vision": {"enabled": True, "model": "llava:7b"}}).analyze(
+        image_path, available_models=["llava:7b"])
+    assert "private screenshot contents" not in capsys.readouterr().out
+
+
 def test_router_ask_json_extracts_object():
     r = make_router(["a:1b"], primary="a:1b")
     out = r.ask_json(TaskType.GENERAL, "plan", system="s")

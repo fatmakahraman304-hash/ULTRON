@@ -74,8 +74,8 @@ class Agent:
             return "VISION UNAVAILABLE: kurulu llava/vision modeli yok (Ollama /api/tags kontrol edildi)."
         try:
             analysis=self.vision_llm.analyze(path, VISION_PROMPT, available_models=models)
-        except Exception as e:
-            return f"VISION ERROR: {e}"
+        except Exception:
+            return "Görsel analizi tamamlanamadı."
         if not analysis:
             return "VISION ERROR: model boş yanıt verdi."
         final=f"EKRAN ANALİZİ ({model}): {analysis}"
@@ -267,7 +267,8 @@ class Agent:
                 else:
                     response=self.brain.chat(messages,tools=self.registry.ollama_tools(include_dangerous=True))
             except Exception as e:
-                last_error=e; break
+                from app.core.model_router import safe_provider_error
+                last_error=("model", safe_provider_error(e)); break
             msg=response.get("message",{}); calls=self._extract_tool_calls(msg)
             if not calls:
                 answer=self._persona_finalize((msg.get("content") or "").strip() or "Bunu tamamlayamadım.")
@@ -279,8 +280,14 @@ class Agent:
                     raw=self.executor.execute([(name,args)],approved=approved)[0]
                     messages.append({"role":"tool","content":self._redact(json.dumps({"success":True,"result":raw},ensure_ascii=False,default=str))})
                 except Exception as e:
-                    last_error=e; messages.append({"role":"tool","content":json.dumps({"success":False,"error":self._redact(str(e))},ensure_ascii=False)})
-        if last_error: answer=f"İşlemi tamamlayamadım: {last_error}"
+                    detail=self._redact(str(e))
+                    last_error=("tool", detail); messages.append({"role":"tool","content":json.dumps({"success":False,"error":detail},ensure_ascii=False)})
+        if last_error and last_error[0] == "model":
+            answer = ("Şu anda model hizmetine erişemiyorum. İsteğini tamamlayamadım; "
+                      "biraz sonra yeniden deneyebilirsin."
+                      if last_error[1] == "provider_temporarily_unavailable"
+                      else "Model yanıtı üretilemedi. İsteğini tamamlayamadım.")
+        elif last_error: answer=f"İşlemi tamamlayamadım: {last_error[1]}"
         else: answer="Görevi güvenli adım sınırında tamamlayamadım."
         answer=self._persona_finalize(answer)
         self._save("ULTRON",answer); return answer
