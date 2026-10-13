@@ -292,10 +292,14 @@ def select_continuation_turns(rows, *, max_chars: int = 3200,
 
     recent_count = count - 2
     recent = clean[-recent_count:]
-    # Recent concrete requests or explicit switches supersede any old goal.
+    # A recent *correction* is a constraint on an earlier task, not an
+    # independent replacement goal. Keep the older goal when the last short
+    # user messages contain only continuations and corrections.
+    # An actual concrete new request or a topic switch still supersedes it.
     if any(row["role"] == "user" and
            (is_topic_switch_request(row["content"]) or
-            not is_bare_continuation_request(row["content"]))
+            (not is_bare_continuation_request(row["content"])
+             and not is_explicit_turn_correction(row["content"])))
            for row in recent):
         return prepare_turns(clean, max_chars=cap, max_turns=count)
 
