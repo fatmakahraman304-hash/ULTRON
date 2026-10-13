@@ -1,7 +1,7 @@
 """Real Chromium mobile layout regression for the GÖLGE concept screenshot.
 
 Test uses synthetic chat data, not private messages, a real microphone or an
-authenticated production service. Catches fixed-composer overlap and lost orb.
+authenticated production service. Catches accidental return of central phone orb and fixed-composer overlap.
 """
 import asyncio
 import unittest
@@ -54,16 +54,18 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
         await self.playwright.stop()
         await self.runner.cleanup()
 
-    async def test_cyan_orb_chat_and_composer_remain_visible_with_long_history(self):
+    async def test_phone_chat_without_large_orb_and_without_composer_overlap(self):
         initial=await self.page.evaluate("""() => {
+          const hero=document.querySelector('.golge-welcome');
           const orb=document.querySelector('.golge-welcome-orb');
-          const composer=document.querySelector('#chatView .composer');
+          const chat=document.querySelector('#chatView').getBoundingClientRect();
+          const list=document.querySelector('#messages').getBoundingClientRect();
           const css=getComputedStyle(document.querySelector('body')).backgroundImage;
-          return {orb:orb.getBoundingClientRect().toJSON(),
-                  composer:composer.getBoundingClientRect().toJSON(),css};
+          return {hero:!!hero,orb:!!orb,topGap:list.top-chat.top,css};
         }""")
-        self.assertGreater(initial["orb"]["width"],145)
-        self.assertLess(initial["orb"]["bottom"],initial["composer"]["top"])
+        self.assertFalse(initial["hero"])
+        self.assertFalse(initial["orb"])
+        self.assertLess(initial["topGap"],30)
         self.assertIn("radial-gradient",initial["css"])
         await self.page.evaluate("""() => {
           const list=document.querySelector('#messages');
@@ -81,8 +83,9 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
           const rect=s=>$(s).getBoundingClientRect().toJSON();
           const list=$('#messages');
           return {
-            orb:rect('.golge-welcome-orb'),
-            hero:rect('.golge-welcome'),
+            hasOrb:!!$('.golge-welcome-orb'),
+            hasHero:!!$('.golge-welcome'),
+            chat:rect('#chatView'),
             messagePanel:rect('#messages'),
             composer:rect('#chatView .composer'),
             scrollTop:list.scrollTop,
@@ -95,9 +98,9 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
         }""")
         self.assertGreater(state["scrollRange"],40)
         self.assertGreater(state["scrollTop"],40)
-        self.assertGreater(state["orb"]["width"],105)
-        self.assertGreater(state["hero"]["height"],135)
-        self.assertLess(state["hero"]["bottom"],state["messagePanel"]["bottom"])
+        self.assertFalse(state["hasOrb"])
+        self.assertFalse(state["hasHero"])
+        self.assertLess(state["messagePanel"]["top"]-state["chat"]["top"],30)
         self.assertLessEqual(state["messagePanel"]["bottom"],state["composer"]["top"]+6)
         self.assertTrue(state["menu"] and state["microphone"] and state["attachment"])
         self.assertLess(state["windowY"],4)
