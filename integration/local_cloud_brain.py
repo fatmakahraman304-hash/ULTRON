@@ -108,7 +108,7 @@ def _last_substantive_owner_request(text: str, turns) -> str:
     """
     if not _CONTINUE_ONLY.fullmatch(text.strip()) or not isinstance(turns, list):
         return ""
-    for turn in reversed(turns[-10:]):
+    for turn in reversed(turns[-20:]):
         if not hasattr(turn, "get") or turn.get("role") != "user":
             continue
         prior = turn.get("content")
