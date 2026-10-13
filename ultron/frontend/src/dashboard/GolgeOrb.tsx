@@ -125,8 +125,8 @@ export default function GolgeOrb({state,amplitude}:{state:CoreState;amplitude:nu
     if(renderer){renderer.dispose();renderer.domElement.remove();}
   };
  },[]);
- return <div className={'golge-reference-orb '+(fallback?'orb-css-only':'')} role="img" aria-label={'GÖLGE, '+(state==='LISTENING'?'dinliyor':state==='SPEAKING'?'konuşuyor':'hazır')}>
-   <div className="golge-orb-webgl" ref={host}/>
+ return <div className={'core-stage golge-reference-orb '+(fallback?'orb-css-only':'')} role="img" aria-label={'GÖLGE, '+(state==='LISTENING'?'dinliyor':state==='SPEAKING'?'konuşuyor':'hazır')}>
+   <div className="core-canvas golge-orb-webgl" ref={host}/>
    <div className="golge-orb-css-fallback" aria-hidden="true"><i/><span/><b/></div>
    <div className="golge-orb-ground" aria-hidden="true"/>
  </div>;
