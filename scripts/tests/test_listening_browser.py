@@ -144,7 +144,7 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
     async def test_live_qwen_probe_refuses_offline_worker_without_any_analysis_upload(self):
         await self.show_probe()
         await self.page.wait_for_function(
-            "document.querySelector('#longListenQwenProbeStatus').textContent.includes('Laptop ULTRON çevrimiçi değil')")
+            "document.querySelector('#longListenQwenProbeStatus').textContent.includes('Laptop GÖLGE çevrimiçi değil')")
         self.assertFalse(any(path.startswith("local-listening-analysis")
                              or path=="listening-analysis" for path,_ in self.api_calls))
         self.assertEqual(self.errors,[])

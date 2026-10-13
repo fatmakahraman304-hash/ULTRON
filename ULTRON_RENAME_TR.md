@@ -1,7 +1,7 @@
-# ULTRON adlandırması
+# GÖLGE adı ve uyumluluk notları
 
-Arayüz, sesli asistan kimliği, Python sınıfları ve modülleri, React bileşenleri, simge dosyası, araç adları ve belgeler ULTRON olarak güncellendi.
+Ürünün kullanıcıya görünen güncel adı **GÖLGE**. Telefon ve masaüstü arayüzleri, konuşma kimliği, sesli/dikte hitapları, simge, kurulum ürünü ve kısayol adı GÖLGE olarak düzenlenmiştir.
 
-Uyandırma yalnızca gerçek ULTRON akustik modeliyle çalışır. Başka bir kelimenin modeli yeniden adlandırılmaz veya yedek olarak kullanılmaz. `ultron/backend/data/voice/wake/ultron.onnx` modeli yoksa model gereksinimi gösterilir; normal sohbet ve düğmeyle kontrol kullanılabilir.
+**Önemli:** Var olan GitHub deposu `fatmakahraman304-hash/ULTRON`, Render servisi/URL'si, iç klasörler, `ULTRON_*` ortam değişkenleri, `X-ULTRON-DEVICE` kimlik doğrulama başlığı, yerel depolama alanı ve eski proje şemaları çalışır kalır; bu alanlar GÖLGE'nin teknik geriye uyumlu tanımlarıdır. Eski `ULTRON Bridge` isimli Apple Kestirmesini kullanıyorsanız onu iPhone'da `GÖLGE Bridge` olarak yeniden adlandırın.
 
-Güncel uygulamayı START.bat ile açın. Önceki dağıtım ZIP dosyaları, geçmiş günlükler ve üçüncü taraf bağımlılıkları bu kaynak güncellemesinin kapsamı dışındadır.
+**Uyandırma:** Yeni `GÖLGE` için eğitilmiş akustik wake-word modeli henüz yok. Tuşla uyandırma kullanılabilir; yalnızca model adını değiştirmek sesi tanıtmaz. Eski akustik wake modeli yeni adla eğitilmiş gibi sunulmaz. Gerçek Windows kurulumu laptop açıkken güncellenmelidir.

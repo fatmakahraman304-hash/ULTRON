@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="tr"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<meta name="theme-color" content="#050608"/><meta name="description" content="ULTRON WORLD: interaktif 2D sokak haritası, 3D dünya, canlı uçak, hava durumu ve depremler."/>
-<title>ULTRON WORLD • Live GEO</title>
+<meta name="theme-color" content="#050608"/><meta name="description" content="GÖLGE WORLD: interaktif 2D sokak haritası, 3D dünya, canlı uçak, hava durumu ve depremler."/>
+<title>GÖLGE WORLD • Live GEO</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 :root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color-scheme:dark;background:#030609;color:#eff4f8;--red:#fa3252;--cyan:#5ae1ff;--glass:#070b12ed}
@@ -24,7 +24,7 @@
 </style></head><body><div class="world">
 <div id="map" class="world-map" aria-label="Etkileşimli OpenStreetMap sokak haritası"></div><div id="globe" class="world-globe hidden" aria-label="İnteraktif 3 boyutlu Dünya"></div>
 <header class="nav">
-<div class="logo">ULTRON WORLD<small>EARTH / LIVE GEO</small></div>
+<div class="logo">GÖLGE WORLD<small>EARTH / LIVE GEO</small></div>
 <form id="searchForm" class="find" autocomplete="off"><input id="searchInput" type="search" required minlength="3" maxlength="100" placeholder="Şehir, sokak veya adres ara…"/><button>ARA</button></form>
 <div class="modes"><button id="mode2d" class="active" type="button">2D HARİTA</button><button id="mode3d" type="button">3D DÜNYA</button></div>
 </header>
@@ -48,8 +48,8 @@
 </aside>
 <aside id="details" class="detail card" aria-live="polite"><h2>DÜNYA / BİLGİ</h2><div id="detailText">Haritada bir yere dokun veya katman seç.</div><div id="weatherCard"></div><div id="layerStatus" class="pill"></div></aside>
 <div class="foot"><span id="position">35.1300° N • 33.4300° E</span> •
-<span id="updated">ULTRON WORLD</span> • Harita © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> | Uçuş: <a href="https://www.adsb.lol/" target="_blank" rel="noopener">adsb.lol</a> / <a href="https://adsb.fi/" target="_blank" rel="noopener">adsb.fi</a> | Hava: Open-Meteo/MET Norway | Deprem: USGS.
-<span id="disclaimer">Konumlar ve kapsama gecikmeli veya eksik olabilir. Dış kaynakları açan ↗ bağlantılar ULTRON içinde canlı katman değildir.</span></div>
+<span id="updated">GÖLGE WORLD</span> • Harita © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> | Uçuş: <a href="https://www.adsb.lol/" target="_blank" rel="noopener">adsb.lol</a> / <a href="https://adsb.fi/" target="_blank" rel="noopener">adsb.fi</a> | Hava: Open-Meteo/MET Norway | Deprem: USGS.
+<span id="disclaimer">Konumlar ve kapsama gecikmeli veya eksik olabilir. Dış kaynakları açan ↗ bağlantılar GÖLGE içinde canlı katman değildir.</span></div>
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module" src="/static/world.js"></script>

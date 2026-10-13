@@ -29,7 +29,7 @@
     return (
       'Bir saatlik oturumdan yakalanan '+length+' karakterlik konuşma metnini '+
       'parçalar halinde Gemini Cloud analiz hizmetine göndermeyi onaylıyor musun? '+
-      'Özet dışında kalıcı ULTRON hafızasına yazım yapılmaz. İptal edersen '+
+      'Özet dışında kalıcı GÖLGE hafızasına yazım yapılmaz. İptal edersen '+
       'konuşma metni cihazındaki açık sekmede kalır.'
     );
   }

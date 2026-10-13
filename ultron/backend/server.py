@@ -1,4 +1,4 @@
-"""ULTRON V15 backend — aiohttp REST + WebSocket. Real data only."""
+"""GÖLGE V15 backend — aiohttp REST + WebSocket. Real data only."""
 import asyncio
 import copy
 import json
@@ -83,7 +83,7 @@ class Hub:
         self.scene_future = deque(maxlen=40)
         self.stage_state: dict = {
             "mode": "core_idle",
-            "title": "ULTRON",
+            "title": "GÖLGE",
             "subtitle": "NEURAL CORE",
             "progress": 0,
             "revision": 1,
@@ -92,12 +92,12 @@ class Hub:
             "save_kind": "",
             "record_nonce": 0,
             "record_duration": 8.0,
-            "animation": {"kind": "bird", "title": "ULTRON MINI ANIMATION"},
+            "animation": {"kind": "bird", "title": "GÖLGE MINI ANIMATION"},
             "hologram": {
                 "kind": "energy", "color": "#ff3047", "glow": 1.0,
                 "speed": 1.0, "rings": 4, "particles": 900, "scale": 1.0,
                 "opacity": 0.92, "wireframe": False, "pulse": True,
-                "label": "ULTRON",
+                "label": "GÖLGE",
             },
             "earth": {
                 "auto_rotate": True, "rotation_speed": 0.08,
@@ -135,7 +135,7 @@ class Hub:
             },
             "video": {
                 "template": "ultron_intro", "duration": 6.0,
-                "title": "ULTRON", "ready": False, "mime": "", "bytes": 0,
+                "title": "GÖLGE", "ready": False, "mime": "", "bytes": 0,
             },
         }
         try:
@@ -849,7 +849,7 @@ async def _stage_publish() -> None:
             "scene_lab" if (hub.stage_state.get("scene") or {}).get("objects") else "core_idle"
         )
         if persistent_mode == "core_idle":
-            persistent_title, persistent_subtitle = "ULTRON", "NEURAL CORE"
+            persistent_title, persistent_subtitle = "GÖLGE", "NEURAL CORE"
         elif persistent_mode == "hologram_lab":
             _holo = hub.stage_state.get("hologram") or {}
             persistent_title = str(_holo.get("label") or "HOLOGRAM")[:100]
@@ -1144,13 +1144,13 @@ async def api_stage_command(req: web.Request) -> web.Response:
         _scene_checkpoint()
 
     if op in {"reset", "core", "core_idle"}:
-        state.update({"mode": "core_idle", "title": "ULTRON",
+        state.update({"mode": "core_idle", "title": "GÖLGE",
                       "subtitle": "NEURAL CORE", "progress": 0, "job_id": None})
     elif op == "animation_show":
         kind = str(body.get("kind") or "bird").strip().lower()
         if kind not in {"bird", "orbit", "pulse"}:
             return web.json_response({"ok":False,"error":"unsupported_animation_kind"},status=400)
-        title = str(body.get("title") or "ULTRON MINI ANIMATION").strip()[:72]
+        title = str(body.get("title") or "GÖLGE MINI ANIMATION").strip()[:72]
         state["animation"] = {"kind":kind,"title":title}
         state.update({"mode":"animation_preview","title":"CORE ANIMATION","subtitle":title,"progress":100})
     elif op == "world_map":
@@ -1158,7 +1158,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         if "lat" in body: earth["focus_lat"] = earth_number(body.get("lat"), earth["focus_lat"], -85, 85)
         if "lon" in body: earth["focus_lon"] = earth_longitude(body.get("lon"), earth["focus_lon"])
         state["earth"] = earth
-        state.update({"mode":"world_map","title":"ULTRON WORLD","subtitle":"2D MAP / LIVE GEO","progress":100})
+        state.update({"mode":"world_map","title":"GÖLGE WORLD","subtitle":"2D MAP / LIVE GEO","progress":100})
     elif op in {"earth_open", "earth_watch", "world_watch"}:
         state["earth"] = normalize_earth_state(state.get("earth"))
         state.update({"mode": "earth_watch", "title": "EARTH WATCH",
@@ -1215,7 +1215,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             "opacity": _stage_number(body.get("opacity", holo.get("opacity", .92)), .92, .08, 1.0),
             "wireframe": bool(body.get("wireframe", holo.get("wireframe", False))),
             "pulse": bool(body.get("pulse", holo.get("pulse", True))),
-            "label": str(body.get("label") or holo.get("label") or "ULTRON")[:80],
+            "label": str(body.get("label") or holo.get("label") or "GÖLGE")[:80],
         })
         state["hologram"] = holo
         state.update({"mode": "hologram_lab", "title": holo["label"],
@@ -2883,7 +2883,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         duration=_stage_number(float(sequence.get("duration",0) or 0)+1.0,8,2,30)
         job_id=uuid.uuid4().hex[:10];state["record_nonce"]=int(state.get("record_nonce",0))+1;state["record_duration"]=duration;state["job_id"]=job_id
         state["video"]={"template":"mission_sequence","duration":duration,
-                        "title":str(body.get("title") or sequence.get("name") or "ULTRON MISSION")[:100],
+                        "title":str(body.get("title") or sequence.get("name") or "GÖLGE MISSION")[:100],
                         "ready":False,"mime":"","bytes":0,"source_hologram":False,"source_scene":True}
         state.update({"mode":"scene_lab","title":"MISSION RECORD","subtitle":f"{str(sequence.get('name') or 'SEQUENCE').upper()} / {duration:.1f}s","progress":0})
     elif op == "scene_record":
@@ -2894,7 +2894,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["job_id"] = job_id
         state["video"] = {
             "template":"live_scene","duration":duration,
-            "title":str(body.get("title") or "ULTRON SCENE")[:100],
+            "title":str(body.get("title") or "GÖLGE SCENE")[:100],
             "ready":False,"mime":"","bytes":0,
             "source_hologram":False,"source_scene":True,
         }
@@ -2911,7 +2911,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         job_id = uuid.uuid4().hex[:10]
         state["video"] = {
             "template": template, "duration": duration,
-            "title": str(body.get("title") or state.get("hologram", {}).get("label") or "ULTRON")[:100],
+            "title": str(body.get("title") or state.get("hologram", {}).get("label") or "GÖLGE")[:100],
             "ready": False, "mime": "", "bytes": 0,
             "source_hologram": source_hologram,
             "source_scene": source_scene,
@@ -2939,7 +2939,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
     elif op == "task_progress":
         state.update({"mode": "task_progress",
                       "title": str(body.get("title") or "GÖREV ÇALIŞIYOR")[:100],
-                      "subtitle": str(body.get("subtitle") or "ULTRON TASK ENGINE")[:140],
+                      "subtitle": str(body.get("subtitle") or "GÖLGE TASK ENGINE")[:140],
                       "progress": _stage_number(body.get("progress", 0), 0, 0, 100)})
     elif op == "screen_preview":
         state.update({"mode": "screen_preview", "title": "SCREEN PREVIEW",
@@ -3534,7 +3534,7 @@ async def on_startup(app: web.Application) -> None:
                 try:
                     result = hub.bridge.start_live_voice_wake()
                     if result.get("ok"):
-                        await hub.on_activity("Wake-word dinleme başladı (ULTRON de...)", "info")
+                        await hub.on_activity("Wake-word dinleme başladı (GÖLGE de...)", "info")
                     else:
                         err = result.get("error", "bilinmeyen")
                         if "sounddevice" in err.lower() or "faster" in err.lower() or "portaudio" in err.lower():
@@ -3547,7 +3547,7 @@ async def on_startup(app: web.Application) -> None:
         await hub.notify("V16 runtime online (agent/memory/audit/proactive).", "success")
     else:
         await hub.notify(f"V16 runtime unavailable: {hub.bridge.error}", "error")
-    await hub.on_activity("ULTRON backend online", "success")
+    await hub.on_activity("GÖLGE backend online", "success")
     await hub.notify("System is running smoothly.", "success")
     if not first["status"]["connected"]:
         await hub.notify(f"Ollama offline at {OLLAMA_HOST}", "warn")
@@ -3590,7 +3590,7 @@ async def on_startup(app: web.Application) -> None:
          "db_paths": [os.path.join(BASE, "data", "memory", "ultron.db")],
          "rules_path": os.path.join(BASE, "config", "security", "master_rules.json")},
         persona=(hub.bridge.runtime.agent.persona if (hub.bridge and hub.bridge.available) else None))
-    print(f"[ULTRON-DOCTOR] overall={hub.last_doctor['overall']} :: {hub.last_doctor['summary']}", flush=True)
+    print(f"[GÖLGE-DOCTOR] overall={hub.last_doctor['overall']} :: {hub.last_doctor['summary']}", flush=True)
     # Phase-9: dual-brain mesh
     from app.mesh.dual_node_engine import NodeRegistry
     from app.mesh.mesh_sync import MeshSync
@@ -3804,7 +3804,7 @@ def _sentinel_loop() -> None:
 
 async def on_shutdown(app: web.Application) -> None:
     # Close persistent clients before aiohttp waits for active request handlers.
-    await asyncio.gather(*(ws.close(code=1001, message=b'ULTRON shutdown')
+    await asyncio.gather(*(ws.close(code=1001, message='GÖLGE shutdown'.encode('utf-8'))
                            for ws in list(hub.clients)), return_exceptions=True)
 
 
@@ -3976,7 +3976,7 @@ def main() -> None:
     port = int(os.environ.get("ULTRON_PORT", "8000"))
     bind_host = os.environ.get("ULTRON_BIND_HOST", "127.0.0.1")
     if bind_host not in {"127.0.0.1", "localhost", "::1"} and not hub.auth.required:
-        raise RuntimeError("ULTRON_BIND_HOST is non-local but ULTRON_AUTH is disabled. Enable ULTRON_AUTH=1 before exposing ULTRON to a network.")
+        raise RuntimeError("ULTRON_BIND_HOST is non-local but ULTRON_AUTH is disabled. Enable ULTRON_AUTH=1 before exposing GÖLGE to a network.")
     web.run_app(app, host=bind_host, port=port, print=lambda *_: None)
 
 

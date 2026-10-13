@@ -1,4 +1,4 @@
-# ULTRON — Hızlı Başlangıç
+# GÖLGE — Hızlı Başlangıç
 
 ## İlk Kurulum (bir kere yapılır)
 

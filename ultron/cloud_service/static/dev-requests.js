@@ -1,4 +1,4 @@
-/* ULTRON Dev Control: no secret keys and no mythical consumer-ChatGPT API.
+/* GÖLGE Dev Control: no secret keys and no mythical consumer-ChatGPT API.
    Users explicitly copy the job to ChatGPT; only server proof may mark done.
  */
 (function(root){
@@ -15,7 +15,7 @@
  };
  const detect=text=>{
   const t=String(text||'').toLocaleLowerCase('tr-TR').replace(/\s+/g,' ').trim();
-  return /(?:ultron|kendini|kod|arayüz|uygulama|sistem)/.test(t)
+  return /(?:ultron|gölge|golge|kendini|kod|arayüz|uygulama|sistem)/.test(t)
     &&/(?:geliştir|güncelle|düzelt|özellik ekle|kod(?:u|larını)? değiştir|yeni özellik)/.test(t);
  };
  const suggestTarget=text=>{
@@ -47,7 +47,7 @@
    const h=document.createElement('strong');h.textContent=String(item.prompt||'').slice(0,160);
    const status=document.createElement('p');status.textContent=statusLabels[item.status]||item.status;
    status.className=item.status==='completed'?'dev-done':item.status==='tests_failed'?'dev-error':'dev-wait';
-   const minor=document.createElement('small');minor.textContent='ULTRON-DEV-'+item.id+
+   const minor=document.createElement('small');minor.textContent='GÖLGE-DEV-'+item.id+
       (item.commit_sha?' • '+item.commit_sha.slice(0,9):'')+
       (item.target==='phone'?' • iPhone':item.target==='desktop'?' • Windows':' • iPhone + Windows');
    const actions=document.createElement('div');actions.className='dev-actions';

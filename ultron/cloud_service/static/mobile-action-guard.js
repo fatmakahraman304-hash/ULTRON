@@ -1,9 +1,9 @@
-/* ULTRON Cloud PWA: strictly scoped Apple Shortcuts bridge.
+/* GÖLGE Cloud PWA: strictly scoped Apple Shortcuts bridge.
    Pure helpers run in browser and in Node contract tests. Never start a
    model-suggested device-setting action without the user's foreground tap. */
 (function (root) {
   'use strict';
-  const BRIDGE_NAME = 'ULTRON Bridge';
+  const BRIDGE_NAME = 'GÖLGE Bridge';
   const ACTION_LABELS = Object.freeze({
     set_focus: 'Odak modunu değiştir',
     set_volume: 'Telefon sesini değiştir',

@@ -76,5 +76,5 @@ test("approved memories have a separate explicit delete control in shared memory
  const html=fs.readFileSync(path.join(__dirname,"static/index.html"),"utf8");
  assert.ok(html.includes("HAFIZADAN SİL"));
  assert.ok(html.includes("await api('/api/memories/'+encodeURIComponent(m.key),{method:'DELETE'})"));
- assert.ok(html.includes("window.confirm('Bu kayıtlı bilgiyi ULTRON hafızasından silmek istiyor musun?')"));
+ assert.ok(html.includes("window.confirm('Bu kayıtlı bilgiyi GÖLGE hafızasından silmek istiyor musun?')"));
 });

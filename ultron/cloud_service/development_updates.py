@@ -33,7 +33,7 @@ def dev_intent(text: str) -> bool:
     """Conservative trigger: never mistake ordinary 'update the weather' for code editing."""
     t = re.sub(r"\s+", " ", text.casefold().strip())
     subject = bool(re.search(
-        r"\b(?:ultron(?:a|u|un|umu|da|daki)?|kendini|kod(?:u|un|larını|larını)?|"
+        r"\b(?:(?:gölge|golge)(?:ye|yi|nin|nin|de|den)?|ultron(?:a|u|un|umu|da|daki)?|kendini|kod(?:u|un|larını|larını)?|"
         r"arayüz(?:ü|ünü|ünü)?|uygulama(?:yı|nı)?|sistem(?:i|ini)?)\b", t
     ))
     verb = bool(re.search(
@@ -44,10 +44,10 @@ def dev_intent(text: str) -> bool:
 
 
 def handoff_text(item: dict) -> str:
-    marker = "ULTRON-DEV-" + str(item["id"])
+    marker = "GÖLGE-DEV-" + str(item["id"])
     return (
-        "Bu ULTRON geliştirme isteğini bu ChatGPT sohbetinde gerçekleştir.\n"
-        "Kendi özel ChatGPT sohbetini ULTRON'un otomatik açıp mesaj göndermesi mümkün değil; "
+        "Bu GÖLGE geliştirme isteğini bu ChatGPT sohbetinde gerçekleştir.\n"
+        "Kendi özel ChatGPT sohbetini GÖLGE'nin otomatik açıp mesaj göndermesi mümkün değil; "
         "bu metni kullanıcı burada başlattı. Kodları GitHub bağlayıcısıyla işle.\n"
         f"İstek kodu: {marker}\n"
         f"GitHub: https://github.com/{REPOSITORY}\n"
@@ -188,7 +188,7 @@ async def verify_request(request: web.Request) -> web.Response:
     if not row:
         return _http_error("not_found", 404)
     item = dict(row)
-    marker = "ULTRON-DEV-" + str(uuid_id)
+    marker = "GÖLGE-DEV-" + str(uuid_id)
     # CI check is read only and rate-limited by process cache; any upstream
     # outage preserves the old truthful result, never upgrades to completed.
     cache_key = str(uuid_id) + ":" + os.getenv("RENDER_GIT_COMMIT", "")
@@ -198,7 +198,7 @@ async def verify_request(request: web.Request) -> web.Response:
     try:
         commits = await _github_json("/commits?sha=" + quote(BRANCH) + "&per_page=75")
         match = next((
-            c for c in commits if marker in str((c.get("commit") or {}).get("message") or "")
+            c for c in commits if (marker in str((c.get("commit") or {}).get("message") or "") or ("ULTRON-DEV-"+str(uuid_id)) in str((c.get("commit") or {}).get("message") or ""))
             and re.fullmatch(r"[0-9a-f]{40}", str(c.get("sha") or ""))
         ), None)
         if not match:

@@ -1,11 +1,11 @@
-/* ULTRON one-hour foreground dictation; no automatic cloud submission. */
+/* GÖLGE one-hour foreground dictation; no automatic cloud submission. */
 (function(root){
   'use strict';
   // Keep up to roughly an hour of recognized text in temporary tab memory.
   // The model request is still capped separately; full notes are exportable.
   var MAX_MS=60*60*1000, MAX_LOCAL_CHARS=300000;
-  var START=/^(?:ultron[, ]*)?(?:(?:1|bir)\s*saat\s*(?:boyunca\s*)?(?:beni\s*)?dinle(?:\s*beni)?|beni\s*(?:1|bir)\s*saat\s*(?:boyunca\s*)?dinle)(?:\s*(?:lütfen|lutfen))?[\s.!?]*$/i;
-  var ANSWER=/^(?:ultron[, ]*)?(?:(?:şimdi|artik|artık)\s*)?cevap ver(?:\s*(?:artık|lütfen|lutfen))?[\s.!?]*$/i;
+  var START=/^(?:(?:gölge|golge|ultron)[, ]*)?(?:(?:1|bir)\s*saat\s*(?:boyunca\s*)?(?:beni\s*)?dinle(?:\s*beni)?|beni\s*(?:1|bir)\s*saat\s*(?:boyunca\s*)?dinle)(?:\s*(?:lütfen|lutfen))?[\s.!?]*$/i;
+  var ANSWER=/^(?:(?:gölge|golge|ultron)[, ]*)?(?:(?:şimdi|artik|artık)\s*)?cevap ver(?:\s*(?:artık|lütfen|lutfen))?[\s.!?]*$/i;
   function clean(s){return String(s||'').trim();}
   function isStart(s){return START.test(clean(s));}
   function isAnswer(s){return ANSWER.test(clean(s));}
@@ -29,7 +29,7 @@
       while(noteSize>MAX_LOCAL_CHARS&&noteChunks.length>2){
         var removed=noteChunks.splice(1,1)[0];noteSize-=removed.length;dropped++;
       }
-      emit('Dinleniyor • konuşmalar henüz ULTRON’a gönderilmedi.');
+      emit('Dinleniyor • konuşmalar henüz GÖLGE’a gönderilmedi.');
     }
     function finish(send){
       if(status!=='listening'&&status!=='ready'&&status!=='interrupted')return false;
@@ -49,7 +49,7 @@
           '\n[Uzun oturum: aradaki konuşmalar bu isteğe dahil edilmedi.]\n[Son]\n'+tail;
       }
       // This prompt is intentionally truthful about omitted text. The browser
-      // may have processed speech remotely, but ULTRON only sees this excerpt.
+      // may have processed speech remotely, but GÖLGE only sees this excerpt.
       var prompt='Dinleme oturumunda söylediklerime, yalnızca aşağıdaki yazıya dayanarak yanıt ver. Eksik bölümleri duymuş gibi davranma:\n'+message;
       // Keep the original transcription until the server confirms a reply.
       // Network timeouts can mean "accepted but response lost"; never submit
@@ -95,7 +95,7 @@
           var spoken=clean(record[0]&&record[0].transcript);
           if(!spoken)continue;
           if(isAnswer(spoken)){finish(true);return;}
-          if(/^(?:ultron[, ]*)?(?:dinlemeyi\s*)?(?:iptal et|durdur)[\s.!?]*$/i.test(spoken)){cancel();return;}
+          if(/^(?:(?:gölge|golge|ultron)[, ]*)?(?:dinlemeyi\s*)?(?:iptal et|durdur)[\s.!?]*$/i.test(spoken)){cancel();return;}
           append(spoken);
         }
       };

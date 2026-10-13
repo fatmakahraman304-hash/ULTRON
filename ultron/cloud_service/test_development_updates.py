@@ -41,6 +41,8 @@ class DevelopmentWorkflowTests(unittest.TestCase):
 
     def test_recognizes_explicit_self_development_but_not_weather(self):
         for sample in (
+            "GÖLGE, kendini güncelle ve yeni özellik ekle",
+            "Gölge arayüzünü geliştir",
             "ULTRON, kendini güncelle ve yeni özellik ekle",
             "ULTRON arayüzünü geliştir",
             "Ultron'daki eksik kodu düzelt",
@@ -55,7 +57,7 @@ class DevelopmentWorkflowTests(unittest.TestCase):
         job = {"id": "123e4567-e89b-12d3-a456-426614174000",
                "prompt": "ULTRON, telefona yeni özelliği ekle", "target": "phone"}
         text = self.dev.handoff_text(job)
-        self.assertIn("ULTRON-DEV-123e4567-e89b-12d3-a456-426614174000", text)
+        self.assertIn("GÖLGE-DEV-123e4567-e89b-12d3-a456-426614174000", text)
         self.assertIn("feat/ultron-cloud-shared-memory", text)
         self.assertIn(job["prompt"], text)
         self.assertIn("test", text.lower())

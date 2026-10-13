@@ -1,4 +1,4 @@
-"""Read-only personal briefing built exclusively from owner-saved ULTRON memory.
+"""Read-only personal briefing built exclusively from owner-saved GÖLGE memory.
 
 No guessed dates, account access, inferred location, health prediction, or
 background monitoring. Source records are returned for owner review.
@@ -44,14 +44,14 @@ def build_briefing(rows, *, plan_rows=(), max_items: int = 8) -> dict:
         "suggestions": (
             ["Kayıtlı hedeflerini gözden geçirip bugün için bir öncelik seç."]
             if saved else
-            ["Bugün için tek bir hedef belirleyip istersen ULTRON hafızasına kendin kaydet."]
+            ["Bugün için tek bir hedef belirleyip istersen GÖLGE hafızasına kendin kaydet."]
         ),
         "calendar_connected": False,
         "email_connected": False,
         "reminders_created": False,
         "actions_executed": False,
         "notice": (
-            "Bu özet yalnızca açıkça kaydedilmiş ULTRON hafızasını ve senin oluşturduğun planları gösterir. "
+            "Bu özet yalnızca açıkça kaydedilmiş GÖLGE hafızasını ve senin oluşturduğun planları gösterir. "
             "Apple/Google Takvim, e-posta veya otomatik bildirim bağlantısı içermez."
         ),
     }

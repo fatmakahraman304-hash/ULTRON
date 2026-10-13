@@ -1,4 +1,4 @@
-# ULTRON — ULTRON Foundation
+# GÖLGE — GÖLGE Foundation
 
 Yerel-öncelikli (sovereign) kişisel yapay zekâ asistanı: tek kullanıcıya ("Boss") hizmet veren,
 Windows hedefli, tarayıcı + mobil arayüzü olan gerçek bir agent çekirdeği.
@@ -32,7 +32,7 @@ Windows hedefli, tarayıcı + mobil arayüzü olan gerçek bir agent çekirdeği
 
 ## Sovereign / ücretsiz mimari
 
-ULTRON'un LLM trafiği **yalnız yerel Ollama'ya** gider. `sovereign_mode=true` ile uzak LLM endpoint'leri mimari olarak reddedilir.
+GÖLGE'un LLM trafiği **yalnız yerel Ollama'ya** gider. `sovereign_mode=true` ile uzak LLM endpoint'leri mimari olarak reddedilir.
 Ayrıca G0DM0D3 yaklaşımındaki çoklu model yarışını yerel olarak uygular: birden fazla Ollama modeli paralel cevap üretir ve yine yerel bir judge modeli en iyi cevabı seçer. Bulut API anahtarı, OpenRouter, Claude, OpenAI veya ücretli fallback yoktur.
 
 `backend/config/settings.json` içindeki `llm.local_multi_model` bu davranışı kontrol eder. Varsayılan yarış iki modelle sınırlıdır; 8 GB VRAM'li sistemlerde gereksiz eşzamanlı yükü azaltmak için `max_workers=2` kullanılır.
@@ -46,7 +46,7 @@ Ayrıca G0DM0D3 yaklaşımındaki çoklu model yarışını yerel olarak uygular
    `PICOVOICE_ACCESS_KEY` (wake word), mikrofon (VAD/STT)
 5. `scripts/start_ultron.bat` → backend :8000, frontend :5173
 
-> Çoklu model özelliği yalnız kurulu Ollama modelleriyle çalışır. Kurulu olmayan model hata verirse ULTRON buluta geçmez; çalışan yerel aday varsa onu kullanır.
+> Çoklu model özelliği yalnız kurulu Ollama modelleriyle çalışır. Kurulu olmayan model hata verirse GÖLGE buluta geçmez; çalışan yerel aday varsa onu kullanır.
 
 ## Güvenlik modeli (kısa)
 
