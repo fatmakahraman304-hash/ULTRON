@@ -1782,15 +1782,29 @@ async function loadSpatialController(){
    const script=document.createElement('script');script.src='/static/scene-control.js';
    const timer=setTimeout(()=>{script.remove();reject(new Error('3D sahne yüklenemedi. Yeniden deneyebilirsin.'))},15000);
    script.onload=()=>{clearTimeout(timer);resolve()};script.onerror=()=>{clearTimeout(timer);script.remove();reject(new Error('3D sahne yüklenemedi.'))};document.head.append(script);
- }).then(()=>{spatialController=window.ULTRONScene.create({host:$('#sceneCanvas'),open:()=>showView('hologram'),notice:text=>{$('#sceneNotice').textContent=text}});return spatialController}).catch(e=>{spatialLoading=null;throw e});
+ }).then(()=>{spatialController=window.ULTRONScene.create({generate:generateSceneDesign,host:$('#sceneCanvas'),open:()=>showView('hologram'),notice:text=>{$('#sceneNotice').textContent=text}});return spatialController}).catch(e=>{spatialLoading=null;throw e});
  return spatialLoading;
+}
+async function generateSceneDesign(description,signal){
+ const preferred=await refreshAutoBrain(true);
+ if(signal.aborted)throw new Error('cancelled');
+ if(preferred==='local'){
+   try{
+     const result=await window.ULTRONChatTransport.localAnswer((path,options)=>api(path.replace('/api/local-chat','/api/local-scene-design'),options),{description,request_id:crypto.randomUUID()});
+     if(signal.aborted)throw new Error('cancelled');
+     return result.reply;
+   }catch(e){if(!window.ULTRONAutoBrain.safeToFallback(e))throw e;}
+ }
+ const result=await api('/api/scene-design',{method:'POST',timeoutMs:120000,body:JSON.stringify({description})});
+ if(signal.aborted)throw new Error('cancelled');
+ return result.design;
 }
 async function handleSceneIntent(text){
  const intent=window.ULTRONSceneIntents.resolve(text,currentView==='hologram');
  if(!intent)return false;
  if(intent.kind==='clarify'){addMessage('assistant',intent.reply);$('#sceneNotice').textContent=intent.reply;return true;}
  showView('hologram');const generation=sceneGeneration;$('#sceneNotice').textContent='3D sahne hazırlanıyor…';
- try{const controller=await loadSpatialController();if(generation!==sceneGeneration||currentView!=='hologram')return true;const reply=controller.handle(text,true);if(reply){addMessage('assistant',reply);$('#sceneNotice').textContent=reply;}}
+ try{const controller=await loadSpatialController();if(generation!==sceneGeneration||currentView!=='hologram')return true;const reply=await controller.handle(text,true,()=>generation===sceneGeneration&&currentView==='hologram');if(generation!==sceneGeneration||currentView!=='hologram')return true;if(reply){addMessage('assistant',reply);$('#sceneNotice').textContent=reply;}}
  catch(e){$('#sceneNotice').textContent=e.message;addMessage('assistant',e.message)}
  return true;
 }

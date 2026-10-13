@@ -1,6 +1,7 @@
-/** Deliberate UI-only commands. No tool, file deletion or model API invocation. */
+/** Explicit scene intentions; geometry synthesis is data-only, never OS tools. */
 export type SceneIntent =
- | {kind:'create';model:'engine'|'arm'|'reactor'|'cube'|'sphere'}
+ | {kind:'design';description:string}
+ | {kind:'create';model:'engine'|'arm'|'reactor'|'cube'|'sphere'|'circle'|'square'|'triangle'|'cylinder'|'cone'|'torus'}
  | {kind:'move'|'rotate';axis:'x'|'y'|'z';amount:number;target:string}
  | {kind:'scale';factor:number;target:string}
  | {kind:'remove'|'select';target:string}
@@ -11,9 +12,15 @@ export function sceneIntent(raw:string,active=false):SceneIntent|null {
  let t=normalize(raw).replace(/[.!?]+$/,'').replace(/^ultron[, ]+/,'').replace(/^lutfen /,'').replace(/ lutfen$/,'');
  t=t.replace(/([0-9]+(?:[.,][0-9]+)?) derece (saga|sola)/,'$2 $1 derece').replace(/([xyz] ekseninde) ([0-9]+(?:[.,][0-9]+)?) derece/,'$2 derece $1');
  if(!t||t.length>240||/["“”]/.test(t)||/\b(?:nasil|neden|hakkinda|demek|yapma|silme|tasima|dondurme|gosterme|istemiyorum)\b/.test(t))return null;
+ if(/\b(?:bul getir|ara getir)$/.test(t)||(/\b(?:internetten|webden)\b/.test(t)&&/\b(?:bul|getir|indir)$/.test(t)))return {kind:'clarify',reply:'İnternetten hazır model arayıp indirme bağlantısı henüz yok. Nesneyi tarif ederek kavramsal model oluşturmamı isteyebilir veya bir GLB yükleyebilirsin.'};
+ const shape=t.match(/^(?:bir )?(daire|cember|kare|ucgen|silindir|koni|halka)(?:yi|yu|i|u)?(?: (?:3d |3b )?(?:modelini |seklini )?(?:yap|ciz|olustur|goster|ekle|getir))?$/);
+ if(shape)return {kind:'create',model:({daire:'circle',cember:'torus',kare:'square',ucgen:'triangle',silindir:'cylinder',koni:'cone',halka:'torus'} as const)[shape[1] as 'daire']};
  const create=t.match(/^(?:bana )?(?:bir )?(motor(?:un|u)?|robot kol(?:u|unun|unu)?|enerji cekirdeg(?:i|inin|ini)|kup(?:un|u)?|kure(?:nin|yi)?)\s*(?:(?:3d|3b|uc boyutlu)\s*)?(?:model(?:i|ini|ni)\s*)?(?:goster|olustur|ac|getir|ekle)$/);
  if(create){const m=create[1];return {kind:'create',model:m.startsWith('motor')?'engine':m.startsWith('robot')?'arm':m.startsWith('enerji')?'reactor':m.startsWith('kup')?'cube':'sphere'};}
- if(/(?:3d|3b|uc boyutlu) model(?:i|ini|ni)? (?:goster|olustur|ekle)$/.test(t))return {kind:'clarify',reply:'Bu model hazır kütüphanede yok. Bir GLB dosyası yükleyebilir veya motor, robot kolu, küp ya da küre isteyebilirsin.'};
+ const design=t.match(/^(?:bana )?(?:bir )?(.{2,160}?) (?:3d |3b |uc boyutlu )?model(?:i|ini|ni)? (?:yap|ciz|goster|olustur|ekle|bul getir)$/);
+ if(design)return /^(?:onu|bunu|sunu)$/.test(design[1])?{kind:'clarify',reply:'Hangi nesneyi oluşturmamı istiyorsun?'}:{kind:'design',description:design[1]};
+ if(active){const free=t.match(/^(?:bana )?(?:bir )?(.{2,160}?) (?:modelini yap|olustur|ciz|yap|bul getir)$/);if(free&&!/\b(?:dosya|uygulama|kod|sifre|hesap)\b/.test(free[1]))return {kind:'design',description:free[1]};}
+
  if(!active)return null;
  t=t.replace(/^(?:(onu|bunu|sunu) )?(?:kaldir|tasi) (sag |sol )?kenara$/,(_m,object,side)=>`${object?object+' ':''}${side||''}kenara al`);
  if(/^(?:bir |3d |3b )?(?:model|glb)(?:i)? (?:yukle|ice aktar)$/.test(t))return {kind:'upload'};

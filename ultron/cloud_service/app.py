@@ -1321,6 +1321,21 @@ async def listening_analysis_api(request: web.Request) -> web.Response:
     return web.json_response({"stage": stage, "analysis": answer, "saved": False})
 
 
+async def scene_design(request: web.Request) -> web.Response:
+    from scene_design import description, validate, SYSTEM
+    try:
+        text = description(await request.json())
+    except (ValueError, TypeError):
+        return web.json_response({"error":"invalid_description"}, status=400)
+    try:
+        reply = await asyncio.to_thread(_gemini_reply, text, SYSTEM, [])
+        design = validate(reply)
+    except Exception:
+        # No raw provider output or owner description in errors/logs.
+        return web.json_response({"error":"scene_design_unavailable"}, status=502)
+    return web.json_response({"design":design})
+
+
 async def chat(request: web.Request) -> web.Response:
     body = await request.json()
     text = str(body.get("message", "")).strip()
@@ -2349,6 +2364,10 @@ def build_app() -> web.Application:
     app.router.add_get("/api/messages", list_messages)
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat", chat)
+    app.router.add_post("/api/scene-design", scene_design)
+    from scene_queue import post_scene, get_scene
+    app.router.add_post("/api/local-scene-design", post_scene)
+    app.router.add_get("/api/local-scene-design/{id}", get_scene)
     app.router.add_post("/api/listening-analysis", listening_analysis_api)
     app.router.add_post("/api/vision", vision)
     app.router.add_post("/api/document", document)

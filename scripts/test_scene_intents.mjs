@@ -10,6 +10,13 @@ assert.deepEqual(parse('onu yukarı 2 birim taşı',true),{kind:'move',axis:'y',
 assert.deepEqual(parse('onu sola 90 derece döndür',true),{kind:'rotate',axis:'y',amount:-90,target:'onu'});
 for(const text of ['sahneyi sıfırla','motor nasıl çalışır','motorun modelini gösterme','dosyayı sil','onu sağa taşı','onu yok et'])assert.equal(parse(text),null,text);
 for(const text of ['motor nasıl çalışır','motorun modelini gösterme','dosyayı sil','telefonu sağa taşı','“onu yok et” ne demek','onu silme','sahneyi sıfırlama','dosyayı sıfırla','sahneyi nasıl sıfırlarım'])assert.equal(parse(text,true),null,text);
-assert.equal(parse('ejderhanın 3d modelini göster')?.kind,'clarify');
+assert.equal(parse('ejderhanın 3d modelini göster')?.kind,'design');
 assert.equal(parse('onu sağa 999 birim taşı',true)?.kind,'clarify');
 console.log('Scene intent contracts passed');
+
+for(const text of ['daire','kare','daire çiz','kare yap','üçgen oluştur'])assert.equal(parse(text)?.kind,'create',text);
+assert.equal(parse('bir masa modeli oluştur')?.kind,'design');
+assert.equal(parse('masa oluştur',true)?.kind,'design');
+assert.equal(parse('masa oluştur'),null);
+
+assert.equal(parse('internetten sandalye modeli bul getir',true)?.kind,'clarify');

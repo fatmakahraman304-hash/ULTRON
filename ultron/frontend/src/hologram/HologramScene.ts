@@ -1,3 +1,4 @@
+import {validateDesign,type Design} from '../spatial/design';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -61,7 +62,9 @@ export class HologramScene {
   }
   private disposeObject(obj:THREE.Object3D){obj.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();if(m.material){for(const mat of Array.isArray(m.material)?m.material:[m.material]){for(const value of Object.values(mat))if(value instanceof THREE.Texture)value.dispose();mat.dispose();}}});}
   private clear(){this.stopGesture();this.resources.forEach(o=>this.disposeObject(o));this.resources=[];this.disposeObject(this.group);this.group.clear();this.parts=[];this.past=[];this.future=[];this.lastEdit="";this.cut=null;this.renderer.clippingPlanes=[];this.wire=false;this.selected=-1;this.explosion=0;this.isolated=false;this.onSelect(null);this.onExplosion(0);}
-  demo(kind:'reactor'|'arm'|'engine'|'cube'|'sphere'){
+  demo(kind:'reactor'|'arm'|'engine'|'cube'|'sphere'|'circle'|'square'|'triangle'|'cylinder'|'cone'|'torus'){
+    const primitives={circle:'circle',square:'plane',triangle:'triangle',cylinder:'cylinder',cone:'cone',torus:'torus'} as const;
+    if(kind in primitives){const shape=primitives[kind as keyof typeof primitives];this.design({name:kind,parts:[{name:({circle:'Daire',square:'Kare',triangle:'Üçgen',cylinder:'Silindir',cone:'Koni',torus:'Halka'})[kind as keyof typeof primitives],shape,size:[2,2,2],position:[0,0,0],rotation:[0,0,0]}]});return this.list();}
     this.clear();
     if(kind==='engine'){
       const note='Kavramsal dört silindirli motor geometrisi; ölçülü bir üretici CAD modeli değildir.';
@@ -107,7 +110,28 @@ export class HologramScene {
     for(const mesh of meshes){const geometry=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);geometry.translate(-center.x,-center.y,-center.z);geometry.scale(scale,scale,scale);geometry.computeBoundingBox();const local=geometry.boundingBox!.getCenter(new THREE.Vector3());geometry.translate(-local.x,-local.y,-local.z);this.add(mesh.name||`Parça ${this.parts.length+1}`,'İçe aktarılan model geometrisi. İşlev ve malzeme bilgisi dosyadan doğrulanmadı.',geometry,local);}
     this.disposeObject(gltf.scene);this.home();this.notify();return this.list();
   }
+  design(raw:unknown){
+    const d:Design=validateDesign(raw);
+    // Validate the entire description before replacing the existing scene.
+    const prepared=d.parts.map(p=>{
+      let g:THREE.BufferGeometry;
+      switch(p.shape){
+        case 'box':g=new THREE.BoxGeometry(1,1,1);break;
+        case 'sphere':g=new THREE.SphereGeometry(.5,24,16);break;
+        case 'cylinder':g=new THREE.CylinderGeometry(.5,.5,1,24);break;
+        case 'cone':g=new THREE.ConeGeometry(.5,1,24);break;
+        case 'torus':g=new THREE.TorusGeometry(.38,.12,12,40);break;
+        case 'circle':g=new THREE.CircleGeometry(.5,48);break;
+        case 'plane':g=new THREE.PlaneGeometry(1,1);break;
+        case 'triangle':g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute([-.5,-.5,0,.5,-.5,0,0,.5,0],3));g.computeVertexNormals();break;
+      }
+      g.scale(...p.size);return {p,g};
+    });
+    this.clear();for(const {p,g} of prepared)this.add(p.name,'Tariften oluşturulan kavramsal geometri; üretici CAD modeli değildir.',g,new THREE.Vector3(...p.position),new THREE.Euler(...p.rotation));
+    this.home();this.notify();return d.name;
+  }
   command(intent:SceneIntent):string {
+    if(intent.kind==='design')return 'Model taslağı hazırlanmalı.';
     if(intent.kind==='clarify')return intent.reply;
     if(intent.kind==='create'){this.demo(intent.model);return intent.model==='engine'?'Kavramsal motor modelini sahnede oluşturdum.':'3D modeli sahnede oluşturdum.';}
     if(intent.kind==='undo'){if(!this.past.length)return 'Geri alınacak sahne değişikliği yok.';this.undo();return 'Son sahne değişikliği geri alındı.';}

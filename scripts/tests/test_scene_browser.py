@@ -81,6 +81,67 @@ class SceneBrowserTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.errors,[])
         await self.page.screenshot(path='/tmp/ultron-scene-mobile.png')
 
+    async def test_shapes_and_freeform_design_preserve_scene_on_bad_output(self):
+        await self.engine()
+        for text,name in [('daire','Daire'),('kare çiz','Kare'),('üçgen oluştur','Üçgen')]:
+            await self.command(text)
+            self.assertEqual((await self.state())['parts'][0]['name'],name)
+            self.assertEqual(len((await self.state())['parts']),1)
+        design={'name':'Masa','parts':[
+            {'name':'Tabla','shape':'box','size':[3,.2,2],'position':[0,1,0],'rotation':[0,0,0]},
+            {'name':'Ayak','shape':'cylinder','size':[.3,2,.3],'position':[0,0,0],'rotation':[0,0,0]}]}
+        async def good(route):
+            self.assertIn('masa',route.request.post_data_json['description'])
+            await route.fulfill(json={'design':design})
+        await self.page.route('**/api/scene-design',good)
+        await self.command('bir masa modeli oluştur')
+        state=await self.state();self.assertEqual(len(state['parts']),2)
+        self.assertEqual(state['parts'][0]['name'],'Tabla')
+        self.assertIn('kavramsal',await self.page.locator('#sceneNotice').inner_text())
+        await self.command('onu sağa taşı')
+        state=await self.state()
+        await self.page.unroute('**/api/scene-design')
+        await self.page.route('**/api/scene-design',lambda route:route.fulfill(json={'design':{'code':'alert(1)'}}))
+        await self.command('bir ejderha modeli oluştur')
+        self.assertEqual(await self.state(),state)
+        self.assertIn('üretilemedi',await self.page.locator('#sceneNotice').inner_text())
+        self.assertEqual(self.errors,[])
+
+    async def test_mobile_design_uses_local_queue_without_chat_history(self):
+        await self.engine()
+        await self.page.evaluate("refreshAutoBrain=async()=> 'local'")
+        requests=[]
+        design={'name':'Sandalye','parts':[{'name':'Oturak','shape':'box','size':[2,.2,2],'position':[0,0,0],'rotation':[0,0,0]}]}
+        async def local(route):
+            requests.append(route.request)
+            if route.request.method=='POST':await route.fulfill(json={'command_id':91},status=202)
+            else:await route.fulfill(json={'status':'completed','reply':json.dumps(design)})
+        await self.page.route('**/api/local-scene-design**',local)
+        previous=await self.page.evaluate('conversationId')
+        await self.command('sandalye modeli oluştur')
+        self.assertEqual((await self.state())['parts'][0]['name'],'Oturak')
+        self.assertEqual(await self.page.evaluate('conversationId'),previous)
+        self.assertEqual(requests[0].post_data_json['description'],'sandalye')
+        self.assertNotIn('message',requests[0].post_data_json)
+        self.assertFalse(any('/api/scene-design' in u or u.endswith('/api/local-chat') for u in self.calls))
+        self.assertEqual(self.errors,[])
+
+    async def test_generated_design_does_not_replace_closed_scene(self):
+        await self.engine();initial=await self.state()
+        entered=asyncio.Event();release=asyncio.Event()
+        async def delay(route):
+            entered.set();await release.wait()
+            await route.fulfill(json={'design':{'name':'Test','parts':[{'name':'Test','shape':'box','size':[1,1,1],'position':[0,0,0],'rotation':[0,0,0]}]}})
+        await self.page.route('**/api/scene-design',delay)
+        await self.page.locator('#sceneCommand').fill('bir masa modeli oluştur')
+        await self.page.locator('#sceneForm button[type=submit]').click()
+        await asyncio.wait_for(entered.wait(),5)
+        await self.page.locator('#closeMobileHologram').click();release.set()
+        await self.page.wait_for_function('!sceneCommandBusy')
+        self.assertEqual(await self.state(),initial)
+        self.assertEqual(await self.page.evaluate('currentView'),'chat')
+        self.assertEqual(self.errors,[])
+
     async def test_closing_workspace_during_lazy_load_does_not_reopen_it(self):
         entered=asyncio.Event();release=asyncio.Event()
         async def delay(route):

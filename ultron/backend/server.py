@@ -3930,6 +3930,9 @@ def main() -> None:
     app.router.add_get("/api/notifications", api_notifications)
     app.router.add_get("/api/config", api_config)
     app.router.add_get("/api/agent", api_agent_state)
+    from scene_design_api import design_request, cleanup as scene_cleanup
+    app.router.add_post("/api/scene-design", design_request)
+    app.on_cleanup.append(scene_cleanup)
     app.router.add_post("/api/agent/command", api_command)
     app.router.add_post("/api/tools/voice", api_voice_report)
     app.router.add_post("/api/actions/screenshot", api_action_screenshot)
