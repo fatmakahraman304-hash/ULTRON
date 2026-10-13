@@ -1,3 +1,10 @@
+## 2026-10-13 — Frozen bilingual scenario validation
+
+- Test-first regression changed one English case label to `fr`; the previous validator incorrectly accepted the dataset. The validator now rejects languages outside `tr`/`en` and requires five Turkish and five English cases in each of ten categories.
+- `python -m unittest ultron.cloud_service.test_conversation_eval -v`: **11/11 passed**. `python evals/conversation/run.py --validate`: **100 scenarios, 10 categories, 50 TR + 50 EN; model quality NOT evaluated**. Full Cloud Python discovery: **320 passed, 60 skipped** for environment-dependent prerequisites. Changed Python files compile; `git diff --check` passed.
+- Exact SHA `5677dca638909d23d96aab2dedab2597dbd196c1`: Cloud Queue/PostgreSQL [#38456643001](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38456643001) and Scene Build [#38456642956](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38456642956) both **SUCCESS**. Render deploy `dep-db78i45bedkc7389oi50` is **LIVE** at this SHA; public `/health` returned HTTP 200 with the exact commit.
+- The suite's language distribution is now actually enforced. Real Gemini/Qwen transcripts and independent reviews were not run, so no conversational quality score is claimed.
+
 ## 2026-10-13 — Typed Live turns enter consent and history
 
 - Test-first integration regression initially reproduced the defect: typed websocket text reached Gemini but did not enter `in_parts`, so explicit `save_memory` consent was invisible and the turn was absent from saved history. The fix adds bounded text to the current turn before provider dispatch; inputs over 16,000 characters return `text_too_long` without being forwarded. The test invokes the real nested browser-to-Gemini, tool guard, and Gemini-to-browser handlers with fake socket/provider/database boundaries.

@@ -1,3 +1,7 @@
+## 2026-10-13 — Bilingual evaluation checks now match the stated 100-case split
+
+Fixed a frozen-suite validation gap: non-English labels and missing English cases were not rejected. The validator now requires exactly `tr` and `en`, with five of each in every one of ten categories. A regression first failed against the old validator and passes after the fix. Evaluation tests pass 11/11; Cloud Python passes 320 with 60 environment-dependent skips; the dataset command confirms 100 cases / 50 per language. Commit `5677dca638909d23d96aab2dedab2597dbd196c1` passed Cloud/PostgreSQL #38456643001 and Scene #38456642956. Render `dep-db78i45bedkc7389oi50` is LIVE, and `/health` reports the exact SHA. No real Gemini/Qwen score was produced.
+
 ## 2026-10-13 — Typed Live turns share consent and history handling
 
 Closed a gap in the websocket's typed-message branch: text sent to Gemini now also enters that turn's consent evidence and persisted user history. Oversize typed input is rejected at 16,000 characters. The actual nested websocket/tool/history functions are exercised by a test-first integration regression; focused live-voice tests pass 8/8. Full local Cloud Python tests: 319 passed, 60 skipped; browser tests: 153/153. Commit `f932b184eda215585a01d8d5d933b9f682611de1` passed GitHub Cloud/PostgreSQL #38455888395, Scene #38455888286 and WORLD smoke #38455888333. Render deploy `dep-db78feajnfac73d01fo0` is LIVE, with public `/health` returning 200 and the exact SHA. Real Gemini Live and phone use remain unverified.

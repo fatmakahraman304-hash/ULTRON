@@ -1,3 +1,7 @@
+## Completed checkpoint — frozen bilingual evaluation integrity
+
+Commit `5677dca638909d23d96aab2dedab2597dbd196c1` closes a dataset-validator gap: only `tr` and `en` are accepted, and every category must contain five of each. Evaluation tests: 11/11; full Cloud Python: 320 passed, 60 skipped. Cloud/PostgreSQL #38456643001 and Scene #38456642956 succeeded. Render deploy `dep-db78i45bedkc7389oi50` is LIVE at the same SHA; `/health` returned HTTP 200 with the exact commit. This is dataset validation, not answer-quality scoring.
+
 ## Completed checkpoint — typed live turns preserve consent and history
 
 Commit `f932b184eda215585a01d8d5d933b9f682611de1` ensures typed `/api/live` turns reach the current-turn memory consent guard and conversation history, with a 16,000-character input cap. Cloud Python: 319 passed, 60 skipped; browser tests: 153/153. Scene #38455888286, Cloud/PostgreSQL #38455888395 and WORLD smoke #38455888333 passed. Render deploy `dep-db78feajnfac73d01fo0` is LIVE at the same SHA; `/health` returned HTTP 200 and the exact commit.
