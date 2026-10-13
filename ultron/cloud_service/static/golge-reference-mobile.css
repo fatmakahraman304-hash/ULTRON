@@ -23,7 +23,7 @@ body:before,body:after{content:none!important;background:none!important}
 #panelMenuToggle{background:#101d27!important;border-radius:13px!important}
 #app:not(.hidden):has(#chatView.active){flex:1;min-height:0;display:flex;flex-direction:column}
 #chatView.active{display:flex;flex-direction:column;min-height:0;flex:1;
- padding:0 0 calc(92px + env(safe-area-inset-bottom));overflow:hidden}
+ padding:0 0 calc(110px + env(safe-area-inset-bottom));overflow:hidden}
 #chatView .golge-welcome{flex:0 0 clamp(225px,39dvh,330px);min-height:0!important;padding:4px 4px 8px!important;
  display:flex!important;align-items:center;justify-content:center;gap:6px!important;
  background:radial-gradient(ellipse at 50% 52%,rgba(38,155,174,.11),transparent 49%)}
