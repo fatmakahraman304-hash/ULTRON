@@ -181,7 +181,6 @@ jobs:
           node scripts/test_scene_intents.mjs
           node scripts/test_scene_design.mjs
           PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_design.py -v
-          PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_assets.py -v
           node scripts/test_hologram_project.mjs
           node scripts/build_scene_browser.mjs
           git diff --exit-code -- ultron/cloud_service/static/scene-control.js ultron/cloud_service/static/scene-intents.js
@@ -191,6 +190,7 @@ jobs:
           python -m playwright install --with-deps chromium
       - name: Mobile and desktop actual 3D scene interactions
         run: |
+          PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_assets.py -v
           PYTHONPATH=. python scripts/tests/test_scene_desktop_api.py
           python scripts/tests/test_scene_browser.py
       - name: Mobile listening consent and full-summary browser interaction
