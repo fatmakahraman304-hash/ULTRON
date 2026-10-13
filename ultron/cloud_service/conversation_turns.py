@@ -247,6 +247,99 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
 
 
 
+
+# A long-running project often contains dozens of short "devam et" turns.
+# The original concrete request must not disappear merely because the latest
+# 12-16 turns are all status updates. Never make an invented task anchor.
+_BARE_CONTINUATION = re.compile(
+    r"^(?:(?:gölge|golge|ultron)[,!: ]+)?"
+    r"(?:devam(?: et)?|aynen devam et|devam o zaman|"
+    r"kaldığın yerden devam(?: et)?|kaldig(in)? yerden devam(?: et)?|"
+    r"devam et büyük aşamaya|büyük aşamaya devam et|"
+    r"continue|go on|keep going|carry on)"
+    r"[.! ]*$", re.I,
+)
+
+
+def is_bare_continuation_request(question: str) -> bool:
+    """A short go-ahead, not an explicit named new task or reminder."""
+    return isinstance(question, str) and len(question) <= 140 and bool(
+        _BARE_CONTINUATION.fullmatch(" ".join(question.strip().split()))
+    )
+
+
+def select_continuation_turns(rows, *, max_chars: int = 3200,
+                              max_turns: int = 14) -> list[dict[str, str]]:
+    """Carry the last explicit *owner* goal through a sea of 'continue' turns.
+
+    Return only original user/assistant roles, never instructions synthesized
+    from model outputs. A topic switch or a substantive recent owner request
+    prevents an older project from being revived. Read-only, bounded, no extra
+    model request or memory writes.
+    """
+    cap = max(0, min(int(max_chars), 7200))
+    count = max(0, min(int(max_turns), 20))
+    if cap == 0 or count == 0:
+        return []
+    clean = [
+        {"role": row.get("role"), "content": row.get("content").strip()}
+        for row in rows
+        if hasattr(row, "get") and row.get("role") in ("user", "assistant")
+        and isinstance(row.get("content"), str) and row.get("content").strip()
+    ]
+    if len(clean) <= count or count < 4:
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    recent_count = count - 2
+    recent = clean[-recent_count:]
+    # Recent concrete requests or explicit switches supersede any old goal.
+    if any(row["role"] == "user" and
+           (is_topic_switch_request(row["content"]) or
+            not is_bare_continuation_request(row["content"]))
+           for row in recent):
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    earlier = clean[:-recent_count]
+    # Do not recover a task from before the most recent topic switch.
+    switch_index = max(
+        (i for i, row in enumerate(earlier)
+         if row["role"] == "user" and is_topic_switch_request(row["content"])),
+        default=-1,
+    )
+    task = None
+    correction = None
+    for row in reversed(earlier[switch_index + 1:]):
+        if row["role"] != "user" or is_bare_continuation_request(row["content"]):
+            continue
+        if is_explicit_turn_correction(row["content"]):
+            if correction is None:
+                correction = row
+            continue
+        task = row
+        break
+    if task is None:
+        # A correction alone ("Hayır, onu değil") must not conjure an older task.
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    # Prioritize the actual owner's goal and their latest correction. Both
+    # remain ordinary user turns and keep original chronology.
+    anchors = [task]
+    if correction is not None:
+        anchors.append(correction)
+    allowance = max(64, cap // 3)
+    share = max(24, allowance // len(anchors))
+    originals = [
+        {"role": "user", "content": _bounded_excerpt(item["content"], share)}
+        for item in anchors
+    ]
+    anchors_ready = prepare_turns(originals, max_chars=allowance,
+                                  max_turns=len(originals))
+    remaining = cap - sum(len(x["content"]) for x in anchors_ready)
+    tail = prepare_turns(recent, max_chars=remaining,
+                         max_turns=count - len(anchors_ready))
+    return anchors_ready + tail
+
+
 # An explicit on-demand recap spans the beginning, middle and end of only the
 # currently selected conversation. Normal follow-ups keep recency priority.
 _RECAP_PATTERNS = (
@@ -387,6 +480,22 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
         return await load_thread_turns(
             pool, user_id, conversation_id, before_id=before_id,
             max_chars=max_chars, limit=n,
+        )
+    if is_bare_continuation_request(question):
+        # The last explicit owner goal may be older than the latest small
+        # Qwen/Gemini window after repeated short continuations. Fetch a
+        # bounded single-thread slice and reserve two turns for owner intent.
+        window = max(n, min(int(lookback), 80))
+        rows = await pool.fetch(
+            "SELECT id,role,content FROM messages "
+            "WHERE user_id=$1 AND conversation_id=$2 "
+            "AND ($3::bigint IS NULL OR id < $3) "
+            "AND role IN ('user','assistant') "
+            "ORDER BY id DESC LIMIT $4",
+            user_id, conversation_id, before_id, window,
+        )
+        return select_continuation_turns(
+            list(reversed(rows)), max_chars=max_chars, max_turns=n
         )
     if is_first_topic_return(question):
         # Explicit first-topic requests need the true start, even beyond 80 rows.
