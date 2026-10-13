@@ -16,6 +16,7 @@ on:
       - feat/ultron-cloud-shared-memory
       - feat/ultron-listen-prod-compat-20261012
       - feat/ultron-qwen-probe-latest-live-20261013
+      - feat/golge-long-chat-goal-continuity-20261013
       - feat/golge-identity-rebrand-20261013
     paths:
       - "ultron/backend/**"
@@ -114,6 +115,14 @@ jobs:
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_delivery_guard.py' -v
       - name: Durable desktop Cloud dispatch regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_dispatch_journal.py' -v
+      - name: Natural GÖLGE conversation and 60-turn goal continuity
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m unittest -q \
+            ultron.cloud_service.test_golge_long_context \
+            ultron.cloud_service.test_conversation_persona \
+            ultron.cloud_service.test_conversation_turns
       - name: Self-development release proof guard regressions
         run: python -m unittest discover -s ultron/cloud_service -p 'test_development_updates.py' -v
       - name: Development GitHub CI Render and desktop proof state-machine tests
