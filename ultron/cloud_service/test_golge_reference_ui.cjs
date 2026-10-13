@@ -32,7 +32,7 @@ test('mobile layout separates scrollable messages and fixed composer without hid
   '#chatView .composer',
   '#chatView.active{justify-content:flex-start}',
   ':has(#message:placeholder-shown)',
-  'prefers-reduced-motion:reduce'
+  '#chatView .composer .row'
  ]) assert.ok(css.includes(expected),'missing layout: '+expected);
  assert.ok(!css.includes('.shell{max-width:760px;height:100dvh'),'must not lock remote panels');
  assert.doesNotMatch(css,/\.golge-welcome-orb|\.golge-orbit|\.golge-welcome\{/);
