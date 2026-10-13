@@ -1,4 +1,4 @@
-/* Lightweight output playback accounting for ULTRON phone Gemini Live.
+/* Lightweight output playback accounting for GÖLGE phone Gemini Live.
  * A server turn_complete finalizes transcripts, but any WebAudio buffer
  * already queued is still audible. Only real interrupt/stop must cancel it.
  */
