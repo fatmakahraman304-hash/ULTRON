@@ -219,7 +219,7 @@ class NativeBridge(QObject):
                     base+'/api/messages?limit=200',
                     headers={
                         'Authorization':f'Bearer {token}',
-                        'X-GÖLGE-DEVICE':'desktop-ultron-ui',
+                        'X-ULTRON-DEVICE':'desktop-ultron-ui',
                         'Accept':'application/json',
                     },
                     method='GET',
@@ -248,7 +248,7 @@ class NativeBridge(QObject):
             data=data,
             headers={
                 'Authorization':f'Bearer {token}',
-                'X-GÖLGE-DEVICE':'desktop-ultron-control',
+                'X-ULTRON-DEVICE':'desktop-ultron-control',
                 'Accept':'application/json',
                 'Content-Type':'application/json; charset=utf-8',
             },
@@ -287,7 +287,7 @@ class NativeBridge(QObject):
                     base+'/api/device-presence',
                     headers={
                         'Authorization':f'Bearer {token}',
-                        'X-GÖLGE-DEVICE':'desktop-ultron-control',
+                        'X-ULTRON-DEVICE':'desktop-ultron-control',
                         'Accept':'application/json',
                     },
                     method='GET',
@@ -333,7 +333,7 @@ class NativeBridge(QObject):
                     data=body,
                     headers={
                         'Authorization':f'Bearer {token}',
-                        'X-GÖLGE-DEVICE':'desktop-ultron-control',
+                        'X-ULTRON-DEVICE':'desktop-ultron-control',
                         'Accept':'application/json',
                         'Content-Type':'application/json; charset=utf-8',
                     },
@@ -457,7 +457,7 @@ class NativeBridge(QObject):
                     data=body,
                     headers={
                         'Authorization':f'Bearer {token}',
-                        'X-GÖLGE-DEVICE':'desktop-ultron-control',
+                        'X-ULTRON-DEVICE':'desktop-ultron-control',
                         'Accept':'application/json',
                         'Content-Type':'application/json; charset=utf-8',
                     },
