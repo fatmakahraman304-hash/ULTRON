@@ -11,7 +11,8 @@ test('mobile uses screenshot cyan orb and always-available chat composer',()=>{
  assert.ok(minimal>0 && newSkin>minimal);
  assert.match(html,/class="golge-welcome-orb"/);
  assert.match(html,/class="golge-orbit second"/);
- assert.match(html,/Sadece söyle\.<br>GÖLGE seni dinliyor/);
+ assert.match(html,/Sadece söyle\.<br><span id="golgeHeroStatus">GÖLGE hazır\.<\/span>/);
+ assert.match(html,/hero\.textContent=voiceListening\?'GÖLGE seni dinliyor\.'\:'GÖLGE hazır\.'/);
  for(const id of ['voiceBtn','plusBtn','message','sendBtn','panelMenuToggle','longListenPanel','attachMenu','cameraPanel']){
   assert.ok(html.includes('id="'+id+'"'), 'missing working control: '+id);
  }
