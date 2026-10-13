@@ -83,7 +83,8 @@ class GolgeQwenLongGoalRouting(unittest.TestCase):
         self.assertEqual(out["model"], "qwen2.5-coder:7b")
         wire = seen[0][1]
         self.assertNotIn("tools", wire)
-        self.assertEqual(wire["think"], False)
+        # The existing coding policy omits the think key rather than claiming a live thinking flag.
+        self.assertNotIn("think", wire)
         self.assertGreaterEqual(wire["options"]["num_predict"], 360)
         self.assertIn("CONTINUATION REPLY LENGTH", wire["messages"][0]["content"])
         self.assertTrue(any("Python kodu yaz" in t["content"]
