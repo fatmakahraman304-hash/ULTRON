@@ -1,3 +1,7 @@
+## 2026-10-13 — Qwen readiness probe recovery
+
+Fixed the typed-chat path where a failing `/api/device-presence` probe threw after the composer cleared the text and before either provider received it. Unknown readiness now resolves to Gemini; a confirmed fresh `local_chat_ready` response continues to prefer laptop Qwen. Added a mobile routing regression for a network-failed presence probe. No device task or duplicate local submission is created by that fallback.
+
 ## 2026-10-13 — GitHub PR path for GÖLGE code changes
 
 Added local intent routing to the approval-gated CodeGen proposal flow, strict vague-request clarification, clean/current checkout and repository verification, GitHub CLI login check, path-limited staging, separate draft branch/PR, and no auto-merge. Expanded approved CodeGen verification to include backend tests and the production frontend build. Phone transcript interception now lets the conversation tool queue work to the paired laptop. Added [GOLGE_KENDI_KODUNU_GELISTIRME.md](GOLGE_KENDI_KODUNU_GELISTIRME.md) with the Windows-side prerequisites; no Windows installation or user token entry was performed.

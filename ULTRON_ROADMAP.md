@@ -1,3 +1,7 @@
+## 2026-10-13 — Local-first routing survives presence-probe failure
+
+When the phone cannot read desktop readiness, the current chat turn now chooses the normal Gemini route. The readiness check happens before any local task is submitted, so an unavailable presence endpoint cannot strand a typed message by aborting local-first routing. Positive, fresh desktop readiness still selects Qwen; only confirmed `desktop_offline` after the local preflight may fall back after a local submission attempt. No model selector or UI surface was added.
+
 ## 2026-10-13 — GÖLGE self-development through reviewed GitHub PRs
 
 Self-development requests from phone text/voice now route to the paired laptop instead of stopping at a ChatGPT handoff. On the laptop, Qwen prepares a bounded CodeGen patch and the existing approval gate must be accepted. The approved patch runs TypeScript, production build, all backend tests, syntax checks and current service checks. With a clean, current trusted checkout and an existing authenticated GitHub CLI session, GÖLGE creates an isolated `golge/dev/<id>` branch, commits only proposal files and opens a draft PR. It never pushes to the Render-tracked branch, merges a PR or deploys from the PR. Render remains connected to the base branch and deploys after an owner merges.

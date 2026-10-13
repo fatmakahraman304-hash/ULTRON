@@ -2005,7 +2005,12 @@ async function refreshAutoBrain(force=false){
    try{
      const response=await api('/api/device-presence',{timeoutMs:6000});
      brainMode=window.ULTRONAutoBrain.select(response.devices);
-   }catch(e){if(force)throw e}
+   }catch(e){
+     // A failed readiness probe is not proof that the desktop is reachable.
+     // This turn has not been submitted to local Qwen, so use the normal
+     // Gemini route instead of dropping the owner's already-cleared message.
+     brainMode=window.ULTRONAutoBrain.select([]);
+   }
    finally{brainLastCheck=Date.now();brainChecking=null;updateBrainModeUi()}
    return brainMode;
  })();

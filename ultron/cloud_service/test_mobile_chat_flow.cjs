@@ -46,6 +46,15 @@ test('forced routing waits for a background poll then makes its own fresh check'
  assert.equal(await ctx.refreshAutoBrain(true),'local');assert.equal(calls,1);
 });
 
+test('unavailable readiness probe selects Gemini before any local task is submitted',async()=>{
+ const ctx={liveDesired:false,voiceListening:false,localVoiceController:null,brainMode:'local',brainLastCheck:0,brainChecking:null,Date,
+  updateBrainModeUi(){},api:async()=>{throw Object.assign(new Error('presence unavailable'),{network:true})},
+  window:{ULTRONAutoBrain:require('./static/auto-brain.js')}};
+ vm.createContext(ctx);vm.runInContext(functionSource('refreshAutoBrain'),ctx);
+ assert.equal(await ctx.refreshAutoBrain(true),'gemini');
+ assert.equal(ctx.brainMode,'gemini');
+});
+
 test('pending typed message remains deduplicable beyond the old 45-second voice window',()=>{
  let clock=0;const ctx={pendingVoiceMessages:[],Date:{now:()=>clock},cleanChatText:s=>s.trim()};
  vm.createContext(ctx);

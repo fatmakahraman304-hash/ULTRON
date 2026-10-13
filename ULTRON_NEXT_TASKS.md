@@ -1,3 +1,10 @@
+## Next tasks — verify latest Qwen routing recovery
+
+1. Push this patch and inspect exact-SHA Scene/Cloud GitHub Actions; verify Render health/deployed SHA if workspace access is available.
+2. On the phone, test with laptop/Qwen available, unavailable, and with the presence endpoint temporarily unavailable; verify fallback reply provenance on the server without resending accepted local tasks.
+3. Run actual Gemini + reachable local Qwen 100-case TR/EN conversation evaluation with independent review. This workspace has no Gemini key or Ollama endpoint, so deterministic tests cannot substitute.
+4. Continue the context-budget audit for verbose recent replies and recalled old-topic evidence.
+
 ## Next tasks — activate GÖLGE self-development on the laptop
 
 1. Verify Cloud/Scene Actions and Render for the current self-development release.

@@ -1,3 +1,9 @@
+## 2026-10-13 — Qwen readiness probe recovery
+
+- Added a regression proving a failed readiness HTTP request selects Gemini before local queue submission. Existing local-first selection and strict `desktop_offline` fallback tests remain unchanged.
+- Cloud Python: 306 tests run, 58 skipped (environment-dependent PostgreSQL/integration prerequisites), no failures. Cloud Node: 153/153 pass. Focused mobile-routing, auto-brain and voice tests: 18/18 pass. Frontend `npm ci`, production build and Earth tests: build pass, Earth 6/6 pass. Vite reports the existing large-chunk advisory.
+- Gemini API key and local Ollama are unavailable in this workspace; real Gemini/Qwen conversation evaluation was not run. No model score or live phone-to-laptop success is claimed. Exact-SHA Actions and Render checks remain pending push.
+
 ## 2026-10-13 — Approval-gated self-development and draft PR
 
 Publisher, CodeGen and rollback targeted tests: 22 passed. Cloud development intent/release contracts: 6 passed. Mobile intent/router contracts: 8 passed; minimal UI and PWA cache contract passed with shell v69. Python compilation passed. Full backend suite: 1,012 passed, 3 skipped for unavailable deterministic parser, owner-provided Picovoice key and physical Windows/microphone/screen; six subtests passed. The frontend production build and Earth suite passed (6/6). GitHub CLI write access was not invoked in this workspace, and physical laptop PR creation has not yet been exercised; deployment/CI follows push.
