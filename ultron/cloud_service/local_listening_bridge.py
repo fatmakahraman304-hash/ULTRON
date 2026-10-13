@@ -47,6 +47,49 @@ def _validated_analysis(result, stage: str) -> tuple[str, str] | None:
     return answer, model
 
 
+
+async def scrub_orphaned_listening_jobs(pool) -> None:
+    """Proactively enforce transcript TTL even when every phone/laptop is offline.
+
+    Queued/delivered jobs older than 30m are expired before dispatch. Terminal
+    rows (including failed leases) are sanitized without deleting task status.
+    This housekeeping never touches other kinds of desktop jobs or memories.
+    """
+    await pool.execute(
+        """
+        UPDATE device_commands
+        SET payload=payload - 'text' - 'system',
+            status=CASE WHEN status IN ('queued','delivered') THEN 'expired'
+                        ELSE status END,
+            result=CASE WHEN status IN ('queued','delivered')
+                    THEN '{"message":"Yerel dinleme analizi zaman aşımına uğradı."}'::jsonb
+                    ELSE result END,
+            completed_at=CASE WHEN status IN ('queued','delivered')
+                         THEN NOW() ELSE completed_at END
+        WHERE target='desktop' AND command='agent_task'
+          AND payload->>'mode'='local_listening_analysis'
+          AND ((status IN ('queued','delivered')
+                AND created_at < NOW() - INTERVAL '30 minutes')
+               OR status IN ('completed','failed','expired','cancelled'))
+          AND (payload ? 'text' OR payload ? 'system')
+        """
+    )
+
+
+async def listening_cleanup_loop(pool, *, interval_seconds: float = 60) -> None:
+    """Run without a live browser; cancelled before database pool shutdown."""
+    import asyncio
+    while True:
+        try:
+            await scrub_orphaned_listening_jobs(pool)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            # No SQL text, transcript, or credentials in server diagnostics.
+            print("[ULTRON listening cleanup] temporary cleanup error: "
+                  +type(exc).__name__,flush=True)
+        await asyncio.sleep(interval_seconds)
+
 async def _scrub_expired(pool, user_id: str):
     # Scrub old microphone text *before* normal queue claim can dispatch it.
     await pool.execute(

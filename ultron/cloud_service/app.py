@@ -8,6 +8,7 @@ from conversation_notes import register_conversation_note_routes
 from auto_learning import register_routes as register_auto_learning_routes, learn_from_owner_message
 
 import asyncio
+import contextlib
 import base64
 import hashlib
 import hmac
@@ -23,7 +24,7 @@ import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
-from local_listening_bridge import register_local_listening_analysis_routes
+from local_listening_bridge import register_local_listening_analysis_routes, listening_cleanup_loop
 from conversation_persona import build_system_instruction
 from personal_context_focus import load_focused_owner_context
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
@@ -124,9 +125,19 @@ async def init_db(app: web.Application) -> None:
     schema = SCHEMA_FILE.read_text(encoding="utf-8")
     async with app["db"].acquire() as conn:
         await conn.execute(schema)
+    # Independent of user HTTP traffic: abandoned microphone-derived queue
+    # entries must expire even when both phone and laptop are switched off.
+    app["listening_cleanup_task"] = asyncio.create_task(
+        listening_cleanup_loop(app["db"])
+    )
 
 
 async def close_db(app: web.Application) -> None:
+    task = app.get("listening_cleanup_task")
+    if task is not None:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
     await app["db"].close()
 
 
@@ -385,6 +396,8 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 SET status='failed',
                     result='{"message":"Laptop görev lease''i 20 saniye boyunca yenilenmedi; kuyruk otomatik serbest bırakıldı."}'::jsonb,
                     completed_at=NOW(),
+                    payload=CASE WHEN payload->>'mode'='local_listening_analysis'
+                            THEN payload - 'text' - 'system' ELSE payload END,
                     progress = COALESCE(progress, '[]'::jsonb) ||
                       jsonb_build_array(jsonb_build_object(
                         'stage','failed',
@@ -510,7 +523,7 @@ async def complete_device_command(request: web.Request) -> web.Response:
             saved_payload = json.loads(saved_payload)
         if isinstance(saved_result, str):
             saved_result = json.loads(saved_result)
-        if (isinstance(saved_payload, dict) and saved_payload.get("mode") == "local_brain"
+        if (isinstance(saved_payload, dict) and saved_payload.get("mode") in ("local_brain","local_listening_analysis")
                 and current["command"] == "agent_task" and delivery_attempt > 0
                 and delivery_attempt == current["delivery_attempt"] and saved_result == result):
             return web.json_response({"ok":True,"replayed":True,
@@ -623,7 +636,9 @@ async def cancel_device_command(request: web.Request) -> web.Response:
         UPDATE device_commands
         SET status='cancelled',
             result='{"message":"Görev kullanıcı tarafından iptal edildi."}'::jsonb,
-            completed_at=NOW()
+            completed_at=NOW(),
+            payload=CASE WHEN payload->>'mode'='local_listening_analysis'
+                    THEN payload - 'text' - 'system' ELSE payload END
         WHERE id=$1 AND user_id=$2 AND target=$3 AND status='queued'
         RETURNING id,target,command,status,result,created_at,completed_at
         """,
