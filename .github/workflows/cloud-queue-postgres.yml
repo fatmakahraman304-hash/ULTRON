@@ -1,9 +1,16 @@
 name: Cloud Queue PostgreSQL Integration
 
 on:
+  pull_request:
+    branches:
+      - feat/golge-qwen-goal-routing-20261013
+    paths:
+      - "ultron/cloud_service/**"
+      - ".github/workflows/cloud-queue-postgres.yml"
   push:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-temporal-memory-20261013
     paths:
       - "ultron/cloud_service/**"
       - "integration/local_cloud_brain.py"
@@ -56,6 +63,8 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_notes.py' -v
       - name: JARVIS-style topic-aware memory and intelligent local Qwen routing
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus.py' -v
+      - name: GÖLGE temporal plan retrieval and stale-memory labeling
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_golge_temporal_memory.py' -v
       - name: Ten-capability readiness truthfulness tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_capability_readiness.py' -v
       - name: Personal briefing privacy and grounding tests
