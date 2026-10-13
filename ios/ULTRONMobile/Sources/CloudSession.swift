@@ -8,7 +8,7 @@ enum DesktopTaskError: LocalizedError {
         case .invalidText: return "Görev 1–4000 karakter olmalı."
         case .invalidResponse: return "Cloud yanıtı doğrulanamadı."
         case .notQueued: return "Görev Cloud kuyruğuna alınamadı."
-        case .localDesktopOffline: return "Ücretsiz yerel Qwen için Windows ULTRON ve Ollama açık olmalı. Gemini modunu elle seçebilirsin."
+        case .localDesktopOffline: return "Ücretsiz yerel Qwen için Windows GÖLGE ve Ollama açık olmalı. Gemini modunu elle seçebilirsin."
         case .localUnavailable: return "Ücretsiz yerel beyin yanıt vermedi. Gemini otomatik açılmadı."
         case .localTimeout: return "Yerel beyin yanıtı gecikti; laptopun bağlantısını kontrol et."
         }
@@ -186,7 +186,7 @@ actor CloudSession {
             throw DesktopTaskError.invalidResponse
         }
         guard let last = commands.first else {
-            return "Bilgisayara gönderilmiş bir ULTRON görevi bulunamadı."
+            return "Bilgisayara gönderilmiş bir GÖLGE görevi bulunamadı."
         }
         let id = last["id"] as? Int ?? 0
         let status = last["status"] as? String ?? "unknown"

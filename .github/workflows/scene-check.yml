@@ -5,6 +5,9 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-reference-orb-ui-20261013
+      - feat/golge-deep-dialog-continuity-20261013
+      - feat/golge-qwen-goal-routing-20261013
     paths:
       - "ultron/cloud_service/**"
       - "mark_app.py"
@@ -17,6 +20,10 @@ on:
       - feat/ultron-listen-prod-compat-20261012
       - feat/ultron-qwen-probe-latest-live-20261013
       - feat/golge-identity-rebrand-20261013
+      - feat/golge-deep-dialog-continuity-20261013
+      - feat/golge-qwen-goal-routing-20261013
+      - feat/golge-temporal-memory-20261013
+      - feat/golge-reference-orb-ui-20261013
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -108,12 +115,32 @@ jobs:
         run: |
           python -m unittest discover -s scripts/tests -p 'test_local_cloud_brain.py' -v
           python -m unittest discover -s ultron/cloud_service -p 'test_local_brain_bridge.py' -v
+      - name: GÖLGE 35-turn goal-to-Qwen route regression suite
+        run: python -m unittest discover -s scripts/tests -p 'test_golge_qwen_goal_routing.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_delivery_guard.py' -v
       - name: Durable desktop Cloud dispatch regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_dispatch_journal.py' -v
+      - name: GÖLGE shared saved-memory focus during bare continuation
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: python -m unittest ultron.cloud_service.test_golge_memory_focus_continuity -v
+      - name: GÖLGE date-aware personal-memory selection regressions
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m py_compile ultron/cloud_service/personal_context_focus.py
+          python -m unittest -v ultron.cloud_service.test_golge_temporal_memory ultron.cloud_service.test_personal_context_focus
+      - name: GÖLGE goal continuity across long conversations
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m py_compile ultron/cloud_service/conversation_turns.py
+          python -m py_compile ultron/cloud_service/conversation_persona.py
+          python -m unittest -q ultron.cloud_service.test_golge_long_continuity
+          python -m unittest -q ultron.cloud_service.test_contextual_recall ultron.cloud_service.test_conversation_persona
       - name: Self-development release proof guard regressions
         run: python -m unittest discover -s ultron/cloud_service -p 'test_development_updates.py' -v
       - name: Development GitHub CI Render and desktop proof state-machine tests
@@ -195,7 +222,13 @@ jobs:
           python scripts/tests/test_scene_browser.py
       - name: Mobile listening consent and full-summary browser interaction
         run: python scripts/tests/test_listening_browser.py
+      - name: GÖLGE screenshot-matched mobile and laptop layout contracts
+        run: node --test ultron/cloud_service/test_golge_reference_ui.cjs
+      - name: GÖLGE mobile visual composition in real Chromium
+        run: python scripts/tests/test_golge_reference_browser.py
       - name: GÖLGE visible identity and legacy protocol compatibility
         run: |
           node --test ultron/cloud_service/test_golge_identity.cjs
           PYTHONPATH=ultron/cloud_service:. python -m unittest ultron.cloud_service.test_golge_identity -v
+          PYTHONPATH=ultron/cloud_service:. python -m unittest ultron.cloud_service.test_golge_visible_brand_contract -v
+          python -m unittest discover -s ios/ULTRONMobile/tests -p 'test_siri_bridge_contract.py' -v

@@ -388,6 +388,8 @@
     .long-listen-panel button{min-height:38px;font-size:11px;padding:8px 12px;border-radius:12px}
     @media(max-width:430px){.composer .voice-btn{display:flex!important;align-items:center;justify-content:center}.long-listen-panel{align-items:flex-start;flex-direction:column}.long-listen-panel .listen-controls{width:100%}}
   </style>
+<link rel="stylesheet" href="/static/golge-minimal.css" />
+<link rel="stylesheet" href="/static/golge-reference-mobile.css" />
 </head>
 <body>
 <div id="splash" class="splash">
@@ -417,6 +419,7 @@
     </section>
 
     <section id="chatView" class="view active">
+      <div class="golge-welcome"><div class="golge-welcome-orb" aria-hidden="true"><i></i><span class="golge-orbit"></span><span class="golge-orbit second"></span><span class="golge-star"></span></div><h1>GÖLGE</h1><p>Sadece söyle.<br><span id="golgeHeroStatus">GÖLGE hazır.</span></p></div>
       <div id="messages"></div>
       <div class="composer">
         <div id="longListenPanel" class="long-listen-panel hidden" role="status" aria-live="polite">
@@ -1322,6 +1325,8 @@ function setWakeUi(awake){
 function liveStatus(text,active=false){
   $('#voiceStatusText').textContent=text;$('#voiceStatus').classList.toggle('live',active);$('#voiceStatus').classList.remove('locked');
   $('#voiceBtn').classList.toggle('listening',voiceListening);
+  // Do not claim the microphone is recording before browser consent succeeds.
+  const hero=$('#golgeHeroStatus');if(hero)hero.textContent=voiceListening?'GÖLGE seni dinliyor.':'GÖLGE hazır.';
 }
 function clearLiveReconnect(){
   if(liveReconnectTimer){clearTimeout(liveReconnectTimer);liveReconnectTimer=null}
@@ -1666,13 +1671,11 @@ function scrollChatToBottom(smooth=false){
   if(currentView!=='chat')return;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     if(currentView!=='chat')return;
-    const last=$('#messages')?.lastElementChild;
-    if(!last)return;
-    const viewportH=window.visualViewport?.height||window.innerHeight;
-    const reserved=235;
-    const rect=last.getBoundingClientRect();
-    const target=Math.max(0,window.scrollY+rect.bottom-(viewportH-reserved));
-    window.scrollTo({top:target,left:0,behavior:smooth?'smooth':'auto'});
+    // The glass orb stays visible while the messages scroll in their own
+    // region. Never pan the whole viewport under the fixed composer.
+    const list=$('#messages');
+    if(!list || !list.lastElementChild)return;
+    list.scrollTo({top:list.scrollHeight,left:0,behavior:smooth?'smooth':'auto'});
   }));
 }
 function formatMessageTime(value){

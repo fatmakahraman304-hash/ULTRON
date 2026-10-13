@@ -46,7 +46,7 @@ struct ContentView: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text("ULTRON")
+                Text("GÖLGE")
                     .font(.system(size: 34, weight: .black, design: .rounded))
                     .foregroundStyle(.red)
 
@@ -119,7 +119,7 @@ struct ContentView: View {
 
     private var loginCard: some View {
         VStack(spacing: 12) {
-            SecureField("ULTRON Cloud parolası", text: $password)
+            SecureField("GÖLGE Cloud parolası", text: $password)
                 .textContentType(.password)
                 .padding()
                 .background(.white.opacity(0.06))
@@ -187,7 +187,7 @@ struct ContentView: View {
             .buttonStyle(.borderedProminent)
             .tint(voice.desiredListening ? .gray : .red)
 
-            Text("Sürekli dinleme hâlâ isteğe bağlı Gemini Live bağlantısını kullanır. Yerel Qwen metin/Siri için Windows ULTRON açık olmalıdır. iOS arka plan kısıtlamaları geçerlidir.")
+            Text("Sürekli dinleme hâlâ isteğe bağlı Gemini Live bağlantısını kullanır. Yerel Qwen metin/Siri için Windows GÖLGE açık olmalıdır. iOS arka plan kısıtlamaları geçerlidir.")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
@@ -216,11 +216,11 @@ struct ContentView: View {
 
     private var desktopTaskCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Label("BİLGİSAYARDAKİ ULTRON", systemImage: "laptopcomputer")
+            Label("BİLGİSAYARDAKİ GÖLGE", systemImage: "laptopcomputer")
                 .font(.caption.weight(.black))
                 .foregroundStyle(.red)
 
-            Text("Siri'den 'ULTRON bilgisayara görev gönder' diyebilir veya yazabilirsin. Laptop çevrimdışıysa Cloud kuyruğunda bekler.")
+            Text("Siri'den 'GÖLGE bilgisayara görev gönder' diyebilir veya yazabilirsin. Laptop çevrimdışıysa Cloud kuyruğunda bekler.")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.65))
 
@@ -279,7 +279,7 @@ struct ContentView: View {
                 .tracking(1.2)
                 .foregroundStyle(.white.opacity(0.45))
 
-            Text("ULTRON arka planda seni dinleyip konuşabilir ve komut hazırlayabilir. Ancak iOS, başka bir uygulamanın ekranındaki düğmelere gizlice basmaya izin vermez. Örneğin YouTube reklamındaki “Atla” düğmesine otomatik dokunamaz veya WhatsApp'ta kullanıcı onayı olmadan Gönder'e basamaz.")
+            Text("GÖLGE arka planda seni dinleyip konuşabilir ve komut hazırlayabilir. Ancak iOS, başka bir uygulamanın ekranındaki düğmelere gizlice basmaya izin vermez. Örneğin YouTube reklamındaki “Atla” düğmesine otomatik dokunamaz veya WhatsApp'ta kullanıcı onayı olmadan Gönder'e basamaz.")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.5))
         }
