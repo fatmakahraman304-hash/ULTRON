@@ -18,6 +18,20 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_user_id ON messages(user_id, id DESC);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, id);
 
+-- Actual Gemini-generated image bytes are private assets, not model-readable
+-- chat text or public /static/ files. Owners can reopen a generated image on
+-- iPhone after reload. A rolling 30-day/12-image limit controls DB storage.
+CREATE TABLE IF NOT EXISTS generated_images (
+  message_id BIGINT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  mime_type TEXT NOT NULL CHECK (mime_type IN ('image/png','image/jpeg','image/webp')),
+  image_data BYTEA NOT NULL CHECK (octet_length(image_data) BETWEEN 1 AND 8388608),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_generated_images_owner_recent
+  ON generated_images(user_id, created_at DESC, message_id DESC);
+
 CREATE TABLE IF NOT EXISTS memories (
   user_id TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'FACT',
