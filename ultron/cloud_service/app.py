@@ -1942,6 +1942,18 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         if kind == "text":
                             text = str(payload.get("text", "")).strip()
                             if text:
+                                if len(text) > 16000:
+                                    await send_json({
+                                        "type": "input_error",
+                                        "error": "text_too_long",
+                                        "max_chars": 16000,
+                                    })
+                                    continue
+                                # Keep typed Live turns in the same per-turn
+                                # consent and history path as audio transcripts.
+                                # Add before awaiting Gemini so a fast tool call
+                                # cannot race ahead of its consent evidence.
+                                in_parts.append(text)
                                 await session.send_client_content(
                                     turns={"role": "user", "parts": [{"text": text}]},
                                     turn_complete=True,

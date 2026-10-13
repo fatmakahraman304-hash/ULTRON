@@ -1,8 +1,10 @@
 """Safety and capability contracts for the phone's live voice assistant."""
 import ast
 import asyncio
+import json
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 import unittest
 
 HERE = Path(__file__).resolve().parent
@@ -197,6 +199,147 @@ class LiveVoiceToolEnforcementTests(unittest.TestCase):
         self.assertEqual(denied.response["error"], "credential_not_stored")
         self.assertEqual(denied_writes, [])
         self.assertEqual(denied_messages, [])
+
+    def test_typed_live_turn_is_forwarded_remembered_and_saved_with_consent(self):
+        source = (HERE / "app.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        live_voice = next(node for node in tree.body
+                          if isinstance(node, ast.AsyncFunctionDef)
+                          and node.name == "live_voice")
+        nested = {
+            node.name: node for node in ast.walk(live_voice)
+            if isinstance(node, ast.AsyncFunctionDef)
+            and node.name in {"execute_live_tool", "browser_to_gemini", "gemini_to_browser"}
+        }
+
+        utterance = "Bunu hafızana yaz: kahvemi sütsüz içerim."
+        call = SimpleNamespace(
+            id="typed-call", name="save_memory",
+            args={"key": "coffee", "value": "Kahvemi sütsüz içerim.",
+                  "category": "PREFERENCE"},
+        )
+        server_content = SimpleNamespace(
+            interrupted=False,
+            input_transcription=None,
+            output_transcription=SimpleNamespace(text="Kaydettim."),
+            turn_complete=True,
+        )
+        response = SimpleNamespace(
+            data=None, server_content=server_content,
+            tool_call=SimpleNamespace(function_calls=[call]),
+        )
+
+        class FakeWSMsgType:
+            BINARY, TEXT, CLOSE, CLOSED, ERROR = 1, 2, 8, 9, 10
+
+        class FakeSocket:
+            def __init__(self):
+                self._closed = False
+                self.closed_event = asyncio.Event()
+
+            @property
+            def closed(self):
+                return self._closed
+
+            @closed.setter
+            def closed(self, value):
+                self._closed = value
+                if value:
+                    self.closed_event.set()
+
+            def __aiter__(self):
+                async def messages():
+                    yield SimpleNamespace(
+                        type=FakeWSMsgType.TEXT,
+                        data=json.dumps({"type": "text", "text": utterance}),
+                    )
+                    await self.closed_event.wait()
+                return messages()
+
+        class FakeSession:
+            def __init__(self, ws):
+                self.ws = ws
+                self.sent_turns = []
+                self.tool_responses = []
+
+            async def send_client_content(self, **kwargs):
+                self.sent_turns.append(kwargs)
+
+            async def send_tool_response(self, **kwargs):
+                self.tool_responses.append(kwargs)
+
+            async def receive(self):
+                yield response
+                self.ws.closed = True
+
+        class FakePool:
+            def __init__(self):
+                self.memory_writes = []
+                self.history_writes = []
+
+            async def fetchrow(self, query, *args):
+                self.memory_writes.append((query, args))
+                return {"version": 1}
+
+            async def execute(self, query, *args):
+                self.history_writes.append((query, args))
+
+        class FakeTypes:
+            class FunctionResponse:
+                def __init__(self, *, id, name, response):
+                    self.id, self.name, self.response = id, name, response
+
+        ws = FakeSocket()
+        session = FakeSession(ws)
+        pool = FakePool()
+        in_parts = []
+        outgoing = []
+
+        async def send_json(payload):
+            if not ws.closed:
+                async with namespace["send_lock"]:
+                    outgoing.append(payload)
+
+        namespace = {
+            "asyncio": asyncio,
+            "json": json,
+            "ws": ws,
+            "session": session,
+            "pool": pool,
+            "types": FakeTypes,
+            "web": SimpleNamespace(WSMsgType=FakeWSMsgType),
+            "send_lock": None,
+            "send_json": send_json,
+            "in_parts": in_parts,
+            "out_parts": [],
+            "user_id": "owner-a",
+            "device_id": "phone-a",
+            "conv_uuid": "thread-a",
+            "explicit_memory_save_requested": explicit_memory_save_requested,
+            "safe_manual_memory_value": safe_manual_memory_value,
+        }
+        module = ast.Module(body=list(nested.values()), type_ignores=[])
+        exec(compile(module, str(HERE / "app.py"), "exec"), namespace)
+
+        async def exercise():
+            namespace["send_lock"] = asyncio.Lock()
+            inbound = asyncio.create_task(namespace["browser_to_gemini"]())
+            outbound = asyncio.create_task(namespace["gemini_to_browser"]())
+            done, pending = await asyncio.wait(
+                {inbound, outbound}, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            for task in done:
+                if task.exception():
+                    raise task.exception()
+
+        asyncio.run(exercise())
+        self.assertEqual(session.sent_turns[0]["turns"]["parts"][0]["text"], utterance)
+        self.assertEqual(len(pool.memory_writes), 1)
+        self.assertTrue(any(args[2] == utterance for _, args in pool.history_writes))
+        self.assertTrue(any(item.get("type") == "memory_saved" for item in outgoing))
 
 
 if __name__ == "__main__":
