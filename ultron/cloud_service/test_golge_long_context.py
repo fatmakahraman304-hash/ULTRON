@@ -98,6 +98,36 @@ class GoalContinuityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(pool.calls),1)
         self.assertIn("çizimi değiştirme",str(turns))
 
+    async def test_old_owner_correction_overrides_original_goal_in_both_models(self):
+        rows=build_chat()
+        rows.append({"owner":"a","thread":"goal","id":55,"role":"user",
+                     "content":"Hayır, düzeltme: planı yalnızca siyah yap, duvarları silme."})
+        pool=FakeThread(rows)
+        turns=await load_contextual_thread_turns(
+            pool,"a","goal",question="GÖLGE, devam et",
+            before_id=125,max_chars=2600,limit=12,
+        )
+        self.assertEqual([t["role"] for t in turns[:2]],["user","user"])
+        self.assertIn("mimarlık planımı",turns[0]["content"])
+        self.assertIn("siyah yap",turns[1]["content"])
+        self.assertLess(turns[0]["content"].find("mimarlık"),len(turns[0]["content"]))
+        self.assertLessEqual(sum(len(t["content"]) for t in turns),2600)
+        for messages in (ollama_messages("GÖLGE",turns,"devam et"),
+                         gemini_turns(turns,"devam et")):
+            self.assertIn("mimarlık planımı",str(messages))
+            self.assertIn("siyah yap",str(messages))
+
+    async def test_tiny_context_never_exceeds_requested_budget(self):
+        rows=build_chat()
+        rows.append({"owner":"a","thread":"goal","id":55,"role":"user",
+                     "content":"Hayır, yalnızca siyah"})
+        pool=FakeThread(rows)
+        turns=await load_contextual_thread_turns(
+            pool,"a","goal",question="Devam et",before_id=125,
+            max_chars=12,limit=12,
+        )
+        self.assertLessEqual(sum(len(t["content"]) for t in turns),12)
+
     async def test_topic_switch_blocks_resurrection_of_old_goal(self):
         rows=build_chat()
         rows.append({"owner":"a","thread":"goal","id":60,"role":"user",
