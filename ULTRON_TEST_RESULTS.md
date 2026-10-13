@@ -1,3 +1,10 @@
+## 2026-10-13 — Provider exception privacy
+
+- Reproduced raw exception exposure through a fake vision-provider failure. The handler previously wrote the provider's entire exception string to the event detail. A shared classifier now emits only `provider_request_failed` or `provider_temporarily_unavailable`; transient error detection and the chat 503 response remain intact. The desktop-task watcher also stopped forwarding raw status-fetch exception text.
+- `test_provider_error_privacy.py`: **3/3 passed**. The live HTTP vision test verifies a fake API-key-like value and private prompt do not appear in either the response or event record. Static regression contracts cover chat, PDF, camera, Live voice and the task watcher. Full Cloud Python discovery: **323 passed, 60 skipped**; Python compilation and `git diff --check` passed; Cloud workflow YAML parsed.
+- App SHA `1ad5f288d1f4084d0561c8027dbee51f5ad75b6c`: Scene Build [#38457949652](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38457949652) and WORLD smoke [#38457949491](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38457949491) succeeded. Workflow SHA `e83b0d5929d1fee256a5165754b66b16b6844766`: Cloud Queue/PostgreSQL [#38458215679](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38458215679) succeeded, including the new privacy regression step.
+- Render deploy `dep-db78mn5bedkc738a0fu0` is **LIVE** at the app SHA; `/health` returned HTTP 200 with the exact commit. Actual Gemini failures were not induced; no real model-quality claim is made.
+
 ## 2026-10-13 — Frozen bilingual scenario validation
 
 - Test-first regression changed one English case label to `fr`; the previous validator incorrectly accepted the dataset. The validator now rejects languages outside `tr`/`en` and requires five Turkish and five English cases in each of ten categories.

@@ -1,3 +1,7 @@
+## Completed checkpoint — provider error privacy hardening
+
+Code commit `1ad5f288d1f4084d0561c8027dbee51f5ad75b6c` replaces raw provider errors in owner logs and live error responses with stable safe categories, preserving transient-error handling. Focused privacy tests 3/3 and full Cloud Python 323 passed / 60 skipped. Cloud/PostgreSQL #38458215679 ran the new privacy test; Scene #38457949652 and WORLD smoke #38457949491 passed. Render deploy `dep-db78mn5bedkc738a0fu0` is LIVE at the code SHA. Workflow commit `e83b0d5929d1fee256a5165754b66b16b6844766` adds the regression to GitHub CI.
+
 ## Completed checkpoint — frozen bilingual evaluation integrity
 
 Commit `5677dca638909d23d96aab2dedab2597dbd196c1` closes a dataset-validator gap: only `tr` and `en` are accepted, and every category must contain five of each. Evaluation tests: 11/11; full Cloud Python: 320 passed, 60 skipped. Cloud/PostgreSQL #38456643001 and Scene #38456642956 succeeded. Render deploy `dep-db78i45bedkc7389oi50` is LIVE at the same SHA; `/health` returned HTTP 200 with the exact commit. This is dataset validation, not answer-quality scoring.
