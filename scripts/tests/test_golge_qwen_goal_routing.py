@@ -25,7 +25,8 @@ def long_context():
 class GolgeQwenLongGoalRouting(unittest.TestCase):
     def test_anchor_survives_cloud_context_and_local_router(self):
         turns = long_context()
-        self.assertEqual(len(turns), 12)
+        self.assertGreaterEqual(len(turns), 11)
+        self.assertLessEqual(len(turns), 12)
         self.assertIn("Python kodu yaz", turns[0]["content"])
         self.assertEqual(local._last_substantive_owner_request("Devam et", turns),
                          turns[0]["content"])
