@@ -56,6 +56,20 @@ class GolgeLongContinuation(unittest.TestCase):
                          "Hayır, gerçek Windows testi yapılmadan yayınlama.")
         self.assertIn("32. aşamada ilerledim",result[-1]["content"])
 
+    def test_recent_correction_keeps_distant_original_owner_task(self):
+        rows=chain(n=28)
+        rows.extend([
+            {"role":"user","content":"Hayır, gerçek Windows testini bitirmeden yayımlama."},
+            {"role":"assistant","content":"Önce gerçek cihaz testi yapılacak."},
+            {"role":"user","content":"Devam et"},
+            {"role":"assistant","content":"Sıradaki otomatik kontrol yürütülüyor."},
+        ])
+        result=select_continuation_turns(rows,max_chars=1700,max_turns=12)
+        text=str(result)
+        self.assertIn("Önce doğal sohbeti geliştir",text)
+        self.assertIn("Windows testini bitirmeden yayımlama",text)
+        self.assertIn("Sıradaki otomatik kontrol",text)
+
     def test_recent_concrete_request_dominates_previous_goal(self):
         rows=chain()
         rows.extend([
