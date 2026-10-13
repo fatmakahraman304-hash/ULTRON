@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-deep-dialog-continuity-20261013
     paths:
       - "ultron/cloud_service/**"
       - "mark_app.py"
@@ -18,6 +19,7 @@ on:
       - feat/ultron-qwen-probe-latest-live-20261013
       - feat/golge-identity-rebrand-20261013
       - feat/golge-deep-dialog-continuity-20261013
+      - feat/golge-qwen-goal-routing-20261013
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -109,6 +111,8 @@ jobs:
         run: |
           python -m unittest discover -s scripts/tests -p 'test_local_cloud_brain.py' -v
           python -m unittest discover -s ultron/cloud_service -p 'test_local_brain_bridge.py' -v
+      - name: GÖLGE 35-turn goal-to-Qwen route regression suite
+        run: python -m unittest discover -s scripts/tests -p 'test_golge_qwen_goal_routing.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
