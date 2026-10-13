@@ -1,9 +1,16 @@
 ## Next tasks — 2026-10-13 public model retrieval
 
-1. Verify exact new Scene/Cloud CI logs and Render LIVE SHA after push. All local tests below pass, including real public catalogue/download/WebGL smoke. Preserve remote GÖLGE identity and protocol compatibility.
+1. Functional bca7e94 is Render LIVE. Fixed workflow 72f5e91 passed Scene #38388140843 and Cloud #38388141206; full logs read. Documentation-only final HEAD receives a manual Scene check. Preserve remote GÖLGE identity and protocol compatibility.
 2. Public model search is now implemented via Poly Haven CC0. Sources: `scene_assets.py`, `spatial/assets.ts`; opt-in external smoke: `python scripts/tests/scene_public_asset_smoke.py`. Normal CI uses bounded offline fixtures. Source may be unavailable or lack the desired asset; keep explicit no-match/failure behavior. Expand Turkish search synonyms/semantic translation only with tests that reject unrelated matches.
 3. Remaining: real provider recognizability/latency evaluation for free-form generation, plus deferred Windows/iPhone voice/geometry smoke. Synthetic Gemini/Qwen outputs in unit/browser suites do not establish model quality or 100/100 conversational score. No Windows installation done.
 4. Browser checks: “daire”, “kare çiz”, “bir masa modeli oluştur”, “internetten sandalye modeli bul getir”, then move/rotate/remove/undo; source attribution should stay in saved projects. Test larger catalogue assets against 30MB/200-part/750k-triangle limits before increasing limits.
+
+## 2026-10-13 — Verified public-model release
+
+- Functional code `bca7e945b689f38bd1c6a6a4cbfac8e997e50b62` is pushed. Cloud/PostgreSQL #38387946739, Frontend #38387946743 and WORLD smoke #38387946860 passed. Scene #38387946750 initially failed because the new HTTP asset test ran before aiohttp installation; no runtime failure was implicated.
+- Workflow correction `72f5e91c947efc7df824d166e0641bcc85c450ec` moves that test after dependency installation. Exact-SHA Scene #38388140843 and Cloud/PostgreSQL #38388141206 **SUCCESS**; complete logs read, including five asset contracts, two desktop routing cases, nine actual WebGL cases, scene queue privacy/idempotency and six Qwen synthetic-provider browser cases. No test removed or weakened to conceal the failure.
+- Render deployment `dep-db711em7bikc73fnlip0` **LIVE at functional bca7e94**, finished 2026-10-13T11:07:39Z. `/health` HTTP200/ok and scene-control.js, scene-intents.js, sw.js HTTP200 and byte-for-byte match. Shell v66. Later workflow/docs-only commits do not change the deployed runtime. Authenticated production provider/asset sessions were not exercised here.
+- Real public-source smoke previously downloaded and displayed Poly Haven ArmChair_01 (CC0, 154,988-byte geometry-only GLB), with movement/removal/undo verified and screenshot inspected. This validates real public asset retrieval; real Gemini/Qwen creative output quality and physical devices remain unverified. Disposable local test database removed. No Windows installation.
 
 ## 2026-10-13 — Live-source model search and import
 
