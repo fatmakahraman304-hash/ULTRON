@@ -85,9 +85,13 @@ def validate(cases):
         raise ValueError('Expected 100 unique scenarios')
     if len({x['category'] for x in cases}) != 10:
         raise ValueError('Expected ten categories')
+    if any(x.get('language') not in ('tr', 'en') for x in cases):
+        raise ValueError('Scenario language must be tr or en')
     for category in {x['category'] for x in cases}:
         subset = [x for x in cases if x['category'] == category]
-        if len(subset) != 10 or sum(x['language'] == 'tr' for x in subset) != 5:
+        if (len(subset) != 10 or
+                sum(x['language'] == 'tr' for x in subset) != 5 or
+                sum(x['language'] == 'en' for x in subset) != 5):
             raise ValueError('Each category requires five Turkish and five English scenarios')
     if any(not x['turns'] or not x['acceptance'] for x in cases):
         raise ValueError('Missing turns or acceptance criteria')
