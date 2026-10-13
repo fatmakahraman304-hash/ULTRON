@@ -419,7 +419,7 @@
     </section>
 
     <section id="chatView" class="view active">
-      <div class="golge-welcome"><div class="golge-welcome-orb" aria-hidden="true"><i></i><span class="golge-orbit"></span><span class="golge-orbit second"></span><span class="golge-star"></span></div><h1>GÖLGE</h1><p>Sadece söyle.<br><span id="golgeHeroStatus">GÖLGE hazır.</span></p></div>
+      <!-- Sohbet doğrudan açılır: telefonda büyük holografik daire yok. -->
       <div id="messages"></div>
       <div class="composer">
         <div id="longListenPanel" class="long-listen-panel hidden" role="status" aria-live="polite">
@@ -1325,8 +1325,6 @@ function setWakeUi(awake){
 function liveStatus(text,active=false){
   $('#voiceStatusText').textContent=text;$('#voiceStatus').classList.toggle('live',active);$('#voiceStatus').classList.remove('locked');
   $('#voiceBtn').classList.toggle('listening',voiceListening);
-  // Do not claim the microphone is recording before browser consent succeeds.
-  const hero=$('#golgeHeroStatus');if(hero)hero.textContent=voiceListening?'GÖLGE seni dinliyor.':'GÖLGE hazır.';
 }
 function clearLiveReconnect(){
   if(liveReconnectTimer){clearTimeout(liveReconnectTimer);liveReconnectTimer=null}

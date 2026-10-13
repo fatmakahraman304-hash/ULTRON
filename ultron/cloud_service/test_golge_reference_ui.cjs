@@ -4,15 +4,15 @@ const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'../..');
 const file=(p)=>fs.readFileSync(path.join(root,p),'utf8');
 
-test('mobile uses screenshot cyan orb and always-available chat composer',()=>{
+test('phone has no central orb; chat and composer remain available',()=>{
  const html=file('ultron/cloud_service/static/index.html');
  const minimal=html.indexOf('/static/golge-minimal.css');
  const newSkin=html.indexOf('/static/golge-reference-mobile.css');
  assert.ok(minimal>0 && newSkin>minimal);
- assert.match(html,/class="golge-welcome-orb"/);
- assert.match(html,/class="golge-orbit second"/);
- assert.match(html,/Sadece söyle\.<br><span id="golgeHeroStatus">GÖLGE hazır\.<\/span>/);
- assert.match(html,/hero\.textContent=voiceListening\?'GÖLGE seni dinliyor\.'\:'GÖLGE hazır\.'/);
+ assert.doesNotMatch(html,/class="golge-welcome"/);
+ assert.doesNotMatch(html,/class="golge-welcome-orb"/);
+ assert.doesNotMatch(html,/id="golgeHeroStatus"/);
+ assert.match(html,/<div id="messages"><\/div>/);
  for(const id of ['voiceBtn','plusBtn','message','sendBtn','panelMenuToggle','longListenPanel','attachMenu','cameraPanel']){
   assert.ok(html.includes('id="'+id+'"'), 'missing working control: '+id);
  }
@@ -30,13 +30,14 @@ test('mobile layout separates scrollable messages and fixed composer without hid
   '#chatView #messages{flex:1',
   'overflow-y:auto!important',
   '#chatView .composer',
-  '#chatView .golge-welcome-orb',
+  '#chatView.active{justify-content:flex-start}',
   ':has(#message:placeholder-shown)',
-  'prefers-reduced-motion:reduce'
+  '#chatView .composer .row'
  ]) assert.ok(css.includes(expected),'missing layout: '+expected);
  assert.ok(!css.includes('.shell{max-width:760px;height:100dvh'),'must not lock remote panels');
+ assert.doesNotMatch(css,/\.golge-welcome-orb|\.golge-orbit|\.golge-welcome\{/);
  const sw=file('ultron/cloud_service/static/sw.js');
- assert.match(sw,/ultron-shell-v68/);
+ assert.match(sw,/ultron-shell-v69/);
  assert.match(sw,/\/static\/golge-reference-mobile\.css/);
 });
 
