@@ -3,6 +3,7 @@
 - Added an offscreen Qt test for first-boot ordering: the setup child appears before the main window while another input exists underneath. Before the fix, focus remained in that underlying input; after the fix, the setup key field receives focus and accepts typed text. Setup UI and persistence regressions: **2 passed**; `python -m py_compile ui.py` and `git diff --check` passed.
 - Root integration tests with `PYTHONPATH=ultron/backend`: **25 passed, 3 failed** in this Linux workspace. Failures are missing `sounddevice`, one unavailable optional health component, and platform-specific singleton-lock behavior. These are outside the setup code. The owner previously reported `INSTALL.bat` completed on Windows; this change has not yet been tested on that laptop.
 - The persistence regression confirms existing local model preferences survive first-run setup and saved setup is recognized on the next startup. The Gemini key remains in the existing ignored local config; tests and logs do not print it. Render is unaffected by this desktop-only change.
+- GitHub Scene Build Check [#38469167141](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38469167141) passed on exact SHA `1dda1d4f5833a3e52564711c29aa10f7274e1741`. Public Render `/health` returned HTTP 200 at independent Cloud SHA `1ad5f288d1f4084d0561c8027dbee51f5ad75b6c`; no Render deploy was triggered by the native desktop change.
 
 ## 2026-10-14 — Windows installation completed
 

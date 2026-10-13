@@ -1,6 +1,6 @@
 ## 2026-10-14 — First-run setup keyboard focus and one-time persistence
 
-At first boot the Qt setup overlay was created before the top-level window and did not take keyboard focus from the chat composer underneath. The setup field now focuses after the window becomes visible, accepts Enter to submit, and can explicitly show/hide the masked Gemini key. Saving setup merges into the ignored user config, preserving existing model settings; an existing valid setup continues straight to the app on later launches. Regression tests cover focus, text entry, and persisted settings. Physical Windows confirmation remains pending.
+At first boot the Qt setup overlay was created before the top-level window and did not take keyboard focus from the chat composer underneath. The setup field now focuses after the window becomes visible, accepts Enter to submit, and can explicitly show/hide the masked Gemini key. Saving setup merges into the ignored user config, preserving existing model settings; an existing valid setup continues straight to the app on later launches. Regression tests cover focus, text entry, and persisted settings. Scene Build Actions `38469167141` passed for code SHA `1dda1d4`; Render remains healthy at its separate Cloud SHA. Physical Windows confirmation remains pending.
 
 ## 2026-10-14 — Windows installation passed after smoke-test correction
 
