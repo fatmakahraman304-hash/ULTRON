@@ -436,7 +436,7 @@ async def load_long_continuation_turns(pool, user_id: str, conversation_id,
         break
     if not goal:
         return prepare_turns(recent, max_chars=cap, max_turns=n)
-    goal_budget = min(900, max(120, cap // 3))
+    goal_budget = min(cap, 900, max(24, cap // 3))
     original = {"role": "user", "content": _bounded_excerpt(goal, goal_budget)}
     newest = prepare_turns(
         recent, max_chars=max(0, cap - len(original["content"])),
