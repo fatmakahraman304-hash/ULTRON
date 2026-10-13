@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from reply_policy import classify_reply_mode
 
-from conversation_turns import is_thread_recap_request, is_first_topic_return, is_named_recall_request, is_topic_switch_request, is_future_reminder_request
+from conversation_turns import is_thread_recap_request, is_first_topic_return, is_named_recall_request, is_topic_switch_request, is_future_reminder_request, is_bare_continuation_request
 
 PERSONA = (
     "You are GÖLGE, a capable and thoughtful personal assistant. "
@@ -146,6 +146,14 @@ def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
                 "FOLLOW-UP: Interpret pronouns and elliptical questions using ONLY this thread's "
                 "previous user/assistant turns. Do not silently switch the subject."
             )
+            if is_bare_continuation_request(message):
+                hints.append(
+                    "CONTINUATION: Use the latest specific USER goal and latest USER correction "
+                    "in the supplied role-labelled conversation as the task scope. "
+                    "Do not replace owner instructions with your previous status updates. "
+                    "Do not claim any work was completed without verified tool output. "
+                    "If no concrete prior owner goal appears, ask for the missing task."
+                )
         else:
             hints.append(
                 "FOLLOW-UP WITHOUT CONTEXT: There is no verified previous turn in this thread. "
