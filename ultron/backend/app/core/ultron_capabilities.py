@@ -1,4 +1,4 @@
-"""Unified ULTRON capability contract for ULTRON.
+"""Unified GÖLGE capability contract for GÖLGE.
 
 This module is intentionally declarative: it describes the complete experience
 we are building while distinguishing capabilities that already have a real
@@ -35,7 +35,7 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("pdf", "PDF Workspace", "multimodal", "implemented", ("pdf_open", "pdf_extract", "pdf_ingest", "pdf_search"), description="Sandbox-bound PDF extraction, chunking, lexical indexing and optional scanned-PDF OCR fallback; document content is untrusted data."),
     Capability("shell", "Shell / PowerShell", "automation", "implemented", ("shell_exec",), safety="approval", description="Workspace-bounded shell execution behind server-side approval and deterministic shell policy."),
     Capability("widgets", "HUD Widgets", "ui", "implemented", ("hud_overview", "hud_trends"), description="Dockable status, memory, automation and monitoring panels."),
-    Capability("hud", "ULTRON HUD", "ui", "implemented", ("hud_overview",), description="Cockpit HUD with telemetry, status, activity and operator controls."),
+    Capability("hud", "GÖLGE HUD", "ui", "implemented", ("hud_overview",), description="Cockpit HUD with telemetry, status, activity and operator controls."),
     Capability("three_d", "3D Interface", "ui", "implemented", ("three", "particle_sphere"), description="Three.js cockpit/particle interface and extensible 3D scene layer."),
     Capability("center_stage", "Center Stage / 3D Scene / Animation Studio", "ui", "implemented", ("ultron_stage", "three", "media_recorder"), description="Normal shaded Earth Watch plus professional 3D studio with multi-selection, named groups, batch transforms, arrays, align/distribute, parent-child Scene Graph hierarchy, camera bookmarks, persistent GLB Asset Library, visual physics, live distance measurements, diagnostics and collision-risk overlays, target tracking constraints, waypoint paths, technical render modes, timed Mission Sequences, persistent Snapshot Vault checkpoints, conditional timer/distance/collision Trigger Engine automation, links, HUD cards, motion, eased multi-object timeline/keyframes, cinematic cameras, Scene Director, named projects, screenshots, GLB export and rotatable Earth/coordinate markers/optional live ISS tracking and live Three.js WebM recording."),
     Capability("image_viewer", "Image Viewer / Drop Zone", "ui", "adapter", ("image_view",), description="Visual workspace target for generated and uploaded images."),
