@@ -12,7 +12,7 @@ from pathlib import Path
 import asyncpg
 from aiohttp import web
 
-from local_listening_bridge import post_local_listening_analysis, get_local_listening_analysis
+from local_listening_bridge import post_local_listening_analysis, get_local_listening_analysis, scrub_orphaned_listening_jobs
 
 
 TEST_URL = os.getenv("ULTRON_TEST_DATABASE_URL", "").strip()
@@ -132,6 +132,32 @@ class PostgresListeningContract(unittest.IsolatedAsyncioTestCase):
         row=await self.pool.fetchrow(
             "SELECT status,payload FROM device_commands WHERE id=$1",ident)
         self.assertEqual(row["status"],"expired")
+        self.assertNotIn("text",json.loads(row["payload"]))
+        self.assertNotIn("system",json.loads(row["payload"]))
+
+
+    async def test_proactive_housekeeping_scrubs_offline_stale_speech_without_web_polling(self):
+        await self.enable_worker()
+        created=await self.queue()
+        ident=json.loads(created.body)["id"]
+        await self.pool.execute(
+            "UPDATE device_commands SET created_at=NOW()-INTERVAL '31 minutes' WHERE id=$1",ident)
+        # No GET poll or desktop worker: server housekeeping alone enforces TTL.
+        await scrub_orphaned_listening_jobs(self.pool)
+        row=await self.pool.fetchrow("SELECT status,payload FROM device_commands WHERE id=$1",ident)
+        self.assertEqual(row["status"],"expired")
+        self.assertNotIn("text",json.loads(row["payload"]))
+        self.assertNotIn("system",json.loads(row["payload"]))
+
+    async def test_proactive_housekeeping_scrubs_failed_worker_speech_immediately(self):
+        await self.enable_worker()
+        created=await self.queue()
+        ident=json.loads(created.body)["id"]
+        await self.pool.execute(
+            "UPDATE device_commands SET status='failed',completed_at=NOW() WHERE id=$1",ident)
+        await scrub_orphaned_listening_jobs(self.pool)
+        row=await self.pool.fetchrow("SELECT status,payload FROM device_commands WHERE id=$1",ident)
+        self.assertEqual(row["status"],"failed")
         self.assertNotIn("text",json.loads(row["payload"]))
         self.assertNotIn("system",json.loads(row["payload"]))
 
