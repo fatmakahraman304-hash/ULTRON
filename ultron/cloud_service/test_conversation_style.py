@@ -67,11 +67,13 @@ class ConversationStyleTests(unittest.TestCase):
         fixtures = [
             ("Kısaca anlat", "brief"),
             ("Kısa cevap ver", "brief"),
+            ("Kisa cevap ver", "brief"),
             ("Tek cümleyle söyle", "brief"),
             ("Kısa bir özet değil, kısa özet ver", "brief"),
             ("Özetle", "brief"),
             ("Briefly explain", "brief"),
             ("Detaylı açıkla", "detailed"),
+            ("Detayli acikla", "detailed"),
             ("Adım adım anlat", "detailed"),
             ("Derinlemesine araştır", "detailed"),
             ("In detail please", "detailed"),
@@ -89,6 +91,7 @@ class ConversationStyleTests(unittest.TestCase):
             ("Kısaca değil, adım adım anlat", "detailed"),
             ("Kısa cevap verme, en ince ayrıntısına açıkla", "detailed"),
             ("Detaylı anlatma, kısa cevap ver", "brief"),
+            ("Kisa cevap istemiyorum, detayli acikla", "detailed"),
             ("Önce detaylı düşün ama tek cümleyle söyle", "brief"),
             ("Briefly explain but then in detail please", "detailed"),
             ("No short answer; explain in detail", "detailed"),
@@ -163,6 +166,9 @@ class ConversationStyleTests(unittest.TestCase):
         self.assertIn("No jokes or sarcasm", build_system_instruction(
             user_message="Acil, hastayım; şaka yap", has_prior_turns=False
         ))
+        self.assertEqual(classify_tone("Saka yapma, ciddi konus"), "serious")
+        self.assertEqual(classify_dialogue_act("Hayir, 2009 olanini demistim"),
+                         "correction")
 
     def test_prior_presence_is_not_assumed_from_placeholder(self):
         absent = build_system_instruction(

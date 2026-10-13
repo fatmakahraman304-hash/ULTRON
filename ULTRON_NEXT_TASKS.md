@@ -1,3 +1,9 @@
+## Next tasks — validate Turkish matching and provider quality
+
+1. Push the diacritic-tolerant style/context change and inspect exact-SHA Actions; verify Render’s deployed SHA and served service code.
+2. On phone and laptop, test both accented and unaccented commands (“kısa cevap”/“kisa cevap”, “konuyu değiştir”/“konuyu degistir”), then verify actual Qwen/Gemini replies.
+3. Run the frozen 100-case Turkish/English evaluation with actual providers and independent human review when credentials/device access are available. Never treat deterministic routing tests as a model-quality score.
+
 ## Next tasks — verify latest Qwen routing recovery
 
 1. `52b776a` is pushed; Scene Build `38438751167` and Cloud Queue PostgreSQL `38438751172` both passed, and Render is LIVE at the exact SHA. Continue with actual phone and desktop provider verification.

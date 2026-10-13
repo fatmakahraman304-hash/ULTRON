@@ -1,3 +1,7 @@
+## 2026-10-13 — Diacritic-tolerant everyday Turkish controls
+
+Conversation-style and context classifiers now compare a folded copy of Turkish text, so casual inputs such as “kisa cevap”, “saka yapma”, “konuyu degistirelim”, and “hayir” follow the same brevity, serious-tone, topic-switch and correction paths as correctly accented text. Original conversation text remains unchanged for storage and provider context. This is classification robustness, not a Turkish model-quality score.
+
 ## 2026-10-13 — Local-first routing survives presence-probe failure
 
 When the phone cannot read desktop readiness, the current chat turn now chooses the normal Gemini route. The readiness check happens before any local task is submitted, so an unavailable presence endpoint cannot strand a typed message by aborting local-first routing. Positive, fresh desktop readiness still selects Qwen; only confirmed `desktop_offline` after the local preflight may fall back after a local submission attempt. No model selector or UI surface was added. Commit `52b776a` is on the feature branch, both exact-SHA Actions workflows passed, Render is LIVE at the same SHA, and `/health` confirms it.

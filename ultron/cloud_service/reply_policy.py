@@ -5,27 +5,28 @@ No model calls, personal data, I/O, background monitoring or memory writes.
 """
 from __future__ import annotations
 import re
+from text_normalization import fold_turkish, folded_regex
 
-_BRIEF = re.compile(
+_BRIEF = folded_regex(
     r"(?:\b(?:kısaca|kısa (?:cevap|anlat|tut|tutalım|yaz|söyle|olsun|özet)|özetle|tek cümle(?:yle)?|"
     r"briefly|short answer|in one sentence)\b)", re.I
 )
-_DEEP = re.compile(
+_DEEP = folded_regex(
     r"(?:\b(?:detaylı(?:ca)?|ayrıntılı(?:ca)?|adım adım|en ince ayrıntısına|"
     r"derinlemesine|thoroughly|in detail|step by step)\b)", re.I
 )
 
 # The latest affirmative request wins. A phrase such as "kısa cevap
 # istemiyorum, detaylı anlat" is NOT a request for a short reply.
-_NEGATED_AFTER = re.compile(
+_NEGATED_AFTER = folded_regex(
     r"^(?:değil|degil|istemiyorum|istemem|istemedim|olmasın|olmasin|"
     r"verme|anlatma|yapma|olmasın|not|no)\b", re.I
 )
-_NEGATED_BEFORE = re.compile(r"\b(?:not|no|without)\s+$", re.I)
+_NEGATED_BEFORE = folded_regex(r"\b(?:not|no|without)\s+$", re.I)
 
 def classify_reply_mode(message: str) -> str:
     """One-turn preference for response length, independent of stored memory."""
-    text = str(message or "").strip()
+    text = fold_turkish(message).strip()
     requests = []
     for pattern, mode in ((_BRIEF, "brief"), (_DEEP, "detailed")):
         for hit in pattern.finditer(text):

@@ -1,3 +1,8 @@
+## 2026-10-13 — Diacritic-tolerant Turkish
+
+- Before fix, “Saka yapma, ciddi konus” was classified as balanced and “Konuyu degistirelim, mimarlik konusalim” failed topic-switch detection. After adding `text_normalization.py`, 44 targeted persona, recall, continuity and recap tests passed.
+- Full Cloud Python: 310 tests run, 60 environment-dependent skips, zero failures. Cloud browser suite: 153/153; changed Python modules compile. These deterministic checks do not evaluate live model answers. Gemini key and local Ollama are unavailable in this workspace; real provider quality remains unmeasured. Actions and Render for this commit pending push.
+
 ## 2026-10-13 — Qwen readiness probe recovery
 
 - Added a regression proving a failed readiness HTTP request selects Gemini before local queue submission. Existing local-first selection and strict `desktop_offline` fallback tests remain unchanged.

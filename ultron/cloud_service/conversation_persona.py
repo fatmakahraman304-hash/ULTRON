@@ -2,6 +2,7 @@
 from __future__ import annotations
 import re
 from reply_policy import classify_reply_mode
+from text_normalization import fold_turkish, folded_regex
 
 from conversation_turns import is_thread_recap_request, is_first_topic_return, is_named_recall_request, is_topic_switch_request, is_future_reminder_request, is_bare_continuation_request
 
@@ -35,34 +36,34 @@ PERSONA = (
     "state integration and physical limits instead of inventing access."
 )
 
-_SERIOUS = re.compile(
+_SERIOUS = folded_regex(
     r"\b(?:acil|tehlike|hastayım|hasta|ölüm|panik|korkuyorum|"
     r"üzgünüm|borç\w*|banka\w*|para\w*|şifre\w*|güvenlik|"
     r"emergency|hospital|debt|password|privacy)\b", re.I
 )
-_PLAYFUL = re.compile(r"\b(?:şaka|espri|komik|güldür|joke|funny)\b", re.I)
-_NO_HUMOUR = re.compile(
+_PLAYFUL = folded_regex(r"\b(?:şaka|espri|komik|güldür|joke|funny)\b", re.I)
+_NO_HUMOUR = folded_regex(
     r"\b(?:şaka yapma|espri yapma|espri istemiyorum|mizah kapat|"
     r"sarkazm kapat|ciddi konuş|no jokes?|stop joking|don't joke|"
     r"do not joke|don't be funny)\b", re.I
 )
 
 def classify_tone(message: str) -> str:
-    text = str(message or "").casefold()
+    text = fold_turkish(message)
     if _SERIOUS.search(text) or _NO_HUMOUR.search(text):
         return "serious"
     return "playful" if _PLAYFUL.search(text) else "balanced"
 
 # Conversation coaching is turn-specific, never a persistent memory write.
 # Unlike semantic auto-learning, it does not infer or store personal facts.
-_FOLLOWUP = re.compile(
+_FOLLOWUP = folded_regex(
     r"^(?:peki\b|devam et\b|biraz daha\b|o zaman\b|"
     r"onun(?:la|un|u|dan)?\b|onu\b|buna\b|şunu\b|"
     r"bun(?:un|u|dan|larla)?\b|"
     r"what about\b|and (?:it|that|then)\b|continue\b)",
     re.I
 )
-_CORRECT = re.compile(
+_CORRECT = folded_regex(
     r"^(?:hayır\b|yok\b(?!\s+(?:mu|mı|mi|mü)\b)|"
     r"yanlış anladın\b|onu demedim\b|öyle değil\b|"
     r"aslında\b|düzeltme\s*:|"
@@ -74,7 +75,7 @@ _CORRECT = re.compile(
 
 def classify_dialogue_act(message: str) -> str:
     """Do not over-route arbitrary user questions as UI or tool commands."""
-    text = str(message or "").strip()
+    text = fold_turkish(message).strip()
     if _CORRECT.search(text):
         return "correction"
     if _FOLLOWUP.search(text):
@@ -174,9 +175,9 @@ def build_system_instruction(
         "playful": "Friendly, light humour is welcome.",
         "balanced": "Be natural. Do not force a joke.",
     }[tone]
-    request = str(user_message or "").casefold()
+    request = fold_turkish(user_message)
     briefing_requested = any(
-        phrase in request for phrase in (
+        fold_turkish(phrase) in request for phrase in (
             "günlük özet", "günlük plan", "bugün ne yapmalıyım",
             "sabah özeti", "daily briefing", "plan my day",
         )
