@@ -1,6 +1,6 @@
 import {sceneIntent} from '../spatial/intents';
 import {lazy,Suspense,useEffect,useRef,useState,type CSSProperties} from 'react';
-import {Home,Settings,Gamepad2,Box,Folder,Wrench,Puzzle,Power,Globe,Files,Terminal,Scan,ScanText,Calendar,Code,Activity,Grid2X2,PanelsTopLeft,Mic,MicOff,Send,Square,Trash2,MessageSquare,Command,ShieldCheck,X,Bell} from 'lucide-react';
+import {Home,Settings,Gamepad2,Box,Folder,Wrench,Puzzle,Power,Globe,Files,Terminal,Scan,ScanText,Calendar,Code,Activity,Grid2X2,PanelsTopLeft,Mic,MicOff,Send,Square,Trash2,MessageSquare,Command,ShieldCheck,X,Bell,Lightbulb,Search,Layers,Brain} from 'lucide-react';
 import {useUltron,request,type CoreState} from './runtime';
 import {Panel,ModelPanel,ToolPanel} from './Panels';
 import {resolvePanelIntent} from './panelIntent';
@@ -8,6 +8,7 @@ import {SystemRail,FileDrop} from './ReferencePanels';
 import CenterStage from './CenterStage';
 import './dashboard.css';
 import './golge-minimal.css';
+import './golge-reference.css';
 const HologramLab=lazy(()=>import('../hologram/HologramLab'));
 export default function Dashboard(){
  const [sceneRequest,setSceneRequest]=useState<{id:number;text:string}>();
@@ -399,7 +400,14 @@ export default function Dashboard(){
  <button onClick={()=>open('Ayarlar')}><Settings/>Ayarlar</button><button onClick={()=>open('Kontroller')}><Gamepad2/>Kontroller</button>
  <button onClick={holo}><Box/>Hologram Çalışma Alanı</button><button onClick={()=>open('Dosyalar')}><Folder/>Dosyalar</button><button onClick={()=>open('Araçlar')}><Wrench/>Araçlar</button><button onClick={()=>open('Eklentiler')}><Puzzle/>Eklentiler</button><button onClick={()=>{open('Geliştir');u.native?.devRefresh?.()}}><Code/>KENDİNİ GELİŞTİR</button>
  </nav><span className={'golge-connection '+(u.connected||u.native?'connected':'')} role="status"><i/>{u.connected||u.native?'Bağlı':'Çevrimdışı'}</span><button className="voice-first-mic" aria-label={u.muted?'Mikrofonu aç':'Mikrofonu kapat'} disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>} {u.muted?'Mikrofon':'Dinliyor'}</button><button className="voice-first-menu" aria-label="Çalışma alanlarını aç" onClick={()=>open('Araçlar')}><Grid2X2/> Araçlar</button><time>{clock.toLocaleTimeString('tr-TR')}<small>{clock.toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}<br/>{clock.toLocaleDateString('tr-TR',{weekday:'long'})}</small></time><button className="power" aria-label="GÖLGE'yi kapat" disabled={!u.native} onClick={()=>u.native?.action('shutdown')}><Power/></button></header>
- <main className="main-grid"><SystemRail system={u.system} history={u.history} health={u.health} connected={u.connected}/>
+ <main className="main-grid"><aside className="golge-navigation" aria-label="GÖLGE çalışma alanları">
+ <button className={!modal?'current':''} onClick={()=>{setModal('');document.querySelector<HTMLInputElement>('.chat-panel input[aria-label="Mesaj"]')?.focus()}}><MessageSquare/>Sohbet</button>
+ <button onClick={()=>open('Görevler')}><Calendar/>Bugün</button>
+ <button onClick={()=>{setMode('coding');open('Kod Asistanı')}}><Lightbulb/>Düşün</button>
+ <button onClick={()=>open('Browser')}><Search/>Araştır</button>
+ <button onClick={()=>{holo();setModal('')}}><Layers/>Yarat</button>
+ <button onClick={()=>open('Hafıza')}><Brain/>Hatırla</button>
+ </aside><SystemRail system={u.system} history={u.history} health={u.health} connected={u.connected}/>
  <section className="reactor-panel metal-frame"><CenterStage stage={u.stage} state={state} amplitude={u.amplitude} notify={notify} openNativeVideo={u.native?.videoRequest?()=>u.native?.videoRequest?.('open_file',''):undefined}/>{u.stage.mode==='core_idle'&&<div className="golge-stage-caption">Sadece söyle. GÖLGE seni dinliyor.</div>}{u.stage.mode==='core_idle'&&<><div className="subsystems left">{chipsLeft.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div><div className="subsystems right">{chipsRight.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div></>}{!u.connected&&<div className="offline" role="status">GÖLGE bağlantısı yok</div>}</section>
  <aside className="right-panels"><Panel title="SOHBET" icon={<MessageSquare/>} className="chat-panel" extra={<button disabled={busy} onClick={()=>u.setMessages([])}><Trash2/>Temizle</button>}><div className="messages" ref={messages}>{!u.messages.length&&<p className="chat-empty">{u.connected?'GÖLGE hazır. Ne yapmak istersin?':'Backend bağlantısı bekleniyor…'}</p>}{u.messages.map(m=><article className={'message '+m.role} key={m.id}><time>{new Date(m.time).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</time><p><b>{m.role==='user'?'Sen':'GÖLGE'}:</b> {m.text}</p></article>)}{busy&&<p className="muted">Yanıt hazırlanıyor…</p>}</div><form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><input aria-label="Mesaj" value={input} onChange={e=>setInput(e.target.value)} placeholder="GÖLGE'ye bir şey söyle…"/><button aria-label="Gönder" disabled={disabledSend||!input.trim()}><Send/></button></form></Panel>
  <FileDrop notify={notify} ask={send} nativeFile={u.native?()=>u.native?.action('file'):undefined}/>
