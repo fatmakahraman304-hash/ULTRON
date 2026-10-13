@@ -1,6 +1,6 @@
 ## 2026-10-13 — Qwen readiness probe recovery
 
-Fixed the typed-chat path where a failing `/api/device-presence` probe threw after the composer cleared the text and before either provider received it. Unknown readiness now resolves to Gemini; a confirmed fresh `local_chat_ready` response continues to prefer laptop Qwen. Added a mobile routing regression for a network-failed presence probe. No device task or duplicate local submission is created by that fallback.
+Fixed the typed-chat path where a failing `/api/device-presence` probe threw after the composer cleared the text and before either provider received it. Unknown readiness now resolves to Gemini; a confirmed fresh `local_chat_ready` response continues to prefer laptop Qwen. Added a mobile routing regression for a network-failed presence probe. No device task or duplicate local submission is created by that fallback. Commit `52b776a` is pushed; exact-SHA Scene and Cloud/PostgreSQL Actions passed, and Render health confirms the release SHA.
 
 ## 2026-10-13 — GitHub PR path for GÖLGE code changes
 

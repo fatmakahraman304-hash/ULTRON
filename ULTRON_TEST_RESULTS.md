@@ -2,7 +2,7 @@
 
 - Added a regression proving a failed readiness HTTP request selects Gemini before local queue submission. Existing local-first selection and strict `desktop_offline` fallback tests remain unchanged.
 - Cloud Python: 306 tests run, 58 skipped (environment-dependent PostgreSQL/integration prerequisites), no failures. Cloud Node: 153/153 pass. Focused mobile-routing, auto-brain and voice tests: 18/18 pass. Frontend `npm ci`, production build and Earth tests: build pass, Earth 6/6 pass. Vite reports the existing large-chunk advisory.
-- Gemini API key and local Ollama are unavailable in this workspace; real Gemini/Qwen conversation evaluation was not run. No model score or live phone-to-laptop success is claimed. Exact-SHA Actions and Render checks remain pending push.
+- Gemini API key and local Ollama are unavailable in this workspace; real Gemini/Qwen conversation evaluation was not run. No model score or live phone-to-laptop success is claimed. Exact-SHA Actions succeeded for commit `52b776a62ec5d236ba8ee4b20e0f9cd02ee235b5`: Scene Build `38438751167`, Cloud Queue PostgreSQL `38438751172`; every job and step succeeded. Render deployment `dep-db76jq0jo6nc738ii4n0` is **LIVE** at this exact SHA, and `/health` returns HTTP 200 with that commit. The runs include real disposable PostgreSQL, private image persistence, mobile Chromium, WebGL and Qwen routing contracts.
 
 ## 2026-10-13 — Approval-gated self-development and draft PR
 
