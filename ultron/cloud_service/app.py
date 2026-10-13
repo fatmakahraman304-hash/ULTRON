@@ -1057,7 +1057,10 @@ def _gemini_generate_image(prompt: str, image_bytes: bytes | None = None,
             data = getattr(inline, "data", None) if inline else None
             if data:
                 raw = data if isinstance(data, bytes) else base64.b64decode(data) if isinstance(data, str) else bytes(data)
-                return {"mime_type": getattr(inline, "mime_type", None) or "image/png",
+                output_mime = getattr(inline, "mime_type", None) or "image/png"
+                if output_mime not in {"image/png", "image/jpeg", "image/webp"} or len(raw) > 8 * 1024 * 1024:
+                    raise RuntimeError("Gemini image response violates output limits")
+                return {"mime_type": output_mime,
                         "image_b64": base64.b64encode(raw).decode("ascii"), "model": model}
     raise RuntimeError("Gemini image model returned no image")
 
@@ -1082,10 +1085,16 @@ async def generate_image(request: web.Request) -> web.Response:
                 mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
                 if mime_type not in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}:
                     raise web.HTTPBadRequest(text='{"error":"supported_image_required"}', content_type="application/json")
-                data = await field.read(decode=False)
-                if len(data) > 8 * 1024 * 1024:
-                    raise web.HTTPRequestEntityTooLarge(max_size=8 * 1024 * 1024, actual_size=len(data))
-                image_bytes = data
+                chunks, total = [], 0
+                while True:
+                    chunk = await field.read_chunk(size=64 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > 8 * 1024 * 1024:
+                        raise web.HTTPRequestEntityTooLarge(max_size=8 * 1024 * 1024, actual_size=total)
+                    chunks.append(chunk)
+                image_bytes = b"".join(chunks)
     if not prompt:
         raise web.HTTPBadRequest(text='{"error":"prompt_required"}', content_type="application/json")
     try:

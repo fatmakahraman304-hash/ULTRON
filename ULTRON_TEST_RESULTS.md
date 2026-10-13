@@ -577,3 +577,8 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 - `python -m py_compile app.py test_image_generation.py`: passed.
 - Inline chat script `node --check`: passed; `node test_mobile_chat_flow.cjs`: **7 passed**.
 - Gemini image-generation provider call, production credentials/model availability, Render deployment, and physical iPhone behavior: **not run**. No actual generated image or live-provider success is claimed.
+## 2026-10-13 — Image output download and payload bounds
+
+- Full Cloud Python discovery: **304 passed, 58 skipped** (previous 303 plus the Gemini response payload test).
+- `node test_image_generation_ui.cjs`: **1 passed**, including save action and temporary URL cleanup; mobile chat routing: **7 passed**.
+- Python compilation and `git diff --check`: passed. Gemini provider call and real-device save behavior remain NOT RUN.

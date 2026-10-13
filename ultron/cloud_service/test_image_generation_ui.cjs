@@ -13,6 +13,8 @@ for (const prompt of ['Resim oluştur', 'Bir kedi resmi çiz', 'Mavi bir daire o
   if (!context.isImageCreationRequest(prompt)) throw new Error('image request was not recognized: ' + prompt);
 }
 if (context.isImageCreationRequest('2009 Mercedes C180 yakıt tüketimi?')) throw new Error('ordinary chat was captured as image creation');
+if (!inline[1].includes("Görseli indir / kaydet")) throw new Error('generated image download action missing');
+if (!inline[1].includes("URL.revokeObjectURL(url)")) throw new Error('generated image URLs are not cleaned up');
 context.lastImageFile = {};
 if (!context.isImageCreationRequest('Daha iyi yap')) throw new Error('image improvement follow-up was not recognized');
 if (!context.isImageFollowupRequest('Fotoğrafta ne yazıyor?')) throw new Error('image question follow-up was not recognized');

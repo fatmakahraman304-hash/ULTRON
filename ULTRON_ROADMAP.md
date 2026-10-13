@@ -504,3 +504,6 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 ## 2026-10-13 — Upload-aware Gemini image creation and editing
 
 Cloud chat now keeps uploaded-image analysis and reference follow-ups in the same owner-scoped conversation. In the active browser session, explicit “resim oluştur/çiz”, “attığım resmi düzenle” and short “daha iyi yap” requests call Gemini's configurable image model (`GEMINI_IMAGE_MODEL`, default `gemini-2.5-flash-image`) and show only returned image bytes. Image files stay in browser memory and are uploaded only for analysis/edit requests; they are not stored in conversation rows. Provider access is not live-tested in this workspace.
+## 2026-10-13 — Image output usability and bounds
+
+Generated and edited images now have an explicit download/save action, with temporary object URLs revoked when the page closes. Image uploads for editing stream through an 8 MB bound; provider image outputs are limited to PNG/JPEG/WebP and 8 MB. Originals remain transient in the browser and are not persisted server-side.

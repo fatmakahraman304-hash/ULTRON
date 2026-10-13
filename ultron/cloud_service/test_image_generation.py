@@ -3,6 +3,7 @@ import base64
 import os
 import unittest
 import uuid
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from aiohttp import web
@@ -41,6 +42,32 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         await self.client.close()
         self.env.stop()
+
+    def test_gemini_image_parts_are_extracted_and_limited_to_supported_mime(self):
+        image = b"real generated PNG payload"
+        part = SimpleNamespace(inline_data=SimpleNamespace(data=image, mime_type="image/png"))
+        response = SimpleNamespace(candidates=[SimpleNamespace(content=SimpleNamespace(parts=[part]))])
+        class FakeModels:
+            def generate_content(self, **kwargs):
+                self.kwargs = kwargs
+                return response
+        models = FakeModels()
+        with patch.object(cloud.genai, "Client", return_value=SimpleNamespace(models=models)), \
+             patch.object(cloud, "required_env", return_value="server-only-key"), \
+             patch.dict(os.environ, {"GEMINI_IMAGE_MODEL": "test-image-model"}):
+            result = cloud._gemini_generate_image("draw a blue circle", b"source", "image/jpeg")
+        self.assertEqual(base64.b64decode(result["image_b64"]), image)
+        self.assertEqual(result["mime_type"], "image/png")
+        self.assertEqual(models.kwargs["config"].response_modalities, ["IMAGE", "TEXT"])
+        self.assertEqual(models.kwargs["contents"][1].inline_data.data, b"source")
+
+        bad_response = SimpleNamespace(candidates=[SimpleNamespace(content=SimpleNamespace(parts=[
+            SimpleNamespace(inline_data=SimpleNamespace(data=b"payload", mime_type="image/svg+xml"))]))])
+        with patch.object(cloud.genai, "Client", return_value=SimpleNamespace(models=SimpleNamespace(
+                 generate_content=lambda **_: bad_response))), \
+             patch.object(cloud, "required_env", return_value="server-only-key"):
+            with self.assertRaisesRegex(RuntimeError, "output limits"):
+                cloud._gemini_generate_image("draw", None, None)
 
     async def test_requires_auth_and_prompt_before_provider(self):
         with patch.object(cloud, "_gemini_generate_image") as generate:

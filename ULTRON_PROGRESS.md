@@ -538,3 +538,6 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 ## 2026-10-13 — Cloud image creation and upload continuity
 
 Fixed uploaded photo analysis creating an unrelated conversation: `/api/vision` accepts the active conversation ID, includes its bounded prior turns, validates ownership, and returns message IDs so the UI does not duplicate server-saved messages. Follow-ups that refer to visible image content resend the in-memory image to Gemini. Added authenticated `/api/image/generate` for real Gemini image creation/editing and inline display; the client does not retain uploaded images beyond the current page session or persist image bytes. Actual Gemini image-model availability has not been tested.
+## 2026-10-13 — Image output improvements
+
+Added mobile-friendly download/save for generated and edited results, page-close cleanup for object URLs, incremental upload size checks, and output MIME/size validation. The Gemini SDK response extraction has a provider-free fake response test, including rejection of unsupported SVG output. No live Gemini call or uploaded-photo persistence was added.

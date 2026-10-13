@@ -1005,6 +1005,8 @@ async function visionApi(file,question=''){
   return data;
 }
 let lastImageFile=null,lastImageConversationId='';
+const generatedImageUrls=[];
+window.addEventListener('pagehide',()=>generatedImageUrls.splice(0).forEach(url=>URL.revokeObjectURL(url)));
 async function generateImageApi(prompt,image=null){
   const form=new FormData();form.append('prompt',prompt);if(conversationId)form.append('conversation_id',conversationId);
   if(image)form.append('image',image,image.name||'uploaded-image.png');
@@ -1027,12 +1029,19 @@ async function sendImageCreation(text,userBubble){
   const d=await generateImageApi(text,source);
   if(d.conversation_id){conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId)}
   if(d.user_message_id&&userBubble){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
-  const bubble=addMessage('assistant',source?'Görseli düzenledim.':'Görseli oluşturdum.',{id:d.assistant_message_id});
   if(d.image_b64&&/^image\/(?:png|jpeg|webp)$/.test(d.mime_type||'')){
+    const bubble=addMessage('assistant',source?'Görseli düzenledim.':'Görseli oluşturdum.',{id:d.assistant_message_id});
+    const raw=atob(d.image_b64),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+    const imageUrl=URL.createObjectURL(new Blob([bytes],{type:d.mime_type}));generatedImageUrls.push(imageUrl);
     const img=document.createElement('img');img.alt=source?'Düzenlenmiş görsel':'Oluşturulmuş görsel';
-    img.src='data:'+d.mime_type+';base64,'+d.image_b64;img.style.cssText='display:block;max-width:min(100%,480px);max-height:65vh;margin-top:10px;border-radius:14px';bubble.appendChild(img);
+    img.src=imageUrl;img.style.cssText='display:block;max-width:min(100%,480px);max-height:65vh;margin-top:10px;border-radius:14px';bubble.appendChild(img);
+    const save=document.createElement('a'),extension=d.mime_type.split('/')[1].replace('jpeg','jpg');
+    save.href=imageUrl;save.download='golge-gorsel.'+extension;save.textContent='Görseli indir / kaydet';
+    save.style.cssText='display:inline-block;margin-top:8px;color:#9fe9ff;text-decoration:underline';bubble.appendChild(save);
+  }else{
+    addMessage('assistant','Görsel sağlayıcısı bu istekte görsel verisi döndürmedi. İsteği yeniden deneyebilirsin.',{id:d.assistant_message_id});
   }
-  messageSignature='';if(userBubble){}return true;
+  messageSignature='';return true;
 }
 function clearPendingImage(){
   pendingImage=null;

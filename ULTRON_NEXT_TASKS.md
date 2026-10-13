@@ -658,3 +658,8 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 2. If image output fails, inspect only the safe API error category and check Gemini account/model access; set `GEMINI_IMAGE_MODEL` in Render only to a model available to that account. Never request or paste the API key into chat.
 3. Confirm image bytes remain transient in browser memory and are absent from messages/events; test ownership isolation and reattach behavior after reload.
 4. Continue deferring Windows installation until the user's final combined update.
+## Next — live image quality check
+
+1. In Render UI, try one Turkish and one English image request, download the result on iPhone and laptop, then upload a photo and ask for an edit. Confirm the generated file opens and the original is not available after page reload.
+2. Confirm Gemini account access to the configured image model in a real session; offline and fake-provider tests do not establish provider availability or image quality.
+3. If editing a HEIC/HEIF photo is rejected by Gemini despite API acceptance, add a server-side safe image conversion path with explicit format and pixel limits; preserve the raw upload only in memory.
