@@ -1,3 +1,7 @@
+## 2026-10-13 — Typed Live turns share consent and history handling
+
+Closed a gap in the websocket's typed-message branch: text sent to Gemini now also enters that turn's consent evidence and persisted user history. Oversize typed input is rejected at 16,000 characters. The actual nested websocket/tool/history functions are exercised by a test-first integration regression; focused live-voice tests pass 8/8. Full local Cloud Python tests: 319 passed, 60 skipped; browser tests: 153/153. Commit `f932b184eda215585a01d8d5d933b9f682611de1` passed GitHub Cloud/PostgreSQL #38455888395, Scene #38455888286 and WORLD smoke #38455888333. Render deploy `dep-db78feajnfac73d01fo0` is LIVE, with public `/health` returning 200 and the exact SHA. Real Gemini Live and phone use remain unverified.
+
 ## 2026-10-13 — Natural Turkish memory requests in live voice
 
 Expanded the explicit-consent recognizer to understand “aklında bulunsun”, “bunu aklında bulundur”, “bunu hafızana yaz”, and “bunu notlarına ekle”; negative instructions and questions do not authorize writes. Four missing-phrase regressions failed before the implementation and passed after it. Cloud Python: 318 passed, 60 skipped. Commit `86ad3922f2ae04fe630c0ea08a4d53275a6f32f2` passed Scene #38452607673 and Cloud/PostgreSQL #38452607354. Render deploy `dep-db783rnavr4c73euva8g` is LIVE; `/health` reports the exact SHA with HTTP 200. Actual phone/Gemini transcription was not tested.

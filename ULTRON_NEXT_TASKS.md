@@ -1,6 +1,6 @@
-## Completed checkpoint — natural Turkish live-voice consent
+## Completed checkpoint — typed live turns preserve consent and history
 
-Commit `86ad3922f2ae04fe630c0ea08a4d53275a6f32f2` adds common explicit Turkish save commands while keeping questions and refusals from authorizing memory writes. Local Cloud Python suite: 318 passed, 60 skipped. Scene #38452607673 and Cloud/PostgreSQL #38452607354 passed. Render deploy `dep-db783rnavr4c73euva8g` is LIVE at the same SHA; `/health` returned HTTP 200.
+Commit `f932b184eda215585a01d8d5d933b9f682611de1` ensures typed `/api/live` turns reach the current-turn memory consent guard and conversation history, with a 16,000-character input cap. Cloud Python: 319 passed, 60 skipped; browser tests: 153/153. Scene #38455888286, Cloud/PostgreSQL #38455888395 and WORLD smoke #38455888333 passed. Render deploy `dep-db78feajnfac73d01fo0` is LIVE at the same SHA; `/health` returned HTTP 200 and the exact commit.
 
 ## Next tasks — real provider and device verification
 

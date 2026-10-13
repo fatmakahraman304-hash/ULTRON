@@ -1,3 +1,10 @@
+## 2026-10-13 — Typed Live turns enter consent and history
+
+- Test-first integration regression initially reproduced the defect: typed websocket text reached Gemini but did not enter `in_parts`, so explicit `save_memory` consent was invisible and the turn was absent from saved history. The fix adds bounded text to the current turn before provider dispatch; inputs over 16,000 characters return `text_too_long` without being forwarded. The test invokes the real nested browser-to-Gemini, tool guard, and Gemini-to-browser handlers with fake socket/provider/database boundaries.
+- Focused `test_live_voice_policy.py`: **8/8 passed**. Full Cloud Python discovery: **319 passed, 60 skipped** for unavailable external prerequisites. Cloud Node/browser suite: **153/153 passed**. `py_compile` and `git diff --check` passed.
+- Exact SHA `f932b184eda215585a01d8d5d933b9f682611de1`: GitHub Cloud Queue/PostgreSQL [#38455888395](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38455888395), Scene Build [#38455888286](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38455888286), and WORLD read-only smoke [#38455888333](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38455888333) all **SUCCESS**.
+- Render deploy `dep-db78feajnfac73d01fo0` is **LIVE** at the exact SHA; `https://ultron-yubh.onrender.com/health` returned HTTP 200 and reported the same commit. This test uses synthetic Live/database objects; actual Gemini inference, mobile websocket use, and phone microphone behavior remain **NOT_RUN**. The 100-case dataset is scenario coverage, not a model quality score; no 100/100 claim is made.
+
 ## 2026-10-13 — Natural Turkish live-voice consent variants
 
 - Test-first regression cases reproduced four false negatives: “Aklında bulunsun…”, “Bunu aklında bulundur…”, “Bunu hafızana yaz…”, and “Bunu notlarına ekle…”. They are now accepted as explicit current-turn requests. “Bunu aklında bulundurma”, “Bunu hafızana yazma”, and “Bunu aklında tutmalı mıyım?” remain non-consent. The complete focused live-voice policy suite passes **7/7**.
