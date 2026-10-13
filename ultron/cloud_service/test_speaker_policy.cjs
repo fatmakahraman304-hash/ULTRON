@@ -81,7 +81,7 @@ test("local voice gets phone priority on microphone tap, not on a 5-second timer
 });
 
 test("speaker policy is cached with PWA and adds no visible menu",()=>{
- assert.match(sw,/(?:ultron|golge)-shell-v[0-9]+/);
+ assert.match(sw,/ultron-shell-v[0-9]+/);
  assert.ok(sw.includes("'/static/speaker-policy.js'"));
  assert.ok(html.includes('<script src="/static/speaker-policy.js"></script>'));
  assert.doesNotMatch(html,/id="speakerModePicker"/);
