@@ -1,3 +1,7 @@
+## 2026-10-13 — Keep desktop model and image failures private
+
+The privacy boundary now covers the full desktop path: model-router health and local HTTP errors, the chat agent's final failure message, uploaded-image analysis, CloudClient health/fallback status, and local vision debug output. Errors are categorized without exposing provider strings; vision logs record response length instead of image-derived text. Code SHAs `b327c3d` and `675ea67` passed Scene and Cloud/PostgreSQL Actions. Render remains independently healthy at Cloud SHA `1ad5f28`; no live Gemini/Qwen quality test was run.
+
 ## 2026-10-13 — Safe local and cloud provider diagnostics
 
 Desktop model health, local chat/vision API failures, CloudClient health, and cloud-fallback activity now expose stable error categories instead of raw provider exception text. Transient local provider failures return 503/502 with a short Turkish message; input validation retains its specific guidance. Synthetic boundary tests cover credential-like values plus prompt/image details. This hardens diagnostics without changing model routing, approval gates, memory or the Render service.

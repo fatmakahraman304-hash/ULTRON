@@ -1,10 +1,10 @@
-## 2026-10-13 — Desktop and Cloud provider error privacy boundaries
+## 2026-10-13 — Desktop model, agent, vision and Cloud error privacy
 
-- Test-first regressions reproduced raw provider exception exposure through model health, merged local chat, uploaded-image analysis, and CloudClient error status. The routes now retain only stable categories. Chat returns 503; image analysis returns 502; malformed user input keeps its bounded 400 response.
-- Focused model-router and Cloud-client runs: **39 passed, 4 subtests passed**. Tests include actual aiohttp requests through local chat and vision boundaries, credential-like fake values, user prompt/image fragments, transient-cause classification, and Cloud health status. `py_compile` and `git diff --check` passed.
-- Full desktop backend suite from repository root: **1,023 passed, 3 skipped, 6 subtests passed in 40.65s**. Skips require an unrecognized deterministic-parser case, a user Picovoice key, or actual Windows/microphone/screen hardware.
-- Scene CI now has a dedicated step for all 20 model-router tests, including the real aiohttp chat/image error boundaries; this workflow change is awaiting exact-SHA GitHub execution.
-- No live Gemini/Qwen call, phone/laptop acceptance, or Windows installation was performed. This change is in desktop backend files; Render's Cloud service is not modified.
+- Test-first regressions reproduced raw provider and user-image text exposure through model health, local chat/image HTTP responses, desktop agent final errors, CloudClient status, and vision debug logging. Public/provider boundaries now expose only stable categories or generic Turkish messages; HTTP 404 and transient provider failures retain distinct classifications.
+- Focused suites: **41 passed, 4 subtests passed**. Scene's new model/agent/vision/API privacy step: **22 passed**. It exercises real aiohttp chat/image handlers plus synthetic chat, vision and log failures with fake credentials/user text.
+- Full backend suite from repository root: **1,025 passed, 3 skipped, 6 subtests passed in 40.44s**. Python compilation passed. `git -c core.whitespace=cr-at-eol diff --check` passed because the existing vision file uses CRLF line endings.
+- Code commits `b327c3de1b8bf4269ddbfb0ea2d2b0715bbf5c16` and `675ea678ec41bd7b88fac645f218a9d1493dcb3f` both passed exact-SHA Scene and Cloud/PostgreSQL Actions: [38460977820](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38460977820), [38460977851](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38460977851), [38462071665](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38462071665), [38462071649](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38462071649).
+- My Workspace Render remains LIVE at Cloud SHA `1ad5f288d1f4084d0561c8027dbee51f5ad75b6c`; public `/health` returned HTTP 200 at that exact SHA and error logs were empty. No real Gemini/Qwen calls, device acceptance, or Windows installation were run; this is not a 100/100 conversation score.
 
 ## 2026-10-13 — Provider exception privacy
 

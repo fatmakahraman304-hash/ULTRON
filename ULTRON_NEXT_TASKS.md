@@ -10,12 +10,12 @@ Commit `5677dca638909d23d96aab2dedab2597dbd196c1` closes a dataset-validator gap
 
 Commit `f932b184eda215585a01d8d5d933b9f682611de1` ensures typed `/api/live` turns reach the current-turn memory consent guard and conversation history, with a 16,000-character input cap. Cloud Python: 319 passed, 60 skipped; browser tests: 153/153. Scene #38455888286, Cloud/PostgreSQL #38455888395 and WORLD smoke #38455888333 passed. Render deploy `dep-db78feajnfac73d01fo0` is LIVE at the same SHA; `/health` returned HTTP 200 and the exact commit.
 
-## Next tasks — release provider privacy fix and real model/device verification
+## Next tasks — real model and device validation after privacy hardening
 
-1. Commit and push the desktop-only provider-error privacy fix, then verify the new Scene model-router step and Cloud desktop lease tests on the exact SHA. Render uses `ultron/cloud_service/`; these backend edits should not create a new deployment. Verify the currently live Cloud SHA separately.
-2. On the paired laptop, confirm local Qwen failures and recovery show only safe status categories; test Gemini fallback and uploaded-image errors in an owner-authorized session. Keep Windows installation deferred until the final combined update.
-3. Run the frozen 100-case Turkish/English conversation suite against actual Gemini and local Qwen with independent review and latency records. Keep unavailable providers/devices NOT_RUN; do not claim 100/100 from synthetic tests.
-4. Measure Qwen token occupancy on actual hardware before changing interactive context budgets. Preserve approval, privacy, and device-permission gates.
+1. On the paired laptop, test local Qwen failures/recovery, Gemini fallback, agent chat errors, and image uploads; confirm only useful safe status reaches the user and no image text enters diagnostic logs.
+2. Run the frozen 100-case Turkish/English conversation suite against real Gemini and local Qwen, retaining actual transcripts/model identity/latency and independent review. Keep unavailable providers/devices **NOT_RUN**; never infer 100/100 from CI.
+3. Measure Qwen token occupancy and Turkish p50/p95 latency on the target laptop before changing interactive context or model defaults.
+4. Keep Windows installation deferred until the final combined update and preserve the approval, privacy, and device-permission gates.
 
 ## Completed checkpoint — live voice consent release
 
@@ -314,10 +314,10 @@ The diacritic-tolerant code and package-import correction are pushed and verifie
 
 ## Next tasks
 
-1. Commit and push the current desktop-only provider-error privacy fix, then verify the new Scene model-router step and Cloud desktop lease tests on the exact SHA. Render uses `ultron/cloud_service/`; these backend edits should not create a new deployment. Verify the currently live Cloud SHA separately.
-2. On the paired laptop, confirm local Qwen failures and recovery show only safe status categories; test Gemini fallback and uploaded-image errors in an owner-authorized session. Windows installation stays deferred until the final combined update.
-3. Real quality remains NOT MEASURED. Run the frozen 100-case Turkish/English conversation suite against actual Gemini and local Qwen with independent review and latency records. Keep unavailable providers/devices NOT_RUN; do not claim 100/100 from synthetic tests.
-4. Measure Qwen token occupancy on actual hardware before changing interactive context budgets. Preserve all approval, privacy and device-permission gates.
+1. Code commits `b327c3d` and `675ea67` are pushed; Scene and Cloud/PostgreSQL workflows passed at both exact SHAs. Render remains healthy at Cloud SHA `1ad5f28` because its root directory is `ultron/cloud_service/`.
+2. On the paired laptop, verify Qwen fallback, model/vision error handling and real uploaded-image analysis; confirm diagnostics do not contain provider strings or image-derived text.
+3. Run the frozen 100-case Turkish/English evaluation with actual Gemini and local Qwen, independent transcript review, and latency records. No live provider quality score exists yet; keep unavailable runs NOT_RUN.
+4. Measure target-laptop Qwen token occupancy and latency before changing interactive context. Windows installation remains deferred; preserve approval/privacy/device permissions.
 
 ---
 Historical task records below; the priorities above supersede older Windows-install or non-conversation tasks.

@@ -1,6 +1,10 @@
-## 2026-10-13 — Local and Cloud provider error privacy
+## Completed checkpoint — end-to-end desktop provider error privacy
 
-Local `ModelRouter.health()` now keeps only `provider_request_failed` / `provider_temporarily_unavailable`; merged local chat and uploaded-image routes return generic Turkish errors and safe codes with 503/502 status. `CloudClient.last_error`, Cloud health responses, and fallback activity no longer expose raw exception details. Approval and model-selection behavior is unchanged. Focused suites: 39 passed plus 4 subtests; full backend: **1,023 passed, 3 skipped, 6 subtests passed**. Python compilation and `git diff --check` passed. My Workspace reports the unchanged Render deployment LIVE at `1ad5f28`; `/health` returned HTTP 200 and the exact commit, and Render error logs were empty. Real Gemini/Qwen calls remain untested. This code is desktop-only; it does not alter Render's Cloud service.
+Code commits `b327c3de1b8bf4269ddbfb0ea2d2b0715bbf5c16` and `675ea678ec41bd7b88fac645f218a9d1493dcb3f` now protect model-router health, local chat/vision HTTP responses, the desktop agent's final error message, CloudClient health/fallback status, and vision debug logs. Chat failures return safe Turkish text and status codes; malformed image input keeps its specific validation response. Vision debug output records response length, not user-image-derived text.
+
+Full backend tests: **1,025 passed, 3 skipped, 6 subtests passed**; focused provider suites: 41 passed plus 4 subtests. Scene Actions [#38460977820](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38460977820) and [#38462071665](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38462071665) passed; the latest new desktop privacy step passed 22/22. Cloud/PostgreSQL Actions [#38460977851](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38460977851) and [#38462071649](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38462071649) passed.
+
+In authorized My Workspace, the Render service remains LIVE at Cloud SHA `1ad5f288d1f4084d0561c8027dbee51f5ad75b6c`; `/health` returned HTTP 200 and the exact commit, and the error-log query was empty. This desktop-only change does not trigger a Cloud deployment. Real Gemini/Qwen inference, phone/laptop acceptance and Windows installation remain NOT RUN; no 100/100 model score is claimed.
 
 ## 2026-10-13 — Provider errors no longer echo sensitive exception text
 
