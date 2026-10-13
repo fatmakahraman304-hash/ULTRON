@@ -515,3 +515,7 @@ Require explicit standalone owner commands for chat-based patch approval. When s
 ## Image and desktop self-development correctness
 
 Before image generation, validate ownership of any existing conversation without exposing foreign threads to the provider. Only create/update a conversation after successful provider output so failed attempts do not leave empty records. For desktop self-development, enforce resolved filesystem ancestry at proposal time as well as application time; keep exact owner approval, sandbox checks, rollback, test execution and draft-only GitHub PR behavior.
+
+## Release evidence and real-device validation
+
+Keep synthetic provider tests separate from actual Gemini image quality and accessibility. A healthy `/health` response confirms service configuration and commit only; phone image generation/download and owner laptop GÖLGE GitHub draft-PR workflow still need hands-on verification.

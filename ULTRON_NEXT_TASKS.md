@@ -671,9 +671,9 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 3. Add an async bridge-level test for two pending patches if the codegen bridge can be instantiated without hardware; current tests cover the command resolver and publisher contract.
 4. Continue provider-backed image generation/edit checks separately; live Gemini credentials/model availability and real phone/laptop image handling have not been established by offline tests.
 
-## Next — release and verify the latest image/self-development safeguards
+## Next — real phone and laptop validation
 
-1. Commit and push the current tested changes on `feat/ultron-cloud-shared-memory`; inspect Cloud Queue and Scene Actions for that exact SHA.
-2. Check the Render deployment and `/health` SHA. The image API is part of the Cloud service; the codegen path fence is desktop-only.
-3. On phone, try one new image prompt and one edit of an uploaded photo; confirm inline output, download/save, and a clear provider error on unavailable access. Do not assume offline tests prove Gemini is enabled.
-4. At the already-requested final Windows update, test GÖLGE's approved code proposal against a dirty checkout, a missing `gh` login, and an outside-root patch; verify all stop safely, then create an owner-approved draft PR without automatic merge.
+1. On phone, try a new image prompt and edit an uploaded photo; confirm inline output and download/save. A 200 health endpoint does not prove Gemini image-model access.
+2. At the already-requested final Windows update, test GÖLGE's approved code proposal against a dirty checkout, missing `gh` login, and outside-root patch; verify all stop safely, then create an owner-approved draft PR without automatic merge.
+3. If the phone reports provider access failure, inspect only its safe error category and confirm the account's `GEMINI_IMAGE_MODEL` access without exposing API keys.
+4. Do not install Windows or download local models before the requested combined final update.
