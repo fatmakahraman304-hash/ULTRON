@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SRC = (ROOT / "development_updates.py").read_text(encoding="utf-8")
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
+LIVE_POLICY = (ROOT / "live_voice_policy.py").read_text(encoding="utf-8")
 SCHEMA = (ROOT / "schema.sql").read_text(encoding="utf-8")
 
 
@@ -88,8 +89,8 @@ class DevelopmentWorkflowTests(unittest.TestCase):
         self.assertIn("request_ultron_development", APP)
         self.assertIn("development_request_saved", APP)
         self.assertNotIn("ULTRON_self_development_must_use_ChatGPT_handoff", APP)
-        self.assertIn("send_laptop_task immediately", APP)
-        self.assertIn("user must approve before files change", APP)
+        self.assertIn("send_laptop_task immediately", LIVE_POLICY)
+        self.assertIn("user must approve before files change", LIVE_POLICY)
         self.assertIn("CREATE TABLE IF NOT EXISTS dev_requests", SCHEMA)
         self.assertIn("CREATE INDEX IF NOT EXISTS idx_dev_requests_owner_time", SCHEMA)
         self.assertIn("WHERE id=$1 AND user_id=$2", SRC)

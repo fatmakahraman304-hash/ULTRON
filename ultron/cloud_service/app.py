@@ -30,6 +30,9 @@ from personal_context_focus import load_focused_owner_context, memory_focus_ques
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
 from response_quality import finalize_response
+from live_voice_policy import (build_live_voice_instruction,
+                               explicit_memory_save_requested,
+                               safe_manual_memory_value)
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
 from google import genai
@@ -1640,42 +1643,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         memory=memory, recent=recent,
         has_prior_turns=not recent.startswith("No previous chat messages."),
     )
-    system_instruction = (
-        base_prompt
-        + "\n\nYou are speaking through the user's phone using Gemini Live native audio. "
-          "Speak naturally in the same language as the user. Keep replies conversational and usually brief. "
-          "Use save_memory whenever the user explicitly asks you to remember something or reveals a stable personal fact worth remembering. "
-          "Use recall_memory when current persistent memory is needed instead of guessing from stale session context. "
-          "Use get_latest_image_context whenever the user refers to the photo/image they just sent. "
-          "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
-          "Use control_phone_ui when the user asks to control the current phone surface. Supported actions include GÖLGE views plus safe app intents such as browser/search/maps/call composer. "
-          "For iPhone system/app control, never claim unrestricted device access: iOS only allows actions exposed by browser URL/deep-link intents or explicit Shortcuts. "
-          "Use run_ios_shortcut when the user asks for an iPhone action that should be delegated to Apple Shortcuts. Prefer the shortcut name GÖLGE Bridge unless the user explicitly names another shortcut. "
-          "For opening apps such as YouTube, Spotify, WhatsApp, Instagram, Chrome, Maps, Messages, Mail, or FaceTime, ALWAYS use control_phone_ui and NEVER use Apple Shortcuts. "
-          "If the user names content to find inside YouTube or Spotify, use youtube_search or spotify_search instead of merely opening the app. "
-          "If the user asks to prepare a WhatsApp message, use whatsapp_message. "
-          "For direct phone/app actions, perform the tool call immediately and do not add a conversational confirmation afterward unless the action fails. "
-          "Use run_ios_action only for iPhone system settings that truly require Apple Shortcuts: set_focus, set_volume, set_brightness, bluetooth, wifi, and compose_message. "
-          "You are ONE GÖLGE across the phone and paired Windows laptop, not two separate assistants. "
-          "If the user asks GÖLGE to change GÖLGE's own code, add a feature, or fix a GÖLGE bug, use send_laptop_task immediately. The paired laptop creates a bounded patch proposal and shows its diff; the user must approve before files change. After local tests, it may open a draft GitHub PR. Never merge or claim Render deployment from PR creation. If the laptop is offline, explain that self-development needs its local agent. "
-          "The paired laptop's local agent is an extension of your own capability set. Whenever the user asks for something the desktop GÖLGE can do, use send_laptop_task automatically even if the user does not explicitly say 'on the laptop'. "
-          "Desktop capabilities include file/folder operations, Windows and desktop control, system status/settings, opening and controlling desktop apps, browser automation, coding/development-agent work, screen inspection, local file processing, web/news/weather/flight lookups, reminders, messaging, media/video/YouTube actions, monitoring, dynamic Center Stage control, interactive hologram creation/editing, normal shaded 3D Earth Watch with rotatable globe, atmosphere/clouds/stars, approximate UTC-synchronized sunlight, coordinate pins, location focus and validated optional live ISS tracking, multi-object 3D Scene Lab composition, natural object-name selection/movement/rotation/scaling, multi-select and named-group batch editing, align/distribute tools, line/grid/radial arrays, parent-child Scene Graph hierarchy, reusable camera bookmarks and timeline-authored cinematic camera keyframes, live drop/launch/zero-G/float physics simulation, holographic distance measurements, scene diagnostics and live collision-risk visualization, target lock and follow/look-at/orbit-target constraints, waypoint route playback, hologram/blueprint/xray/solid/thermal technical render modes, timed Mission Sequences with direct live video capture, persistent Snapshot Vault checkpoints, conditional timer/distance/collision Scene Lab Trigger Engine automation, duplicate/undo/redo, animated object motion, multi-object eased timeline/keyframe animation, persistent manual and cinematic camera paths, object-attached HUD/data cards, holographic object links, Scene Director modes, named in-app scene projects, persistent imported GLB Asset Library with reuse/delete and embedded animation control, audio-reactive particles, themes/HUD labels, exploded views, camera/layout control, scene save/reopen, screenshot capture, real live Three.js scene video recording and short local animation-video rendering/preview, converting the current hologram or 3D scene into a video, whole-system/world awareness, self-diagnostics, adaptive screen awareness, smart-home/IoT scenes, presence, backups, long-running supervisor tasks, research/knowledge retrieval, persistent goals, prediction, decision support, dry-run simulation, and any other action/plugin available to the desktop GÖLGE. "
-          "Never answer 'I cannot do that from the phone' merely because the capability lives on the laptop; delegate it through send_laptop_task. "
-          "If the user explicitly says iPhone/phone, use phone tools. If the user explicitly says laptop/computer/Windows, use send_laptop_task. If no device is named, use phone tools for clearly iPhone-local intents and use the desktop agent for desktop/tool/file/system/automation tasks. "
-          "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
-          "Use get_latest_laptop_task when the user asks what happened to the last laptop task, whether it finished, or for its result. "
-          "Use cancel_laptop_task when the user explicitly asks to cancel the latest queued laptop task. "
-          "send_laptop_task may schedule a task for later by setting delay_minutes. "
-          "For complex laptop tasks, include a short ordered plan of 2-7 concrete steps so the desktop agent can report progress and resume from checkpoints. "
-          "For an online immediate desktop task, send_laptop_task returns quickly so the phone's Gemini Live audio session never blocks. The browser receives the eventual desktop result independently and announces it; you must not wait for or inject another result turn. "
-          "After send_laptop_task returns accepted/running, only acknowledge briefly that the task was sent or is being processed; NEVER claim completion yet. "
-          "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it completed, failed, was scheduled, or remains queued. "
-          "The phone is in always-listening mode while the microphone session is active; no wake word is required. "
-          "When the user gives a direct phone/app command, execute the appropriate tool immediately before speaking. "
-          "Do not ask follow-up closing questions such as 'Başka bir emriniz var mı?' after completing a command. "
-          "For successful direct actions, keep any spoken confirmation extremely short, for example 'Açıyorum.' or say nothing beyond the result."
-
-    )
+    system_instruction = build_live_voice_instruction(base_prompt)
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
     voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
     try:
@@ -1736,13 +1704,13 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         tools=[{"function_declarations": [
             {
                 "name": "save_memory",
-                "description": "Save or update a stable user fact in the shared GÖLGE Cloud memory. Use when the user asks to remember something or shares an important persistent fact.",
+                "description": "Save or update an owner fact only after an explicit request in the current spoken turn to remember/save it. A disclosure alone is not consent. Never store passwords, API keys, tokens, or one-time codes.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
                         "key": {"type": "STRING", "description": "Short stable key, for example favorite_color or school."},
                         "value": {"type": "STRING", "description": "The exact fact to remember, preserving the user's wording when practical."},
-                        "category": {"type": "STRING", "description": "PROFILE, PREFERENCE, PROJECT, RELATIONSHIP, WISH, NOTE, FACT, IMPORTANT, DEVICE, or TASK."}
+                        "category": {"type": "STRING", "enum": ["PREFERENCE", "PROJECT", "GOAL", "FACT", "DEVICE"]}
                     },
                     "required": ["key", "value"]
                 }
@@ -2014,10 +1982,30 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     key = str(args.get("key", "")).strip()[:120]
                     value = str(args.get("value", "")).strip()[:8000]
                     category = str(args.get("category", "FACT")).strip().upper()[:40] or "FACT"
+                    if category not in {"PREFERENCE", "PROJECT", "GOAL", "FACT", "DEVICE"}:
+                        category = "FACT"
                     if not key or not value:
                         return types.FunctionResponse(
                             id=fc.id, name=name,
                             response={"ok": False, "error": "key_and_value_required"},
+                        )
+                    if not explicit_memory_save_requested(" ".join(in_parts)):
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={
+                                "ok": False,
+                                "error": "owner_explicit_request_required",
+                                "note": "No memory was written. A personal disclosure is not permission to save it.",
+                            },
+                        )
+                    if not safe_manual_memory_value(key + " " + value):
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={
+                                "ok": False,
+                                "error": "credential_not_stored",
+                                "note": "No memory was written because the value resembles a credential.",
+                            },
                         )
                     row = await pool.fetchrow(
                         """
@@ -2382,6 +2370,22 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             async with send_lock:
                                 await ws.send_bytes(response.data)
 
+                        sc = getattr(response, "server_content", None)
+                        if sc is not None and getattr(sc, "interrupted", False):
+                            # Drop the unfinished assistant transcript and stop
+                            # any audio already queued locally.
+                            out_parts.clear()
+                            await send_json({"type": "interrupted"})
+                        # The current transcription is the consent evidence for
+                        # save_memory. Process it before any tool call in this
+                        # same Live response.
+                        if (sc is not None and sc.input_transcription
+                                and sc.input_transcription.text):
+                            text = str(sc.input_transcription.text).strip()
+                            if text:
+                                in_parts.append(text)
+                                await send_json({"type": "input_transcript", "text": text})
+
                         if getattr(response, "tool_call", None):
                             fn_responses = []
                             for fc in response.tool_call.function_calls:
@@ -2389,20 +2393,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             if fn_responses:
                                 await session.send_tool_response(function_responses=fn_responses)
 
-                        sc = getattr(response, "server_content", None)
                         if sc is None:
                             continue
-                        if getattr(sc, "interrupted", False):
-                            # Gemini detected the user speaking over the answer.
-                            # Drop the unfinished assistant transcript and tell
-                            # the phone to stop any audio already queued locally.
-                            out_parts.clear()
-                            await send_json({"type": "interrupted"})
-                        if sc.input_transcription and sc.input_transcription.text:
-                            text = str(sc.input_transcription.text).strip()
-                            if text:
-                                in_parts.append(text)
-                                await send_json({"type": "input_transcript", "text": text})
                         if sc.output_transcription and sc.output_transcription.text:
                             text = str(sc.output_transcription.text).strip()
                             if text:

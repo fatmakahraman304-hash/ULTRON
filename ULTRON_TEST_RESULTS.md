@@ -1,3 +1,10 @@
+## 2026-10-13 — Live voice consent and capability grounding
+
+- Test-first: the new tests initially failed for absent consent policy, no server write guard, credential acceptance, incorrect category assumptions, and transcript ordering; corrected behavior now passes **7/7** focused tests. The tests execute the actual nested `save_memory` handler with fake database and Live tool objects: a personal disclosure causes zero writes, an explicit current-turn request writes, credentials cause zero writes, and unsupported category labels fall back to the schema-safe FACT.
+- All Cloud service Python tests: **318 passed, 60 skipped** for environment-dependent PostgreSQL/key/device integrations; no failures. Conversation persona 13/13, turns 7/7, contextual recall 15/15, response quality 6/6, frozen eval infrastructure 10/10, style 13/13, and development-routing 6/6 all passed in focused runs. App imports from the Render service root; Cloud workflow YAML parses.
+- Removed unsupported desktop feature claims from the Live system instruction and constrained delegation to the actual task/status/result tools. Live policy text shrank 6,789 → 1,720 characters (~75%). This is a prompt-size change, not a measured response-latency gain.
+- Real provider evaluation did not run: 0/20 pilot transcripts were captured because Gemini credentials and a reachable local Qwen are unavailable. This is NOT_RUN, not a model failure or success. Actions/Render for this new commit pending.
+
 ## 2026-10-13 — Deferred 3D startup validation
 
 - `ultron/frontend`: production TypeScript/Vite build passed; `test:bundle` passed 1/1; Earth JS passed 6/6; combined frontend Node tests passed 10/10. Scene-intent and data-only design validators passed.

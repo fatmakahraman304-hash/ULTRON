@@ -1,3 +1,10 @@
+## Next tasks — verify live voice consent release
+
+1. Push and check exact-SHA Cloud Queue/PostgreSQL Actions and Render deployment/`/health` for the live-voice consent change.
+2. On the real phone, say a personal preference without asking to remember it, then explicitly say “bunu hatırla”; confirm only the latter is persisted. Try a password/API-key-like value and confirm it is refused. Record actual Gemini Live transcripts and device/provider version.
+3. Verify paired-laptop delegation reports queued/completed/failed truthfully and still waits for user approval before editing code.
+4. Run the frozen real Gemini/Qwen 100-case suite with independent review when credentials and the paired laptop are available. Until then, no model-quality score is measured. Keep Windows installation deferred as requested.
+
 ## Next tasks — real model and device quality
 
 1. Current frontend improvement defers the WebGL stage until after the chat shell. Commit `a4f31c6` passed both exact-SHA Actions, and Render backend `/health` returned HTTP 200 at `c805e1e`.
