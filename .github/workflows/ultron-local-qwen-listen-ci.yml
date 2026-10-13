@@ -7,6 +7,7 @@ on:
       - feat/ultron-local-qwen-long-listening-20261012
       - feat/ultron-unified-listening-review-20261012
       - feat/ultron-listen-prod-compat-20261012
+      - feat/ultron-qwen-probe-prod-rebase-20261013
   pull_request:
     branches:
       - feat/ultron-full-session-map-reduce-20261012
@@ -62,6 +63,8 @@ jobs:
             ultron/cloud_service/test_local_listening_qwen.py \
             ultron/cloud_service/test_local_listening_postgres.py
           node --check ultron/cloud_service/static/local-listening.js
+          node --check ultron/cloud_service/static/local-listening-probe.js
+          node --check ultron/cloud_service/test_local_listening_probe.cjs
           node --check ultron/cloud_service/static/listening-provider.js
           node --check ultron/cloud_service/test_listening_provider_consent.cjs
           node -e "const fs=require('node:fs'),vm=require('node:vm');const h=fs.readFileSync('ultron/cloud_service/static/index.html','utf8');const m=h.match(/<script>([\\s\\S]*?)<\\/script>/);if(!m)throw Error('inline JS missing');new vm.Script(m[1]);if(!h.includes('/static/local-listening.js'))throw Error('Qwen client not loaded')"
@@ -82,6 +85,7 @@ jobs:
         run: |
           node --test \
             ultron/cloud_service/test_local_listening_transport.cjs \
+            ultron/cloud_service/test_local_listening_probe.cjs \
             ultron/cloud_service/test_listening_provider_consent.cjs \
             ultron/cloud_service/test_full_listening_analysis.cjs \
             ultron/cloud_service/test_long_listen.cjs \
