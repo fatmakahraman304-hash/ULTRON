@@ -6,6 +6,7 @@ on:
     branches:
       - feat/ultron-cloud-shared-memory
       - feat/golge-deep-dialog-continuity-20261013
+      - feat/golge-qwen-goal-routing-20261013
     paths:
       - "ultron/cloud_service/**"
       - "mark_app.py"
@@ -20,6 +21,7 @@ on:
       - feat/golge-identity-rebrand-20261013
       - feat/golge-deep-dialog-continuity-20261013
       - feat/golge-qwen-goal-routing-20261013
+      - feat/golge-temporal-memory-20261013
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -119,6 +121,12 @@ jobs:
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_delivery_guard.py' -v
       - name: Durable desktop Cloud dispatch regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_dispatch_journal.py' -v
+      - name: GÖLGE date-aware personal-memory selection regressions
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m py_compile ultron/cloud_service/personal_context_focus.py
+          python -m unittest -v ultron.cloud_service.test_golge_temporal_memory ultron.cloud_service.test_personal_context_focus
       - name: GÖLGE goal continuity across long conversations
         env:
           PYTHONPATH: ultron/cloud_service:.
