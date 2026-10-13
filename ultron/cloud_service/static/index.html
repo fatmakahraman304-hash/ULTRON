@@ -421,7 +421,7 @@
       <div class="composer">
         <div id="longListenPanel" class="long-listen-panel hidden" role="status" aria-live="polite">
           <div><b id="longListenStatus">1 saat dinleme</b><small id="longListenHint">Mikrofon açıkken konuşma metni yalnız bu sekmede tutulur. Tarayıcı ses tanıma servisi kullanabilir.</small></div>
-          <details id="longListenProviderWrap"><summary>Analiz seçeneği</summary><label for="longListenProvider">Konuşmayı kim analiz etsin?</label><select id="longListenProvider" aria-label="Uzun dinleme analiz modeli"><option value="auto">Otomatik (laptop Qwen hazırsa)</option><option value="local">Yalnızca laptop Qwen</option><option value="gemini">Yalnızca Gemini Cloud</option></select><small>Her iki seçenek de ağ üzerinden veri aktarır. Göndermeden önce onay istenir.</small></details>
+          <details id="longListenProviderWrap"><summary>Analiz seçeneği</summary><label for="longListenProvider">Konuşmayı kim analiz etsin?</label><select id="longListenProvider" aria-label="Uzun dinleme analiz modeli"><option value="auto">Otomatik (laptop Qwen hazırsa)</option><option value="local">Yalnızca laptop Qwen</option><option value="gemini">Yalnızca Gemini Cloud</option></select><small>Her iki seçenek de ağ üzerinden veri aktarır. Göndermeden önce onay istenir.</small><div class="listen-controls"><button type="button" id="longListenQwenProbe" class="secondary">Qwen bağlantısını test et</button></div><small id="longListenQwenProbeStatus" role="status" aria-live="polite">Test yalnızca örnek metin gönderir; konuşmanı kullanmaz. Laptop ULTRON açık olmalıdır.</small></details>
           <div class="listen-controls"><button type="button" id="longListenBegin" class="hidden">Başlat</button><button type="button" id="longListenPause" class="secondary hidden">Duraklat</button><button type="button" id="longListenResume" class="secondary hidden">Devam et</button><button type="button" id="longListenExport" class="secondary hidden">Metni indir</button><button type="button" id="longListenAnswer">Cevap ver</button><button type="button" id="longListenStopAnalysis" class="secondary hidden">Analizi durdur</button><button type="button" id="longListenCancel" class="secondary">İptal</button></div>
           <details id="longListenReportWrap" class="hidden"><summary>Dinleme analizi — aç / kopyala</summary><pre id="longListenReport" style="white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;font-size:12px"></pre><small>Sonuç geçicidir. Yalnızca sen onaylarsan seçili özet hafızaya yazılır.</small><button type="button" id="longListenSaveMemory" class="secondary">Özeti hafızaya kaydet</button></details>
         </div>
@@ -642,6 +642,7 @@
 <script src="/static/long-listen.js"></script>
 <script src="/static/listening-analysis.js"></script>
 <script src="/static/local-listening.js"></script>
+<script src="/static/local-listening-probe.js"></script>
 <script src="/static/listening-provider.js"></script>
 <script src="/static/voice-turn-guard.js"></script>
 <script src="/static/live-playback.js"></script>
@@ -669,6 +670,14 @@ let longListenAwaitingTap=false;
 let longListenAnalysisProvider=null;
 let longListenRequestedChoice=null;
 const localListeningClient=window.ULTRONLocalListening.create({api});
+const qwenListeningProbe=window.ULTRONLocalListeningProbe.create({
+  presence:()=>api('/api/device-presence',{timeoutMs:6000}),
+  request:body=>window.ULTRONLocalListening.create({api,timeoutMs:210000}).request(body),
+  onStatus:status=>{
+    const node=$('#longListenQwenProbeStatus');
+    if(node)node.textContent=status.message;
+  }
+});
 const longListenAnalyzer=window.ULTRONListeningAnalysis.create({
   request:body=>{
     if(longListenAnalysisProvider==='local')
@@ -790,6 +799,7 @@ const longListenController=window.ULTRONLongListen.create({
   }
 });
 function showLongListenTap(){
+  $('#longListenQwenProbeStatus').textContent='Test yalnızca örnek metin gönderir; konuşmanı kullanmaz. Laptop ULTRON açık olmalıdır.';
   $('#longListenProvider').disabled=false;
   longListenAnalysisProvider=null;
   longListenRequestedChoice=null;
@@ -2001,6 +2011,18 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(longListenController.active()){
       toast('ULTRON dinliyor; bitirmek için “Cevap ver” veya “İptal” kullan.');return;
     }
+    // Explicit connection check uses synthetic text only, never speech input.
+    // Guard any paused or pending recording so the probe cannot erase notes.
+    if(!options.forceChat&&window.ULTRONLocalListeningProbe.isRequest(text)){
+      if(longListenController.hasSession()||longListenAnalyzer.active()){
+        toast('Önce açık dinleme oturumunu tamamla veya iptal et.');return false;
+      }
+      $('#message').value='';clearDraft();addMessage('user',text);
+      showLongListenTap();
+      $('#longListenProviderWrap').open=true;
+      $('#longListenQwenProbe').click();
+      return true;
+    }
     $('#message').value='';clearDraft();
     rememberPendingVoice('user',text,180000);userBubble=addMessage('user',text);
     // Scene intents are deliberate interactions; never reinterpret an owner-approved
@@ -2073,6 +2095,21 @@ $('#longListenExport').onclick=()=>{
   link.download='ULTRON-dinleme-'+new Date().toISOString().slice(0,10)+'.txt';
   document.body.appendChild(link);link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);
+};
+$('#longListenQwenProbe').onclick=async()=>{
+  if(qwenListeningProbe.active())return;
+  if(longListenAnalyzer.active()||longListenController.active()||
+      longListenController.state()==='submitting'){
+    toast('Qwen bağlantı testinden önce dinlemeyi veya analizi bitir.');
+    return;
+  }
+  const button=$('#longListenQwenProbe');button.disabled=true;
+  try{
+    await qwenListeningProbe.run();
+    toast('Qwen bağlantısı gerçek analiz yanıtıyla doğrulandı.');
+  }catch{
+    toast('Qwen bağlantısı doğrulanamadı. Ayrıntıyı dinleme ayarlarında görebilirsin.');
+  }finally{button.disabled=false;}
 };
 $('#longListenStopAnalysis').onclick=()=>{
   if(longListenAnalyzer.stop()){
