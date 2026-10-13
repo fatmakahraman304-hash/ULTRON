@@ -1,6 +1,6 @@
 ## 2026-10-13 — Dashboard chat starts before WebGL
 
-Made `CenterStage` lazy and delayed its import 250 ms so the default orb no longer competes with the initial chat UI. Main entry: 294.21 kB raw / 84.34 kB gzip before; 105.07 kB / 30.92 kB after. Actual WebGL stays in the production build and renders after the delay; bundle contract and Chromium-with-held-renderer test prove both parts. Production build, bundle contract, Earth 6/6, frontend Node 10/10, scene intent/design checks, real Chromium stage-load test 1/1, and WebGL scene suite 9/9 pass locally. The chunk-size warning remains for the now deferred GLTF/WebGL chunk. Exact Actions and Render verification are pending push.
+Made `CenterStage` lazy and delayed its import 250 ms so the default orb no longer competes with the initial chat UI. Main entry: 294.21 kB raw / 84.34 kB gzip before; 105.07 kB / 30.92 kB after. Actual WebGL stays in the production build and renders after the delay; bundle contract and Chromium-with-held-renderer test prove both parts. Production build, bundle contract, Earth 6/6, frontend Node 10/10, scene intent/design checks, real Chromium stage-load test 1/1, and WebGL scene suite 9/9 pass. Exact commit `a4f31c66bfb31c1d733ea5ab9d475bf4a8af9f24` passed Frontend Build Check `38445096269` and Scene Build Check `38445096168`. Render `/health` is HTTP 200 at backend SHA `c805e1e`; the frontend-only commit is outside the service root `ultron/cloud_service/`. The chunk-size warning remains for the deferred GLTF/WebGL chunk.
 
 ## 2026-10-13 — Whole-system verification
 

@@ -3,7 +3,7 @@
 - `ultron/frontend`: production TypeScript/Vite build passed; `test:bundle` passed 1/1; Earth JS passed 6/6; combined frontend Node tests passed 10/10. Scene-intent and data-only design validators passed.
 - Browser validation with real Chromium/SwiftShader passed: scene interaction suite 9/9; new shell-first test 1/1 held the production WebGL dependency, verified chat input remains interactive before it resolves, then verified the actual `.center-stage canvas` loaded with no browser errors.
 - Production entry changed from 294.21 kB raw / 84.34 kB gzip to 105.07 kB / 30.92 kB gzip. GLTF/WebGL remains available in a deferred 620.10 kB raw / 158.73 kB gzip chunk. Vite's >500 kB advisory persists, but this chunk is no longer in the initial static entry graph.
-- GitHub Actions and Render checks for this change are pending. This frontend-only change does not modify the Render cloud service source. Real Gemini/Qwen quality is outside this frontend regression and remains unmeasured.
+- Exact commit `a4f31c66bfb31c1d733ea5ab9d475bf4a8af9f24`: Frontend Build Check [#38445096269](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38445096269) and Scene Build Check [#38445096168](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38445096168) both **SUCCESS**, including the actual WebGL and deferred-stage Chromium checks. Render service root is `ultron/cloud_service/`; the frontend-only commit did not trigger a backend deploy. Public `/health` returned HTTP 200 at backend SHA `c805e1e8fab2d5ca4bd4c8b48ff8d7e3bf7fff9f`. Real Gemini/Qwen answer quality remains unmeasured.
 
 ## 2026-10-13 — Whole-system audit at release c805e1e
 

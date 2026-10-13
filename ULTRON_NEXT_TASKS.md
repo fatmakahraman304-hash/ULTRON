@@ -1,6 +1,6 @@
 ## Next tasks — real model and device quality
 
-1. Current verified frontend improvement defers the WebGL stage until after the chat shell. Local bundle, Chromium and 3D tests pass; check the exact commit's Actions and confirm Render's backend remains healthy.
+1. Current frontend improvement defers the WebGL stage until after the chat shell. Commit `a4f31c6` passed both exact-SHA Actions, and Render backend `/health` returned HTTP 200 at `c805e1e`.
 2. Run the frozen 100-scenario Turkish/English evaluation with real Gemini and reachable local Qwen, followed by independent review. This workspace has no Gemini key or Ollama endpoint, so model quality and 100/100 remain unverified.
 3. On the paired Windows laptop and phone, test actual voice, image vision/generation, Qwen-first routing, approval-gated code changes and 3D commands. Keep Windows install deferred until the single consolidated update already requested.
 4. Preserve owner approval, privacy isolation, and explicit device permissions. No autonomy or fictional Jarvis capability should be claimed.
