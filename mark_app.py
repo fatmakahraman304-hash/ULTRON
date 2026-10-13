@@ -413,7 +413,7 @@ TOOL_DECLARATIONS = [
         "description": (
             "Shuts down the assistant completely. "
             "Call this when the user expresses intent to end the conversation, "
-            "close the assistant, say goodbye, or stop Ultron. "
+            "close the assistant, say goodbye, or stop GÖLGE. "
             "The user can say this in ANY language."
         ),
         "parameters": {
@@ -702,7 +702,7 @@ class UltronLive:
         return True
 
     def _on_wake_detected(self) -> None:
-        """Called from the detector thread when 'Ultron' is heard."""
+        """Called when the configured legacy acoustic trigger is recognized."""
         self.wake(reason="wake word")
 
     def wake(self, reason: str = "wake word") -> None:
@@ -720,7 +720,7 @@ class UltronLive:
         self._awake = False
         self.set_speaking(False)
         self.ui.set_state("SLEEPING")
-        self.ui.write_log(f"SYS: Sleeping — {reason}. Say 'Ultron' to wake me.")
+        self.ui.write_log(f"SYS: Sleeping — {reason}. GÖLGE sesli uyandırma modeli hazır değil; WAKE NOW kullan.")
 
     async def _run_sleep_watch(self) -> None:
         """Auto-sleep after the configured silence window (wake-word mode only)."""
@@ -1243,7 +1243,7 @@ class UltronLive:
                 target = str(args.get("target") or "both").strip().lower()
                 item = await asyncio.to_thread(submit, request_text, target)
                 result = (
-                    "Geliştirme isteği Cloud'da kaydedildi: ULTRON-DEV-"
+                    "Geliştirme isteği Cloud'da kaydedildi: GÖLGE-DEV-"
                     + str(item["id"]) + ". Henüz programı değiştirmedim. "
                     "GÖLGE GELİŞTİR ekranını açıp bu isteği ChatGPT'ye "
                     "göndermeniz gerekiyor. Kod, GitHub CI, Render ve Windows "
