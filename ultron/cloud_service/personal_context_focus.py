@@ -82,18 +82,18 @@ def select_personal_context(memories, plans, question="", *, max_chars=3500,
     # The DB limits to eight results, but sort again for deterministic pure
     # function callers (and tests) that pass a mixed list of saved plans.
     for record in sorted(list(plans or []), key=plan_order)[:plan_limit]:
-        date = _value(record, "scheduled_date")
-        if not date or not hasattr(date, "isoformat"):
+        scheduled_date = _value(record, "scheduled_date")
+        if not scheduled_date or not hasattr(scheduled_date, "isoformat"):
             continue
         clock = _value(record, "scheduled_time")
         time_label = " "+clock.strftime("%H:%M") if hasattr(clock, "strftime") else ""
         title = _one_line(_value(record, "title"), 180)
         if title:
-            temporal = ("past date, not upcoming" if date < today else
-                        "today" if date == today else "future date")
+            temporal = ("past date, not upcoming" if scheduled_date < today else
+                        "today" if scheduled_date == today else "future date")
             plan_lines.append(
                 f"- [OWNER PLAN - {temporal}; owner-entered, no notification] "
-                f"{date.isoformat()}{time_label}: {title}"
+                f"{scheduled_date.isoformat()}{time_label}: {title}"
             )
 
     candidates = []
