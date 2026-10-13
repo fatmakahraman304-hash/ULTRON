@@ -104,6 +104,30 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(state["messagePanel"]["bottom"],state["composer"]["top"]+6)
         self.assertTrue(state["menu"] and state["microphone"] and state["attachment"])
         self.assertLess(state["windowY"],4)
+        # CSS, not an edited screenshot: inspect computed pseudo-elements
+        # on both message roles and the online badge on the actual mobile DOM.
+        red_marks=await self.page.evaluate("""() => {
+          const $=s=>document.querySelector(s);
+          const assistant=getComputedStyle($('#messages .msg.assistant'),'::after');
+          const owner=getComputedStyle($('#messages .msg.user'),'::after');
+          const ownerLabel=getComputedStyle($('#messages .msg.user'),'::before');
+          const online=getComputedStyle($('.online'));
+          const readyDot=getComputedStyle($('.online .dot'));
+          return {
+            assistantDisplay:assistant.display,assistantContent:assistant.content,
+            ownerDisplay:owner.display,ownerContent:owner.content,
+            ownerLabelColor:ownerLabel.color,
+            badgeBorderColor:online.borderTopColor,
+            badgeDotColor:readyDot.backgroundColor,
+          };
+        }""")
+        self.assertEqual(red_marks["assistantDisplay"],"none")
+        self.assertEqual(red_marks["ownerDisplay"],"none")
+        self.assertEqual(red_marks["assistantContent"],"none")
+        self.assertEqual(red_marks["ownerContent"],"none")
+        self.assertEqual(red_marks["ownerLabelColor"],"rgb(184, 213, 219)")
+        self.assertEqual(red_marks["badgeBorderColor"],"rgb(49, 84, 96)")
+        self.assertEqual(red_marks["badgeDotColor"],"rgb(4, 219, 173)")
         # The real menu handler is still available without permanently shown tabs.
         await self.page.locator("#panelMenuToggle").click()
         self.assertEqual(await self.page.locator("#panelMenuToggle").get_attribute("aria-expanded"),"true")
