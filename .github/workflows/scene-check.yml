@@ -16,6 +16,7 @@ on:
       - feat/ultron-cloud-shared-memory
       - feat/ultron-listen-prod-compat-20261012
       - feat/ultron-qwen-probe-latest-live-20261013
+      - feat/golge-identity-rebrand-20261013
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -193,3 +194,7 @@ jobs:
           python scripts/tests/test_scene_browser.py
       - name: Mobile listening consent and full-summary browser interaction
         run: python scripts/tests/test_listening_browser.py
+      - name: GÖLGE visible identity and legacy protocol compatibility
+        run: |
+          node --test ultron/cloud_service/test_golge_identity.cjs
+          PYTHONPATH=ultron/cloud_service:. python -m unittest ultron.cloud_service.test_golge_identity -v
