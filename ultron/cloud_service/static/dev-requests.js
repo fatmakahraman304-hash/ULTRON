@@ -4,7 +4,7 @@
 (function(root){
  "use strict";
  const $=id=>document.getElementById(id);
- let latest=[],seen=new Set(),polling=false,pendingVoice='',voiceAt=0,lastAutoVerification=0;
+ let latest=[],seen=new Set(),polling=false,lastAutoVerification=0;
  const statusLabels={
    awaiting_chatgpt:'CHATGPT İÇİN AKTARILMAYI BEKLİYOR',
    tests_pending:'GITHUB KODU BULUNDU • TESTLER BEKLENİYOR',
@@ -16,7 +16,7 @@
  const detect=text=>{
   const t=String(text||'').toLocaleLowerCase('tr-TR').replace(/\s+/g,' ').trim();
   return /(?:ultron|gölge|golge|kendini|kod|arayüz|uygulama|sistem)/.test(t)
-    &&/(?:geliştir|güncelle|düzelt|özellik ekle|kod(?:u|larını)? değiştir|yeni özellik)/.test(t);
+    &&/(?:geliştir|gelistir|güncelle|guncelle|düzelt|duzelt|özellik(?:i|ini)? ekle|kod(?:u|larını)? değiştir|değiştir|degistir|yeni özellik)/.test(t);
  };
  const suggestTarget=text=>{
   const t=String(text||'').toLocaleLowerCase('tr-TR');
@@ -110,23 +110,14 @@
  }
  async function fromSpeech(text){
   if(!detect(text)||!text.trim())return false;
-  // Streaming Gemini input transcripts can be repeated. Never double insert
-  // the same utterance in a Live session.
-  const fingerprint=text.toLocaleLowerCase('tr-TR').replace(/\s+/g,' ').trim();
-  if(fingerprint===pendingVoice&&Date.now()-voiceAt<120000)return true;
-  pendingVoice=fingerprint;voiceAt=Date.now();
-  try{
-   const item=await create(text,suggestTarget(text));
-   notice('İstek Cloud’a kaydedildi. ChatGPT’ye aktarmak için görevini kopyala.');
-   if(typeof root.showView==='function')root.showView('develop');
-   if(typeof root.toast==='function')root.toast('Geliştirme isteği kaydedildi; ChatGPT’ye aktarmak için onay gerekiyor.');
-   return !!item;
-  }catch(e){pendingVoice='';notice('Geliştirme isteği kaydedilemedi: '+e.message);return false}
+  // Let the normal conversation tool router send the request to the paired
+  // laptop's approval-gated CodeGen flow. Do not silently convert it into a
+  // ChatGPT handoff record here.
+  return false;
  }
  async function fromText(text){
   if(!detect(text))return false;
-  await fromSpeech(text);
-  return true;
+  return false;
  }
  function init(){
   const submit=$('devSubmit');if(!submit)return;

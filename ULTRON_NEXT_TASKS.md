@@ -1,3 +1,11 @@
+## Next tasks — activate GÖLGE self-development on the laptop
+
+1. Verify Cloud/Scene Actions and Render for the current self-development release.
+2. During the already requested one-time Windows update, install this repository version and ensure GitHub CLI is installed and `gh auth status` succeeds for `fatmakahraman304-hash/ULTRON`. Never paste a token into GÖLGE chat.
+3. On the laptop, test a specific request such as “Gölgeye 3D sahne düzenleme özelliği ekle”: inspect diff, approve, verify local suite, draft PR, Actions, manual merge, then Render deployed SHA. Also verify dirty checkout and missing GitHub login stop before editing.
+4. Keep PR merge and Render rollout owner-controlled; no automatic deployment is claimed before device verification.
+5. Run the real Gemini/Qwen 100-scenario conversation evaluation and independent review when provider/device access is available.
+
 ## Next tasks — verify device and provider quality
 
 1. Owner-grounded briefing suggestions are verified live at `a0352a5` (Cloud/PostgreSQL and Scene/UI Actions passed; Render SHA matched).

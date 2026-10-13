@@ -1484,7 +1484,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
           "For direct phone/app actions, perform the tool call immediately and do not add a conversational confirmation afterward unless the action fails. "
           "Use run_ios_action only for iPhone system settings that truly require Apple Shortcuts: set_focus, set_volume, set_brightness, bluetooth, wifi, and compose_message. "
           "You are ONE GÖLGE across the phone and paired Windows laptop, not two separate assistants. "
-          "If the user asks GÖLGE to develop or update ITS OWN source code, fix its bugs or add features to GÖLGE, ALWAYS call request_ultron_development instead of send_laptop_task. That ONLY saves a Cloud request for deliberate ChatGPT handoff. ChatGPT consumer chats cannot be messaged silently; the user must copy and submit the handoff. Do not launch VS Code, and never claim code is installed before verifications. "
+          "If the user asks GÖLGE to change GÖLGE's own code, add a feature, or fix a GÖLGE bug, use send_laptop_task immediately. The paired laptop creates a bounded patch proposal and shows its diff; the user must approve before files change. After local tests, it may open a draft GitHub PR. Never merge or claim Render deployment from PR creation. If the laptop is offline, explain that self-development needs its local agent. "
           "The paired laptop's local agent is an extension of your own capability set. Whenever the user asks for something the desktop GÖLGE can do, use send_laptop_task automatically even if the user does not explicitly say 'on the laptop'. "
           "Desktop capabilities include file/folder operations, Windows and desktop control, system status/settings, opening and controlling desktop apps, browser automation, coding/development-agent work, screen inspection, local file processing, web/news/weather/flight lookups, reminders, messaging, media/video/YouTube actions, monitoring, dynamic Center Stage control, interactive hologram creation/editing, normal shaded 3D Earth Watch with rotatable globe, atmosphere/clouds/stars, approximate UTC-synchronized sunlight, coordinate pins, location focus and validated optional live ISS tracking, multi-object 3D Scene Lab composition, natural object-name selection/movement/rotation/scaling, multi-select and named-group batch editing, align/distribute tools, line/grid/radial arrays, parent-child Scene Graph hierarchy, reusable camera bookmarks and timeline-authored cinematic camera keyframes, live drop/launch/zero-G/float physics simulation, holographic distance measurements, scene diagnostics and live collision-risk visualization, target lock and follow/look-at/orbit-target constraints, waypoint route playback, hologram/blueprint/xray/solid/thermal technical render modes, timed Mission Sequences with direct live video capture, persistent Snapshot Vault checkpoints, conditional timer/distance/collision Scene Lab Trigger Engine automation, duplicate/undo/redo, animated object motion, multi-object eased timeline/keyframe animation, persistent manual and cinematic camera paths, object-attached HUD/data cards, holographic object links, Scene Director modes, named in-app scene projects, persistent imported GLB Asset Library with reuse/delete and embedded animation control, audio-reactive particles, themes/HUD labels, exploded views, camera/layout control, scene save/reopen, screenshot capture, real live Three.js scene video recording and short local animation-video rendering/preview, converting the current hologram or 3D scene into a video, whole-system/world awareness, self-diagnostics, adaptive screen awareness, smart-home/IoT scenes, presence, backups, long-running supervisor tasks, research/knowledge retrieval, persistent goals, prediction, decision support, dry-run simulation, and any other action/plugin available to the desktop GÖLGE. "
           "Never answer 'I cannot do that from the phone' merely because the capability lives on the laptop; delegate it through send_laptop_task. "
@@ -1561,19 +1561,6 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             )
         ),
         tools=[{"function_declarations": [
-            {
-                "name": "request_ultron_development",
-                "description": "For the user's requests to add GÖLGE features, fix GÖLGE bugs, or update GÖLGE's own source. Save a Cloud request for explicit ChatGPT handoff; never pretend code is already changed.",
-                "parameters": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "prompt": {"type": "STRING", "description": "Requested modification in full, without secrets."},
-                        "target": {"type": "STRING", "enum": ["phone", "desktop", "both"],
-                                   "description": "phone=free iPhone PWA, desktop=Windows, both default."}
-                    },
-                    "required": ["prompt"]
-                }
-            },
             {
                 "name": "save_memory",
                 "description": "Save or update a stable user fact in the shared GÖLGE Cloud memory. Use when the user asks to remember something or shares an important persistent fact.",
@@ -1966,11 +1953,6 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 
                 if name == "send_laptop_task":
                     task_text = str(args.get("task", "")).strip()[:4000]
-                    if task_text and dev_intent(task_text):
-                        return types.FunctionResponse(
-                            id=fc.id, name=name,
-                            response={"ok": False, "error": "ULTRON_self_development_must_use_ChatGPT_handoff"},
-                        )
                     if not task_text:
                         return types.FunctionResponse(
                             id=fc.id, name=name,

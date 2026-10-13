@@ -1,3 +1,7 @@
+## 2026-10-13 — Approval-gated self-development and draft PR
+
+Publisher, CodeGen and rollback targeted tests: 22 passed. Cloud development intent/release contracts: 6 passed. Mobile intent/router contracts: 8 passed; minimal UI and PWA cache contract passed with shell v69. Python compilation passed. Full backend suite: 1,012 passed, 3 skipped for unavailable deterministic parser, owner-provided Picovoice key and physical Windows/microphone/screen; six subtests passed. The frontend production build and Earth suite passed (6/6). GitHub CLI write access was not invoked in this workspace, and physical laptop PR creation has not yet been exercised; deployment/CI follows push.
+
 ## 2026-10-13 — Personal briefing suggestions
 
 `test_personal_briefing.py`: 5/5 pass, including plan-backed and saved-goal suggestions with no actions/reminders. Personal panel JS suggestion contract: 4 cases pass (source validation and one-item cap). Local planner and memory tests: 7 pass. Frontend production build passes (Vite reports its existing large-chunk advisory); backend py_compile and Earth config: 5/5 pass. Real device voice and Gemini/Qwen output quality remain untested.

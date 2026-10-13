@@ -1,3 +1,7 @@
+## 2026-10-13 — GÖLGE self-development through reviewed GitHub PRs
+
+Self-development requests from phone text/voice now route to the paired laptop instead of stopping at a ChatGPT handoff. On the laptop, Qwen prepares a bounded CodeGen patch and the existing approval gate must be accepted. The approved patch runs TypeScript, production build, all backend tests, syntax checks and current service checks. With a clean, current trusted checkout and an existing authenticated GitHub CLI session, GÖLGE creates an isolated `golge/dev/<id>` branch, commits only proposal files and opens a draft PR. It never pushes to the Render-tracked branch, merges a PR or deploys from the PR. Render remains connected to the base branch and deploys after an owner merges.
+
 ## 2026-10-13 — Owner-grounded optional next-step suggestions
 
 The user-requested capabilities map to existing bounded systems for natural multi-turn context, validated local task planning, owner-scoped editable memory, device readiness, and a manual briefing. The briefing now surfaces at most one optional next step based on an owner-created plan or explicitly saved goal/project. The mobile memory screen renders the suggestion with textContent after the owner opens the briefing. No reminders, background monitoring, or device actions are created.

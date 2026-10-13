@@ -56,7 +56,7 @@ class CodeGen:
         )
 
     # --------------------------------------------------------------- propose
-    async def propose(self, goal: str, brain=None) -> dict:
+    async def propose(self, goal: str, brain=None, *, publish_github_pr: bool = False) -> dict:
         self.audit.write("CODEGEN_REQUEST", goal)
         files = []
         source = "template"
@@ -89,6 +89,7 @@ class CodeGen:
         pid = uuid.uuid4().hex[:10]
         proposal = {"id": pid, "goal": goal, "source": source, "files": files, "created": time.time(),
                     "status": "WAITING_APPROVAL",
+                    "publish_github_pr": bool(publish_github_pr),
                     "test_plan": ["tsc --noEmit", "compileall", "REST/WS checks", "rollback on failure"]}
         self.proposals[pid] = proposal
         self.audit.write("CODEGEN_PROPOSED", f"{pid} files={len(files)} source={source}")

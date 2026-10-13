@@ -38,7 +38,9 @@ def dev_intent(text: str) -> bool:
     ))
     verb = bool(re.search(
         r"(?:geliştir|güncelle|düzelt|özellik ekle|kod(?:u|larını)? değiştir|"
-        r"kendini yenile|kendini güncelle|yeni özellik)", t
+        r"kendini yenile|kendini güncelle|yeni özellik|bir şeyini değiştir|"
+        r"bir seyini degistir|kodla ilgili|değişiklik yap|degisiklik yap|"
+        r"değiştir|degistir)", t
     ))
     return subject and verb
 

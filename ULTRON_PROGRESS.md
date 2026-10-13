@@ -1,3 +1,7 @@
+## 2026-10-13 — GitHub PR path for GÖLGE code changes
+
+Added local intent routing to the approval-gated CodeGen proposal flow, strict vague-request clarification, clean/current checkout and repository verification, GitHub CLI login check, path-limited staging, separate draft branch/PR, and no auto-merge. Expanded approved CodeGen verification to include backend tests and the production frontend build. Phone transcript interception now lets the conversation tool queue work to the paired laptop. Added [GOLGE_KENDI_KODUNU_GELISTIRME.md](GOLGE_KENDI_KODUNU_GELISTIRME.md) with the Windows-side prerequisites; no Windows installation or user token entry was performed.
+
 ## 2026-10-13 — Suggestions grounded in saved goals
 
 Replaced the same generic briefing suggestion with one contextual option sourced from the nearest listed owner plan or saved GOAL/PROJECT; other saved data and empty memory receive a transparent fallback. Added a dedicated mobile panel region. Existing auth and owner scoping remain. The plan, tool, and memory systems are already implemented and were not replaced.

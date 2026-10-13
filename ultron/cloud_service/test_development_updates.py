@@ -46,6 +46,8 @@ class DevelopmentWorkflowTests(unittest.TestCase):
             "ULTRON, kendini güncelle ve yeni özellik ekle",
             "ULTRON arayüzünü geliştir",
             "Ultron'daki eksik kodu düzelt",
+            "Gölgeye bir şeyini değiştir",
+            "Gölgeye bişeyi değiştir",
             "Kendini geliştir",
         ):
             self.assertTrue(self.dev.dev_intent(sample), sample)
@@ -85,7 +87,9 @@ class DevelopmentWorkflowTests(unittest.TestCase):
         self.assertIn("register_development_routes(app)", APP)
         self.assertIn("request_ultron_development", APP)
         self.assertIn("development_request_saved", APP)
-        self.assertIn("ULTRON_self_development_must_use_ChatGPT_handoff", APP)
+        self.assertNotIn("ULTRON_self_development_must_use_ChatGPT_handoff", APP)
+        self.assertIn("send_laptop_task immediately", APP)
+        self.assertIn("user must approve before files change", APP)
         self.assertIn("CREATE TABLE IF NOT EXISTS dev_requests", SCHEMA)
         self.assertIn("CREATE INDEX IF NOT EXISTS idx_dev_requests_owner_time", SCHEMA)
         self.assertIn("WHERE id=$1 AND user_id=$2", SRC)

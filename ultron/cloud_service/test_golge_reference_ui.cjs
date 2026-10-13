@@ -36,7 +36,7 @@ test('mobile layout separates scrollable messages and fixed composer without hid
  ]) assert.ok(css.includes(expected),'missing layout: '+expected);
  assert.ok(!css.includes('.shell{max-width:760px;height:100dvh'),'must not lock remote panels');
  const sw=file('ultron/cloud_service/static/sw.js');
- assert.match(sw,/ultron-shell-v68/);
+ assert.match(sw,/ultron-shell-v69/);
  assert.match(sw,/\/static\/golge-reference-mobile\.css/);
 });
 
