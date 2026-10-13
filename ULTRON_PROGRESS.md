@@ -1,3 +1,7 @@
+## Laptop handoff — 2026-10-13
+
+The branch is clean and matches `origin/feat/ultron-cloud-shared-memory` at code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`. A source archive was prepared for Windows handoff; archive integrity checks confirm the installer, bootstrap, frontend lockfile, and backend entry point are present, with no `.git`, `node_modules`, or virtual environment. This Linux session has no direct Windows device connection, so no files were installed on the physical laptop and no real Qwen/Gemini/device tests were run. Installation remains approval-gated; no security controls were changed.
+
 ## Completed checkpoint — end-to-end desktop provider error privacy
 
 Code commits `b327c3de1b8bf4269ddbfb0ea2d2b0715bbf5c16` and `675ea678ec41bd7b88fac645f218a9d1493dcb3f` now protect model-router health, local chat/vision HTTP responses, the desktop agent's final error message, CloudClient health/fallback status, and vision debug logs. Chat failures return safe Turkish text and status codes; malformed image input keeps its specific validation response. Vision debug output records response length, not user-image-derived text.

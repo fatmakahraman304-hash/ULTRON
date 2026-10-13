@@ -1,3 +1,9 @@
+## 2026-10-13 — Windows laptop source handoff package
+
+- Confirmed the feature branch is clean and matches its GitHub ref at code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`.
+- Built a ZIP with `git archive`; validated required installer/bootstrap/frontend/backend files, 833 archive members, and exclusion of `.git`, `node_modules`, and `.venv`. The archive is source only; it does not include runtime packages, model weights, user settings, or API credentials.
+- Windows installation, actual laptop tests, Ollama/Qwen and Gemini inference, and latency/quality evaluation were **NOT RUN**: this Linux workspace exposes no paired Windows device. Package integrity is not a Windows installation test.
+
 ## 2026-10-13 — Desktop model, agent, vision and Cloud error privacy
 
 - Test-first regressions reproduced raw provider and user-image text exposure through model health, local chat/image HTTP responses, desktop agent final errors, CloudClient status, and vision debug logging. Public/provider boundaries now expose only stable categories or generic Turkish messages; HTTP 404 and transient provider failures retain distinct classifications.

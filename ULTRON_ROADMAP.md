@@ -1,3 +1,7 @@
+## 2026-10-13 — Windows laptop handoff prepared
+
+Prepared a source-only ZIP from the current `feat/ultron-cloud-shared-memory` branch for the owner's laptop. The coding workspace is Linux and has no paired Windows execution channel or mounted laptop, so this is a verified handoff package, not a claimed laptop installation. The package excludes Git history, local dependencies, generated caches, credentials, and model weights. Real Windows install, Ollama/Qwen readiness, Gemini fallback, and device acceptance remain the next validation step.
+
 ## 2026-10-13 — Keep desktop model and image failures private
 
 The privacy boundary now covers the full desktop path: model-router health and local HTTP errors, the chat agent's final failure message, uploaded-image analysis, CloudClient health/fallback status, and local vision debug output. Errors are categorized without exposing provider strings; vision logs record response length instead of image-derived text. Code SHAs `b327c3d` and `675ea67` passed Scene and Cloud/PostgreSQL Actions. Render remains independently healthy at Cloud SHA `1ad5f28`; no live Gemini/Qwen quality test was run.

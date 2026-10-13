@@ -1,3 +1,10 @@
+## Next — install and validate the laptop handoff
+
+1. Download and extract the provided source package on the Windows laptop; verify the published SHA-256 before running it.
+2. From the extracted project root, confirm Node.js/npm are available, then run `INSTALL.bat` and review its install log and result file. The installer may pull configured Ollama models and voice assets; allow the expected disk space and keep model/API credentials out of chat and logs.
+3. Run `START.bat`, then verify Qwen readiness, Gemini fallback, safe provider errors, image upload/edit, scene controls, and real chat on the laptop. Record actual model identity and latency; keep unavailable checks `NOT_RUN`.
+4. Run the 100 frozen Turkish/English conversation scenarios against each available real provider and independently review transcripts; do not infer a quality score from deterministic tests.
+
 ## Completed checkpoint — provider error privacy hardening
 
 Code commit `1ad5f288d1f4084d0561c8027dbee51f5ad75b6c` replaces raw provider errors in owner logs and live error responses with stable safe categories, preserving transient-error handling. Focused privacy tests 3/3 and full Cloud Python 323 passed / 60 skipped. Cloud/PostgreSQL #38458215679 ran the new privacy test; Scene #38457949652 and WORLD smoke #38457949491 passed. Render deploy `dep-db78mn5bedkc738a0fu0` is LIVE at the code SHA. Workflow commit `e83b0d5929d1fee256a5165754b66b16b6844766` adds the regression to GitHub CI.
