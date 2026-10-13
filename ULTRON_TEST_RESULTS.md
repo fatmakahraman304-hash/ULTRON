@@ -7,7 +7,7 @@
 
 ## 2026-10-13 — Windows laptop source handoff package
 
-- Confirmed the feature branch is clean and matches its GitHub ref at code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`.
+- Confirmed functional code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c` before handoff; owner cloned handoff commit `3a6f489`. The later install-feedback fix is commit `4d9b8a7`.
 - Built a ZIP with `git archive`; validated required installer/bootstrap/frontend/backend files, 833 archive members, and exclusion of `.git`, `node_modules`, and `.venv`. The archive is source only; it does not include runtime packages, model weights, user settings, or API credentials.
 - Windows installation, actual laptop tests, Ollama/Qwen and Gemini inference, and latency/quality evaluation were **NOT RUN**: this Linux workspace exposes no paired Windows device. Package integrity is not a Windows installation test.
 

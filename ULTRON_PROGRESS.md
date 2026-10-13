@@ -6,7 +6,7 @@ The frontend audit warning was traced to transitive `source-map-js` 1.2.1 (GHSA-
 
 ## Laptop handoff — 2026-10-13
 
-The branch is clean and matches `origin/feat/ultron-cloud-shared-memory` at code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`. A source archive was prepared for Windows handoff; archive integrity checks confirm the installer, bootstrap, frontend lockfile, and backend entry point are present, with no `.git`, `node_modules`, or virtual environment. This Linux session has no direct Windows device connection, so no files were installed on the physical laptop and no real Qwen/Gemini/device tests were run. Installation remains approval-gated; no security controls were changed.
+The source archive was originally prepared from functional code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`; the owner cloned handoff commit `3a6f489`. After the install exposed a stale title assertion and npm advisory, the correction was pushed as `4d9b8a7`. Archive integrity checks confirmed the installer, bootstrap, frontend lockfile, and backend entry point are present, without `.git`, `node_modules`, or a virtual environment. The owner must pull `4d9b8a7` before rerunning install; physical completion and real model/device tests remain unverified.
 
 ## Completed checkpoint — end-to-end desktop provider error privacy
 
