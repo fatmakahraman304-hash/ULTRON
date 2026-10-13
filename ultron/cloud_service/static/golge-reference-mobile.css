@@ -1,0 +1,123 @@
+/* GÖLGE | user's cyan-on-ink mobile reference.
+ * Chat remains native/functional: login, tools, memory, uploads and consent.
+ * The orb is CSS/3D, lightweight on iOS and compatible without WebGL.
+ */
+:root{--bg:#050b11;--panel:#0a131b;--panel2:#111c25;--line:#26414b;--red:#8ce7ed;--red2:#3b8b98;--muted:#91aab4;color-scheme:dark}
+html,body{height:100%;min-height:100dvh;background:#050a10!important}
+body,body[style]{
+ background:radial-gradient(ellipse at 52% 23%,#0d2631,#050a11 56%,#03060b 100%)!important;
+ background-size:auto!important;
+}
+body:before,body:after{content:none!important;background:none!important}
+.shell{max-width:760px;height:100dvh;min-height:100dvh;display:flex;flex-direction:column;
+ padding-bottom:0!important;gap:0;overflow:hidden}
+.topbar{flex:0 0 67px;z-index:30!important;margin:0!important;padding:7px 2px!important;background:#050b11e9!important;
+ border-bottom:1px solid #17303a!important;box-shadow:none!important}
+.brand{gap:12px!important}
+.brand-mark{width:29px!important;height:29px!important;border:2px solid #abfaff!important;box-shadow:0 0 14px #59e9f7a1!important;background:#071d28}
+.brand-mark:before{background:#061c25!important;border:1px solid #c6fbff!important;width:13px!important;height:13px!important;box-shadow:0 0 11px #53d3e8!important}
+.brand b{font-size:19px!important;letter-spacing:.29em!important;font-weight:550}
+.online{font-size:11px!important;max-width:30vw!important;color:#d8e7e9!important}
+.online .dot{width:7px!important;height:7px!important;background:#04dbad!important;box-shadow:0 0 12px #00e4a8}
+.round-action{width:40px!important;height:40px!important;border-radius:50%!important;background:#0d1b25!important;color:#e3f8fa!important;border:1px solid #274e58!important;box-shadow:none!important}
+#panelMenuToggle{background:#101d27!important;border-radius:13px!important}
+#app:not(.hidden){flex:1;min-height:0;display:flex;flex-direction:column}
+#chatView.active{display:flex;flex-direction:column;min-height:0;flex:1;
+ padding:0 0 calc(92px + env(safe-area-inset-bottom));overflow:hidden}
+#chatView .golge-welcome{flex:0 0 clamp(225px,39dvh,330px);min-height:0!important;padding:4px 4px 8px!important;
+ display:flex!important;align-items:center;justify-content:center;gap:6px!important;
+ background:radial-gradient(ellipse at 50% 52%,rgba(38,155,174,.11),transparent 49%)}
+#chatView .golge-welcome h1{display:none!important}
+#chatView .golge-welcome p{font-size:13px!important;max-width:270px!important;color:#dce7ec!important;
+ letter-spacing:.12em;line-height:1.75!important;text-wrap:balance}
+#chatView .golge-welcome-orb{width:clamp(160px,53vw,246px)!important;max-width:82%;aspect-ratio:1;
+ flex:0 0 auto;position:relative;filter:drop-shadow(0 12px 24px #40cfeb44);
+ background:radial-gradient(ellipse at 50% 83%,#4bf2f246,transparent 48%);
+ animation:golge-hero-bob 6s ease-in-out infinite alternate}
+#chatView .golge-welcome-orb i{
+ width:69%;height:69%;border:1.5px solid #ddfbffb0!important;
+ background:radial-gradient(circle at 50% 86%,#50f8f996,transparent 29%),
+ radial-gradient(circle at 34% 12%,#c8faff6b,transparent 23%),
+ radial-gradient(circle at 40% 50%,#031221,#04111d 72%),
+ conic-gradient(from 30deg,#8dcbeb,#12384f,#0b1724,#65edfa,#052232,#cdfaff,#113449)!important;
+ box-shadow:0 0 23px #80edf9b5,0 0 46px #27abc559,inset 0 0 30px #78e6ffaa,inset -17px 0 35px #06111f!important;
+}
+#chatView .golge-welcome-orb:before{
+ inset:13% -10%!important;border:1px solid #a0f1fb9c!important;box-shadow:0 0 19px #43d2ed6b!important;
+ transform:rotate(-22deg) scaleY(.49)!important}
+#chatView .golge-welcome-orb:after{
+ inset:11% -12%!important;border:1px solid #58d4ea88!important;box-shadow:0 0 16px #82faff51!important;
+ transform:rotate(51deg) scaleY(.33)!important}
+#chatView .golge-welcome-orb .golge-orbit{
+ position:absolute;pointer-events:none;border-radius:50%;width:95%;height:34%;
+ top:34%;left:2.5%;border:1px solid #aaeefa88;box-shadow:0 0 14px #67e5f654;
+ transform:rotate(-30deg);animation:golge-orbit-tilt 13s ease-in-out infinite alternate;
+}
+#chatView .golge-welcome-orb .golge-orbit.second{width:90%;height:49%;top:26%;left:5%;opacity:.58;
+ transform:rotate(41deg);animation-delay:-4s;animation-duration:15s}
+#chatView .golge-welcome-orb .golge-star{
+ position:absolute;left:47%;bottom:17%;width:18px;height:18px;transform:rotate(45deg);
+ background:radial-gradient(circle,#f7ffff 0%,#75fcff 24%,transparent 75%);
+ filter:blur(1px);box-shadow:0 0 22px #8afaff9c;border-radius:50%;pointer-events:none
+}
+#chatView:has(#messages .msg) .golge-welcome{
+ flex-basis:clamp(155px,29dvh,245px)!important;
+ padding:0 3px 4px!important;gap:0!important}
+#chatView:has(#messages .msg) .golge-welcome-orb{width:clamp(114px,33vw,175px)!important}
+#chatView:has(#messages .msg) .golge-welcome p{font-size:11px!important}
+#chatView #messages{flex:1;min-height:0!important;max-height:none!important;overflow-y:auto!important;
+ overscroll-behavior:contain;padding:12px 8px 14px!important;gap:10px!important;
+ scrollbar-width:thin;scrollbar-color:#234e5c transparent}
+#chatView .msg{font:14px/1.62 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;
+ max-width:89%;margin-bottom:8px;background:#101a23!important;border:1px solid #243944!important;
+ box-shadow:0 5px 20px #0003!important;border-radius:15px!important;
+ padding:12px 14px!important;color:#e8f3f6!important}
+#chatView .msg.user{background:#14232d!important;border-color:#2b4c58!important;color:#eef5f7!important}
+#chatView .msg.assistant{margin-left:32px!important}
+#chatView .msg.assistant:before{content:'◯'!important;left:-35px!important;color:#c5f9fd!important;
+ font-size:19px!important;background:#061821!important;border:1px solid #4ebecb!important;
+ box-shadow:0 0 8px #48d7e962!important}
+#chatView .msg-time{color:#869fa9!important;font-size:10px}
+#chatView .composer{left:50%;bottom:calc(8px + env(safe-area-inset-bottom))!important;
+ width:min(730px,calc(100% - 20px))!important;padding:8px!important;
+ border-radius:20px!important;border:1px solid #286579!important;
+ background:#0a1922f5!important;box-shadow:0 0 28px #0cc5e32c,0 16px 42px #0009!important;
+ backdrop-filter:blur(18px)}
+#chatView .composer .row{display:flex;align-items:center;gap:7px}
+#chatView .composer .attach-wrap{order:1;flex:0 0 auto}
+#chatView .composer textarea{order:2;flex:1;min-width:0;min-height:47px;max-height:95px!important;
+ border-radius:13px!important;background:#0b1923!important;border:1px solid #1e3745!important;
+ box-shadow:none!important;color:#e5fafc;font-size:16px!important}
+#chatView .composer textarea::placeholder{color:#7995a3!important}
+#chatView .composer #voiceBtn{order:3;flex:0 0 44px!important;width:44px;height:44px;border-radius:50%!important;
+ background:#0d303b!important;border:1px solid #66c3da!important;
+ color:#9afaff!important;box-shadow:0 0 16px #3ccee54c!important;
+ font-size:0}
+#chatView .composer #voiceBtn::after{content:'';display:block;margin:auto;width:22px;height:25px;
+ background:#b3f6ff;
+ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='9' y='2' width='6' height='13' rx='3' fill='black'/%3E%3Cpath d='M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
+#chatView .composer #sendBtn{order:4;flex:0 0 44px!important;width:44px!important;height:44px!important;
+ border-radius:50%!important;color:#062028!important;background:#90f1fb!important;
+ box-shadow:0 0 15px #47cee86b!important}
+#chatView .composer:has(#message:placeholder-shown) #sendBtn{display:none}
+#chatView .composer:has(#message:not(:placeholder-shown)) #voiceBtn{display:none}
+#chatView .composer .plus-btn{width:44px;height:44px;border-radius:50%!important;
+ background:#111f2a!important;border:1px solid #345060!important}
+#chatView .voice-status{color:#84a9b5;font-size:11px}
+.tabs.panel-nav-open{z-index:45!important}
+@keyframes golge-hero-bob{from{translate:0 3px}to{translate:0 -4px}}
+@keyframes golge-orbit-tilt{from{rotate:-9deg}to{rotate:9deg}}
+@media(max-height:680px){
+ #chatView .golge-welcome{flex-basis:210px}
+ #chatView:has(#messages .msg) .golge-welcome{flex-basis:140px!important}
+ #chatView:has(#messages .msg) .golge-welcome-orb{width:114px!important}
+}
+@media(max-width:390px){
+ #chatView .composer{width:calc(100% - 14px)!important;padding:6px!important}
+ #chatView .composer .row{gap:5px}
+ #chatView .composer textarea{padding:9px!important}
+ #chatView .msg{font-size:13px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ #chatView .golge-welcome-orb,#chatView .golge-welcome-orb .golge-orbit{animation:none!important}
+}
