@@ -51,6 +51,7 @@ jobs:
         run: |
           python -m py_compile ultron/backend/bridge.py
           python -m py_compile ultron/backend/github_pr_publisher.py
+          python -m py_compile ultron/backend/codegen.py
           python -m py_compile ultron/backend/server.py
           python -m py_compile ultron/backend/app/core/fast_brain.py
           python -m py_compile scripts/ultron_fast_brain_doctor.py
@@ -89,6 +90,10 @@ jobs:
         env:
           PYTHONPATH: ultron/backend
         run: python -m unittest discover -s ultron/backend/tests -p 'test_github_pr_publisher.py' -v
+      - name: GÖLGE project-root path boundary regression
+        env:
+          PYTHONPATH: ultron/backend
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_codegen_path_boundary.py' -v
       - name: ULTRON Fast Brain single-pass and Ollama wire regression tests
         env:
           PYTHONPATH: ultron/backend

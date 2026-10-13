@@ -511,3 +511,7 @@ Generated and edited images now have an explicit download/save action, with temp
 ## Self-development reliability
 
 Require explicit standalone owner commands for chat-based patch approval. When several proposals are pending, bind approval/rejection to the displayed proposal ID, and preserve the remaining pending proposal in the UI after each decision. Continue to require local approval, tests, and draft-only GitHub PR publication; merge and Render deployment remain separate owner-controlled actions.
+
+## Image and desktop self-development correctness
+
+Before image generation, validate ownership of any existing conversation without exposing foreign threads to the provider. Only create/update a conversation after successful provider output so failed attempts do not leave empty records. For desktop self-development, enforce resolved filesystem ancestry at proposal time as well as application time; keep exact owner approval, sandbox checks, rollback, test execution and draft-only GitHub PR behavior.

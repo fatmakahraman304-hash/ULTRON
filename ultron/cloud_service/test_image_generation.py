@@ -16,8 +16,15 @@ class FakeDB:
     def __init__(self):
         self.messages = []
         self.next_id = 0
+        self.conversations = {}
+        self.conversation_writes = []
 
     async def fetchval(self, sql, *args):
+        if sql.startswith("SELECT user_id FROM conversations"):
+            return self.conversations.get(args[0])
+        if sql.startswith("INSERT INTO conversations"):
+            self.conversation_writes.append(args)
+            return args[0] if self.conversations.get(args[0], args[1]) == args[1] else None
         if "RETURNING id" in sql and "INSERT INTO messages" in sql:
             self.next_id += 1
             self.messages.append(args)
@@ -101,6 +108,30 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
             response = await self.client.post("/api/image/generate", data=form, headers=headers)
         self.assertEqual(response.status, 200)
         self.assertEqual(generate.call_args.args, ("improve this image", b"original image bytes", "image/png"))
+
+    async def test_provider_failure_does_not_create_a_conversation(self):
+        headers = {"Authorization": "Bearer image_test_only"}
+        form = FormData({"prompt": "draw a blue circle"})
+        form._is_multipart = True
+        with patch.object(cloud, "_gemini_generate_image", side_effect=RuntimeError("provider unavailable")):
+            response = await self.client.post("/api/image/generate", data=form, headers=headers)
+        self.assertEqual(response.status, 502)
+        self.assertEqual(self.db.conversation_writes, [])
+        self.assertEqual(self.db.messages, [])
+
+    async def test_foreign_conversation_is_rejected_before_provider_call(self):
+        headers = {"Authorization": "Bearer image_test_only"}
+        thread = uuid.uuid4()
+        self.db.conversations[thread] = 999
+        form = FormData()
+        form.add_field("prompt", "draw a blue circle")
+        form.add_field("conversation_id", str(thread))
+        form._is_multipart = True
+        with patch.object(cloud, "_gemini_generate_image") as generate:
+            response = await self.client.post("/api/image/generate", data=form, headers=headers)
+        self.assertEqual(response.status, 404)
+        generate.assert_not_called()
+        self.assertEqual(self.db.conversation_writes, [])
 
     async def test_uploaded_image_and_followup_stay_in_the_same_thread(self):
         from aiohttp import FormData

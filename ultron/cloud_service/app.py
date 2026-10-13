@@ -1102,13 +1102,13 @@ async def generate_image(request: web.Request) -> web.Response:
     except ValueError:
         raise web.HTTPBadRequest(text='{"error":"invalid_conversation_id"}', content_type="application/json")
     pool = request.app["db"]
-    claimed = await pool.fetchval(
-        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
-        "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
-        "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
-        conv_uuid, request["user_id"], prompt[:80],
+    # Check an existing thread before spending a provider call. Delay creating
+    # or touching the conversation row until generation succeeds, so provider
+    # failures do not leave empty conversations in chat history.
+    owner_id = await pool.fetchval(
+        "SELECT user_id FROM conversations WHERE id=$1", conv_uuid,
     )
-    if claimed is None:
+    if owner_id is not None and owner_id != request["user_id"]:
         raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
     try:
         result = await asyncio.to_thread(_gemini_generate_image, prompt, image_bytes, mime_type)
@@ -1117,6 +1117,14 @@ async def generate_image(request: web.Request) -> web.Response:
         raise web.HTTPBadGateway(text=json.dumps({"error":"image_generation_failed",
             "detail":"Görsel üretimi tamamlanamadı. Gemini görsel model erişimini kontrol et."}, ensure_ascii=False),
             content_type="application/json")
+    claimed = await pool.fetchval(
+        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
+        "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
+        "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
+        conv_uuid, request["user_id"], prompt[:80],
+    )
+    if claimed is None:
+        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
     user_message_id = await pool.fetchval("INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4) RETURNING id",
                        conv_uuid, request["user_id"], prompt, request["device_id"])
     assistant_message_id = await pool.fetchval("INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'gemini-image') RETURNING id",

@@ -83,7 +83,7 @@ class CodeGen:
             return {"ok": False, "error": "Üretilecek dosya belirlenemedi."}
         for f in files:
             p = (self.root / f["path"]).resolve()
-            if not str(p).startswith(str(self.root)):
+            if self.root not in p.parents:
                 return {"ok": False, "error": f"Proje dışına yazım reddedildi: {f['path']}"}
             f["diff"] = self._diff_for(f["path"], f["content"])
         pid = uuid.uuid4().hex[:10]

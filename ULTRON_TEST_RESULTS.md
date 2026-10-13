@@ -588,3 +588,10 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 - `PYTHONPATH=ultron/backend python -m unittest discover -s ultron/backend/tests -p 'test_github_pr_publisher.py' -v`: approval-routing tests **2 passed**. Includes standalone commands, Turkish normalization, ambiguous multiple proposals, exact IDs, rejection, wrong IDs, and conversational false positives.
 - `python -m py_compile ultron/backend/bridge.py ultron/backend/github_pr_publisher.py`: passed. CI now runs the self-development publisher suite and compiles both files.
 - GitHub execution from the owner’s Windows laptop and a real draft PR are not yet tested.
+
+## 2026-10-13 — Image ownership/failure isolation and GÖLGE path boundary
+
+- Full `python -m unittest discover -s . -p 'test_*.py' -v` from `ultron/cloud_service`: **306 passed, 58 skipped**. New image tests prove provider failure creates no conversation/messages and a foreign owner's conversation is rejected before calling Gemini. Existing upload/edit, thread-continuity, supported MIME and image output limit checks passed.
+- Desktop: `PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_codegen_pipeline.py ultron/backend/tests/test_github_pr_publisher.py`: **11 passed**; unittest approval router: **2 passed**; `test_codegen_path_boundary.py`: **1 passed**. The new traversal-prefix regression failed before the `Path.parents` fix and now passes.
+- `py_compile` for cloud app and desktop codegen/bridge/publisher passed. `node test_image_generation_ui.cjs`, full inline chat script syntax check, and `node test_mobile_chat_flow.cjs`: **1, 7 passed** respectively.
+- Live Gemini image generation, production account/model availability and physical phone/laptop behavior: **not tested**.

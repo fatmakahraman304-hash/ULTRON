@@ -547,3 +547,10 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Chat approvals now require a standalone explicit command; ordinary sentences containing “uygula” or “approve” cannot run a code patch. Turkish dotless-i normalization is covered. If several proposals are waiting, the owner must include the exact proposal ID; wrong IDs leave code untouched. Reject/apply responses keep the next pending proposal visible.
 - Added approval-routing regression tests and wired them into Scene CI, with bridge/publisher Python compilation. Local tests: 2 approval-routing tests PASS; existing publisher tests are also checked with pytest.
 - This keeps code changes behind the existing local approval gate and continues to open draft PRs only; it does not merge or deploy from GÖLGE. Laptop `gh` authentication and physical draft-PR operation remain unverified.
+
+## 2026-10-13 — Image request isolation and self-development path fencing
+
+- Gemini image generation now checks an existing conversation's owner before invoking the provider and creates/touches conversation history only after successful image generation. This prevents cross-owner provider calls and empty ghost conversations after provider failures. Added tests for both cases.
+- GÖLGE's code proposal path check now uses resolved path ancestry rather than a string prefix; a sibling directory named `ULTRON-private` can no longer appear to be inside the project. Regression was confirmed failing before the fix and passing after it. Approval routing remains exact-command/ID bound.
+- Cloud and Scene Actions now include the relevant image and desktop path-boundary tests. Full Cloud discovery: **306 passed, 58 skipped**. Pytest codegen/publisher: **11 passed**; approval-routing unittest **2 passed**; path-boundary unittest **1 passed**; image UI intent and mobile chat tests passed.
+- Code changes are local and awaiting commit/push and exact-SHA CI/Render verification. Live Gemini generation and physical phone/laptop interactions remain unverified.

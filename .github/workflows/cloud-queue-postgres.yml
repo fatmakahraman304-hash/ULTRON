@@ -57,6 +57,8 @@ jobs:
           python evals/conversation/run.py --validate
       - name: No unscoped legacy image or document chat history
         run: python -m unittest discover -s ultron/cloud_service -p 'test_recent_context_isolation.py' -v
+      - name: Gemini image generation ownership and failed-request cleanup
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_image_generation.py' -v
       - name: First topic return and bounded paired recall
         run: python -m unittest discover -s ultron/cloud_service -p 'test_reference_return.py' -v
       - name: Long chat contextual recall and no cross-thread contamination
