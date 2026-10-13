@@ -84,7 +84,7 @@ class NativeBridge(QObject):
         """Create persistent owner-scoped task; NEVER open VS Code or run code."""
         from .development_bridge import configured
         if not configured():
-            self.emit(kind="dev_error", text="ULTRON Cloud bağlantısı yapılandırılmamış.")
+            self.emit(kind="dev_error", text="GÖLGE Cloud bağlantısı yapılandırılmamış.")
             return
         def worker():
             try:
@@ -219,7 +219,7 @@ class NativeBridge(QObject):
                     base+'/api/messages?limit=200',
                     headers={
                         'Authorization':f'Bearer {token}',
-                        'X-ULTRON-DEVICE':'desktop-ultron-ui',
+                        'X-GÖLGE-DEVICE':'desktop-ultron-ui',
                         'Accept':'application/json',
                     },
                     method='GET',
@@ -248,7 +248,7 @@ class NativeBridge(QObject):
             data=data,
             headers={
                 'Authorization':f'Bearer {token}',
-                'X-ULTRON-DEVICE':'desktop-ultron-control',
+                'X-GÖLGE-DEVICE':'desktop-ultron-control',
                 'Accept':'application/json',
                 'Content-Type':'application/json; charset=utf-8',
             },
@@ -272,7 +272,7 @@ class NativeBridge(QObject):
             state={
                 'ui_state':str(self.ui._win.hud.state),
                 'muted':bool(self.ui.muted),
-                'assistant':str(getattr(self.ui,'assistant_name','ULTRON')),
+                'assistant':str(getattr(self.ui,'assistant_name','GÖLGE')),
                 'voice':voice_name,
             }
         except Exception:
@@ -287,7 +287,7 @@ class NativeBridge(QObject):
                     base+'/api/device-presence',
                     headers={
                         'Authorization':f'Bearer {token}',
-                        'X-ULTRON-DEVICE':'desktop-ultron-control',
+                        'X-GÖLGE-DEVICE':'desktop-ultron-control',
                         'Accept':'application/json',
                     },
                     method='GET',
@@ -316,7 +316,7 @@ class NativeBridge(QObject):
         threading.Thread(target=worker,daemon=True).start()
 
     def cloud_commands(self):
-        """Claim safe phone->desktop control commands from ULTRON Cloud."""
+        """Claim safe phone->desktop control commands from GÖLGE Cloud."""
         if self._command_busy:
             return
         base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
@@ -333,7 +333,7 @@ class NativeBridge(QObject):
                     data=body,
                     headers={
                         'Authorization':f'Bearer {token}',
-                        'X-ULTRON-DEVICE':'desktop-ultron-control',
+                        'X-GÖLGE-DEVICE':'desktop-ultron-control',
                         'Accept':'application/json',
                         'Content-Type':'application/json; charset=utf-8',
                     },
@@ -354,7 +354,7 @@ class NativeBridge(QObject):
 
     @pyqtSlot(str)
     def _apply_remote_command(self, raw):
-        """Execute Cloud commands from the paired phone on the desktop ULTRON."""
+        """Execute Cloud commands from the paired phone on the desktop GÖLGE."""
         win=self.ui._win
         try:
             try:
@@ -378,8 +378,8 @@ class NativeBridge(QObject):
                 state=getter() if callable(getter) else {}
                 if state.get('enabled') and not state.get('awake') and callable(manual):
                     manual()
-                self.emit(kind='remote_notice',text='Telefon: ULTRON uyandırma komutu alındı.')
-                self._complete_remote_command(command_id,True,'ULTRON uyandırıldı.')
+                self.emit(kind='remote_notice',text='Telefon: GÖLGE uyandırma komutu alındı.')
+                self._complete_remote_command(command_id,True,'GÖLGE uyandırıldı.')
             elif command=='mute':
                 if not self.ui.muted:
                     win._toggle_mute()
@@ -414,7 +414,7 @@ class NativeBridge(QObject):
                 if len(text)>50000:
                     text=text[:50000]
                 # A remote agent task is treated exactly like a command typed
-                # into the local ULTRON interface. Wake the assistant first when
+                # into the local GÖLGE interface. Wake the assistant first when
                 # wake-word mode is enabled, then hand the task to Gemini Live,
                 # which can use the desktop's existing apps/files/browser/tools.
                 getter=getattr(self.ui,'wake_get_state',None)
@@ -428,10 +428,10 @@ class NativeBridge(QObject):
                     if command_id:
                         self._remote_task_ids.append(int(command_id))
                     handler(text)
-                    self.emit(kind='remote_notice',text='Telefon görevi ULTRON agente gönderildi.')
+                    self.emit(kind='remote_notice',text='Telefon görevi GÖLGE agente gönderildi.')
                 else:
-                    self.emit(kind='remote_notice',text='ULTRON agent henüz hazır değil.')
-                    self._complete_remote_command(command_id,False,'ULTRON agent henüz hazır değil.')
+                    self.emit(kind='remote_notice',text='GÖLGE agent henüz hazır değil.')
+                    self._complete_remote_command(command_id,False,'GÖLGE agent henüz hazır değil.')
         except Exception as exc:
             self.emit(kind='remote_notice',text='Uzaktan komut uygulanamadı: '+str(exc)[:100])
             try:
@@ -457,7 +457,7 @@ class NativeBridge(QObject):
                     data=body,
                     headers={
                         'Authorization':f'Bearer {token}',
-                        'X-ULTRON-DEVICE':'desktop-ultron-control',
+                        'X-GÖLGE-DEVICE':'desktop-ultron-control',
                         'Accept':'application/json',
                         'Content-Type':'application/json; charset=utf-8',
                     },
@@ -476,7 +476,7 @@ class NativeBridge(QObject):
         # Only conversation output is mirrored. Technical logs stay in MARK's tools.
         if text.startswith('You:'):
             self.emit(kind='log', role='user', text=text.partition(':')[2].strip())
-        elif text.startswith((self.ui.assistant_name+':', 'ULTRON:', 'ULTRON:')):
+        elif text.startswith((self.ui.assistant_name+':', 'GÖLGE:', 'GÖLGE:')):
             answer=text.partition(':')[2].strip()
             self.emit(kind='log', role='assistant', text=answer)
             if self._remote_task_ids:
@@ -508,7 +508,7 @@ class NativeBridge(QObject):
         source = str(source or "").strip()[:2048]
         if action == "open_file" or (action == "play" and not source):
             source, _filter = QFileDialog.getOpenFileName(
-                self.ui._win, "ULTRON / MARK video seç", "",
+                self.ui._win, "GÖLGE / MARK video seç", "",
                 "Video ve animasyon (*.mp4 *.mkv *.mov *.avi *.webm *.m4v);;Tüm Dosyalar (*)"
             )
             if not source:
@@ -605,12 +605,12 @@ def attach(ui):
     from PyQt6.QtWidgets import QDialog,QVBoxLayout
     from .video_dock import MarkVideoDock
     dialogs=[]
-    camera_dialog=QDialog(win);camera_dialog.setWindowTitle('ULTRON · Kamera');camera_dialog.resize(800,500)
+    camera_dialog=QDialog(win);camera_dialog.setWindowTitle('GÖLGE · Kamera');camera_dialog.resize(800,500)
     camera_layout=QVBoxLayout(camera_dialog);camera_layout.addWidget(win._cam_live_lbl)
     win._cam_stream_sig.connect(lambda active:camera_dialog.show() if active else camera_dialog.hide())
     camera_dialog.finished.connect(lambda _:win.stop_camera_stream())
     dialogs.append(camera_dialog)
-    # The original MARK player stays in the ULTRON center-stage viewport.
+    # The original MARK player stays in the GÖLGE center-stage viewport.
     # No separate native Windows video dialog; no second media engine.
     if getattr(win, '_video_cont', None) is not None:
         ui._video_dock = MarkVideoDock(view, page, win)
@@ -620,8 +620,8 @@ def attach(ui):
         overlay.show()
     # Move existing functional panels into tool dialogs so their callbacks and rich content survive.
     for name, signals, title in (
-        ('_content_panel', ('_content_sig','_review_sig'), 'ULTRON · Sonuç'),
-        ('_quiz_panel', ('_quiz_sig',), 'ULTRON · Çalışma')):
+        ('_content_panel', ('_content_sig','_review_sig'), 'GÖLGE · Sonuç'),
+        ('_quiz_panel', ('_quiz_sig',), 'GÖLGE · Çalışma')):
         widget=getattr(win,name,None)
         if widget is None:continue
         dialog=QDialog(win);dialog.setWindowTitle(title);dialog.resize(760,520)
@@ -630,7 +630,7 @@ def attach(ui):
         dialogs.append(dialog)
     if hasattr(ui,'_hologram_toolbar'):ui._hologram_toolbar.hide()
     win.addAction(ui._hologram_action)
-    win.setWindowTitle('ULTRON')
+    win.setWindowTitle('GÖLGE')
     win.resize(1440,900)
     def save_download(download):
         address=download.url().toString()
@@ -641,11 +641,11 @@ def attach(ui):
         if not (png or project or video):download.cancel();return
         if video:
             suggested=download.suggestedFileName() or 'ultron-animation.webm'
-            filename,_=QFileDialog.getSaveFileName(win,'ULTRON videosunu kaydet',suggested,'Video (*.webm *.mp4)')
+            filename,_=QFileDialog.getSaveFileName(win,'GÖLGE videosunu kaydet',suggested,'Video (*.webm *.mp4)')
         elif png:
             filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.png','PNG (*.png)')
         else:
-            filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.ultron.json','ULTRON (*.ultron.json)')
+            filename,_=QFileDialog.getSaveFileName(win,'Hologram kaydet','ultron.ultron.json','GÖLGE (*.ultron.json)')
         if not filename:download.cancel();return
         path=Path(filename);download.setDownloadDirectory(str(path.parent));download.setDownloadFileName(path.name);download.accept()
     profile.downloadRequested.connect(save_download)
