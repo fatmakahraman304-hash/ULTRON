@@ -34,6 +34,31 @@ class ContextualRecallUnitTests(unittest.TestCase):
         self.assertLessEqual(len(result),14)
         self.assertEqual(result[0]["role"],"user")
 
+    def test_recalled_exchange_keeps_following_owner_correction(self):
+        for correction in ("Hayır, 2016 dizel olanı kastettim.",
+                           "No, I meant the 2016 diesel version."):
+            messages = self.history()
+            messages.insert(2, {"role": "user", "content": correction})
+            result = select_contextual_turns(
+                messages, "Mercedes C180", max_chars=2600, max_turns=12)
+            self.assertIn(correction, [row["content"] for row in result])
+            self.assertEqual(result[2], {"role": "user", "content": correction})
+            self.assertIn("Genel sohbet 25", str(result))
+            self.assertLessEqual(len(result), 12)
+            self.assertLessEqual(sum(len(row["content"]) for row in result), 2600)
+
+    def test_tight_turn_budget_does_not_recall_uncorrected_answer(self):
+        messages = self.history()
+        correction = "Hayır, 2016 dizel olanı kastettim."
+        messages.insert(2, {"role": "user", "content": correction})
+        # Four total turns leave only two slots for old evidence; omit the
+        # whole corrected exchange instead of presenting its superseded answer.
+        result = select_contextual_turns(
+            messages, "Mercedes C180", max_chars=900, max_turns=4)
+        self.assertNotIn("C180 motor", str(result))
+        self.assertIn("Genel sohbet 25", str(result))
+        self.assertLessEqual(len(result), 4)
+
     def test_pronouns_do_not_guess_random_old_topic(self):
         original=self.history()
         for question in ("Peki?", "Devam et", "Onun fiyatı ne?", "Peki ya o?"):

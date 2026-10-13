@@ -213,6 +213,14 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
             pair.add(index + 1)
         elif message["role"] == "assistant" and index > 0 and earlier[index - 1]["role"] == "user":
             pair.add(index - 1)
+        # A corrected exchange is one evidence unit: never recall the old
+        # answer without the owner's immediately following correction merely
+        # because the correction does not repeat the topic name.
+        following = max(pair) + 1
+        if (following < len(earlier)
+                and earlier[following]["role"] == "user"
+                and is_explicit_turn_correction(earlier[following]["content"])):
+            pair.add(following)
         if len(indices | pair) <= min(4, count - recent_count):
             indices.update(pair)
     chosen = [earlier[index] for index in sorted(indices)]

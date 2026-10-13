@@ -1,3 +1,10 @@
+## Next tasks — conversation, memory and reasoning
+
+1. Check Actions and Render for this correction-aware recall release.
+2. Investigate whether provider-side context recapping drops selected old evidence under verbose recent turns; reproduce before changing.
+3. Run the frozen 100-scenario conversation evaluation with real Gemini and reachable Qwen, then independent review. Provider-free tests are not model-quality scores.
+4. Validate actual laptop/phone voice and task completion when devices are available; preserve Approval Gate. No Windows installation now.
+
 ## Next tasks — 2026-10-13 public model retrieval
 
 1. Functional bca7e94 is Render LIVE. Fixed workflow 72f5e91 passed Scene #38388140843 and Cloud #38388141206; full logs read. Documentation-only final HEAD receives a manual Scene check. Preserve remote GÖLGE identity and protocol compatibility.

@@ -1,3 +1,7 @@
+## 2026-10-13 — Correction-aware conversational recall
+
+Conversation reliability is the priority following the user’s latest request. Named-topic retrieval now preserves an immediately following explicit user correction even when it omits the topic name. No extra inference, persistence, permissions or context budget added.
+
 ## 2026-10-13 — Verified public-model release
 
 - Functional code `bca7e945b689f38bd1c6a6a4cbfac8e997e50b62` is pushed. Cloud/PostgreSQL #38387946739, Frontend #38387946743 and WORLD smoke #38387946860 passed. Scene #38387946750 initially failed because the new HTTP asset test ran before aiohttp installation; no runtime failure was implicated.
