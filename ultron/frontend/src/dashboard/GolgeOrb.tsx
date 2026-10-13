@@ -15,8 +15,8 @@ export default function GolgeOrb({state,amplitude}:{state:CoreState;amplitude:nu
   let renderer:THREE.WebGLRenderer|undefined,frame=0,disposed=false;
   const geometry:THREE.BufferGeometry[]=[];
   const materials:THREE.Material[]=[];
-  const track=<T extends THREE.BufferGeometry>(g:T)=>{geometry.push(g);return g};
-  const material=<T extends THREE.Material>(m:T)=>{materials.push(m);return m};
+  const track=<T extends THREE.BufferGeometry,>(g:T)=>{geometry.push(g);return g};
+  const material=<T extends THREE.Material,>(m:T)=>{materials.push(m);return m};
   let observer:ResizeObserver|undefined;
   try{
    renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:'low-power'});
@@ -103,7 +103,7 @@ export default function GolgeOrb({state,amplitude}:{state:CoreState;amplitude:nu
      const d=dynamics.current;
      const boost=Math.min(Math.max(d.amplitude||0,0),1);
      const active=d.state==='LISTENING'||d.state==='THINKING'||d.state==='SPEAKING';
-     const energy=(active?.5:0)+boost*.3;
+     const energy=(active ? 0.5 : 0)+boost*.3;
      glass.uniforms.time.value=t;glass.uniforms.energy.value=energy;
      if(!reduced){
        shell.rotation.y=t*.085;shell.rotation.z=Math.sin(t*.22)*.06;
