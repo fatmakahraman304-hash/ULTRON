@@ -57,8 +57,8 @@ test('GÖLGE safe phone shortcut display keeps unchanged underlying transport ke
  assert.match(html,/Qwen bağlantısını test et/);
 });
 test('cloud model identifies itself only as GÖLGE while legacy auth survives',()=>{
- const app=fs.readFileSync(path.join(root,'../app.py'),'utf8');
- const persona=fs.readFileSync(path.join(root,'../conversation_persona.py'),'utf8');
+ const app=fs.readFileSync(path.join(root,'app.py'),'utf8');
+ const persona=fs.readFileSync(path.join(root,'conversation_persona.py'),'utf8');
  assert.match(persona,/You are GÖLGE/);
  assert.match(persona,/Use only the name GÖLGE/);
  assert.match(app,/You are ONE GÖLGE/);
