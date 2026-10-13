@@ -5,6 +5,7 @@ from pathlib import Path
 
 from memory import config_manager
 from ultron.cloud_service.development_updates import dev_intent
+from ultron.cloud_service.conversation_persona import build_system_instruction
 
 
 class GolgeIdentityTests(unittest.TestCase):
@@ -25,6 +26,18 @@ class GolgeIdentityTests(unittest.TestCase):
         self.assertTrue(dev_intent("gölge arayüzünü güncelle"))
         self.assertTrue(dev_intent("ULTRON sistemini güncelle"))
         self.assertFalse(dev_intent("Bugün hava nasıl?"))
+
+    def test_legacy_cloud_system_prompt_does_not_restore_old_brand(self):
+        # Render deployment keeps the legacy environment variable for safe
+        # rolling upgrades, but owner-visible assistant identity is GÖLGE.
+        value = build_system_instruction(
+            base_prompt="You are ULTRON. Always identify as ULTRON.",
+            user_message="Senin adın ne?",
+        )
+        self.assertIn("You are GÖLGE.", value)
+        self.assertIn("Use only the name GÖLGE.", value)
+        self.assertNotIn("You are ULTRON", value)
+        self.assertNotIn("identify as ULTRON", value)
 
     def test_desktop_and_cloud_identify_as_golge_without_breaking_auth_headers(self):
         root = Path(__file__).resolve().parents[2]
