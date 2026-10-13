@@ -17,7 +17,12 @@ body:before,body:after{content:none!important;background:none!important}
 .brand-mark{width:29px!important;height:29px!important;border:2px solid #abfaff!important;box-shadow:0 0 14px #59e9f7a1!important;background:#071d28}
 .brand-mark:before{background:#061c25!important;border:1px solid #c6fbff!important;width:13px!important;height:13px!important;box-shadow:0 0 11px #53d3e8!important}
 .brand b{font-size:19px!important;letter-spacing:.29em!important;font-weight:550}
-.online{font-size:11px!important;max-width:30vw!important;color:#d8e7e9!important}
+.online{
+ font-size:11px!important;max-width:30vw!important;color:#d8e7e9!important;
+ border:1px solid #315460!important;
+ background:#07161eeb!important;
+ box-shadow:0 0 11px #0b637128!important;
+}
 .online .dot{width:7px!important;height:7px!important;background:#04dbad!important;box-shadow:0 0 12px #00e4a8}
 .round-action{width:40px!important;height:40px!important;border-radius:50%!important;background:#0d1b25!important;color:#e3f8fa!important;border:1px solid #274e58!important;box-shadow:none!important}
 #panelMenuToggle{background:#101d27!important;border-radius:13px!important}
@@ -39,6 +44,22 @@ body:before,body:after{content:none!important;background:none!important}
 #chatView .msg.assistant:before{content:'◯'!important;left:-35px!important;color:#c5f9fd!important;
  font-size:19px!important;background:#061821!important;border:1px solid #4ebecb!important;
  box-shadow:0 0 8px #48d7e962!important}
+/* The previous inline red-neon theme generates red ::after dots beside
+   each chat bubble. The owner's approved design has no such markers.
+   Scope this override to phone chat so desktop 3D and other views are intact. */
+#chatView .msg.assistant::after,
+#chatView .msg.user::after{
+ content:none!important;display:none!important;
+ background:none!important;border:0!important;box-shadow:none!important;
+}
+#chatView .msg.user::before{
+ color:#b8d5db!important;text-shadow:none!important;
+}
+#chatView .msg.assistant::before{
+ color:#c5f9fd!important;
+ border-color:#4ebecb!important;
+ box-shadow:0 0 8px #48d7e962!important;
+}
 #chatView .msg-time{color:#869fa9!important;font-size:10px}
 #chatView .composer{left:50%;bottom:calc(8px + env(safe-area-inset-bottom))!important;
  width:min(730px,calc(100% - 20px))!important;padding:8px!important;

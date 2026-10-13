@@ -36,8 +36,16 @@ test('mobile layout separates scrollable messages and fixed composer without hid
  ]) assert.ok(css.includes(expected),'missing layout: '+expected);
  assert.ok(!css.includes('.shell{max-width:760px;height:100dvh'),'must not lock remote panels');
  assert.doesNotMatch(css,/\.golge-welcome-orb|\.golge-orbit|\.golge-welcome\{/);
+ // The old HTML theme paints bright red decorative ::after dots by default.
+ // Our final stylesheet must explicitly suppress both owner/assistant markers.
+ assert.match(css,/#chatView \.msg\.assistant::after,/);
+ assert.match(css,/#chatView \.msg\.user::after\{/);
+ assert.match(css,/content:none!important;display:none!important/);
+ assert.match(css,/#chatView \.msg\.user::before\{/);
+ assert.match(css,/border:1px solid #315460!important/);
+
  const sw=file('ultron/cloud_service/static/sw.js');
- assert.match(sw,/ultron-shell-v69/);
+ assert.match(sw,/ultron-shell-v70/);
  assert.match(sw,/\/static\/golge-reference-mobile\.css/);
 });
 
