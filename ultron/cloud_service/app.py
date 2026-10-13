@@ -1117,13 +1117,70 @@ async def generate_image(request: web.Request) -> web.Response:
         raise web.HTTPBadGateway(text=json.dumps({"error":"image_generation_failed",
             "detail":"Görsel üretimi tamamlanamadı. Gemini görsel model erişimini kontrol et."}, ensure_ascii=False),
             content_type="application/json")
-    user_message_id = await pool.fetchval("INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4) RETURNING id",
-                       conv_uuid, request["user_id"], prompt, request["device_id"])
-    assistant_message_id = await pool.fetchval("INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'gemini-image') RETURNING id",
-                       conv_uuid, request["user_id"], "Görsel oluşturuldu.")
+    # Do not insert the message "Görsel oluşturuldu" unless its actual bytes
+    # are durably attached. Otherwise a phone refresh leaves an empty claim.
+    try:
+        encoded = result["image_b64"]
+        image_data = base64.b64decode(encoded, validate=True)
+        image_mime = result["mime_type"]
+        if image_mime not in {"image/png", "image/jpeg", "image/webp"} or not (0 < len(image_data) <= 8 * 1024 * 1024):
+            raise ValueError("invalid generated image payload")
+    except (ValueError, KeyError, TypeError, base64.binascii.Error):
+        raise web.HTTPBadGateway(
+            text='{"error":"image_generation_invalid_payload"}',
+            content_type="application/json",
+        )
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            user_message_id = await conn.fetchval(
+                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                "VALUES($1,$2,'user',$3,$4) RETURNING id",
+                conv_uuid, request["user_id"], prompt, request["device_id"],
+            )
+            assistant_message_id = await conn.fetchval(
+                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                "VALUES($1,$2,'assistant',$3,'gemini-image') RETURNING id",
+                conv_uuid, request["user_id"],
+                "Görsel düzenlendi." if image_bytes is not None else "Görsel oluşturuldu.",
+            )
+            await conn.execute(
+                "INSERT INTO generated_images(message_id,conversation_id,user_id,mime_type,image_data) "
+                "VALUES($1,$2,$3,$4,$5)",
+                assistant_message_id, conv_uuid, request["user_id"], image_mime, image_data,
+            )
+            # Clear only the owner's expired/over-limit blobs. Keep the chat
+            # text, but a missing asset should display an explicit UI error.
+            await conn.execute(
+                "DELETE FROM generated_images WHERE user_id=$1 AND "
+                "(created_at < NOW() - INTERVAL '30 days' OR message_id NOT IN "
+                "(SELECT message_id FROM generated_images WHERE user_id=$1 "
+                "ORDER BY created_at DESC,message_id DESC LIMIT 12))",
+                request["user_id"],
+            )
     return web.json_response({**result, "conversation_id": str(conv_uuid),
                               "user_message_id": user_message_id,
-                              "assistant_message_id": assistant_message_id})
+                              "assistant_message_id": assistant_message_id,
+                              "image_url": f"/api/image/generated/{assistant_message_id}"})
+
+
+async def get_generated_image(request: web.Request) -> web.Response:
+    """Serve a generated image only to its authenticated owner, never /static."""
+    raw_id = request.match_info.get("id", "")
+    if not raw_id.isdecimal() or not (0 < len(raw_id) <= 19):
+        raise web.HTTPNotFound()
+    row = await request.app["db"].fetchrow(
+        "SELECT mime_type,image_data FROM generated_images "
+        "WHERE message_id=$1 AND user_id=$2 "
+        "AND created_at >= NOW() - INTERVAL '30 days'",
+        int(raw_id), request["user_id"],
+    )
+    if row is None:
+        raise web.HTTPNotFound()
+    return web.Response(
+        body=bytes(row["image_data"]), content_type=row["mime_type"],
+        headers={"Cache-Control":"private, no-store, max-age=0",
+                 "X-Content-Type-Options":"nosniff"},
+    )
 
 
 async def vision(request: web.Request) -> web.Response:
@@ -2471,6 +2528,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/listening-analysis", listening_analysis_api)
     app.router.add_post("/api/vision", vision)
     app.router.add_post("/api/image/generate", generate_image)
+    app.router.add_get("/api/image/generated/{id}", get_generated_image)
     app.router.add_post("/api/document", document)
     app.router.add_post("/api/camera-frame", camera_frame)
     app.router.add_get("/api/live", live_voice)
