@@ -12,10 +12,28 @@ from aiohttp.test_utils import TestClient, TestServer
 import app as cloud
 
 
+class FakeContext:
+    def __init__(self, db):
+        self.db = db
+
+    async def __aenter__(self):
+        return self.db
+
+    async def __aexit__(self, *args):
+        return False
+
+
 class FakeDB:
     def __init__(self):
         self.messages = []
+        self.image_rows = {}
         self.next_id = 0
+
+    def acquire(self):
+        return FakeContext(self)
+
+    def transaction(self):
+        return FakeContext(self)
 
     async def fetchval(self, sql, *args):
         if "RETURNING id" in sql and "INSERT INTO messages" in sql:
@@ -24,8 +42,16 @@ class FakeDB:
             return self.next_id
         return args[0]
 
+    async def fetchrow(self, sql, *args):
+        if "FROM generated_images" in sql:
+            return self.image_rows.get((args[0], args[1]))
+        return None
+
     async def execute(self, sql, *args):
-        self.messages.append(args)
+        if "INSERT INTO generated_images" in sql:
+            self.image_rows[(args[0], args[2])] = {
+                "mime_type": args[3], "image_data": args[4],
+            }
 
 
 class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
@@ -36,6 +62,7 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         app = web.Application(middlewares=[cloud.auth_middleware])
         app["db"] = self.db
         app.router.add_post("/api/image/generate", cloud.generate_image)
+        app.router.add_get("/api/image/generated/{id}", cloud.get_generated_image)
         self.client = TestClient(TestServer(app))
         await self.client.start_server()
 
@@ -91,6 +118,28 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(data["conversation_id"])
         self.assertEqual(generate.call_args.args, ("draw a blue circle", None, None))
         self.assertEqual(len(self.db.messages), 2)
+        self.assertEqual(len(self.db.image_rows), 1)
+        self.assertEqual(data["image_url"], "/api/image/generated/2")
+        asset = await self.client.get(
+            data["image_url"], headers=headers,
+        )
+        self.assertEqual(asset.status, 200)
+        self.assertEqual(await asset.read(), b"png bytes")
+        self.assertEqual(asset.content_type, "image/png")
+        self.assertIn("no-store", asset.headers["Cache-Control"])
+        self.assertEqual(asset.headers["X-Content-Type-Options"], "nosniff")
+        anonymous = await self.client.get(data["image_url"])
+        self.assertEqual(anonymous.status, 401)
+        unowned = await self.client.get("/api/image/generated/20000", headers=headers)
+        self.assertEqual(unowned.status, 404)
+        invalid = await self.client.get("/api/image/generated/nope", headers=headers)
+        self.assertEqual(invalid.status, 404)
+        self.db.image_rows[(900, "another-user")] = {
+            "mime_type": "image/png", "image_data": b"other-user-secret",
+        }
+        cross_owner = await self.client.get("/api/image/generated/900", headers=headers)
+        self.assertEqual(cross_owner.status, 404)
+
 
     async def test_edit_sends_uploaded_image_bytes_to_provider(self):
         headers = {"Authorization": "Bearer image_test_only"}
@@ -101,6 +150,21 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
             response = await self.client.post("/api/image/generate", data=form, headers=headers)
         self.assertEqual(response.status, 200)
         self.assertEqual(generate.call_args.args, ("improve this image", b"original image bytes", "image/png"))
+
+    async def test_invalid_image_response_does_not_claim_creation(self):
+        headers = {"Authorization": "Bearer image_test_only"}
+        for invalid in (
+            {"mime_type": "image/png", "image_b64": "not base64"},
+            {"mime_type": "image/svg+xml", "image_b64": base64.b64encode(b"svg").decode()},
+            {"mime_type": "image/png", "image_b64": ""},
+        ):
+            with patch.object(cloud, "_gemini_generate_image", return_value=invalid):
+                response = await self.client.post(
+                    "/api/image/generate", json={"prompt": "çiz"}, headers=headers,
+                )
+            self.assertEqual(response.status, 502)
+        self.assertEqual(self.db.messages, [])
+        self.assertEqual(self.db.image_rows, {})
 
     async def test_uploaded_image_and_followup_stay_in_the_same_thread(self):
         from aiohttp import FormData
