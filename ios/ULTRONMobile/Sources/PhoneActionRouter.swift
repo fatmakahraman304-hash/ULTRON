@@ -67,8 +67,8 @@ final class PhoneActionRouter: ObservableObject {
     }
 
     func prepareNamedShortcut(name: String, input: String) {
-        guard name == "ULTRON Bridge", input.count <= 3_000 else {
-            pendingActionText = "Yalnızca ULTRON Bridge kestirmesine izin veriliyor."
+        guard (name == "GÖLGE Bridge" || name == "ULTRON Bridge"), input.count <= 3_000 else {
+            pendingActionText = "Yalnızca GÖLGE Bridge kestirmesine izin veriliyor."
             return
         }
         prepareBridgeInput(input)
@@ -121,7 +121,7 @@ final class PhoneActionRouter: ObservableObject {
         let base: String
         switch item.action {
         case "shortcut_bridge":
-            base = "ULTRON Bridge komutu onay bekliyor"
+            base = "GÖLGE Bridge komutu onay bekliyor"
         case "open_app":
             base = "\(item.query.capitalized) açılmaya hazır"
         case "youtube_search":
@@ -140,7 +140,7 @@ final class PhoneActionRouter: ObservableObject {
 
     private func notifyPending(_ item: PendingPhoneAction) {
         let content = UNMutableNotificationContent()
-        content.title = "ULTRON"
+        content.title = "GÖLGE"
         content.body = pendingDescription(item)
         content.sound = .default
 
@@ -155,9 +155,9 @@ final class PhoneActionRouter: ObservableObject {
     private func pendingDescription(_ item: PendingPhoneAction) -> String {
         switch item.action {
         case "shortcut_bridge":
-            return "iPhone komutu hazır. ULTRON içinde DEVAM ET ile Kestirmeler'e geç."
+            return "iPhone komutu hazır. GÖLGE içinde DEVAM ET ile Kestirmeler'e geç."
         case "open_app":
-            return "\(item.query.capitalized) açma komutu hazır. ULTRON'a dönünce devam edecek."
+            return "\(item.query.capitalized) açma komutu hazır. GÖLGE'a dönünce devam edecek."
         case "youtube_search":
             return "YouTube'da “\(item.query)” araması hazır."
         case "spotify_search":
@@ -165,7 +165,7 @@ final class PhoneActionRouter: ObservableObject {
         case "whatsapp_message":
             return "WhatsApp mesajı hazırlandı."
         default:
-            return "Telefon komutu hazır. ULTRON'a dönünce devam edecek."
+            return "Telefon komutu hazır. GÖLGE'a dönünce devam edecek."
         }
     }
 
@@ -194,7 +194,7 @@ final class PhoneActionRouter: ObservableObject {
             components.scheme = "shortcuts"
             components.host = "run-shortcut"
             components.queryItems = [
-                URLQueryItem(name: "name", value: "ULTRON Bridge"),
+                URLQueryItem(name: "name", value: "GÖLGE Bridge"),
                 URLQueryItem(name: "input", value: "text"),
                 URLQueryItem(name: "text", value: trimmed)
             ]
