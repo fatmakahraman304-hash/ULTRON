@@ -929,8 +929,13 @@ async def list_messages(request: web.Request) -> web.Response:
     limit = min(max(int(request.query.get("limit", "80")), 1), 200)
     rows = await request.app["db"].fetch(
         """
-        SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at
+        SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at,
+               (gi.message_id IS NOT NULL) AS has_generated_image,
+               (m.device_id='gemini-image' AND gi.message_id IS NULL) AS image_unavailable
         FROM messages m
+        LEFT JOIN generated_images gi
+          ON gi.message_id=m.id AND gi.user_id=$1
+             AND gi.created_at >= NOW() - INTERVAL '30 days'
         WHERE m.user_id=$1
         ORDER BY m.id DESC LIMIT $2
         """,
