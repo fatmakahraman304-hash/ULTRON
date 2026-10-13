@@ -1,16 +1,13 @@
-## Next tasks — verify live voice consent release
+## Completed checkpoint — live voice consent release
 
-1. Push and check exact-SHA Cloud Queue/PostgreSQL Actions and Render deployment/`/health` for the live-voice consent change.
-2. On the real phone, say a personal preference without asking to remember it, then explicitly say “bunu hatırla”; confirm only the latter is persisted. Try a password/API-key-like value and confirm it is refused. Record actual Gemini Live transcripts and device/provider version.
-3. Verify paired-laptop delegation reports queued/completed/failed truthfully and still waits for user approval before editing code.
-4. Run the frozen real Gemini/Qwen 100-case suite with independent review when credentials and the paired laptop are available. Until then, no model-quality score is measured. Keep Windows installation deferred as requested.
+The live-voice memory guard and grounded tool instructions are pushed at `166ae52e4f47421329e60d1d5c474d47e8ef2a9b`. Scene #38449688028 and Cloud/PostgreSQL #38449688070 passed; Render deploy `dep-db77pougekts73dhtjpg` is LIVE at the same SHA, and public `/health` returns HTTP 200.
 
 ## Next tasks — real model and device quality
 
-1. Current frontend improvement defers the WebGL stage until after the chat shell. Commit `a4f31c6` passed both exact-SHA Actions, and Render backend `/health` returned HTTP 200 at `c805e1e`.
-2. Run the frozen 100-scenario Turkish/English evaluation with real Gemini and reachable local Qwen, followed by independent review. This workspace has no Gemini key or Ollama endpoint, so model quality and 100/100 remain unverified.
-3. On the paired Windows laptop and phone, test actual voice, image vision/generation, Qwen-first routing, approval-gated code changes and 3D commands. Keep Windows install deferred until the single consolidated update already requested.
-4. Preserve owner approval, privacy isolation, and explicit device permissions. No autonomy or fictional Jarvis capability should be claimed.
+1. On the phone, confirm an unprompted personal disclosure is not persisted, an explicit “bunu hatırla” is persisted, and password/API-key-like content is refused. Record the actual Gemini Live transcript and device/provider versions.
+2. Verify paired-laptop delegation reports queued/completed/failed truthfully and preserves the existing approval before code edits; test on real devices instead of inferring behavior from mocks.
+3. Run the frozen 100-scenario Turkish/English evaluation against real Gemini and reachable local Qwen, followed by independent review. This workspace has no Gemini key or Ollama endpoint, so model quality and 100/100 remain unverified.
+4. Keep Windows installation deferred until the single consolidated update already requested. Preserve owner approval, privacy isolation, and explicit device permissions.
 
 ## Next tasks — real conversation quality and device verification
 
