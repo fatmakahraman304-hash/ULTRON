@@ -1,6 +1,6 @@
-## 2026-10-13 — Fix Windows install smoke and frontend audit findings
+## 2026-10-14 — Windows installation passed after smoke-test correction
 
-The owner's Windows install reached the integration tests: 27 passed and one failed because `test_hologram_is_available_without_alternate_desktop` expected the retired `<title>ULTRON Hologram</title>` while the checked-in page is titled `GÖLGE Hologram`. Updated the assertion to verify the current UTF-8 title; no runtime behavior changed. The same install surfaced a high-severity `source-map-js` advisory. Updated the frontend lockfile from 1.2.1 to fixed 1.2.2; clean install, `npm audit` (zero vulnerabilities), and production build pass. The focused integration test passes locally. The Windows installer must be rerun before install success can be claimed.
+The owner's Windows install initially hit a stale title expectation (`ULTRON Hologram` vs the current `GÖLGE Hologram`) after 27 other tests passed. The assertion now verifies the current UTF-8 title. Also updated vulnerable transitive `source-map-js` 1.2.1 to 1.2.2; fresh npm install, audit (zero vulnerabilities), build and both GitHub Actions pass. On 2026-10-14 the owner reran `INSTALL.bat` at handoff HEAD `4648d70`; it completed through `pytest tests`, `integration.doctor --quick`, and printed `Kurulum tamamlandi.` Actual desktop startup, local Qwen/Gemini inference and scene interactions remain to be tested.
 
 ## 2026-10-13 — Windows laptop handoff prepared
 

@@ -1,12 +1,12 @@
-## Windows installation smoke — title assertion and dependency correction
+## Windows installation passed — 2026-10-14
 
-The owner's Windows 11 install (Python 3.12.14, Node 24.19.0, npm 11.17.0) successfully built the frontend and prepared Python/voice dependencies. Its 28-test installer suite reported 27 passed and one stale assertion: expected `ULTRON Hologram`, actual current UI title `GÖLGE Hologram`. Updated the integration expectation; focused local reproduction passes 1/1. The installer has not yet been rerun on Windows, so completion remains unverified. Ollama's configured four models were already present; no Qwen model pull was needed.
+Owner confirmed `INSTALL.bat` completed on Windows 11 at commit `4648d70` (Python 3.12.14, Node 24.19.0, npm 11.17.0), including frontend build, pip checks, Playwright install, `pytest tests`, and `integration.doctor --quick`; the installer printed `Kurulum tamamlandi.` The console did not show pytest's summary count. Ollama already had the configured four models, so setup did not need to pull Qwen weights. `START.bat` and real chat, voice, vision, Gemini fallback and scene controls are the next hands-on checks.
 
-The frontend audit warning was traced to transitive `source-map-js` 1.2.1 (GHSA-68fv-2mgg-jv7q). Updated the lock to 1.2.2; clean `npm ci`, `npm audit` (0 findings), and Vite production build now pass. The Vite large-chunk advisory remains informational and unchanged.
+The frontend audit warning was traced to transitive `source-map-js` 1.2.1 (GHSA-68fv-2mgg-jv7q). Updated the lock to 1.2.2; clean `npm ci`, `npm audit` (0 findings), and Vite production build now pass. The Vite large-chunk warning is informational and did not block the Windows build. Scene Build `38467187863` and Frontend Build `38467187789` both passed on fix commit `4d9b8a7`. The Render cloud service was unaffected and remains LIVE at `1ad5f28`.
 
 ## Laptop handoff — 2026-10-13
 
-The source archive was originally prepared from functional code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`; the owner cloned handoff commit `3a6f489`. After the install exposed a stale title assertion and npm advisory, the correction was pushed as `4d9b8a7`. Archive integrity checks confirmed the installer, bootstrap, frontend lockfile, and backend entry point are present, without `.git`, `node_modules`, or a virtual environment. The owner must pull `4d9b8a7` before rerunning install; physical completion and real model/device tests remain unverified.
+The source archive was originally prepared from functional code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c`; the owner cloned handoff commit `3a6f489`. After the install exposed a stale title assertion and npm advisory, the correction was pushed as `4d9b8a7`, and the owner fast-forwarded to `4648d70`. Archive integrity checks confirmed installer and source files were present without generated dependency folders. Windows installation now passes; live model/device acceptance remains unverified.
 
 ## Completed checkpoint — end-to-end desktop provider error privacy
 

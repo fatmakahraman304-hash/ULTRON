@@ -1,15 +1,17 @@
-## 2026-10-13 — Correct the Windows install hologram-title assertion
+## 2026-10-14 — Windows installation completed
 
-- The owner's first Windows install used Python 3.12.14 and Node 24.19.0. TypeScript/Vite build completed successfully. Ollama reported all four configured models already installed; Whisper/Piper preparation passed. The installer test suite returned **27 passed, 1 failed** because a test expected the outdated `ULTRON Hologram` title while the served page correctly contains `GÖLGE Hologram`.
-- Reproduced the exact failure locally before changing the test, then updated it to assert the current UTF-8 title. Focused integration regression after the change: **1 passed**. No production runtime code changed.
-- Full suite on this Linux workspace: **25 passed, 3 failed** for missing `sounddevice`, an unavailable health component, and a Linux lock behavior discrepancy; this is not a Windows rerun. The corrected Windows install result remains pending.
-- Investigated the npm high-severity warning: transitive `source-map-js` 1.2.1 matched GHSA-68fv-2mgg-jv7q. Updated the frontend lockfile to 1.2.2; fresh `npm ci --no-audit --no-fund` passed, `npm audit` reports **0 vulnerabilities**, and `npm run build` passed. The >500 kB chunk advisory is informational and remains.
+- Owner reran `INSTALL.bat` at handoff HEAD `4648d70` on Windows 11 (Python 3.12.14, Node 24.19.0, npm 11.17.0). The frontend compiled, all install stages including `pytest tests` and `integration.doctor --quick` returned successfully, and the installer printed **`Kurulum tamamlandi.`** The pasted terminal did not show the pytest case count. Ollama's four configured models were already present; the install did not need to download them.
+- The first attempt had **27 passed, 1 failed** because the test asserted the retired `ULTRON Hologram` title. Reproduced and corrected the test to assert the current `GÖLGE Hologram` title; focused local regression **1 passed**. No runtime application code changed.
+- Local Linux full-suite result was **25 passed, 3 failed** due to missing `sounddevice`, one unavailable health component, and a Linux lock-behavior discrepancy. This is separate from the successful owner Windows run.
+- Fixed npm's high-severity transitive `source-map-js` 1.2.1 advisory (GHSA-68fv-2mgg-jv7q) by locking 1.2.2. Clean `npm ci`, `npm audit` (**0 vulnerabilities**), and Vite build pass. The >500 kB chunk message is a nonfatal bundler warning.
+- GitHub Scene Build [#38467187863](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38467187863) and Frontend Build [#38467187789](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38467187789) both **SUCCESS** on fix code SHA `4d9b8a7`. Render is a separate cloud service and remains LIVE at `1ad5f28`; this client-only fix did not deploy there.
+- Still not run on the physical laptop: launching `START.bat`, real chat/voice/vision and scene acceptance, Gemini inference/fallback behavior, or provider-quality scoring.
 
 ## 2026-10-13 — Windows laptop source handoff package
 
 - Confirmed functional code SHA `13b3147eb01a0cdcd1352b5bbf136fda7ab1d56c` before handoff; owner cloned handoff commit `3a6f489`. The later install-feedback fix is commit `4d9b8a7`.
 - Built a ZIP with `git archive`; validated required installer/bootstrap/frontend/backend files, 833 archive members, and exclusion of `.git`, `node_modules`, and `.venv`. The archive is source only; it does not include runtime packages, model weights, user settings, or API credentials.
-- Windows installation, actual laptop tests, Ollama/Qwen and Gemini inference, and latency/quality evaluation were **NOT RUN**: this Linux workspace exposes no paired Windows device. Package integrity is not a Windows installation test.
+- At package-generation time, Windows installation was not available from this Linux workspace. Owner subsequently installed the source successfully on the physical laptop; see the Windows installation result above. Real Qwen/Gemini inference and latency/quality evaluation remain **NOT RUN**.
 
 ## 2026-10-13 — Desktop model, agent, vision and Cloud error privacy
 
