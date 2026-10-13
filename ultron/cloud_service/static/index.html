@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="GÖLGE" />
   <link rel="manifest" href="/static/manifest.webmanifest" />
-  <link rel="icon" href="/static/ultron-icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/static/golge-icon.svg" type="image/svg+xml" />
   <title>GÖLGE Mobile</title>
   <style>
     :root{
@@ -2288,7 +2288,7 @@ async function watchDesktopPresence(){
       toast(msg);
       if(navigator.vibrate)navigator.vibrate(online?[40,35,40]:[90,55,90]);
       if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
-        try{new Notification('GÖLGE',{body:msg,icon:'/static/ultron-icon.svg'})}catch{}
+        try{new Notification('GÖLGE',{body:msg,icon:'/static/golge-icon.svg'})}catch{}
       }
       if(online)watchLaptopTasks().catch(()=>{});
     }
@@ -2337,7 +2337,7 @@ function notifyLaptopTaskChange(item,previous){
   $('#stageVoiceText').textContent=taskStatusLabel(status,item)+' • '+title.slice(0,52);
   if(navigator.vibrate&&status!=='delivered')navigator.vibrate(status==='completed'?[55,35,80]:[100,50,100]);
   if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){
-    try{new Notification('GÖLGE • '+taskStatusLabel(status),{body:message.slice(0,180),icon:'/static/ultron-icon.svg'})}catch{}
+    try{new Notification('GÖLGE • '+taskStatusLabel(status),{body:message.slice(0,180),icon:'/static/golge-icon.svg'})}catch{}
   }
 }
 async function watchLaptopTasks(){
