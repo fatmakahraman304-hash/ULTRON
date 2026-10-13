@@ -423,6 +423,7 @@ async def load_long_continuation_turns(pool, user_id: str, conversation_id,
         user_id, conversation_id, before_id, earliest, scan,
     )
     goal = None
+    original = None
     for row in older:
         content = row.get("content")
         if not isinstance(content, str) or not content.strip():
@@ -432,17 +433,45 @@ async def load_long_continuation_turns(pool, user_id: str, conversation_id,
         # A request to change or drop the topic is not a hidden new goal.
         if is_topic_switch_request(content):
             break
-        goal = content.strip()
+        if goal is None:
+            goal = content.strip()
+            # "Hayır, siyah olsun" is a correction, not the whole project.
+            # Recover the previous owner goal as well, but preserve order:
+            # original instruction followed by the more recent correction.
+            if is_explicit_turn_correction(goal):
+                continue
+            break
+        original = content.strip()
         break
     if not goal:
         return prepare_turns(recent, max_chars=cap, max_turns=n)
-    goal_budget = min(cap, 900, max(24, cap // 3))
-    original = {"role": "user", "content": _bounded_excerpt(goal, goal_budget)}
+    recovered_budget = min(cap, 1200 if original else 900, max(24, cap // 3))
+    if original:
+        latest_budget = min(650, max(24, recovered_budget // 2))
+        earlier_budget = recovered_budget - latest_budget
+        if earlier_budget:
+            recovered = [
+                {"role": "user",
+                 "content": _bounded_excerpt(original, earlier_budget)},
+                {"role": "user",
+                 "content": _bounded_excerpt(goal, latest_budget)},
+            ]
+        else:
+            recovered = [
+                {"role": "user",
+                 "content": _bounded_excerpt(goal, recovered_budget)},
+            ]
+    else:
+        recovered = [
+            {"role": "user",
+             "content": _bounded_excerpt(goal, recovered_budget)},
+        ]
+    used = sum(len(turn["content"]) for turn in recovered)
     newest = prepare_turns(
-        recent, max_chars=max(0, cap - len(original["content"])),
-        max_turns=n - 1,
+        recent, max_chars=max(0, cap - used),
+        max_turns=n - len(recovered),
     )
-    return [original] + newest
+    return recovered + newest
 
 
 async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
