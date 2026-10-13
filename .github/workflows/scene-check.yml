@@ -222,6 +222,8 @@ jobs:
           python scripts/tests/test_scene_browser.py
       - name: Mobile listening consent and full-summary browser interaction
         run: python scripts/tests/test_listening_browser.py
+      - name: GÖLGE generated-image persistence and reload UI contract
+        run: node ultron/cloud_service/test_image_generation_ui.cjs
       - name: GÖLGE screenshot-matched mobile and laptop layout contracts
         run: node --test ultron/cloud_service/test_golge_reference_ui.cjs
       - name: GÖLGE mobile visual composition in real Chromium
