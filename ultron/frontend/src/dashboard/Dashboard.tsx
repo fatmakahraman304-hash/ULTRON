@@ -29,19 +29,19 @@ export default function Dashboard(){
   const durationMatch=t.match(/(\d+(?:[.,]\d+)?)\s*saniye/),duration=durationMatch?Math.max(2,Math.min(15,Number(durationMatch[1].replace(',','.')))):6;
   const current=u.stage.hologram;
 
-  if(/(?:animasyon|animation).*(?:oynat|göster|goster|aç|ac|yap|oluştur|olustur)|(?:oynat|göster|goster).*(?:animasyon|animation)/.test(t)&&!/(?:videoya|kaydet|indir)/.test(t)){const kind=/(?:kuş|kus|bird|civciv)/.test(t)?'bird':/(?:yörünge|yorunge|orbit|dön|don)/.test(t)?'orbit':/(?:nabız|nabiz|pulse)/.test(t)?'pulse':'bird';await action('animation_show',{kind,title:'ULTRON MINI ANIMATION'});return 'Küçük animasyon ULTRON CORE içinde oynatılıyor.';}
+  if(/(?:animasyon|animation).*(?:oynat|göster|goster|aç|ac|yap|oluştur|olustur)|(?:oynat|göster|goster).*(?:animasyon|animation)/.test(t)&&!/(?:videoya|kaydet|indir)/.test(t)){const kind=/(?:kuş|kus|bird|civciv)/.test(t)?'bird':/(?:yörünge|yorunge|orbit|dön|don)/.test(t)?'orbit':/(?:nabız|nabiz|pulse)/.test(t)?'pulse':'bird';await action('animation_show',{kind,title:'GÖLGE MINI ANIMATION'});return 'Küçük animasyon GÖLGE CORE içinde oynatılıyor.';}
   if(/(?:core.?a dön|çekirdeğe dön|orta alanı sıfırla|sahneyi sıfırla)/.test(t)){await action('reset');return 'Center Stage çekirdeğe döndü.';}
   if(/(?:bunu|hologramı|hologrami).*(?:videoya çevir|video yap)/.test(t)){await action('video_from_stage',{duration,title:current.label});return 'Hologram video renderına geçti.';}
   if(/(?:video|animasyon|intro).*(?:yap|oluştur|olustur|render|hazırla|hazirla)/.test(t)){
    let template='ultron_intro';if(/logo/.test(t))template='logo_reveal';else if(/enerji|çekirdek|cekirdek/.test(t))template='energy_core';else if(/sistem.*(?:aktiv|açıl|acil)/.test(t))template='system_activation';else if(/görev|gorev.*tamam/.test(t))template='task_complete';
-   await action('video_create',{template,duration,title:/ultron/.test(t)?'ULTRON':current.label||'ULTRON'});return duration+' saniyelik video renderı başladı.';
+   await action('video_create',{template,duration,title:/ultron/.test(t)?'GÖLGE':current.label||'GÖLGE'});return duration+' saniyelik video renderı başladı.';
   }
   if(/(?:videoyu|video).*(?:durdur|duraklat|pause)/.test(t)){await action('video_pause');return 'Video duraklatıldı.';}
   if(/(?:videoyu|video).*(?:oynat|devam|play)/.test(t)){await action('video_play');return 'Video oynatılıyor.';}
   if(/(?:videoyu|video).*(?:kaydet|indir)/.test(t)){await action('video_save');return 'Video kaydetme penceresi açıldı.';}
   if(/(?:hologramı|hologrami|tasarımı|tasarimi).*(?:kaydet|indir)/.test(t)){await action('hologram_save');return 'Hologram projesi kaydediliyor.';}
 
-  if(/(?:2d|normal|sokak|uydu|detaylı|detayli).*?(?:harita|dünya|dunya)|(?:harita|dünya|dunya).*?(?:2d|normal|sokak|uydu|mahalle|bina)|(?:haritayı|haritayi|harita).*?(?:aç|ac|göster|goster)/.test(t)){await action('world_map');return 'ULTRON WORLD 2D haritası ve gerçek zamanlı veriler CORE üzerinde açıldı.';}
+  if(/(?:2d|normal|sokak|uydu|detaylı|detayli).*?(?:harita|dünya|dunya)|(?:harita|dünya|dunya).*?(?:2d|normal|sokak|uydu|mahalle|bina)|(?:haritayı|haritayi|harita).*?(?:aç|ac|göster|goster)/.test(t)){await action('world_map');return 'GÖLGE WORLD 2D haritası ve gerçek zamanlı veriler CORE üzerinde açıldı.';}
   if(/(?:3d\s*dünya|3d\s*dunya|earth watch|global monitor|normal\s*3d\s*dünya|normal\s*3d\s*dunya|dünyayı\s*(?:aç|ac|göster|goster|izle)|dunya(?:yı|yi)\s*(?:aç|ac|göster|goster|izle))/.test(t)){await action('earth_open');return 'EARTH WATCH açıldı.';}
   const earthMode=u.stage.mode==='earth_watch';
   if(earthMode){
@@ -96,7 +96,7 @@ export default function Dashboard(){
    if(/drone/.test(t)){const count=/(?:iki|2)\s*drone/.test(t)?2:/(?:üç|uc|3)\s*drone/.test(t)?3:1;push('drone','DRONE',color||'#ff3047',count);}
    if(/enerji|core|çekirdek|cekirdek/.test(t))push('energy','CORE',color||'#ff3047');
    if(/network|ağ|ag/.test(t))push('network','NETWORK','#ff3047');
-   if(/logo/.test(t))push('logo','ULTRON','#ff3047');
+   if(/logo/.test(t))push('logo','GÖLGE','#ff3047');
    if(/kule|tower/.test(t))push('tower','TOWER','#ff3047');
    if(/robot kolu|robotic arm/.test(t))push('arm','ARM',color||'#35ffe4');
    else if(/robot/.test(t))push('robot','ROBOT',color||'#ff3047');
@@ -134,7 +134,7 @@ export default function Dashboard(){
    if(/(?:target chase|hedef takip).*(?:senaryo|sequence|sekans|kur|başlat|baslat)|(?:senaryo|sequence|sekans).*(?:target chase|hedef takip)/.test(t)){await action('scene_sequence_preset',{preset:'target_chase'});if(/başlat|baslat|oynat|play|çalıştır|calistir/.test(t))await action('scene_sequence_play');return 'Target Chase mission sequence hazır'+(/başlat|baslat|oynat|play|çalıştır|calistir/.test(t)?' ve çalışıyor.':'.');}
    if(/(?:presentation|sunum).*(?:senaryo|sequence|sekans).*(?:kur|başlat|baslat)?|(?:senaryo|sequence|sekans).*(?:presentation|sunum)/.test(t)){await action('scene_sequence_preset',{preset:'presentation'});if(/başlat|baslat|oynat|play|çalıştır|calistir/.test(t))await action('scene_sequence_play');return 'Presentation mission sequence hazır'+(/başlat|baslat|oynat|play|çalıştır|calistir/.test(t)?' ve çalışıyor.':'.');}
    if(/(?:launch|kalkış|kalkis|fırlatma|firlatma).*(?:senaryo|sequence|sekans).*(?:kur|başlat|baslat)?|(?:senaryo|sequence|sekans).*(?:launch|kalkış|kalkis)/.test(t)){await action('scene_sequence_preset',{preset:'launch'});if(/başlat|baslat|oynat|play|çalıştır|calistir/.test(t))await action('scene_sequence_play');return 'Launch mission sequence hazır'+(/başlat|baslat|oynat|play|çalıştır|calistir/.test(t)?' ve çalışıyor.':'.');}
-   if(/(?:mission sequence|senaryo|sekans).*(?:videoya|video).*(?:kaydet|çek|cek|record)|(?:videoya|video).*(?:mission sequence|senaryo|sekans).*(?:kaydet|çek|cek|record)?/.test(t)){await action('scene_sequence_record',{title:u.stage.scene.sequence?.name||'ULTRON MISSION'});return 'Mission sequence canlı 3D video olarak kaydediliyor.';}
+   if(/(?:mission sequence|senaryo|sekans).*(?:videoya|video).*(?:kaydet|çek|cek|record)|(?:videoya|video).*(?:mission sequence|senaryo|sekans).*(?:kaydet|çek|cek|record)?/.test(t)){await action('scene_sequence_record',{title:u.stage.scene.sequence?.name||'GÖLGE MISSION'});return 'Mission sequence canlı 3D video olarak kaydediliyor.';}
    if(/(?:mission sequence|senaryo|sekans).*(?:başlat|baslat|oynat|play|çalıştır|calistir)/.test(t)){await action('scene_sequence_play');return 'Mission sequence başlatıldı.';}
    if(/(?:mission sequence|senaryo|sekans).*(?:durdur|stop|pause)/.test(t)){await action('scene_sequence_stop');return 'Mission sequence durduruldu.';}
    if(/(?:mission sequence|senaryo|sekans).*(?:temizle|sil|sıfırla|sifirla|clear)/.test(t)){await action('scene_sequence_clear');return 'Mission sequence temizlendi.';}
@@ -237,7 +237,7 @@ export default function Dashboard(){
    if(selected&&/(?:launch|fırlat|firlat|kalkış|kalkis).*(?:animasyon|hareket|yap|oluştur|olustur)/.test(t)){await action('timeline_preset',{preset:'launch',duration});return 'Launch timeline oluşturuldu.';}
    if(selected&&/(?:flyby|geçiş|gecis).*(?:animasyon|hareket|yap|oluştur|olustur)/.test(t)){await action('timeline_preset',{preset:'flyby',duration});return 'Flyby timeline oluşturuldu.';}
    if(/(?:timeline|keyframe).*(?:temizle|sil|sıfırla|sifirla)/.test(t)){await action('timeline_clear');return 'Timeline temizlendi.';}
-   if(/(?:sahneyi|hepsini).*(?:videoya çevir|video yap|kaydet.*video|render)/.test(t)){await action('scene_record',{duration,title:'ULTRON SCENE'});return 'Canlı 3D Scene Lab video kaydı başladı.';}
+   if(/(?:sahneyi|hepsini).*(?:videoya çevir|video yap|kaydet.*video|render)/.test(t)){await action('scene_record',{duration,title:'GÖLGE SCENE'});return 'Canlı 3D Scene Lab video kaydı başladı.';}
    if(/(?:üstten|ustten|top).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'top'});return 'Kamera üst görünüme geçti.';}
    if(/(?:önden|onden|front).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'front'});return 'Kamera ön görünüme geçti.';}
    if(/(?:yandan|side).*(?:bak|göster|goster|kamera)/.test(t)){await action('scene_camera',{camera:'side'});return 'Kamera yan görünüme geçti.';}
@@ -278,7 +278,7 @@ export default function Dashboard(){
   const createHolo=/(?:hologram|enerji küresi|enerji kuresi|dünya küresi|dunya kuresi|drone|araç|arac|logo).*(?:yap|oluştur|olustur|göster|goster|tasarla)|(?:ortaya|ortada).*(?:küre|kure|hologram|drone|dünya|dunya|araç|arac|logo)/.test(t);
   if(createHolo){
    let kind='energy';if(/dünya|dunya/.test(t))kind='globe';else if(/ağ|ag|network|node/.test(t))kind='network';else if(/drone/.test(t))kind='drone';else if(/araba|araç|arac|vehicle/.test(t))kind='vehicle';else if(/logo/.test(t))kind='logo';else if(/küre|kure|sphere/.test(t)&&!/enerji/.test(t))kind='sphere';
-   const extra:Record<string,unknown>={kind,label:kind==='globe'?'EARTH':kind==='logo'?'ULTRON':kind.toUpperCase()};if(color)extra.color=color;
+   const extra:Record<string,unknown>={kind,label:kind==='globe'?'EARTH':kind==='logo'?'GÖLGE':kind.toUpperCase()};if(color)extra.color=color;
    await action('hologram_create',extra);return 'Hologram Center Stage üzerinde oluşturuldu.';
   }
 
@@ -324,10 +324,10 @@ export default function Dashboard(){
   const source=match[1].trim().replace(/^[:\-–]\s*/,'');
   if(!source){
    u.native.videoRequest('open_file','');
-   return 'MARK video dosyası seçiliyor; video ULTRON CORE içinde açılacak.';
+   return 'MARK video dosyası seçiliyor; video GÖLGE CORE içinde açılacak.';
   }
   u.native.videoRequest('play',source);
-  return 'MARK videosu ULTRON CORE içinde açılıyor.';
+  return 'MARK videosu GÖLGE CORE içinde açılıyor.';
  };
  const devIntent=(text:string)=>{
   const t=text.toLocaleLowerCase('tr-TR').replace(/\s+/g,' ').trim();
@@ -407,17 +407,17 @@ export default function Dashboard(){
  <footer className="bottom-toolbar metal-frame">{footer.map(([name,Icon,action])=><button key={name} onClick={action}><Icon/>{name}</button>)}<div className="view-buttons"><button aria-label="Panel yoğunluğunu değiştir" aria-pressed={compact} onClick={()=>setCompact(!compact)}><PanelsTopLeft/></button><button aria-label="Çalışma alanlarını aç" onClick={()=>open('Araçlar')}><Grid2X2/></button></div></footer>
  {modal&&<div className="modal-shade"><section className="work-dialog metal-frame" role="dialog" aria-modal="true" aria-label={modal}><header><h2>{modal}</h2><button aria-label="Paneli kapat" onClick={()=>setModal('')}><X/></button></header><div className="dialog-content">
  {['Ayarlar','Kod Asistanı'].includes(modal)&&<><ModelPanel ai={u.ai} model={model} setModel={setModel} native={u.native}/><label>Yanıt modu<select aria-label="Yanıt modu" value={mode} onChange={e=>setMode(e.target.value)}><option value="general">Genel</option><option value="coding">Kod</option><option value="fast">Hızlı</option><option value="agent">Araç kullanan agent</option></select></label><button onClick={()=>open('Hafıza')}>Hafıza</button><button onClick={()=>open('Bildirimler')}>Bildirimler</button></>}
- {modal==='Kontroller'&&<><div className="control-buttons"><button disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?'Mikrofonu aç':'Mikrofonu kapat'}</button><button disabled={!u.native} onClick={()=>u.native?.action('audio')}>Ses aygıtları</button><button disabled={!u.native} onClick={()=>u.native?.action('camera')}>Kamera</button><button disabled={!u.native} onClick={()=>u.native?.action('controls')}>Wake / bas konuş kontrolleri</button></div><h3>Telefon Kontrolü</h3><p className="muted">{(()=>{const phone=u.devicePresence.find((d:any)=>d.device==='phone');return phone?.online?'Telefon ULTRON: ONLINE'+(phone?.state?.view?' • '+phone.state.view.toUpperCase():''):'Telefon ULTRON: OFFLINE';})()}</p><div className="control-buttons"><button disabled={!u.native} onClick={()=>u.native?.action('phone:ping')}>Bağlantı sinyali</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:vibrate')}>Telefonu titreştir</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:refresh')}>Telefon ULTRON'u yenile</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:focus_chat')}>Sohbeti aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:open_memory')}>Hafızayı aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:open_remote')}>Uzaktan kontrolü aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:scroll_top')}>Sayfanın başına git</button></div><p className="muted">Bu panel telefonun ULTRON web arayüzünü yönetir. iOS sisteminin kendi izinleri ayrı kalır.</p></>}
- {modal==='Araçlar'&&<><div className="tool-grid">{['Browser','Dosyalar','Terminal','Vizyon','Görevler','Hafıza','Ayarlar','Kod Asistanı'].map(n=><button key={n} onClick={()=>open(n)}>{n}</button>)}</div><h3>Center Stage</h3><div className="control-buttons"><button onClick={()=>void request('/api/stage/command',{operation:'hologram_create',kind:'energy'})}>Enerji hologramı</button><button onClick={()=>void request('/api/stage/command',{operation:'hologram_create',kind:'globe'})}>Dünya hologramı</button><button onClick={()=>void request('/api/stage/command',{operation:'video_create',template:'ultron_intro',duration:6,title:'ULTRON'})}>ULTRON intro render</button><button onClick={()=>void request('/api/stage/command',{operation:'reset'})}>Core'a dön</button><button onClick={()=>setHologram(true)}>Gelişmiş Hologram Lab</button></div></>}
+ {modal==='Kontroller'&&<><div className="control-buttons"><button disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?'Mikrofonu aç':'Mikrofonu kapat'}</button><button disabled={!u.native} onClick={()=>u.native?.action('audio')}>Ses aygıtları</button><button disabled={!u.native} onClick={()=>u.native?.action('camera')}>Kamera</button><button disabled={!u.native} onClick={()=>u.native?.action('controls')}>Wake / bas konuş kontrolleri</button></div><h3>Telefon Kontrolü</h3><p className="muted">{(()=>{const phone=u.devicePresence.find((d:any)=>d.device==='phone');return phone?.online?'Telefon GÖLGE: ONLINE'+(phone?.state?.view?' • '+phone.state.view.toUpperCase():''):'Telefon GÖLGE: OFFLINE';})()}</p><div className="control-buttons"><button disabled={!u.native} onClick={()=>u.native?.action('phone:ping')}>Bağlantı sinyali</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:vibrate')}>Telefonu titreştir</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:refresh')}>Telefon GÖLGE'u yenile</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:focus_chat')}>Sohbeti aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:open_memory')}>Hafızayı aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:open_remote')}>Uzaktan kontrolü aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:scroll_top')}>Sayfanın başına git</button></div><p className="muted">Bu panel telefonun GÖLGE web arayüzünü yönetir. iOS sisteminin kendi izinleri ayrı kalır.</p></>}
+ {modal==='Araçlar'&&<><div className="tool-grid">{['Browser','Dosyalar','Terminal','Vizyon','Görevler','Hafıza','Ayarlar','Kod Asistanı'].map(n=><button key={n} onClick={()=>open(n)}>{n}</button>)}</div><h3>Center Stage</h3><div className="control-buttons"><button onClick={()=>void request('/api/stage/command',{operation:'hologram_create',kind:'energy'})}>Enerji hologramı</button><button onClick={()=>void request('/api/stage/command',{operation:'hologram_create',kind:'globe'})}>Dünya hologramı</button><button onClick={()=>void request('/api/stage/command',{operation:'video_create',template:'ultron_intro',duration:6,title:'GÖLGE'})}>GÖLGE intro render</button><button onClick={()=>void request('/api/stage/command',{operation:'reset'})}>Core'a dön</button><button onClick={()=>setHologram(true)}>Gelişmiş Hologram Lab</button></div></>}
  {modal==='Geliştir'&&<>
-    <h3>ULTRON • CHATGPT GELİŞTİRME KÖPRÜSÜ</h3>
-    <p>ULTRON, bu ChatGPT sohbetini kendiliğinden yönetemez. İsteği Cloud’a kaydeder; görevi ChatGPT’ye senin onayınla kopyalayıp açar. GitHub CI, Render ve Windows sürümü doğrulanmadan “tamamlandı” demez.</p>
-    <textarea aria-label="ULTRON geliştirme isteği" placeholder="ULTRON, yeni özellik ekle ve test et…" value={devDraft} onChange={e=>setDevDraft(e.target.value)} style={{width:'100%',minHeight:90,background:'#0a1118',color:'#fff',border:'1px solid #633',padding:10,borderRadius:9}}/>
+    <h3>GÖLGE • CHATGPT GELİŞTİRME KÖPRÜSÜ</h3>
+    <p>GÖLGE, bu ChatGPT sohbetini kendiliğinden yönetemez. İsteği Cloud’a kaydeder; görevi ChatGPT’ye senin onayınla kopyalayıp açar. GitHub CI, Render ve Windows sürümü doğrulanmadan “tamamlandı” demez.</p>
+    <textarea aria-label="GÖLGE geliştirme isteği" placeholder="GÖLGE, yeni özellik ekle ve test et…" value={devDraft} onChange={e=>setDevDraft(e.target.value)} style={{width:'100%',minHeight:90,background:'#0a1118',color:'#fff',border:'1px solid #633',padding:10,borderRadius:9}}/>
     <div className="control-buttons"><button disabled={!u.native?.devRequest||devDraft.trim().length<12} onClick={()=>{u.native?.devRequest?.(devDraft,'both');setDevDraft('')}}>GELİŞTİRME İSTEĞİ KAYDET</button><button onClick={()=>u.native?.devRefresh?.()}>İSTEKLERİ YENİLE</button></div>
     <h3>GÜNCELLEME KAYITLARI</h3>
     {!u.devRequests.length&&<p>Kayıt yok veya Cloud bekleniyor.</p>}
     {u.devRequests.slice(0,15).map(task=><div key={task.id} style={{padding:12,border:'1px solid #543',borderRadius:10,marginBottom:9}}>
-      <b>{task.prompt.slice(0,200)}</b><p style={{fontSize:12}}>{task.status==='completed'?'DOĞRULANDI • KURULDU':task.status==='desktop_pending'?'GITHUB/RENDER HAZIR • WINDOWS KURULUMU BEKLENİYOR':task.status==='awaiting_chatgpt'?'CHATGPT SOHBETİNE GÖNDERİLMEDİ':task.status==='tests_failed'?'TEST BAŞARISIZ':task.status==='tests_pending'?'KOD BULUNDU • TESTLER BEKLENİYOR':'RENDER/CI BEKLENİYOR'}</p><small>ULTRON-DEV-{task.id}</small>
+      <b>{task.prompt.slice(0,200)}</b><p style={{fontSize:12}}>{task.status==='completed'?'DOĞRULANDI • KURULDU':task.status==='desktop_pending'?'GITHUB/RENDER HAZIR • WINDOWS KURULUMU BEKLENİYOR':task.status==='awaiting_chatgpt'?'CHATGPT SOHBETİNE GÖNDERİLMEDİ':task.status==='tests_failed'?'TEST BAŞARISIZ':task.status==='tests_pending'?'KOD BULUNDU • TESTLER BEKLENİYOR':'RENDER/CI BEKLENİYOR'}</p><small>GÖLGE-DEV-{task.id}</small>
       <div className="control-buttons"><button onClick={()=>u.native?.openChatGPT?.(task.handoff)}>CHATGPT’YE KOPYALA + AÇ</button><button onClick={()=>u.native?.devVerify?.(task.id)}>CI + RENDER DOĞRULA</button>{task.status==='desktop_pending'&&task.verified_cloud&&task.verified_tests&&<button onClick={()=>u.native?.devInstall?.(task.id)}>GÜVENLİ WINDOWS GÜNCELLEMESİNİ KUR</button>}</div>
     </div>)}
   </>}

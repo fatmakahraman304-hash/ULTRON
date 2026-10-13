@@ -28,9 +28,10 @@ class SiriBridgeContractTests(unittest.TestCase):
         view = self.source("ContentView.swift")
         self.assertIn('item.action == "shortcut_bridge" && !userInitiated', router)
         self.assertIn("resumePendingActionIfPossible(userInitiated: true)", view)
-        self.assertIn('guard name == "ULTRON Bridge"', router)
+        self.assertIn('name == "GÖLGE Bridge"', router)
+        self.assertIn('name == "ULTRON Bridge"', router)
         self.assertIn('case "shortcut_bridge":', router)
-        self.assertIn('URLQueryItem(name: "name", value: "ULTRON Bridge")', router)
+        self.assertIn('URLQueryItem(name: "name", value: "GÖLGE Bridge")', router)
 
     def test_pending_action_payload_is_keychain_backed(self):
         router = self.source("PhoneActionRouter.swift")

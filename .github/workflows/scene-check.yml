@@ -220,3 +220,5 @@ jobs:
         run: |
           node --test ultron/cloud_service/test_golge_identity.cjs
           PYTHONPATH=ultron/cloud_service:. python -m unittest ultron.cloud_service.test_golge_identity -v
+          PYTHONPATH=ultron/cloud_service:. python -m unittest ultron.cloud_service.test_golge_visible_brand_contract -v
+          python -m unittest discover -s ios/ULTRONMobile/tests -p 'test_siri_bridge_contract.py' -v
