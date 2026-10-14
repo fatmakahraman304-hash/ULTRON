@@ -33,9 +33,10 @@ class AutonomousPatchContracts(unittest.TestCase):
         self.proposal = {
             "goal_id": self.goal["id"], "base_sha": SHA,
             "summary": "Add bounded interruption regression coverage",
+            "attempt": 1,
             "files": [
                 {"path": self.code_path, "content": "def safe():\n    return True\n"},
-                {"path": self.test_path, "content": "def test_safe():\n    assert True\n"},
+                {"path": self.test_path, "content": "from app.cognitive.communication import safe\n\ndef test_safe():\n    assert safe() is True\n"},
             ],
         }
 
@@ -49,6 +50,23 @@ class AutonomousPatchContracts(unittest.TestCase):
             {"body": "GOLGE-AUTODEV:voice-interrupt-contract"}
         ]))
         self.assertEqual(engine.select_goal([self.goal], [])[ "id"], self.goal["id"])
+
+    def test_priority_selection_skips_paths_owned_by_another_open_pr(self):
+        goals = engine.load_goals()
+        selected = engine.select_goal(goals, [{
+            "title": "True interruption V1",
+            "files": [{"path": "ultron/backend/app/multimodal/voice_runtime.py"}],
+        }])
+        self.assertEqual(selected["id"], "dialogue-continuity-contract")
+
+    def test_plan_records_evidence_risk_scope_and_success_criteria(self):
+        result = engine.plan_goal(SHA, [])
+        self.assertEqual(result["status"], "ready")
+        self.assertEqual(result["task"]["risk_level"], "medium")
+        self.assertTrue(result["task"]["problem_evidence"])
+        self.assertTrue(result["task"]["affected_files"])
+        self.assertTrue(result["task"]["test_scope"])
+        self.assertTrue(result["task"]["success_criteria"])
 
     def test_completed_goal_is_skipped_for_next_queued_goal(self):
         goals = engine.load_goals()
@@ -65,11 +83,22 @@ class AutonomousPatchContracts(unittest.TestCase):
         source = self.root / self.code_path
         source.write_text("def safe():\n    return False\n", encoding="utf-8")
         plan = {"status": "ready", "base_sha": SHA, "goal": self.goal}
-        with patch.object(engine, "infer", return_value=json.dumps(self.proposal)) as fake:
+        model_patch = {
+            "summary": self.proposal["summary"],
+            "files": [
+                {"path": "app/cognitive/communication.py", "content": self.proposal["files"][0]["content"]},
+                {"path": "tests/test_autodev_communication.py", "content": self.proposal["files"][1]["content"]},
+            ],
+        }
+        with patch.object(engine, "infer", return_value=json.dumps(model_patch)) as fake:
             result = engine.generate(plan, "ollama", root=self.root)
         self.assertEqual(result["goal_id"], self.goal["id"])
         self.assertTrue(fake.called)
         self.assertEqual(source.read_text(encoding="utf-8"), "def safe():\n    return False\n")
+        self.assertEqual(result["attempt"], 1)
+        prompt = json.loads(fake.call_args.args[0])
+        self.assertIn("app/cognitive/communication.py", prompt["user"])
+        self.assertNotIn("server.py", prompt["user"])
 
     def test_valid_patch_can_apply_only_on_pinned_commit(self):
         with patch("subprocess.run") as run:
@@ -134,6 +163,139 @@ class AutonomousPatchContracts(unittest.TestCase):
         self.assertEqual(result["status"], "ready")
         self.assertNotIn("deployed", result)
         self.assertNotIn("approved", result)
+
+    def test_existing_regression_test_must_be_preserved_verbatim(self):
+        test_file = self.root / self.test_path
+        original = "def test_existing_behavior():\n    assert 2 + 2 == 4\n"
+        test_file.write_text(original, encoding="utf-8")
+        self.proposal["files"][1]["content"] = "def test_existing_behavior():\n    assert True\n"
+        with self.assertRaisesRegex(engine.ProposalError, "existing_tests_must_be_preserved"):
+            engine.validate_proposal(self.proposal, self.goal, root=self.root)
+
+    def test_trivial_new_test_is_rejected(self):
+        self.proposal["files"][1]["content"] = "def test_safe():\n    assert True\n"
+        with self.assertRaisesRegex(engine.ProposalError, "trivial_test_rejected"):
+            engine.validate_proposal(self.proposal, self.goal, root=self.root)
+
+    def test_repair_is_one_bounded_model_attempt_with_redacted_feedback(self):
+        source = self.root / self.code_path
+        source.write_text("def safe():\n    return False\n", encoding="utf-8")
+        plan = {"status": "ready", "base_sha": SHA, "goal": self.goal}
+        model_patch = {
+            "summary": "Repair the observed regression",
+            "files": [
+                {"path": "app/cognitive/communication.py", "content": "def safe():\n    return True\n"},
+                {"path": "tests/test_autodev_communication.py", "content": "def test_safe():\n    assert safe() is True\n"},
+            ],
+        }
+        previous = dict(self.proposal)
+        previous["files"] = [dict(item) for item in self.proposal["files"]]
+        with patch.object(engine, "infer", return_value=json.dumps(model_patch)) as fake:
+            result = engine.generate(
+                plan, "gemini", root=self.root,
+                failure_summary="bad test; key=AIza0123456789abcdefghijklmnop",
+                previous_proposal=previous,
+            )
+        self.assertEqual(result["attempt"], 2)
+        prompt = fake.call_args.args[0]
+        self.assertIn("UNTRUSTED TEST DIAGNOSTICS", prompt)
+        self.assertIn("[REDACTED_CREDENTIAL]", prompt)
+        self.assertNotIn("AIza0123456789abcdefghijklmnop", prompt)
+
+    def test_repair_rejects_third_call_and_no_change(self):
+        plan = {"status": "ready", "base_sha": SHA, "goal": self.goal}
+        with patch.object(engine, "infer", return_value="{}"):
+            with self.assertRaisesRegex(engine.ProposalError, "model_call_budget_exceeded"):
+                engine.generate(plan, "ollama", root=self.root, failure_summary="x", previous_proposal={
+                    "attempt": 2,
+                })
+
+    def test_sanitize_diagnostics_redacts_tokens_and_bounds_output(self):
+        raw = "\x1b[31mAIza0123456789abcdefghijklmnop\x1b[0m\n" + "x" * 9000
+        cleaned = engine.sanitize_diagnostics(raw)
+        self.assertNotIn("AIza0123456789abcdefghijklmnop", cleaned)
+        self.assertLessEqual(len(cleaned), engine.MAX_FAILURE_CONTEXT_CHARS)
+
+    def test_transient_provider_or_environment_failures_are_not_retried(self):
+        self.assertFalse(engine.failure_is_repairable("Provider temporarily unavailable; 429 quota exceeded"))
+        self.assertFalse(engine.failure_is_repairable("ModuleNotFoundError: No module named 'pytest'"))
+        self.assertTrue(engine.failure_is_repairable("AssertionError: expected owner scoped result"))
+
+    def test_verify_runs_real_generated_regression_and_sanitizes_failure(self):
+        self.proposal["files"][0]["content"] = "def safe():\n    return False\n"
+        self.proposal["files"][1]["content"] = (
+            "from app.cognitive.communication import safe\n\n"
+            "def test_safe():\n    assert safe(), 'AIza0123456789abcdefghijklmnop'\n"
+        )
+        def materialize(_proposal, *, root):
+            for entry in self.proposal["files"]:
+                target = root / entry["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(entry["content"], encoding="utf-8")
+            return [entry["path"] for entry in self.proposal["files"]]
+        with patch.object(engine, "apply", side_effect=materialize):
+            result = engine.verify_proposal(self.proposal, root=self.root)
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("[REDACTED_CREDENTIAL]", result["diagnostics"])
+        self.assertNotIn("AIza0123456789abcdefghijklmnop", result["diagnostics"])
+
+    def test_verify_accepts_a_passing_generated_regression(self):
+        self.proposal["files"][1]["content"] = (
+            "from app.cognitive.communication import safe\n\n"
+            "def test_safe():\n    assert safe() is True\n"
+        )
+        def materialize(_proposal, *, root):
+            for entry in self.proposal["files"]:
+                target = root / entry["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(entry["content"], encoding="utf-8")
+            return [entry["path"] for entry in self.proposal["files"]]
+        with patch.object(engine, "apply", side_effect=materialize):
+            result = engine.verify_proposal(self.proposal, root=self.root)
+        self.assertEqual(result["status"], "passed", result["diagnostics"])
+        self.assertEqual(result["returncode"], 0)
+
+    def test_fake_model_to_failing_test_to_repair_and_retest(self):
+        backend = self.root / "ultron/backend"
+        source = backend / "app/cognitive/communication.py"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("def safe():\n    return False\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-b", "test-base"], cwd=self.root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Autodev Test"], cwd=self.root, check=True)
+        subprocess.run(["git", "config", "user.email", "autodev-test@example.invalid"], cwd=self.root, check=True)
+        subprocess.run(["git", "add", "ultron/backend/app/cognitive/communication.py"], cwd=self.root, check=True)
+        subprocess.run(["git", "commit", "-m", "fixture base"], cwd=self.root, check=True, capture_output=True)
+        base_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.root, check=True,
+                                  capture_output=True, text=True).stdout.strip()
+        plan = {"status": "ready", "base_sha": base_sha, "goal": self.goal}
+        test_content = (
+            "from app.cognitive.communication import safe\n\n"
+            "def test_safe():\n    assert safe() is True\n"
+        )
+        initial = {"summary": "Regression candidate", "files": [
+            {"path": "app/cognitive/communication.py", "content": "def safe():\n    return False\n"},
+            {"path": "tests/test_autodev_communication.py", "content": test_content},
+        ]}
+        repaired = {"summary": "Repair candidate after observed failure", "files": [
+            {"path": "app/cognitive/communication.py", "content": "def safe():\n    return True\n"},
+            {"path": "tests/test_autodev_communication.py", "content": test_content},
+        ]}
+        with patch.object(engine, "infer", side_effect=[json.dumps(initial), json.dumps(repaired)]) as fake:
+            first = engine.generate(plan, "ollama", root=self.root)
+            failed = engine.verify_proposal(first, root=self.root)
+            self.assertEqual(failed["status"], "failed")
+            self.assertGreater(len(failed["diagnostics"]), 0)
+            subprocess.run(["git", "reset", "--hard", base_sha], cwd=self.root, check=True, capture_output=True)
+            subprocess.run(["git", "clean", "-fd"], cwd=self.root, check=True, capture_output=True)
+            second = engine.generate(
+                plan, "ollama", root=self.root,
+                failure_summary=failed["diagnostics"], previous_proposal=first,
+            )
+            passed = engine.verify_proposal(second, root=self.root)
+        self.assertEqual(fake.call_count, 2)
+        self.assertEqual(first["attempt"], 1)
+        self.assertEqual(second["attempt"], 2)
+        self.assertEqual(passed["status"], "passed", passed["diagnostics"])
 
 
 if __name__ == "__main__":

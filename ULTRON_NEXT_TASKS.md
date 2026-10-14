@@ -1,3 +1,11 @@
+## Current priority — Autonomous Development V2
+
+1. Review draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39), V2 code/workflow commit `f75ec5c2334342360f3599cea9000f433357a8c8`. Verification checkpoint `0cae002c953b6cbae09a76c6bae1469edb4dee2e`: PR run #38593948734 and contracts-only dispatch #38593954661 passed; model/verify/repair/publisher were skipped. Manual `workflow_dispatch` defaults to `contracts_only`; `pipeline` must be explicitly chosen. Real provider-to-draft-PR remains unverified.
+2. Keep scheduler-only draft [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40) against default `main` unmerged until PR #38 plus V2 have landed on production. Confirm Actions secret `GOLGE_AUTODEV_GEMINI_API_KEY` and write permissions with an authorized maintainer.
+3. After the review/dependency and configuration exist, run `workflow_dispatch` with `contracts_only` first; only after checking the secret/write policy should an authorized operator explicitly select `pipeline` to verify real model output, isolated no-secret test, bounded repair (at most one), and GÖLGE-created draft PR. Do not treat PR #39’s contracts run as this proof.
+4. Expand discovery sources from the current goal registry/open-PR/merged-goal state to failed Actions evidence, labelled GitHub issues, capability probes, privacy-filtered app errors and measured performance.
+5. Then address True Interruption V2 and Natural Conversation V5 in separate reviewable changes. Physical Windows Ollama, iPhone Safari, microphones/TTS, live model quality/latency and production canary remain NOT_RUN. PR #34–#38 remain unmerged.
+
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.

@@ -1,3 +1,20 @@
+## 2026-10-14 — PR #39 exact-head verification
+
+- V2 draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39), verification checkpoint `0cae002c953b6cbae09a76c6bae1469edb4dee2e` and code/workflow commit `f75ec5c2334342360f3599cea9000f433357a8c8`: PR Actions [38593948734](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593948734) and contracts-only dispatch [38593954661](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593954661) **SUCCESS** for `contracts`. Model proposal, test, repair and draft-publication jobs were **SKIPPED**.
+- First exact-head run #38592971246 failed because the contract job had not installed pytest; the new end-to-end tests exposed the missing dependency. Added bounded `pytest>=8,<9` installation. Runs #38593142739 and #38593404628 passed without weakening tests.
+- V2 local checks remain **24/24 autodev** and **40/40 existing codegen/approval/publisher/autonomous-task**; Python compilation, JSON, YAML and permission assertions, and diff checks pass. Fake-provider integration runs actual pytest in a temporary Git repo; it does not equal real Gemini/Qwen or the hosted PR writer path.
+- Draft activation [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40) is against `main` and has no checks reported. It remains draft and must not be merged before V2/PR #38 code reaches production.
+- GitHub secret/settings API access was denied (403), so real model generation and automatic candidate PR publication are **NOT_RUN**. Render remains HTTP 200/LIVE on production SHA `6ef3f5d`; no V2 deployment.
+
+## 2026-10-14 — Autonomous Development V2 local verification (before GitHub PR)
+
+- Existing PR #38: exact head `ba87f00cb374d6597cdf927b19c1c461e1c72fd2`; Actions run `38580865291` had `contracts=SUCCESS` and `propose`, `verify`, `draft_pr=SKIPPED`. This does not verify code generation.
+- New V2 tests: `python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v` — **24 passed**. Includes fake model → intentionally failing generated test → one repaired proposal → actual pytest pass in a temporary Git repository, immutable baseline-test checks, repair budget, transient failure classification, secret redaction, path protection, base pinning, and PR-path conflict selection.
+- Existing mechanisms: focused `pytest` for self-coding loop, CodeGen rollback/path rules, approval gate, `GitHubPRPublisher`, autonomous runtime/task — **40 passed**.
+- Python compilation, YAML parse plus six-job/least-privilege structural assertions and `git diff --check` passed. No model key or write token was present in the test subprocess.
+- Actual Gemini/Qwen, automatic remote branch push, real GitHub draft creation, generated-candidate hosted Actions, Windows/iPhone, and deployment are **NOT_RUN**. Secret inventory API returned 403; no model request was made.
+- Current Render service is LIVE on `6ef3f5d207fc9430cbbd552988935995529e87f5`; read-only `/health` HTTP 200 reported the same SHA. V2 is not deployed.
+
 ## 2026-10-14 — Cognitive intent router v2, local verification
 
 - Production base was fetched and verified as `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0`; PR #30 SHA `9c7817f` is its ancestor. The work is isolated on `feat/golge-cognitive-router-v2-20261014`; prior branch/worktree was clean and left intact.

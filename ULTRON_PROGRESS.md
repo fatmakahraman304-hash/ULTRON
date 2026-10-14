@@ -1,3 +1,20 @@
+## 2026-10-14 — PR #39 and scheduler activation state
+
+- V2 verification checkpoint `0cae002c953b6cbae09a76c6bae1469edb4dee2e` (code/workflow `f75ec5c2334342360f3599cea9000f433357a8c8`); draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39) is based on open PR #38, with no merge/deploy. Exact-checkpoint PR Actions [38593948734](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593948734) and manual contracts-only dispatch [38593954661](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593954661): `contracts` SUCCESS; `propose`, `verify_initial`, `repair`, `verify_repair`, and `draft_pr` SKIPPED because the runs were PR/contracts-only.
+- Earlier run #38592971246 failed because pytest was missing in the contract runner; installed `pytest>=8,<9` in that job. No test was removed or altered to mask the cause.
+- Prepared default-branch scheduler draft [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40), head `61a6074b7924d6a94b036e335dd1f11ef900d884`. It has no checks yet; it must remain draft until V2 engine/publisher code is present in production.
+- No Actions model call was issued. Secret and repo Actions-permission APIs return 403 to this integration, so presence of `GOLGE_AUTODEV_GEMINI_API_KEY` and write permissions is unknown. No paid model request, auto-generated candidate PR, merge, or Render deploy occurred.
+- Render service/health remains LIVE/HTTP 200 at `6ef3f5d207fc9430cbbd552988935995529e87f5`.
+
+## 2026-10-14 — Autonomous Development V2 implementation checkpoint
+
+- Inspected PR #38 and confirmed its last exact-head run (`ba87f00cb374d6597cdf927b19c1c461e1c72fd2`, Actions `38580865291`) only tested contracts; all real proposal/verification/PR jobs were skipped. Production and Render are still `6ef3f5d207fc9430cbbd552988935995529e87f5` / LIVE.
+- Started isolated V2 branch from PR #38 head. Extended the bounded generator to use the existing `CodeAgent`; added exact base-SHA and existing-test preservation, credential-redacted diagnostics, provider/environment failure classification, and a maximum of one repair request (two generation calls total, 6,000 output tokens per call).
+- Workflow is a single-flight 6-job pipeline: propose → isolated test → one eligible repair → fresh retest → existing `GitHubPRPublisher` draft publication. Model credentials exist only in proposal/repair jobs; write credentials only in the final publisher job, which never executes the patch. A generated proposal does not imply approval, merge or deploy.
+- Added structured evidence/risk/test/priority fields and open-PR path-conflict avoidance. Actual GitHub open-PR inventory selected `dialogue-continuity-contract`, correctly skipping the higher-priority voice goal because another open PR owns its file.
+- Validation: **24** autodev tests, **40** existing codegen/approval/publisher/autonomous-task tests, workflow YAML and per-job permission inspection, compilation, and diff checks all passed. The integration test uses a fake model but runs real pytest in a temporary Git repository; it does not establish Gemini/Qwen quality or GitHub write behavior.
+- Still NOT_RUN: real provider output, generated GitHub draft PR, Actions schedule, physical Windows/iPhone tests. The secret-list API is inaccessible to this session (403); no paid model request was sent. Separate `main` activation PR is required for scheduling after V2 reaches production.
+
 ## 2026-10-14 — Shared cognitive intent router v2
 
 - Started clean from production `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0` on isolated branch `feat/golge-cognitive-router-v2-20261014`; previous local branch and user files were preserved.
