@@ -54,6 +54,7 @@ jobs:
         run: |
           python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
           python -m unittest discover -s ultron/cloud_service -p 'test_verified_research_integration.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_episodic_memory_v4.py' -v
       - name: Local 4GB Qwen natural dialogue request and safe sampling
         run: python -m unittest discover -s ultron/cloud_service -p 'test_local_dialogue_runtime.py' -v
       - name: Context-aware natural dialogue and no-hallucinated-history contracts
@@ -157,6 +158,10 @@ jobs:
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
         run: python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
+      - name: Real PostgreSQL owner-confirmed episodic memory and full deletion
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_episodic_memory_v4.py' -v
       - name: Private generated images on real PostgreSQL, quota and tenant isolation
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
