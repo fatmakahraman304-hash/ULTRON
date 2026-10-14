@@ -558,7 +558,7 @@ def is_named_recall_request(question: str) -> bool:
 async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                                        *, question: str, before_id: int | None = None,
                                        max_chars: int = 3200,
-                                       limit: int = 14, lookback: int = 80
+                                       limit: int = 14, lookback: int = 200
                                        ) -> list[dict[str, str]]:
     """Look back only in the authenticated owner's named conversation.
 
@@ -585,7 +585,7 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
         # Qwen/Gemini window after repeated short continuations. Fetch a
         # bounded same-thread pages and reserve two turns for owner intent.
         # Normal chat and a recent concrete goal still need only one query.
-        window = max(n, min(int(lookback), 80))
+        window = max(n, min(int(lookback), 200))
         rows = await pool.fetch(
             "SELECT id,role,content FROM messages "
             "WHERE user_id=$1 AND conversation_id=$2 "
@@ -596,9 +596,9 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
         )
         rows = list(rows)
         page = rows
-        # At most 320 source messages, with no larger model context. Extra
+        # At most 1,200 source messages, with no larger model context. Extra
         # reads happen only when the full recent page contains no owner scope.
-        for _ in range(3):
+        for _ in range(5):
             has_scope = any(
                 row.get("role") == "user"
                 and isinstance(row.get("content"), str) and row["content"].strip()

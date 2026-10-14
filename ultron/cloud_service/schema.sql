@@ -47,6 +47,25 @@ CREATE INDEX IF NOT EXISTS idx_memories_user_updated ON memories(user_id, update
 CREATE INDEX IF NOT EXISTS idx_memories_search ON memories
   USING GIN (to_tsvector('simple', key || ' ' || value));
 
+-- Changed owner-approved values remain available for explicit historical
+-- recall. Normal chat context reads only `memories`; owner deletion purges both.
+CREATE TABLE IF NOT EXISTS memory_history (
+  user_id TEXT NOT NULL,
+  category TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  updated_by_device TEXT NOT NULL DEFAULT '',
+  valid_from TIMESTAMPTZ NOT NULL,
+  valid_until TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY(user_id,key,version),
+  CHECK (valid_until >= valid_from)
+);
+CREATE INDEX IF NOT EXISTS idx_memory_history_owner_key
+  ON memory_history(user_id,key,valid_until DESC);
+CREATE INDEX IF NOT EXISTS idx_memory_history_search ON memory_history
+  USING GIN (to_tsvector('simple', key || ' ' || value));
+
 CREATE TABLE IF NOT EXISTS events (
   id BIGSERIAL PRIMARY KEY,
   user_id TEXT NOT NULL,

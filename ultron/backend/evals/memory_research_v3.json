@@ -1,0 +1,1511 @@
+{
+  "version": 1,
+  "description": "Deterministic, annotated memory and public-source contract evaluation; not real model quality.",
+  "scenario_count": 100,
+  "language_counts": {
+    "tr": 50,
+    "en": 50
+  },
+  "scenarios": [
+    {
+      "id": "mem-tr-01",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "Mercedes C180 yakıt tüketimi",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Mercedes C180 2009",
+        "value": "Yakıt tüketimi üzerinde çalışıyoruz"
+      },
+      "expected": {
+        "contains": "Mercedes C180 2009"
+      }
+    },
+    {
+      "id": "mem-tr-02",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "Qwen Gemini yönlendirme",
+      "memory": {
+        "category": "PROJECT",
+        "key": "ULTRON sohbet motoru",
+        "value": "Qwen ve Gemini yönlendirmesi"
+      },
+      "expected": {
+        "contains": "ULTRON sohbet motoru"
+      }
+    },
+    {
+      "id": "mem-tr-03",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "Hologram Kıbrıs yakınlaşma",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Hologram sahnesi",
+        "value": "Kıbrıs üzerinde yakınlaşma"
+      },
+      "expected": {
+        "contains": "Hologram sahnesi"
+      }
+    },
+    {
+      "id": "mem-tr-04",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "Windows laptop RTX 2050 RAM",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Windows laptop",
+        "value": "RTX 2050 ve 24 GB RAM kullanıyor"
+      },
+      "expected": {
+        "contains": "Windows laptop"
+      }
+    },
+    {
+      "id": "mem-tr-05",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "Mimarlık cephe tasarımı",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Mimarlık projesi",
+        "value": "Cephe tasarımını güncelliyoruz"
+      },
+      "expected": {
+        "contains": "Mimarlık projesi"
+      }
+    },
+    {
+      "id": "mem-tr-06",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "GÖLGE hafıza karar sürümleri",
+      "memory": {
+        "category": "PROJECT",
+        "key": "GÖLGE hafızası",
+        "value": "Eski karar sürümleri ayrı tutuluyor"
+      },
+      "expected": {
+        "contains": "GÖLGE hafızası"
+      }
+    },
+    {
+      "id": "mem-tr-07",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "Render production deployment",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Render deployment",
+        "value": "Üretim SHA ve dağıtım durumu"
+      },
+      "expected": {
+        "contains": "Render deployment"
+      }
+    },
+    {
+      "id": "mem-tr-08",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "iPhone Safari uzun dinleme",
+      "memory": {
+        "category": "PROJECT",
+        "key": "iPhone Safari",
+        "value": "Uzun dinleme ön planda test ediliyor"
+      },
+      "expected": {
+        "contains": "iPhone Safari"
+      }
+    },
+    {
+      "id": "mem-tr-09",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "Motor modeli üç boyutlu sahne",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Motor modeli",
+        "value": "Üç boyutlu sahne için konsept hazırlanıyor"
+      },
+      "expected": {
+        "contains": "Motor modeli"
+      }
+    },
+    {
+      "id": "mem-tr-10",
+      "language": "tr",
+      "area": "memory_retrieval",
+      "input": "Bütçe aylık harcamalar",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Bütçe planı",
+        "value": "Aylık harcamalar takip ediliyor"
+      },
+      "expected": {
+        "contains": "Bütçe planı"
+      }
+    },
+    {
+      "id": "mem-en-01",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "Mercedes C180 fuel consumption",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Mercedes C180 2009",
+        "value": "We are comparing fuel consumption"
+      },
+      "expected": {
+        "contains": "Mercedes C180 2009"
+      }
+    },
+    {
+      "id": "mem-en-02",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "Qwen Gemini routing",
+      "memory": {
+        "category": "PROJECT",
+        "key": "ULTRON conversation engine",
+        "value": "Qwen and Gemini routing"
+      },
+      "expected": {
+        "contains": "ULTRON conversation engine"
+      }
+    },
+    {
+      "id": "mem-en-03",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "Hologram Cyprus zoom",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Hologram scene",
+        "value": "Zooming in on Cyprus"
+      },
+      "expected": {
+        "contains": "Hologram scene"
+      }
+    },
+    {
+      "id": "mem-en-04",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "Windows laptop RTX 2050 RAM",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Windows laptop",
+        "value": "Uses RTX 2050 and 24 GB RAM"
+      },
+      "expected": {
+        "contains": "Windows laptop"
+      }
+    },
+    {
+      "id": "mem-en-05",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "Architecture facade design",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Architecture project",
+        "value": "Updating the facade design"
+      },
+      "expected": {
+        "contains": "Architecture project"
+      }
+    },
+    {
+      "id": "mem-en-06",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "GOLGE memory decision versions",
+      "memory": {
+        "category": "PROJECT",
+        "key": "GOLGE memory",
+        "value": "Old decision versions stay separate"
+      },
+      "expected": {
+        "contains": "GOLGE memory"
+      }
+    },
+    {
+      "id": "mem-en-07",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "Render production deployment",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Render deployment",
+        "value": "Production SHA and deploy state"
+      },
+      "expected": {
+        "contains": "Render deployment"
+      }
+    },
+    {
+      "id": "mem-en-08",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "iPhone Safari long listening",
+      "memory": {
+        "category": "PROJECT",
+        "key": "iPhone Safari",
+        "value": "Long listening is tested in foreground"
+      },
+      "expected": {
+        "contains": "iPhone Safari"
+      }
+    },
+    {
+      "id": "mem-en-09",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "Engine model 3D scene",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Engine model",
+        "value": "Concept for a 3D scene"
+      },
+      "expected": {
+        "contains": "Engine model"
+      }
+    },
+    {
+      "id": "mem-en-10",
+      "language": "en",
+      "area": "memory_retrieval",
+      "input": "Budget monthly expenses",
+      "memory": {
+        "category": "PROJECT",
+        "key": "Budget plan",
+        "value": "Monthly expenses are tracked"
+      },
+      "expected": {
+        "contains": "Budget plan"
+      }
+    },
+    {
+      "id": "history-tr-01",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Önceki renk kararım neydi?",
+      "current": {
+        "key": "theme",
+        "value": "blue"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "theme",
+        "value": "red",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "blue",
+        "historical": "red",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-02",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Önceki dil tercihini hatırla",
+      "current": {
+        "key": "language",
+        "value": "Turkish"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "language",
+        "value": "English",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "Turkish",
+        "historical": "English",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-03",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Eski otomobil kararım",
+      "current": {
+        "key": "car",
+        "value": "E220d"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "car",
+        "value": "C180",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "E220d",
+        "historical": "C180",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-04",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Önceki motor seçimi",
+      "current": {
+        "key": "engine",
+        "value": "six cylinder"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "engine",
+        "value": "four cylinder",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "six cylinder",
+        "historical": "four cylinder",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-05",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Önceki arayüz tercihi",
+      "current": {
+        "key": "framework",
+        "value": "React"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "framework",
+        "value": "Vue",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "React",
+        "historical": "Vue",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-06",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Eski model kararını bul",
+      "current": {
+        "key": "model",
+        "value": "Qwen 8B"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "model",
+        "value": "Qwen 4B",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "Qwen 8B",
+        "historical": "Qwen 4B",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-07",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Önceki dağıtım tercihi",
+      "current": {
+        "key": "deployment",
+        "value": "automatic"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "deployment",
+        "value": "manual",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "automatic",
+        "historical": "manual",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-08",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Önceki sahne rengi",
+      "current": {
+        "key": "scene color",
+        "value": "blue"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "scene color",
+        "value": "red",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "blue",
+        "historical": "red",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-09",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Önceki ses tercihim",
+      "current": {
+        "key": "voice",
+        "value": "enabled"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "voice",
+        "value": "muted",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "enabled",
+        "historical": "muted",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-tr-10",
+      "language": "tr",
+      "area": "memory_history",
+      "input": "Önceki veri tabanı kararı",
+      "current": {
+        "key": "storage",
+        "value": "PostgreSQL"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "storage",
+        "value": "SQLite",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "PostgreSQL",
+        "historical": "SQLite",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-01",
+      "language": "en",
+      "area": "memory_history",
+      "input": "What was my previous color decision?",
+      "current": {
+        "key": "theme",
+        "value": "blue"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "theme",
+        "value": "red",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "blue",
+        "historical": "red",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-02",
+      "language": "en",
+      "area": "memory_history",
+      "input": "Recall my prior language preference",
+      "current": {
+        "key": "language",
+        "value": "Turkish"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "language",
+        "value": "English",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "Turkish",
+        "historical": "English",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-03",
+      "language": "en",
+      "area": "memory_history",
+      "input": "Find my older car choice",
+      "current": {
+        "key": "car",
+        "value": "E220d"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "car",
+        "value": "C180",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "E220d",
+        "historical": "C180",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-04",
+      "language": "en",
+      "area": "memory_history",
+      "input": "What was the previous engine selection?",
+      "current": {
+        "key": "engine",
+        "value": "six cylinder"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "engine",
+        "value": "four cylinder",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "six cylinder",
+        "historical": "four cylinder",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-05",
+      "language": "en",
+      "area": "memory_history",
+      "input": "My previous frontend preference",
+      "current": {
+        "key": "framework",
+        "value": "React"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "framework",
+        "value": "Vue",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "React",
+        "historical": "Vue",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-06",
+      "language": "en",
+      "area": "memory_history",
+      "input": "Recall the old model decision",
+      "current": {
+        "key": "model",
+        "value": "Qwen 8B"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "model",
+        "value": "Qwen 4B",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "Qwen 8B",
+        "historical": "Qwen 4B",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-07",
+      "language": "en",
+      "area": "memory_history",
+      "input": "What was my earlier deployment choice?",
+      "current": {
+        "key": "deployment",
+        "value": "automatic"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "deployment",
+        "value": "manual",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "automatic",
+        "historical": "manual",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-08",
+      "language": "en",
+      "area": "memory_history",
+      "input": "Find the previous scene color",
+      "current": {
+        "key": "scene color",
+        "value": "blue"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "scene color",
+        "value": "red",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "blue",
+        "historical": "red",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-09",
+      "language": "en",
+      "area": "memory_history",
+      "input": "What was my old voice preference?",
+      "current": {
+        "key": "voice",
+        "value": "enabled"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "voice",
+        "value": "muted",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "enabled",
+        "historical": "muted",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "history-en-10",
+      "language": "en",
+      "area": "memory_history",
+      "input": "Recall the previous database decision",
+      "current": {
+        "key": "storage",
+        "value": "PostgreSQL"
+      },
+      "history": {
+        "category": "PREFERENCE",
+        "key": "storage",
+        "value": "SQLite",
+        "version": 1,
+        "valid_until": "2026-10-13T00:00:00Z"
+      },
+      "expected": {
+        "current": "PostgreSQL",
+        "historical": "SQLite",
+        "label": "OUTDATED PREFERENCE v1"
+      }
+    },
+    {
+      "id": "privacy-tr-01",
+      "language": "tr",
+      "area": "privacy",
+      "input": "Sunucu Linux kullanıyor",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-1",
+        "value": "Sunucu Linux kullanıyor"
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "privacy-tr-02",
+      "language": "tr",
+      "area": "privacy",
+      "input": "Parola: gizli-deger-123",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-2",
+        "value": "Parola: gizli-deger-123"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-tr-03",
+      "language": "tr",
+      "area": "privacy",
+      "input": "API anahtarım: abcdef",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-3",
+        "value": "API anahtarım: abcdef"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-tr-04",
+      "language": "tr",
+      "area": "privacy",
+      "input": "Tercihim mavi renk",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-4",
+        "value": "Tercihim mavi renk"
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "privacy-tr-05",
+      "language": "tr",
+      "area": "privacy",
+      "input": "Bearer eyJhbGciOiJIUzI1NiJ9.sigsigsig.sig",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-5",
+        "value": "Bearer eyJhbGciOiJIUzI1NiJ9.sigsigsig.sig"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-tr-06",
+      "language": "tr",
+      "area": "privacy",
+      "input": "Gizli anahtar: 123456",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-6",
+        "value": "Gizli anahtar: 123456"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-tr-07",
+      "language": "tr",
+      "area": "privacy",
+      "input": "Cihazım Windows 11",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-7",
+        "value": "Cihazım Windows 11"
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "privacy-tr-08",
+      "language": "tr",
+      "area": "privacy",
+      "input": "Şifre yöneticisi kullanıyorum",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-8",
+        "value": "Şifre yöneticisi kullanıyorum"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-tr-09",
+      "language": "tr",
+      "area": "privacy",
+      "input": "AIza0123456789abcdefghijkl",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-9",
+        "value": "AIza0123456789abcdefghijkl"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-tr-10",
+      "language": "tr",
+      "area": "privacy",
+      "input": "Proje hedefim testleri tamamlamak",
+      "record": {
+        "category": "FACT",
+        "key": "fact-tr-10",
+        "value": "Proje hedefim testleri tamamlamak"
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "privacy-en-01",
+      "language": "en",
+      "area": "privacy",
+      "input": "The server runs Linux",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-1",
+        "value": "The server runs Linux"
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "privacy-en-02",
+      "language": "en",
+      "area": "privacy",
+      "input": "password: never-store-this",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-2",
+        "value": "password: never-store-this"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-en-03",
+      "language": "en",
+      "area": "privacy",
+      "input": "My API key is private",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-3",
+        "value": "My API key is private"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-en-04",
+      "language": "en",
+      "area": "privacy",
+      "input": "My preferred color is blue",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-4",
+        "value": "My preferred color is blue"
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "privacy-en-05",
+      "language": "en",
+      "area": "privacy",
+      "input": "Bearer eyJhbGciOiJIUzI1NiJ9.sigsigsig.sig",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-5",
+        "value": "Bearer eyJhbGciOiJIUzI1NiJ9.sigsigsig.sig"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-en-06",
+      "language": "en",
+      "area": "privacy",
+      "input": "secret key: 123456",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-6",
+        "value": "secret key: 123456"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-en-07",
+      "language": "en",
+      "area": "privacy",
+      "input": "The laptop uses Windows 11",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-7",
+        "value": "The laptop uses Windows 11"
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "privacy-en-08",
+      "language": "en",
+      "area": "privacy",
+      "input": "I use a password manager",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-8",
+        "value": "I use a password manager"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-en-09",
+      "language": "en",
+      "area": "privacy",
+      "input": "ghp_1234567890abcdefghijkl",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-9",
+        "value": "ghp_1234567890abcdefghijkl"
+      },
+      "expected": {
+        "accepted": false
+      }
+    },
+    {
+      "id": "privacy-en-10",
+      "language": "en",
+      "area": "privacy",
+      "input": "The project goal is to pass tests",
+      "record": {
+        "category": "FACT",
+        "key": "fact-en-10",
+        "value": "The project goal is to pass tests"
+      },
+      "expected": {
+        "accepted": true
+      }
+    },
+    {
+      "id": "url-tr-01",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "http://127.0.0.1/admin",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-02",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "http://10.0.0.5/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-03",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "http://169.254.169.254/latest",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-04",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "http://172.16.2.1/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-05",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "http://192.168.1.4/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-06",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "http://[::1]/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-07",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "http://[fd00::1]/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-08",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "http://localhost/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-09",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "file:///etc/passwd",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-tr-10",
+      "language": "tr",
+      "area": "network_policy",
+      "input": "https://user:secret@public.example/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-en-01",
+      "language": "en",
+      "area": "network_policy",
+      "input": "https://public.example/report",
+      "expected": {
+        "allowed": true
+      }
+    },
+    {
+      "id": "url-en-02",
+      "language": "en",
+      "area": "network_policy",
+      "input": "http://public.example/report",
+      "expected": {
+        "allowed": true
+      }
+    },
+    {
+      "id": "url-en-03",
+      "language": "en",
+      "area": "network_policy",
+      "input": "https://1.1.1.1/dns-query",
+      "expected": {
+        "allowed": true
+      }
+    },
+    {
+      "id": "url-en-04",
+      "language": "en",
+      "area": "network_policy",
+      "input": "https://public.example:8443/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-en-05",
+      "language": "en",
+      "area": "network_policy",
+      "input": "https://public.example/?access-token=abc",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-en-06",
+      "language": "en",
+      "area": "network_policy",
+      "input": "https://public.example/?api-key=abc",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-en-07",
+      "language": "en",
+      "area": "network_policy",
+      "input": "https://rebound.example/page",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-en-08",
+      "language": "en",
+      "area": "network_policy",
+      "input": "http://0.0.0.0/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-en-09",
+      "language": "en",
+      "area": "network_policy",
+      "input": "http://100.64.0.1/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "url-en-10",
+      "language": "en",
+      "area": "network_policy",
+      "input": "http://[fe80::1]/",
+      "expected": {
+        "allowed": false
+      }
+    },
+    {
+      "id": "evidence-tr-01",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Batarya kapasitesi 42 kWh",
+      "claim": "Batarya kapasitesi 42 kWh",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Batarya kapasitesi 42 kWh ölçüldü."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-tr-02",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Motor gücü 150 kW",
+      "claim": "Motor gücü 150 kW",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Motor gücü 150 kW olarak ölçüldü."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-tr-03",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Fiyat 25000 euro",
+      "claim": "Fiyat 25000 euro",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Fiyat 25000 euro olarak listelendi."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-tr-04",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Menzil 400 km",
+      "claim": "Menzil 400 km",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Menzil 400 km olarak bildirildi."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-tr-05",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Sürüm 3.2",
+      "claim": "Sürüm 3.2",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Sürüm 3.2 bugün yayımlandı."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-tr-06",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Batarya kapasitesi 48 kWh",
+      "claim": "Batarya kapasitesi 48 kWh",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Batarya kapasitesi 42 kWh ölçüldü."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-tr-07",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Batarya kapasitesi 42 kWh değildir",
+      "claim": "Batarya kapasitesi 42 kWh değildir",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Batarya kapasitesi 42 kWh ölçüldü."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-tr-08",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Motor gücü 150 kW",
+      "claim": "Motor gücü 150 kW",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": false,
+        "excerpt": "Motor gücü 150 kW olarak ölçüldü."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-tr-09",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Fiyat 25000 euro",
+      "claim": "Fiyat 25000 euro",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": false,
+        "excerpt": "Search result says fiyat 25000 euro."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-tr-10",
+      "language": "tr",
+      "area": "claim_evidence",
+      "input": "Menzil 400 km",
+      "claim": "Menzil 400 km",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "A completely unrelated article about cooking."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-en-01",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Battery capacity is 42 kWh",
+      "claim": "Battery capacity is 42 kWh",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Battery capacity is 42 kWh in the test."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-en-02",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Motor output is 150 kW",
+      "claim": "Motor output is 150 kW",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Motor output is 150 kW according to measurements."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-en-03",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Price is 25000 euro",
+      "claim": "Price is 25000 euro",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "The listed price is 25000 euro."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-en-04",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Range is 400 km",
+      "claim": "Range is 400 km",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "The reported range is 400 km."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-en-05",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Version is 3.2",
+      "claim": "Version is 3.2",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Version 3.2 was released today."
+      },
+      "expected": {
+        "supported": true
+      }
+    },
+    {
+      "id": "evidence-en-06",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Battery capacity is 48 kWh",
+      "claim": "Battery capacity is 48 kWh",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Battery capacity is 42 kWh in the test."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-en-07",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Battery capacity is not 42 kWh",
+      "claim": "Battery capacity is not 42 kWh",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "Battery capacity is 42 kWh in the test."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-en-08",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Motor output is 150 kW",
+      "claim": "Motor output is 150 kW",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": false,
+        "excerpt": "Motor output is 150 kW according to measurements."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-en-09",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Price is 25000 euro",
+      "claim": "Price is 25000 euro",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": false,
+        "excerpt": "Search snippet says price is 25000 euro."
+      },
+      "expected": {
+        "supported": false
+      }
+    },
+    {
+      "id": "evidence-en-10",
+      "language": "en",
+      "area": "claim_evidence",
+      "input": "Range is 400 km",
+      "claim": "Range is 400 km",
+      "finding": {
+        "url": "https://public.example/source",
+        "basis": "source_page_excerpt",
+        "page_read": true,
+        "excerpt": "An unrelated article about cooking."
+      },
+      "expected": {
+        "supported": false
+      }
+    }
+  ]
+}

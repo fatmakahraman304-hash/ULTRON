@@ -26,6 +26,15 @@ class ApprovedLearningTests(unittest.TestCase):
             with self.subTest(item=str(item)[:40]),self.assertRaises(ValueError):
                 validate_suggestion(item)
 
+    def test_credentials_cannot_enter_the_approval_queue(self):
+        for key, value in [
+            ("server", "password: do-not-save"),
+            ("api", "AIza0123456789abcdefghijkl"),
+            ("header", "Bearer abcdefghijklmnopqrstuvwxyz"),
+        ]:
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "sensitive"):
+                validate_suggestion({"category": "FACT", "key": key, "value": value})
+
     def test_explicit_browser_approval_only_and_owner_scoped_queries(self):
         p=(HERE/"approved_learning.py").read_text(encoding="utf-8")
         app=(HERE/"app.py").read_text(encoding="utf-8")

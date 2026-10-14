@@ -3,16 +3,17 @@ from urllib.parse import quote_plus
 from app.agent.persona_guard import PersonaGuard, ANCHOR as _PERSONA_ANCHOR  # noqa: F401
 import app.agent.persona_guard as persona_guard
 from app.emotion.emotion_engine import analyze as emotion_analyze
-from app.core.intent import classify, vision_pattern, VISION_PROMPT
+from app.core.intent import classify, research_pattern, vision_pattern, VISION_PROMPT
 
 class Agent:
-    def __init__(self,brain,executor,memory,registry,settings,audit,tts,max_steps=8,semantic_memory=None,planner=None,vision_llm=None,adaptive=None,router=None,world_fn=None,redact_fn=None):
+    def __init__(self,brain,executor,memory,registry,settings,audit,tts,max_steps=8,semantic_memory=None,planner=None,vision_llm=None,adaptive=None,router=None,world_fn=None,redact_fn=None,research_engine=None):
         self.brain=brain; self.executor=executor; self.memory=memory; self.registry=registry; self.settings=settings; self.audit=audit; self.tts=tts; self.max_steps=max_steps
         self.semantic_memory=semantic_memory; self.planner=planner; self.vision_llm=vision_llm
         self.adaptive=adaptive
         self.router=router  # PHASE 2: model router (GENERAL chat + fallback)
         self.world_fn=world_fn  # PHASE 4: live world-state context (WorldModel)
         self.redact_fn=redact_fn  # PHASE 10: vault-backed redaction (prompts/tool output)
+        self.research_engine=research_engine
         self.persona=PersonaGuard(mode=settings.get('persona_guard_mode','reframe'))
     def _persona_finalize(self, answer):
         chk=self.persona.check(answer)
@@ -232,11 +233,22 @@ class Agent:
             emo=emotion_analyze(text=text)
             hint=self.adaptive.adapt(emo["state"], emo["confidence"])
             self.persona.set_emotion_hint(hint, emo["state"])
-        direct=self._direct(text)
+        research_result=None
+        if self.research_engine is not None:
+            try:
+                if research_pattern(text):
+                    from app.cognitive.research_context import extract_research_query
+                    research_result=self.research_engine.research(
+                        extract_research_query(text),max_sources=3,store=False)
+            except Exception:
+                research_result={"ok":False,"status":"research_unavailable",
+                                 "evidence_level":"none","citations":[],
+                                 "synthesis":{"findings":[]}}
+        direct=None if research_result is not None else self._direct(text)
         if direct:
             direct=self._boss_hitap(direct)
             self._save("ULTRON",direct); self.audit.write("ASSISTANT",direct); return direct
-        browser=self._browser(text)
+        browser=None if research_result is not None else self._browser(text)
         if browser:
             self._save("ULTRON",browser); return browser
         history=self._history(24)
@@ -252,6 +264,9 @@ class Agent:
                 world_block=self.world_fn()
                 if world_block: system=system+"\n"+world_block
             except Exception: pass
+        if research_result is not None:
+            from app.cognitive.research_context import build_research_prompt_block
+            system=system+build_research_prompt_block(research_result)
         messages=[{"role":"system","content":system}]+history[-20:]+[{"role":"user","content":text}]
         last_error=None
         for _ in range(self.max_steps):
@@ -262,16 +277,20 @@ class Agent:
                     greeting = bool(
                         self.router.fast_policy.enabled and simple_chitchat(text)
                     )
-                    tools = None if greeting else self.registry.ollama_tools(include_dangerous=True)
+                    tools = None if greeting or research_result is not None else self.registry.ollama_tools(include_dangerous=True)
                     response=self.router.chat(_TT.GENERAL,messages,tools=tools)
                 else:
-                    response=self.brain.chat(messages,tools=self.registry.ollama_tools(include_dangerous=True))
+                    tools = None if research_result is not None else self.registry.ollama_tools(include_dangerous=True)
+                    response=self.brain.chat(messages,tools=tools)
             except Exception as e:
                 from app.core.model_router import safe_provider_error
                 last_error=("model", safe_provider_error(e)); break
             msg=response.get("message",{}); calls=self._extract_tool_calls(msg)
             if not calls:
                 answer=self._persona_finalize((msg.get("content") or "").strip() or "Bunu tamamlayamadım.")
+                if research_result is not None:
+                    from app.cognitive.research_context import append_research_sources
+                    answer=append_research_sources(answer,research_result)
                 self._save("ULTRON",answer); return answer
             messages.append(msg)
             for call in calls:

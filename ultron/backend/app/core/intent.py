@@ -16,6 +16,18 @@ VISION_RE = re.compile(
 VISION_PROMPT = ("Ekranda ne görüyorsun? Açık uygulamalar, pencereler, butonlar, metinler ve hata "
                  "mesajları dahil gördüklerini Türkçe, doğal bir dille anlat.")
 
+RESEARCH_RE = re.compile(
+    r"\b(?:araştır\w*|kaynak\w*\s+(?:bul|kontrol|karşılaştır|doğrula|incele)|"
+    r"internette\s+ara|web(?:'de|de)?\s+ara|research|look\s+up|"
+    r"search\s+(?:the\s+)?web|find\s+(?:reliable\s+)?sources|cite\s+sources)\b",
+    re.I,
+)
+
+
+def research_pattern(text: str) -> bool:
+    """Cheap local guard shared with the research-only prefetch path."""
+    return bool(RESEARCH_RE.search(text or ""))
+
 def vision_pattern(text: str) -> bool:
     return bool(VISION_RE.search(text or ""))
 
