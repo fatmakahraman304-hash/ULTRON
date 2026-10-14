@@ -34,14 +34,32 @@ def build_research_prompt_block(result: dict | None) -> str:
             "title": str(item.get("title", ""))[:160],
             "url": str(item.get("url", ""))[:4096],
             "accessed_at": str(item.get("accessed_at", ""))[:40],
+            "published_at": str(item.get("published_at") or "")[:40] or None,
+            "updated_at": str(item.get("updated_at") or "")[:40] or None,
+            "http_last_modified_at": str(item.get("http_last_modified_at") or "")[:40] or None,
             "excerpt": str(item.get("excerpt", ""))[:1400],
+            "independent_source": bool(item.get("independent_source", True)),
+            "copy_of_url": str(item.get("copy_of_url") or "")[:4096] or None,
             "basis": "read_public_page_excerpt",
+        })
+    numeric_conflicts = []
+    for conflict in (synthesis.get("numeric_conflicts") or [])[:5]:
+        if not isinstance(conflict, dict):
+            continue
+        numeric_conflicts.append({
+            "status": str(conflict.get("status", "potential_numeric_conflict"))[:50],
+            "reference_year": conflict.get("reference_year"),
+            "unit": str(conflict.get("unit", ""))[:40],
+            "context": str(conflict.get("context", ""))[:300],
+            "values": conflict.get("values", [])[:4],
+            "semantic_resolution": "not_performed",
         })
     payload = {
         "status": str(result.get("status", "unknown"))[:40],
         "evidence_level": str(result.get("evidence_level", "none"))[:40],
         "claim_verification": "not_performed",
         "sources": sources,
+        "potential_numeric_conflicts": numeric_conflicts,
     }
     return (
         "\n\nRESEARCH EVIDENCE POLICY: The following single-line JSON value contains "
@@ -72,7 +90,18 @@ def append_research_sources(answer: str, result: dict | None) -> str:
         title = " ".join(str(item.get("title", "Kaynak")).split())[:160]
         url = str(item["url"])[:4096]
         accessed = " ".join(str(item.get("accessed_at", "erişim zamanı yok")).split())[:40]
-        lines.append(f"- {title} — {url} (erişim: {accessed})")
+        dates = []
+        if item.get("published_at"):
+            dates.append(f"yayın: {str(item['published_at'])[:40]}")
+        if item.get("updated_at"):
+            dates.append(f"sayfada güncelleme: {str(item['updated_at'])[:40]}")
+        if item.get("http_last_modified_at"):
+            dates.append(f"HTTP Last-Modified: {str(item['http_last_modified_at'])[:40]}")
+        dates.append(f"erişim: {accessed}")
+        provenance = "" if item.get("independent_source", True) else (
+            f"; kopya, bağımsız kanıt sayılmadı ({str(item.get('copy_of_url') or '')[:4096]})"
+        )
+        lines.append(f"- {title} — {url} ({'; '.join(dates)}){provenance}")
     from .research_engine import match_claim_to_evidence
     sentences = [" ".join(sentence.split()) for sentence in
                  re.split(r"(?<=[.!?])\s+|\n+", text) if len(sentence.strip()) >= 18]
@@ -85,5 +114,14 @@ def append_research_sources(answer: str, result: dict | None) -> str:
                 lines.append(f"- Cümle {index}: olası eşleşme — {urls}")
             else:
                 lines.append(f"- Cümle {index}: kaynak excerpt'iyle eşleşme bulunmadı")
+    conflicts = (result.get("synthesis") or {}).get("numeric_conflicts") or []
+    if conflicts:
+        lines.append("Kaynaklar arasında aynı yıl/birim/metin bağlamında olası sayısal uyuşmazlık bulundu; anlamsal çözümleme yapılmadı:")
+        for conflict in conflicts[:5]:
+            values = ", ".join(str(row.get("value", "?")) for row in conflict.get("values", [])[:4])
+            lines.append(
+                f"- {conflict.get('reference_year', 'tarih belirsiz')} / "
+                f"{str(conflict.get('unit', 'birim bilinmiyor'))[:40]}: {values}"
+            )
     lines.append("Bu kaynakların okunması, iddiaların bağımsız veya anlamsal doğrulaması değildir.")
     return (text + "\n" + "\n".join(lines)).strip()

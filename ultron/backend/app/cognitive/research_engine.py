@@ -8,6 +8,7 @@ The engine does not execute page scripts or treat page text as tool policy.
 from __future__ import annotations
 
 import html.parser
+import hashlib
 import http.client
 import ipaddress
 import json
@@ -17,7 +18,9 @@ import ssl
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
+from decimal import Decimal, InvalidOperation
+from email.utils import parsedate_to_datetime
 from email.message import Message
 from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, urljoin, urlsplit, urlunsplit
@@ -37,10 +40,36 @@ _SENSITIVE_QUERY_KEYS = frozenset({
     "key", "password", "secret", "session", "token",
 })
 _WORD = re.compile(r"[a-zçğıöşü0-9]+", re.IGNORECASE)
+_NUMERIC_FACT = re.compile(
+    r"(?<![\w])(?P<value>-?\d+(?:[.,]\d+)?)\s*(?P<unit>"
+    r"kwh|kilowatt[- ]?hours?|mwh|megawatt[- ]?hours?|wh|watt[- ]?hours?|"
+    r"km/h|kph|mph|kilometers? per hour|miles? per hour|"
+    r"km|kilometers?|kilometres?|mi|miles?|m|meters?|metres?|"
+    r"kg|kilograms?|g|grams?|lb|pounds?|"
+    r"°c|celsius|°f|fahrenheit|%|percent(?:age)?|per cent|"
+    r"usd|eur|gbp|\$|€|£|dollars?|euros?)(?!\w)",
+    re.IGNORECASE,
+)
+_CURRENCY_PREFIX = re.compile(
+    r"(?<!\w)(?P<unit>usd|eur|gbp|\$|€|£)\s*(?P<value>-?\d+(?:[.,]\d+)?)",
+    re.IGNORECASE,
+)
 _STOP = frozenset({
     "the", "and", "for", "with", "from", "that", "this", "have", "was",
     "were", "are", "bir", "için", "veya", "olan", "olarak", "hakkında",
     "göre", "gibi", "nasıl", "nedir", "ne", "ile", "daha", "çok",
+    "a", "an", "in", "on", "of", "to", "is", "by", "as", "at", "it",
+    "according", "reported", "measured", "test", "tested", "result",
+    "per", "was", "were", "the", "and", "ve", "bir", "olarak",
+})
+_PUBLISHED_META = frozenset({
+    "article:published_time", "datepublished", "datepublishedtime", "pubdate",
+    "publication_date", "dc.date", "dc.date.issued", "parsely-pub-date",
+    "date", "published", "published_time",
+})
+_UPDATED_META = frozenset({
+    "article:modified_time", "datemodified", "dateupdated", "modified",
+    "modified_time", "last-modified", "lastmodified", "dc.modified",
 })
 
 
@@ -210,11 +239,34 @@ class _PageTextParser(html.parser.HTMLParser):
         super().__init__(convert_charrefs=True)
         self.title_parts: list[str] = []
         self.text_parts: list[str] = []
+        self.published_raw = None
+        self.updated_raw = None
         self._ignored: list[str] = []
         self._in_title = False
 
+    def _record_date(self, key, value):
+        normalized = re.sub(r"[^a-z0-9:._-]", "", str(key or "").casefold())
+        value = str(value or "").strip()[:120]
+        if not value:
+            return
+        if normalized in _PUBLISHED_META and self.published_raw is None:
+            self.published_raw = value
+        elif normalized in _UPDATED_META and self.updated_raw is None:
+            self.updated_raw = value
+
     def handle_starttag(self, tag, attrs):
         tag = tag.casefold()
+        attrs = {str(key or "").casefold(): str(value or "") for key, value in attrs}
+        if tag == "meta":
+            key = attrs.get("property") or attrs.get("name") or attrs.get("itemprop")
+            self._record_date(key, attrs.get("content"))
+        elif tag == "time" and attrs.get("datetime"):
+            semantics = " ".join((attrs.get("itemprop", ""), attrs.get("class", ""),
+                                  attrs.get("id", ""))).casefold()
+            if any(word in semantics for word in ("publish", "pubdate", "issued")):
+                self._record_date("datepublished", attrs["datetime"])
+            elif any(word in semantics for word in ("modified", "updated")):
+                self._record_date("datemodified", attrs["datetime"])
         if tag in self._IGNORED:
             self._ignored.append(tag)
             return
@@ -248,20 +300,47 @@ class _PageTextParser(html.parser.HTMLParser):
             self.text_parts.append(value)
 
 
-def extract_page_text(body: bytes, content_type: str) -> tuple[str, str]:
-    """Extract plain text without executing scripts or rendering active content."""
-    if content_type == "text/plain":
+def _normalized_date(value: str | None) -> str | None:
+    """Parse common published/modified metadata without guessing timezones."""
+    raw = " ".join(str(value or "").split())[:120]
+    if not raw:
+        return None
+    try:
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", raw):
+            return date.fromisoformat(raw).isoformat()
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
         try:
-            text = body.decode("utf-8", errors="replace")
-        except (LookupError, UnicodeError):
-            text = body.decode("utf-8", errors="replace")
-        return "", "\n".join(line.strip() for line in text.splitlines() if line.strip())
+            parsed = parsedate_to_datetime(raw)
+        except (TypeError, ValueError, OverflowError):
+            return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return parsed.isoformat(timespec="seconds")
+    return parsed.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
+def extract_page_details(body: bytes, content_type: str) -> tuple[str, str, dict]:
+    """Extract text and inert publication metadata; never execute page scripts."""
+    if content_type == "text/plain":
+        text = body.decode("utf-8", errors="replace")
+        return "", "\n".join(line.strip() for line in text.splitlines() if line.strip()), {
+            "published_at": None, "updated_at": None,
+        }
     parser = _PageTextParser()
     parser.feed(body.decode("utf-8", errors="replace"))
     parser.close()
     title = " ".join(parser.title_parts).strip()[:240]
     text = "\n".join(line.strip() for line in " ".join(parser.text_parts).splitlines()
                       if line.strip())
+    return title, text, {
+        "published_at": _normalized_date(parser.published_raw),
+        "updated_at": _normalized_date(parser.updated_raw),
+    }
+
+
+def extract_page_text(body: bytes, content_type: str) -> tuple[str, str]:
+    """Compatibility wrapper for callers that only need title and main text."""
+    title, text, _ = extract_page_details(body, content_type)
     return title, text
 
 
@@ -338,19 +417,23 @@ class SourceReader:
             if declared_length > self.max_bytes or len(body or b"") > self.max_bytes:
                 return {"ok": False, "status": "too_large", "max_bytes": self.max_bytes}
             return {"ok": True, "url": target.url, "status_code": int(status),
-                    "content_type": content_type, "body": bytes(body or b"")}
+                    "content_type": content_type, "last_modified": headers.get("last-modified", "")[:120],
+                    "body": bytes(body or b"")}
         return {"ok": False, "status": "blocked_redirect", "reason": "redirect_limit"}
 
     def read(self, url: str) -> dict:
         raw = self.fetch_raw(url)
         if not raw.get("ok"):
             return {key: value for key, value in raw.items() if key != "body"}
-        title, text = extract_page_text(raw["body"], raw["content_type"])
+        title, text, page_dates = extract_page_details(raw["body"], raw["content_type"])
         text = text[:24_000]
         if len(text.strip()) < 32:
             return {"ok": False, "status": "empty_page", "url": raw["url"]}
         return {"ok": True, "url": raw["url"], "title": title,
                 "text": text, "accessed_at": self.now(),
+                "published_at": page_dates["published_at"],
+                "updated_at": page_dates["updated_at"],
+                "http_last_modified_at": _normalized_date(raw.get("last_modified")),
                 "content_type": raw["content_type"]}
 
 
@@ -407,6 +490,148 @@ def default_web_search(query: str, timeout: float = 4.0) -> list[dict]:
 
 def _tokens(text: str) -> list[str]:
     return [w.casefold() for w in _WORD.findall(str(text or "")) if w.casefold() not in _STOP]
+
+
+_UNIT_ALIASES = {
+    "kwh": "kwh", "kilowatt-hour": "kwh", "kilowatt-hours": "kwh",
+    "kilowatthour": "kwh", "kilowatthours": "kwh",
+    "mwh": "mwh", "megawatt-hour": "mwh", "megawatt-hours": "mwh",
+    "wh": "wh", "watt-hour": "wh", "watt-hours": "wh",
+    "km/h": "km/h", "kph": "km/h", "kilometer per hour": "km/h",
+    "kilometers per hour": "km/h", "kilometre per hour": "km/h",
+    "kilometres per hour": "km/h", "mph": "mph", "mile per hour": "mph",
+    "miles per hour": "mph", "km": "km", "kilometer": "km",
+    "kilometers": "km", "kilometre": "km", "kilometres": "km",
+    "mi": "mi", "mile": "mi", "miles": "mi", "m": "m",
+    "meter": "m", "meters": "m", "metre": "m", "metres": "m",
+    "kg": "kg", "kilogram": "kg", "kilograms": "kg", "g": "g",
+    "gram": "g", "grams": "g", "lb": "lb", "pound": "lb", "pounds": "lb",
+    "°c": "celsius", "celsius": "celsius", "°f": "fahrenheit",
+    "fahrenheit": "fahrenheit", "%": "percent", "percent": "percent",
+    "percentage": "percent", "per cent": "percent", "usd": "usd",
+    "dollar": "usd", "dollars": "usd", "$": "usd", "eur": "eur",
+    "euro": "eur", "euros": "eur", "€": "eur", "gbp": "gbp",
+    "£": "gbp",
+}
+
+
+def _numeric_value(raw: str) -> str:
+    value = str(raw or "").replace(" ", "")
+    if "," in value and "." in value:
+        value = value.replace(",", "")
+    elif "," in value:
+        parts = value.split(",")
+        value = "".join(parts) if len(parts) > 2 or (len(parts[-1]) == 3 and len(parts[0]) <= 3) else value.replace(",", ".")
+    try:
+        return format(Decimal(value).normalize(), "f")
+    except InvalidOperation:
+        return value
+
+
+def _numeric_mentions(text: str) -> list[tuple[str, str]]:
+    mentions = []
+    for match in _NUMERIC_FACT.finditer(str(text or "")):
+        unit = " ".join(match.group("unit").casefold().split())
+        normalized_unit = _UNIT_ALIASES.get(unit, unit)
+        mentions.append((_numeric_value(match.group("value")), normalized_unit))
+    for match in _CURRENCY_PREFIX.finditer(str(text or "")):
+        unit = " ".join(match.group("unit").casefold().split())
+        normalized_unit = _UNIT_ALIASES.get(unit, unit)
+        mentions.append((_numeric_value(match.group("value")), normalized_unit))
+    return mentions
+
+
+def _content_shingles(text: str) -> set[tuple[str, ...]]:
+    tokens = _tokens(text)[:5000]
+    if len(tokens) < 3:
+        return set()
+    return {tuple(tokens[index:index + 3]) for index in range(len(tokens) - 2)}
+
+
+def _content_similarity(left: set[tuple[str, ...]], right: set[tuple[str, ...]]) -> tuple[float, float]:
+    if not left or not right:
+        return 0.0, 0.0
+    shared = len(left & right)
+    return shared / len(left | right), shared / min(len(left), len(right))
+
+
+def copied_source_similarity(left_text: str, right_text: str) -> float | None:
+    """Return similarity only when two page bodies are strong copy candidates."""
+    return _copied_shingle_similarity(_content_shingles(left_text), _content_shingles(right_text))
+
+
+def _copied_shingle_similarity(left: set[tuple[str, ...]],
+                               right: set[tuple[str, ...]]) -> float | None:
+    jaccard, containment = _content_similarity(left, right)
+    if jaccard >= 0.90 or (containment >= 0.95 and jaccard >= 0.65):
+        return round(max(jaccard, containment), 3)
+    return None
+
+
+def _numeric_disagreements(findings: list[dict], query: str) -> list[dict]:
+    """Find narrow numeric disagreement candidates; this is not entailment."""
+    query_terms = set(_tokens(query))
+    groups: dict[tuple[str, int, tuple[str, ...]], dict] = {}
+    for finding in findings:
+        if not finding.get("independent_source"):
+            continue
+        text = str(finding.get("source_text", ""))[:24_000]
+        for sentence in re.split(r"(?<=[.!?…])\s+|\n+", text):
+            mentions = _numeric_mentions(sentence)
+            if not mentions:
+                continue
+            years = {int(year) for year in re.findall(r"\b(?:19|20)\d{2}\b", sentence)}
+            published = str(finding.get("published_at") or "")
+            if len(years) == 1:
+                reference_year = next(iter(years))
+            elif not years and re.match(r"\d{4}", published):
+                reference_year = int(published[:4])
+            else:
+                # Ambiguous or missing date context cannot support a conflict label.
+                continue
+            cleaned = re.sub(r"\b(?:19|20)\d{2}\b", " ", _NUMERIC_FACT.sub(" ", sentence))
+            context = tuple(sorted(set(_tokens(cleaned))))
+            if len(context) < 2 or (query_terms and not (query_terms & set(context))):
+                continue
+            for value, unit in mentions:
+                key = (unit, reference_year, context)
+                group = groups.setdefault(key, {"context": " ".join(sentence.split())[:360], "values": {}})
+                sources = group["values"].setdefault(value, [])
+                source = {
+                    "url": str(finding.get("url", ""))[:4096],
+                    "title": str(finding.get("title", ""))[:160],
+                    "published_at": published[:40] or None,
+                }
+                if source["url"] not in {item["url"] for item in sources}:
+                    sources.append(source)
+    conflicts = []
+    for (unit, year, _), group in groups.items():
+        if len(group["values"]) < 2:
+            continue
+        distinct_source_conflict = any(
+            left_url != right_url
+            for left_value, left_sources in group["values"].items()
+            for right_value, right_sources in group["values"].items()
+            if left_value != right_value
+            for left_url in (source["url"] for source in left_sources)
+            for right_url in (source["url"] for source in right_sources)
+        )
+        if not distinct_source_conflict:
+            continue
+        conflicts.append({
+            "status": "potential_numeric_conflict",
+            "reference_year": year,
+            "unit": unit,
+            "context": group["context"],
+            "values": [
+                {"value": value, "sources": sources[:4]}
+                for value, sources in sorted(group["values"].items())
+            ],
+            "semantic_resolution": "not_performed",
+        })
+        if len(conflicts) >= 8:
+            break
+    return conflicts
 
 
 def select_evidence_excerpt(query: str, text: str, *, max_chars: int = 1400) -> str:
@@ -466,12 +691,20 @@ def match_claim_to_evidence(claim: str, findings: list[dict], *,
         overlap = len(claim_terms & excerpt_terms) / max(1, len(claim_terms))
         excerpt_numbers = set(re.findall(r"\d+(?:[.,]\d+)?", excerpt))
         numbers_match = claim_numbers.issubset(excerpt_numbers)
-        if overlap >= max(0.0, min(1.0, min_overlap)) and numbers_match:
+        # Exact numeric overlap alone is unsafe: 42 Wh and 42 kWh are not the
+        # same claim. Normalize only known aliases; do not convert units or FX.
+        claim_facts = set(_numeric_mentions(claim))
+        excerpt_facts = set(_numeric_mentions(excerpt))
+        units_match = claim_facts.issubset(excerpt_facts)
+        if (overlap >= max(0.0, min(1.0, min_overlap)) and numbers_match
+                and units_match):
             evidence.append({"url": finding.get("url", ""),
                              "overlap": round(overlap, 3),
-                             "numbers_match": numbers_match})
+                             "numbers_match": numbers_match,
+                             "units_match": units_match})
     return {"supported": bool(evidence), "method": "lexical_overlap_exact_numbers",
-            "semantic_entailment_checked": False, "evidence": evidence}
+            "semantic_entailment_checked": False,
+            "numeric_unit_matching": True, "evidence": evidence}
 
 
 class ResearchEngine:
@@ -555,6 +788,8 @@ class ResearchEngine:
         selected = [item for _, item in ranked[:max_sources]]
 
         findings, unread = [], []
+        verification_findings = []
+        content_anchors = []
         for result in selected:
             read = self.source_reader.read(result["url"])
             if not read.get("ok"):
@@ -566,28 +801,59 @@ class ResearchEngine:
                 unread.append({"title": result["title"], "read_status": "no_relevant_excerpt"})
                 continue
             url = str(read.get("url", result["url"]))[:4096]
-            findings.append({
+            text = str(read.get("text", ""))[:24_000]
+            shingles = _content_shingles(text)
+            duplicate = None
+            for anchor in content_anchors:
+                similarity = _copied_shingle_similarity(shingles, anchor["shingles"])
+                if similarity is not None:
+                    duplicate = {**anchor, "similarity": similarity}
+                    break
+            normalized_content = " ".join(_tokens(text))
+            cluster_id = (duplicate["cluster_id"] if duplicate else
+                          hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()[:16])
+            if duplicate is None:
+                content_anchors.append({"url": url, "cluster_id": cluster_id,
+                                        "text": text, "shingles": shingles})
+            finding = {
                 "title": str(read.get("title") or result["title"])[:160],
                 "search_title": result["title"], "url": url,
                 "accessed_at": str(read.get("accessed_at", ""))[:40],
+                "published_at": str(read.get("published_at") or "")[:40] or None,
+                "updated_at": str(read.get("updated_at") or "")[:40] or None,
+                "http_last_modified_at": str(read.get("http_last_modified_at") or "")[:40] or None,
                 "content_type": str(read.get("content_type", ""))[:80],
                 "reliability": self.source_reliability(url),
                 "excerpt": excerpt, "basis": "source_page_excerpt", "page_read": True,
-            })
+                "content_cluster_id": cluster_id,
+                "independent_source": duplicate is None,
+                "copy_of_url": duplicate["url"] if duplicate else None,
+                "copy_similarity": duplicate["similarity"] if duplicate else None,
+            }
+            findings.append(finding)
+            verification_findings.append({**finding, "source_text": text})
         domains = {urlsplit(item["url"]).hostname or "?" for item in findings}
-        source_quality = round(sum(item["reliability"] for item in findings) / len(findings), 3) if findings else 0.0
+        independent = [item for item in findings if item["independent_source"]]
+        independent_domains = {urlsplit(item["url"]).hostname or "?" for item in independent}
+        source_quality = round(
+            sum(item["reliability"] for item in independent) / len(independent), 3
+        ) if independent else 0.0
+        numeric_conflicts = _numeric_disagreements(verification_findings, query)
         page_read = bool(findings)
         out = {
             "ok": page_read, "status": "sources_read" if page_read else "sources_not_read",
             "query": query, "claim": None,
             "evidence_level": "source_pages_read" if page_read else "search_results_only",
             "source_domains": len(domains), "corroborated_by_domains": 0,
-            "contradiction_suspected": False,
+            "independent_source_domains": len(independent_domains),
+            "independent_source_count": len(independent),
+            "contradiction_suspected": bool(numeric_conflicts),
             # The engine has not generated and checked a natural-language claim.
             "confidence": 0.0, "verified_claims": [],
             "source_quality_score": source_quality,
             "synthesis": {
                 "supported": False, "findings": findings, "unread_sources": unread,
+                "numeric_conflicts": numeric_conflicts,
                 "caveat": (
                     "Source pages were read; excerpts are external untrusted data. "
                     "No independent or semantic claim verification was performed."
