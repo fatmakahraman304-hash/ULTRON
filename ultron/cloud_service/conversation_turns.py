@@ -493,7 +493,8 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
     if is_bare_continuation_request(question):
         # The last explicit owner goal may be older than the latest small
         # Qwen/Gemini window after repeated short continuations. Fetch a
-        # bounded single-thread slice and reserve two turns for owner intent.
+        # bounded same-thread pages and reserve two turns for owner intent.
+        # Normal chat and a recent concrete goal still need only one query.
         window = max(n, min(int(lookback), 80))
         rows = await pool.fetch(
             "SELECT id,role,content FROM messages "
@@ -503,6 +504,43 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
             "ORDER BY id DESC LIMIT $4",
             user_id, conversation_id, before_id, window,
         )
+        rows = list(rows)
+        page = rows
+        # At most 320 source messages, with no larger model context. Extra
+        # reads happen only when the full recent page contains no owner scope.
+        for _ in range(3):
+            has_scope = any(
+                row.get("role") == "user"
+                and isinstance(row.get("content"), str) and row["content"].strip()
+                and not is_bare_continuation_request(row["content"])
+                and not is_explicit_turn_correction(row["content"])
+                for row in rows if hasattr(row, "get")
+            )
+            if has_scope or len(page) < window or n < 4 or max_chars <= 0:
+                break
+            ids = [row.get("id") for row in page if hasattr(row, "get")
+                   and type(row.get("id")) is int and row["id"] > 0]
+            if not ids:
+                break
+            cursor = min(ids)
+            try:
+                older = await pool.fetch(
+                    "SELECT id,role,content FROM messages "
+                    "WHERE user_id=$1 AND conversation_id=$2 "
+                    "AND ($3::bigint IS NULL OR id < $3) "
+                    "AND role IN ('user','assistant') AND id < $5 "
+                    "ORDER BY id DESC LIMIT $4",
+                    user_id, conversation_id, before_id, window, cursor,
+                )
+            except Exception:
+                # Optional recall failure must not discard verified recent
+                # dialogue or expose database/provider details to the owner.
+                break
+            page = [row for row in older if hasattr(row, "get")
+                    and type(row.get("id")) is int and 0 < row["id"] < cursor]
+            if not page:
+                break
+            rows.extend(page)
         return select_continuation_turns(
             list(reversed(rows)), max_chars=max_chars, max_turns=n
         )
