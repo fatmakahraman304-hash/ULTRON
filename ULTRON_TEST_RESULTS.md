@@ -740,4 +740,7 @@ After changes:
 - CPU-only deterministic fixture timing after change: memory selection p50/p95 **0.7471/0.9088 ms** for 98 records; fake search plus three fake page reads p50/p95 **0.0683/0.1036 ms**. These exclude external network and model time and are not end-to-end response latency.
 - Gemini/Qwen answer quality, actual public web reads, Windows/iPhone behavior, and real response/first-token latency: **NOT_RUN**. No credential values or user conversation data were used.
 
-The separate disposable PostgreSQL container was used only for tests and stopped after verification. Branch Actions/PR and unchanged Render production SHA are recorded after publication.
+The separate disposable PostgreSQL container was used only for tests and stopped after verification.
+
+Exact-head hosted verification for workflow commit `698190a94ac8f8a471cc91dc481cac59d0f71ea5`: Cloud/PostgreSQL [#38555225630](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225630) **SUCCESS**, Scene [#38555225647](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225647) **SUCCESS**, Local Qwen Listening [#38555225690](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225690) **SUCCESS**. Hosted V3 steps: 500-continuation suite **8 passed**; deterministic research/evaluation **112 passed**; real PostgreSQL memory versioning suite **8 passed**. Draft [PR #33](https://github.com/fatmakahraman304-hash/ULTRON/pull/33), unmerged.
+Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d657361821ae728814ba3506a79b309`; public `/health` returned HTTP 200 and the same commit. No deployment or merge was performed.
