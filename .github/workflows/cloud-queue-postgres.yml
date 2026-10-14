@@ -5,6 +5,7 @@ on:
     branches:
       - feat/ultron-cloud-shared-memory
       - feat/golge-qwen-goal-routing-20261013
+      - feat/golge-natural-conversation-voice-20261014
     paths:
       - "ultron/cloud_service/**"
       - ".github/workflows/cloud-queue-postgres.yml"

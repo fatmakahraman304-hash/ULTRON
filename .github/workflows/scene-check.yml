@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-natural-conversation-voice-20261014
       - feat/golge-reference-orb-ui-20261013
       - feat/golge-deep-dialog-continuity-20261013
       - feat/golge-qwen-goal-routing-20261013
