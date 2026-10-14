@@ -281,6 +281,9 @@ class EngineeringMemoryContracts(unittest.TestCase):
         self.assertIn("memory artifact missing or expired", workflow.lower())
         self.assertIn("retention-days: 90", workflow)
         self.assertIn("memory_available", workflow)
+        for tracking_file in ("ULTRON_ROADMAP.md", "ULTRON_PROGRESS.md",
+                              "ULTRON_NEXT_TASKS.md", "ULTRON_TEST_RESULTS.md"):
+            self.assertIn(f'"{tracking_file}"', workflow)
 
     def test_scheduler_is_single_flight_sha_pinned_and_pauseable(self):
         memory = EngineeringMemory(self.db)

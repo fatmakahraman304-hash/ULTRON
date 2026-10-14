@@ -1,3 +1,11 @@
+## Current priority — Autonomous Engineer V5 review
+
+1. Review [draft PR #43](https://github.com/fatmakahraman304-hash/ULTRON/pull/43), stacked on PR #42's branch. Initial V5 implementation is `0eb699d09c9b9d845f8e706928be1c95233b7405`; confirm the final documentation head and its GitHub Actions contract result before considering the V5 code validated in hosted CI. Do not merge or deploy.
+2. Real coding score is **NOT_RUN** (8 cases, 0 model calls). Ollama was unreachable; GitHub Actions secret inventory returned 403. An authorized maintainer must verify the provider secret, quota/budget, and least-privilege writer permissions before a bounded real provider→test→draft-PR dispatch. GÖLGE's real remote publisher remains unverified; PR #43 was opened by the development agent.
+3. Run benchmark on an approved Linux/Bubblewrap runner with local Qwen or authorized Gemini and record model identity, per-task outcomes, attempts, and latency. The Windows laptop cannot use this network-isolated runner yet; implement/approve a Windows sandbox or use WSL before executing generated model code there.
+4. Verify V4 SQLite artifact export/import in a hosted restart and missing/expired-artifact workflow. Continuity remains limited to GitHub Actions artifacts with 90-day retention; no permanent storage is claimed. PR #40's default-branch scheduler remains separately review-gated.
+5. Render health timed out in this review. No PR was merged and no Render deployment was attempted. Windows/iPhone/device tests and real provider inference remain **NOT_RUN**.
+
 ## Current priority — Autonomous Engineer V3
 
 1. Review [draft PR #41](https://github.com/fatmakahraman304-hash/ULTRON/pull/41), verified-evidence-only code SHA `9170310edeae61f79db1812197a61ace0d26f90a`, stacked on PR #39. PR Actions #38610523177 passed `contracts`; discovery-only dispatch #38610594206 passed `contracts` and `discover`, reported 12 candidates / 0 eligible, and skipped provider/verification/publisher jobs. The production-base planner with `--require-discovery` returned `nothing_to_generate`.

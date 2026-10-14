@@ -12,6 +12,10 @@ on:
       - feat/golge-autonomous-engineer-v4-20261014
     paths:
       - "scripts/golge_autodev/**"
+      - "ULTRON_ROADMAP.md"
+      - "ULTRON_PROGRESS.md"
+      - "ULTRON_NEXT_TASKS.md"
+      - "ULTRON_TEST_RESULTS.md"
       - "ultron/backend/github_pr_publisher.py"
       - ".github/workflows/golge-autodev.yml"
   workflow_dispatch:
