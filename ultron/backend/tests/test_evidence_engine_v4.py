@@ -41,11 +41,13 @@ def test_page_publication_update_and_access_dates_remain_distinct():
 def test_research_marks_syndicated_copy_non_independent_and_flags_same_period_conflict(tmp_path):
     original = (
         "Model X battery capacity in 2024 was 42 kWh according to the controlled test. "
-        "The battery capacity result was reported after a measured controlled test."
+        "The report documents three charging cycles, ambient temperatures, calibration records, "
+        "and the complete measurement procedure for repeatable comparison."
     )
     conflicting = (
         "Model X battery capacity in 2024 was 44 kWh according to the controlled test. "
-        "The battery capacity result was reported after a measured controlled test."
+        "The separate laboratory describes two road sessions, seasonal conditions, "
+        "instrument calibration, and a different procedure for independent comparison."
     )
 
     class Reader:
@@ -149,3 +151,24 @@ def test_two_values_on_one_source_do_not_create_cross_source_conflict(tmp_path):
     result = engine.research("battery capacity", max_sources=1, store=False)
     assert result["contradiction_suspected"] is False
     assert result["synthesis"]["numeric_conflicts"] == []
+
+
+def test_short_pages_are_not_counted_as_independent_sources(tmp_path):
+    class Reader:
+        def read(self, url):
+            return {"ok": True, "url": url, "title": "Battery report",
+                    "text": "Battery capacity was 42 kWh in testing.",
+                    "accessed_at": "2026-10-14T12:00:00Z", "content_type": "text/plain"}
+
+    engine = ResearchEngine(
+        db_path=str(Path(tmp_path) / "research.db"),
+        search_fn=lambda query: [
+            {"url": "https://public.example/a", "title": "Battery capacity"},
+            {"url": "https://other.example/b", "title": "Battery capacity"},
+        ],
+        source_reader=Reader(),
+    )
+    result = engine.research("battery capacity", max_sources=2, store=False)
+    assert result["independent_source_count"] == 0
+    assert all(row["independence_status"] == "unassessed_short_content"
+               for row in result["synthesis"]["findings"])

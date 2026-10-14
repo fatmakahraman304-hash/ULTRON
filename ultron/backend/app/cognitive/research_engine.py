@@ -562,6 +562,10 @@ def copied_source_similarity(left_text: str, right_text: str) -> float | None:
 
 def _copied_shingle_similarity(left: set[tuple[str, ...]],
                                right: set[tuple[str, ...]]) -> float | None:
+    # A short page has too little content to distinguish a copied snippet from
+    # two independent short statements. Keep it out of corroboration instead.
+    if min(len(left), len(right)) < 12:
+        return None
     jaccard, containment = _content_similarity(left, right)
     if jaccard >= 0.90 or (containment >= 0.95 and jaccard >= 0.65):
         return round(max(jaccard, containment), 3)
@@ -812,7 +816,14 @@ class ResearchEngine:
             normalized_content = " ".join(_tokens(text))
             cluster_id = (duplicate["cluster_id"] if duplicate else
                           hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()[:16])
-            if duplicate is None:
+            enough_content = len(shingles) >= 12
+            independent_source = duplicate is None and enough_content
+            independence_status = (
+                "duplicate_content" if duplicate else
+                "independent_content" if enough_content else
+                "unassessed_short_content"
+            )
+            if independent_source:
                 content_anchors.append({"url": url, "cluster_id": cluster_id,
                                         "text": text, "shingles": shingles})
             finding = {
@@ -826,7 +837,8 @@ class ResearchEngine:
                 "reliability": self.source_reliability(url),
                 "excerpt": excerpt, "basis": "source_page_excerpt", "page_read": True,
                 "content_cluster_id": cluster_id,
-                "independent_source": duplicate is None,
+                "independent_source": independent_source,
+                "independence_status": independence_status,
                 "copy_of_url": duplicate["url"] if duplicate else None,
                 "copy_similarity": duplicate["similarity"] if duplicate else None,
             }

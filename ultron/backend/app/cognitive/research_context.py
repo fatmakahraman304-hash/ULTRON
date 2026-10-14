@@ -39,6 +39,7 @@ def build_research_prompt_block(result: dict | None) -> str:
             "http_last_modified_at": str(item.get("http_last_modified_at") or "")[:40] or None,
             "excerpt": str(item.get("excerpt", ""))[:1400],
             "independent_source": bool(item.get("independent_source", True)),
+            "independence_status": str(item.get("independence_status", "unknown"))[:40],
             "copy_of_url": str(item.get("copy_of_url") or "")[:4096] or None,
             "basis": "read_public_page_excerpt",
         })
@@ -98,9 +99,12 @@ def append_research_sources(answer: str, result: dict | None) -> str:
         if item.get("http_last_modified_at"):
             dates.append(f"HTTP Last-Modified: {str(item['http_last_modified_at'])[:40]}")
         dates.append(f"erişim: {accessed}")
-        provenance = "" if item.get("independent_source", True) else (
-            f"; kopya, bağımsız kanıt sayılmadı ({str(item.get('copy_of_url') or '')[:4096]})"
-        )
+        provenance = ""
+        if item.get("independence_status") == "duplicate_content" or (
+                not item.get("independent_source", True) and item.get("copy_of_url")):
+            provenance = f"; kopya, bağımsız kanıt sayılmadı ({str(item.get('copy_of_url') or '')[:4096]})"
+        elif not item.get("independent_source", True):
+            provenance = "; içerik kısa olduğu için bağımsızlık doğrulanamadı"
         lines.append(f"- {title} — {url} ({'; '.join(dates)}){provenance}")
     from .research_engine import match_claim_to_evidence
     sentences = [" ".join(sentence.split()) for sentence in
