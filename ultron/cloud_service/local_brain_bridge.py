@@ -286,7 +286,7 @@ async def cancel_local_chat(request: web.Request) -> web.Response:
                 "ORDER BY expires_at LIMIT 100)"
             )
             row = await conn.fetchrow(
-                "SELECT l.command_id,l.conversation_id,l.reply_saved,l.cancellation_requested,l.provider_stopped,c.status AS command_status "
+                "SELECT l.command_id,l.conversation_id,l.request_key_hash,l.reply_saved,l.cancellation_requested,l.provider_stopped,c.status AS command_status "
                 "FROM local_chat_requests l JOIN device_commands c ON c.id=l.command_id AND c.user_id=l.user_id "
                 "WHERE l.user_id=$1 AND l.request_id=$2 FOR UPDATE OF l,c",
                 request["user_id"], request_id,

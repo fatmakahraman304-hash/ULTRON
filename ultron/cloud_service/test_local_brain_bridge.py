@@ -80,6 +80,7 @@ class LocalFirstBridgeTests(unittest.TestCase):
             call for call in conn.calls if "FROM local_chat_requests" in call[0]
         )
         self.assertIn("WHERE l.user_id=$1 AND l.request_id=$2", select_sql)
+        self.assertIn("l.request_key_hash", select_sql)
         self.assertEqual(select_args[0], "owner-a")
         self.assertEqual(select_args[1], uuid.UUID(request_id))
         self.assertIn("jsonb_build_object", conn.calls[-1][0])
