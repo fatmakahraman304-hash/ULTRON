@@ -1,12 +1,10 @@
-## 2026-10-14 — Next: Evidence Engine V4 (after Memory V4 review)
+## 2026-10-14 — Next: Evidence V4 verification, then Natural Conversation & Voice
 
-1. Review PR #34 (`feat/golge-episodic-memory-v4-20261014`, code fix SHA `3af7cae`); require explicit approval before merge/deploy. Existing exact-head GitHub checks passed 4/4.
-2. Implement Evidence Engine V4 as a separate PR stacked on PR #34: extract publication/update dates from page metadata, distinguish access time from source dates, cluster copied/syndicated content so it is not counted as independent evidence, and conservatively flag numeric disagreements only when unit/context/date align. Keep page reading untrusted and SSRF-bounded.
-3. Add controlled source-reader fixtures and negative tests first; run security tests for private IPs/DNS rebinding, redirects, content types, size/timeouts, prompt injection, copied sources and inconsistent units/dates. Run existing research regressions and current external-network-free suite.
-4. Keep `unverified` when page content or claim support cannot be established. Preserve explicit-only research routing; ordinary chat must not search.
-5. Natural Conversation & Voice follows only after Evidence V4 is reviewed; test on real device/model only when available and mark unavailable checks `NOT_RUN`.
-6. Before any release, refresh branch/PR/Actions state and Render workspace deployment SHA and `/health`; merge/deploy only with successful required checks and recorded approval.
-
+1. Finish PR #35 (`feat/golge-evidence-engine-v4-20261014`, current code head `c2535703e086ba03b2874746e6e68b7f18ea784e`). `persona-policy`, `postgres-fencing`, and Scene `verify` passed on code head `c2535703e086ba03b2874746e6e68b7f18ea784e` (runs `38565475135`, `38565475141`). After the docs commit, rerun both workflows on the final PR head before marking ready for review.
+2. Keep PR #35 stacked on PR #34. Do not merge either PR without required review/approval. Confirm PR #34 exact head `a7b5906b73b467ae2fd1bce115b86e6f60b13a1d` and its four checks (all passed) remain current.
+3. Once Evidence V4 is reviewed and its CI is green, begin the separate Natural Conversation & Voice PR. First inspect the existing PR #30 interruption/long-listening paths and add regression coverage before changing them. Preserve the mobile layout; no UI additions are requested.
+4. Measure real Gemini/Qwen inference and physical iPhone/Windows microphone behavior only when devices and credentials are actually available. Keep unavailable checks `NOT_RUN`; do not score fixtures as model quality.
+5. Before any release, refresh the production Render deploy SHA, `/health` body and relevant logs. Production remains on the verified V3 branch and neither PR #34 nor #35 has been deployed.
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.

@@ -1,6 +1,14 @@
+## 2026-10-14 — Evidence Engine V4 PR #35 validation
+
+- Code head `c2535703e086ba03b2874746e6e68b7f18ea784e`; PR #35 is draft and stacked on unmerged PR #34. Exact feature-code-head Actions passed: Cloud `persona-policy`/`postgres-fencing` run `38565475135`; Scene `verify` run `38565475141`. The following tracking-doc commit requires dispatching these workflows again on the final PR head.
+- Focused source-reader, Evidence V4, frozen 100-case evaluator, prior research-reader/agent and V3 research evaluation suite: **221 passed**. Cloud research integration: **6 passed**. Evidence dataset: **100 deterministic fixtures, 50 Turkish / 50 English**; these are not model answers.
+- Full disposable-PostgreSQL Cloud suite: **376 passed, 0 skipped** at the Memory V4 implementation stage. This validates the memory/API suite on local disposable PostgreSQL; it does not establish live production DB behavior.
+- Source-processing fixture benchmark (five pages; baseline `a7b5906` vs Evidence V4 pipeline): p50 **2.223 → 5.341 ms**, p95 **3.316 → 8.870 ms**. No live network time, model inference or full response latency was measured.
+- Local YAML parsing, `py_compile`, and `git diff --check` passed. Tests used controlled fixtures and no user data, external source contents, API credentials, Gemini or Qwen. Real public-site reading, semantic entailment, live model quality and physical iPhone/Windows tests are **NOT_RUN**. Render was not changed; `/health` returned an HTTP 200 header but the request timed out before the body/SHA, so current production health is not re-verified in this run.
+
 ## 2026-10-14 — Episodic Memory V4 PR #34 validation
 
-- Code/import-fix SHA `3af7cae5b26f8139f741fcf88791c6ebc8473473`; PR #34 is ready for review and remains unmerged (no review approval).
+- Final PR head after tracking updates: `a7b5906b73b467ae2fd1bce115b86e6f60b13a1d` (functional code/import-fix commit `3af7cae5b26f8139f741fcf88791c6ebc8473473`); PR #34 is ready for review and remains unmerged (no review approval).
 - `python -m unittest discover -s ultron/cloud_service -p 'test_*.py'` with an isolated disposable PostgreSQL 16: **376 passed, 0 skipped** in 6.443 s. V4 Postgres/API subset **13 passed**, including owner isolation, migration preservation, concurrency/correction/delete, authenticated API, same-origin and explicit-consent checks. The 376 total includes the V4 subset.
 - `PYTHONPATH=ultron/backend python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v`: **15 passed**. `test_conversation_intent_router.py`: **9 passed**, including subprocess import with aiohttp blocked. `python -m py_compile` and `git diff --check`: pass. Existing aiohttp AppKey warnings remain informational.
 - GitHub Actions on the exact code fix commit: [persona-policy](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38562726911) pass; [postgres-fencing](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38562726911) pass; [qwen-listening](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38562726922) pass; [Scene verify](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38562726927) pass.
