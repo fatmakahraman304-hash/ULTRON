@@ -784,13 +784,15 @@ const longListenController=window.ULTRONLongListen.create({
           const output=omission+report.answer;
           $('#longListenReport').textContent=output;
           $('#longListenReportWrap').classList.remove('hidden');
-          addMessage('assistant',output);
+          // The report is already rendered and verified. A chat presentation
+          // failure cannot turn successful model work into a delivery failure.
           longListenController.confirmDelivered();
+          try{addMessage('assistant',output);}catch{toast('Analiz hazır; sonucu dinleme panelinden okuyabilirsin.');}
           $('#longListenProvider').disabled=true;
           toast(report.parts+' konuşma bölümü analiz edildi. Sonuç geçicidir; istersen kopyalayabilirsin.');
         }catch(err){
-          longListenController.failDelivery('Analiz tamamlanamadı; konuşma ve işlenmiş bölüm notları bu sekmede korunuyor. Cevap ver ile devam et.');
-          toast('Analiz kesildi: '+(err?.message||'Bağlantı sorunu'));
+          longListenController.failDelivery(window.ULTRONListeningAnalysis.errorMessage(err)+' Konuşma ve işlenmiş bölüm notları bu sekmede korunuyor.');
+          toast(window.ULTRONListeningAnalysis.errorMessage(err));
         }
         return;
       }

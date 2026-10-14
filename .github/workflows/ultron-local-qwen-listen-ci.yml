@@ -75,6 +75,7 @@ jobs:
           python -m unittest -q \
             ultron.cloud_service.test_local_listening_bridge \
             ultron.cloud_service.test_local_listening_qwen \
+            ultron.cloud_service.test_listening_roundtrip \
             ultron.cloud_service.test_full_listening_analysis
       - name: Real isolated PostgreSQL queue and privacy contracts
         env:

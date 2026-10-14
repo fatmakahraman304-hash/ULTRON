@@ -135,6 +135,28 @@ class LocalListenQueueTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any("payload=payload - 'text' - 'system'" in q[1] for q in db.queries))
         self.assertTrue(all("user_id=$2" in q[1] for q in db.queries if "SELECT id,status" in q[1]))
 
+    async def test_every_worker_stage_and_unicode_final_remain_readable_after_scrubbing(self):
+        for stage in ('map', 'reduce', 'final'):
+            with self.subTest(stage=stage):
+                db=FakePool()
+                original=db.fetchrow
+                async def fetchrow(sql, *args):
+                    row=await original(sql, *args)
+                    if 'SELECT id,status,result,payload' in sql:
+                        row['payload']['stage']=stage
+                        row['result']['stage']=stage
+                        row['result']['analysis']='😀'*5000 if stage=='final' else 'Karar: açık kaynak.'
+                    return row
+                db.fetchrow=fetchrow
+                for _ in range(2):
+                    response=await get_local_listening_analysis(FakeRequest(self.body,db=db))
+                    self.assertEqual(response.status,200)
+                    value=json.loads(response.body)
+                    self.assertEqual(value['status'],'completed')
+                    self.assertEqual(value['stage'],stage)
+                    self.assertEqual(value['model'],'qwen3:4b')
+                    if stage=='final':self.assertEqual(len(value['analysis']),5000)
+
     async def test_failed_poll_never_leaks_worker_result(self):
         db=FakePool(status="failed")
         response=await get_local_listening_analysis(FakeRequest(self.body,db=db))
