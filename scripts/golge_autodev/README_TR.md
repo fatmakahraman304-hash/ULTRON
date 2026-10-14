@@ -1,4 +1,4 @@
-# GÖLGE Autonomous Development V2 — sınırlı taslak PR döngüsü
+# GÖLGE Autonomous Development V3 — kanıta dayalı keşif ve sınırlı taslak PR döngüsü
 
 Bu sistem modelin doğrudan çalışan GÖLGE kurulumuna yazmasına izin vermez.
 Sadece kayıtlı ve yol listesi sınırlandırılmış bir geliştirme görevini önerir;
@@ -8,10 +8,13 @@ dağıtımı, cihaz kurulumu ve kendi kendine izin yükseltme yoktur.
 ## İş akışı
 
 1. `goals.json` görevleri kanıt, etkilenen dosya, beklenen iyileşme, risk,
-   test kapsamı, başarı ölçütü ve öncelik taşır. Önce yüksek öncelik seçilir.
+   test kapsamı, başarı ölçütü ve öncelik taşır. V3 ayrıca salt okunur ve
+   deterministik bir keşif adımıyla doğrulanmış bulguları bu sabit kapsamla
+   eşleştirir; model kendi başına yeni dosya veya izin kapsamı açamaz.
 2. Başka bir açık PR aynı dosyaları değiştiriyorsa o görev atlanır. Açık bir
    `GOLGE-AUTODEV:` PR varsa ikinci bir otomatik öneri üretilmez. Birleştirilen
-   hedef etiketi tekrar kuyruğa alınmaz.
+   hedef ve `GOLGE-CANDIDATE:<20 hex>` işareti tekrar kuyruğa alınmaz. Yeni,
+   farklı kanıt aynı kayıtlı hedefi yeniden gündeme getirebilir.
 3. Var olan `CodeAgent` yalnızca sınırlı kaynak dosyalarını okuyup öneri üretir.
    Gemini kullanımı için repository secret gerekir; model yükü 6.000 çıktı
    tokenıyla, kaynak bağlamı 18.000 karakterle sınırlandırılmıştır.
@@ -37,9 +40,18 @@ Her workflow çalıştırmasında en fazla iki Gemini isteği ve her istekte en 
 kalitesini doğrulamaz.
 
 `workflow_dispatch` varsayılan olarak `contracts_only` modundadır ve provider
-çağrısı yapmaz. Gerçek model/PR akışı ancak secrets ve repository izinleri
-yetkili biri tarafından kontrol edildikten sonra açıkça `pipeline` seçilerek
-başlatılmalıdır. Zamanlanmış çalışma `pipeline` yolunu kullanır.
+çağrısı yapmaz. `discovery_only`, Actions/issue/PR metaverisi, aktif roadmap
+kontrol listeleri ve yerel statik incelemeyi toplar; hiç model çağırmaz.
+Üretim Actions hatası ancak başarısız adım adı tam bir kayıtlı regresyon testini
+işaret ederse otomatik aday olur. Issue içeriği okunmaz; yalnızca `autodev:verified`
+ve desteklenen `component:voice` / `component:conversation` etiketleri otomatik
+hedef eşlemesi sağlayabilir. Diğer bulgular insan incelemesi bekler.
+Gerçek model/PR akışı için secret ve
+repository izinlerinin yanında sağlayıcı kotası/maliyeti yetkili biri tarafından
+kontrol edilmeli ve `GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED=true` repository
+variable'ı açıkça ayarlanmalıdır. Değişken yoksa veya `true` değilse scheduled
+çalışma da dahil ilk üretim ve tek onarım çağrısı yapılmaz. `pipeline` seçimi tek
+başına maliyet politikasını geçemez.
 
 ## Zamanlayıcı
 
@@ -68,13 +80,22 @@ yapılmaz.
 
 ## Bilinçli sınırlar
 
-- Güncel V2 gerçek, harici Gemini/Qwen çağrısı ve GitHub’a yazma gerektirir.
+- Tam V3 uçtan uca modda gerçek, harici Gemini/Qwen çağrısı ve GitHub’a yazma gerektirir.
   Repository secrets ve repository settings erişimi olmayan yerel doğrulama bu
   entegrasyonu `NOT_RUN` olarak raporlamalıdır.
-- Otomatik hata keşfi şu an kayıtlı backlog, açık PR dosya çakışmaları ve
-  birleştirilmiş hedef geçmişiyle sınırlıdır. Actions başarısızlıkları, Render
-  hata kayıtları, üretim performans metrikleri, capability probe’ları ve açık
-  GitHub issue’larından otomatik yeni görev çıkarmak sıradaki geliştirmedir.
+- Self-discovery sources: production-branch Actions failure/job-step metadata,
+  maintainer-labelled open issues, deterministic CodeIntel error/high findings,
+  `ULTRON_NEXT_TASKS.md` / `ULTRON_ROADMAP.md` active checklist items, and
+  open-PR path conflicts. Application error logs, health snapshots and measured
+  performance reports are accepted only as bounded operator-supplied JSON/JSONL
+  inputs; no Render log API is configured or queried here. Personal transcripts,
+  issue bodies, raw logs, stack traces and exception messages are excluded from
+  model evidence. Unmapped/high-risk findings are review-only.
+- The priority score is a transparent source-based heuristic, not a measured
+  user-impact metric. Current workflow discovery saw no eligible candidates;
+  static findings and failed run metadata remained review-only. The engine has a
+  merged-PR candidate marker for successful-task deduplication, but it does not
+  yet keep a durable attempt-by-attempt engineering journal across failed runs.
 - Test runner ayrı ve anahtar/token içermeyen job’dır; üretilen Python kodu bu
   job’da çalıştırılır. Bu nedenle dosya allowlist’i, süre sınırı, dar izinler ve
   yeni PR için bağımsız inceleme korunur.
