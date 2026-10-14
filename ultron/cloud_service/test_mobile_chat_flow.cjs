@@ -23,7 +23,9 @@ test('spoken stop phrases interrupt only an active chat request',()=>{
   assert.equal(ctx.isSpokenStopCommand(phrase),true,phrase);
  for(const phrase of ['Durumu açıkla','Lütfen durumu kontrol et','devam et'])
   assert.equal(ctx.isSpokenStopCommand(phrase),false,phrase);
- assert.match(html,/if\(activeChatRequest&&isSpokenStopCommand\(d\.text\)\)\{/);
+ const finalTurn=html.slice(html.indexOf("if(d.type==='turn_complete')"),html.indexOf("if(d.type==='error')"));
+ assert.match(finalTurn,/activeChatRequest&&isSpokenStopCommand\(input\)/);
+ assert.doesNotMatch(html.slice(html.indexOf("if(d.type==='input_transcript'"),html.indexOf("if(d.type==='output_transcript'")),/isSpokenStopCommand/);
 });
 test('late cancel acknowledgement cannot replace the conversation of a newer request',()=>{
  const helper=html.match(/function mayApplyChatCancelResult\(requestId\)\{[\s\S]*?\n\}/);

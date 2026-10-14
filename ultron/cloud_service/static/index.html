@@ -1577,9 +1577,6 @@ async function openLiveSocket(){
       toast('Geliştirme isteği kaydedildi. ChatGPT’ye aktarma onayı gerekiyor.');
     }
     if(d.type==='input_transcript'&&d.text){
-      if(activeChatRequest&&isSpokenStopCommand(d.text)){
-        cancelActiveChat();liveStatus('Yanıt kesiliyor…',true);return;
-      }
       if(window.ULTRONLongListen.isStart(d.text)&&!longListenController.active()){
         void stopLiveVoice();
         showLongListenTap();
@@ -1614,6 +1611,11 @@ async function openLiveSocket(){
       bargeBlocks=0;suppressOutput=false;silentActionTurn=false;
       resetRemoteResultSpeech();resetVoiceGateSegment();
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
+      // input_transcript events may be partial (e.g. "dur" from "durum").
+      // Only honor stop phrases after the provider's final turn transcript.
+      if(activeChatRequest&&isSpokenStopCommand(input)){
+        cancelActiveChat();liveStatus('Yanıt kesildi.',true);return;
+      }
       if(!voiceDevToolSaved&&input){window.ULTRONDevRequests?.fromSpeech(input).catch(()=>{})}
       voiceDevToolSaved=false;
       if(input){rememberPendingVoice('user',input);addMessage('user',input)}
