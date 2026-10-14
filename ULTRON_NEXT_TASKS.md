@@ -1,4 +1,12 @@
-## Current priority — Autonomous Development V2
+## Current priority — Autonomous Engineer V3
+
+1. Review [draft PR #41](https://github.com/fatmakahraman304-hash/ULTRON/pull/41), verified-evidence-only code SHA `9170310edeae61f79db1812197a61ace0d26f90a`, stacked on PR #39. PR Actions #38610523177 passed `contracts`; discovery-only dispatch #38610594206 passed `contracts` and `discover`, reported 12 candidates / 0 eligible, and skipped provider/verification/publisher jobs. The production-base planner with `--require-discovery` returned `nothing_to_generate`.
+2. Before a real provider-to-draft-PR test, an authorized maintainer must verify repository secret `GOLGE_AUTODEV_GEMINI_API_KEY`, set `GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED=true` only after reviewing quota/cost, and confirm Actions `contents:write` + `pull-requests:write` for the isolated final publisher job. Current secret listing API access is 403; do not guess or bypass it.
+3. PR #40 scheduler workflow is updated at head `a4f6b42f9fa1ed6a63ae66427992ce9ff6710dc5`; keep it draft until PR #38 → #39 → #41 have been separately reviewed and required code is on production. The schedule is not active yet.
+4. Next implementation: add durable, privacy-filtered attempt history (including failed attempts, bounded test result, accepted repair, commit and PR) and load it into future discovery without importing personal chat memory. Add approved read-only Render log/health/performance sources only after explicit access is available.
+5. Physical Windows/Ollama, iPhone/Safari/microphone, and real Gemini/Qwen model tests remain **NOT_RUN**. Render currently remains LIVE at `6ef3f5d`; this branch is not deployed.
+
+## Prior checkpoint — Autonomous Development V2
 
 1. Review draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39), V2 code/workflow commit `f75ec5c2334342360f3599cea9000f433357a8c8`. Verification checkpoint `0cae002c953b6cbae09a76c6bae1469edb4dee2e`: PR run #38593948734 and contracts-only dispatch #38593954661 passed; model/verify/repair/publisher were skipped. Manual `workflow_dispatch` defaults to `contracts_only`; `pipeline` must be explicitly chosen. Real provider-to-draft-PR remains unverified.
 2. Keep scheduler-only draft [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40) against default `main` unmerged until PR #38 plus V2 have landed on production. Confirm Actions secret `GOLGE_AUTODEV_GEMINI_API_KEY` and write permissions with an authorized maintainer.
@@ -6,7 +14,15 @@
 4. Expand discovery sources from the current goal registry/open-PR/merged-goal state to failed Actions evidence, labelled GitHub issues, capability probes, privacy-filtered app errors and measured performance.
 5. Then address True Interruption V2 and Natural Conversation V5 in separate reviewable changes. Physical Windows Ollama, iPhone Safari, microphones/TTS, live model quality/latency and production canary remain NOT_RUN. PR #34–#38 remain unmerged.
 
-## Next tasks — cognitive router v2 follow-up
+## Next tasks — Self-Discovery V3
+
+1. Review PR #41 and keep the V2→V3 draft stack unmerged until the owner authorizes the dependency sequence.
+2. Verify repository secret `GOLGE_AUTODEV_GEMINI_API_KEY`, set `GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED=true` only after reviewing provider cost/quota, and confirm least-privilege Actions write permissions before a `pipeline` dispatch.
+3. Add durable, privacy-filtered engineering attempt history and approved Render log/health/performance inputs. They are not automatic in the current slice.
+4. Only after PR #38/#39/#41 code is present in production, review scheduler PR #40 on `main`; prove the scheduled discovery path before enabling provider generation.
+5. Real Gemini/Qwen, Windows, iPhone Safari/microphone/TTS, and deployment checks remain **NOT_RUN**.
+
+## Archived next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.
 2. Research is now correctly exposed as search-result discovery only (`adapter`): no page contents are read, so claim confidence stays zero and there is no corroboration/contradiction assertion. Next research code slice: implement a bounded source reader with public-IP/redirect validation, evidence extraction, prompt-injection isolation and claim-to-excerpt checks; validate with a local HTTP fixture and adversarial URL cases before routing research intent to it. Keep Approval Gate, audit and owner/thread boundaries.

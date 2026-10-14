@@ -1,3 +1,15 @@
+## 2026-10-14 — Self-Discovery V3 verification
+
+- `python -m unittest discover -s scripts/golge_autodev -p 'test_*.py'`: **48 passed**. Covers source validation, issue/log/health/performance/roadmap/static-analysis candidate generation, priority sorting, candidate dedup, open-PR conflicts, evidence redaction, workflow budget/permission contracts, and no-generation without observed evidence.
+- `PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_self_coding_loop.py ultron/backend/tests/test_codegen_pipeline.py ultron/backend/tests/test_codegen_path_boundary.py ultron/backend/tests/test_approval_gate.py ultron/backend/tests/test_github_pr_publisher.py ultron/backend/tests/test_autonomous_runtime.py ultron/backend/tests/test_autonomous_task.py`: **42 passed**.
+- Python compilation, `goals.json` parse, workflow YAML parse and `git diff --check`: **PASS**.
+- Live read-only local collector: 5 failed Actions metadata records, 0 open issues, 18 open PRs, 237 deterministic CodeIntel findings. 12 candidate records produced; all 12 `review_required`; 0 eligible. No issue body or Actions logs fetched. No provider called.
+- Verified-evidence-only code SHA `9170310edeae61f79db1812197a61ace0d26f90a`: PR Actions [38610523177](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38610523177) passed `contracts`; discovery-only dispatch [38610594206](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38610594206) passed `contracts` and `discover`, with provider/verification/publisher skipped. Hosted collector log: `12 candidates`, `0 eligible`.
+- Live production-base planner run with `--require-discovery` returned `nothing_to_generate`; there was no eligible verified candidate, so no model request was possible on the pipeline path.
+- PR #41 is open draft, verified-evidence guard is SHA `9170310edeae61f79db1812197a61ace0d26f90a`, base PR #39. PR #40 remains draft at `a4f6b42f9fa1ed6a63ae66427992ce9ff6710dc5`. Neither was merged.
+- Actions secret listing returns HTTP 403. Therefore real Gemini/Qwen generation, isolated verification of generated model code, one-repair provider call, automatic GitHub draft publication, scheduler execution and provider budget state are **NOT_RUN/UNVERIFIED**. No model cost incurred.
+- Render latest deployment `dep-db7mfuss728c73db4k10` is LIVE at `6ef3f5d207fc9430cbbd552988935995529e87f5`; `/health` HTTP 200 reports the same branch and commit. V3 is not deployed. Windows/iPhone/device tests are **NOT_RUN**.
+
 ## 2026-10-14 — PR #39 exact-head verification
 
 - V2 draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39), verification checkpoint `0cae002c953b6cbae09a76c6bae1469edb4dee2e` and code/workflow commit `f75ec5c2334342360f3599cea9000f433357a8c8`: PR Actions [38593948734](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593948734) and contracts-only dispatch [38593954661](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593954661) **SUCCESS** for `contracts`. Model proposal, test, repair and draft-publication jobs were **SKIPPED**.

@@ -7,6 +7,7 @@ on:
     branches:
       - feat/ultron-cloud-shared-memory
       - feat/golge-autonomous-development-v1-20261014
+      - feat/golge-autonomous-development-v2-20261014
     paths:
       - "scripts/golge_autodev/**"
       - "ultron/backend/github_pr_publisher.py"
@@ -14,11 +15,12 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Use contracts-only to avoid provider calls; choose pipeline only after secrets/permissions are reviewed."
+        description: "Use contracts-only, safe discovery-only, or the provider pipeline after secret, quota, and cost-policy review."
         required: true
         type: choice
         options:
           - contracts_only
+          - discovery_only
           - pipeline
         default: contracts_only
   schedule:
@@ -55,9 +57,48 @@ jobs:
           python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v
           PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_github_pr_publisher.py
 
+  discover:
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'pipeline' || inputs.mode == 'discovery_only')
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      actions: read
+      issues: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          path: autodev-tools
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+          path: source
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Collect read-only GitHub and repository evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: >-
+          python autodev-tools/scripts/golge_autodev/discovery.py collect
+          --root source --repo "$GITHUB_REPOSITORY"
+          --output golge-autodev-discovery.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-discovery
+          path: golge-autodev-discovery.json
+          retention-days: 2
+          if-no-files-found: error
+
   propose:
     if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'pipeline')
-    needs: contracts
+    needs: [contracts, discover]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -82,6 +123,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-discovery
+          path: discovery
       - name: Pin source SHA and collect open/merged PR evidence
         id: plan
         env:
@@ -97,6 +142,8 @@ jobs:
             --root source --base-sha "$BASE_SHA" \
             --open-prs golge-autodev-open-prs.json \
             --merged-prs golge-autodev-merged-prs.json \
+            --discovery-file discovery/golge-autodev-discovery.json \
+            --require-discovery \
             --plan-file golge-autodev-plan.json
           GOAL_ID="$(python -c "import json; p=json.load(open('golge-autodev-plan.json')); print(p.get('goal',{}).get('id',''))")"
           echo "goal_id=$GOAL_ID" >> "$GITHUB_OUTPUT"
@@ -105,6 +152,7 @@ jobs:
         env:
           GOLGE_AUTODEV_GEMINI_API_KEY: ${{ secrets.GOLGE_AUTODEV_GEMINI_API_KEY }}
           GOLGE_AUTODEV_MODEL: ${{ vars.GOLGE_AUTODEV_MODEL || 'gemini-2.5-flash' }}
+          GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED: ${{ vars.GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -112,6 +160,11 @@ jobs:
           if [ "$STATUS" != "ready" ]; then
             echo "proposed=false" >> "$GITHUB_OUTPUT"
             echo "No eligible backlog goal; no model request made."
+            exit 0
+          fi
+          if [ "$GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED" != "true" ]; then
+            echo "::notice::Cloud model budget policy is not explicitly enabled; real generation NOT_RUN."
+            echo "proposed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ -z "$GOLGE_AUTODEV_GEMINI_API_KEY" ]; then
@@ -226,9 +279,15 @@ jobs:
         env:
           GOLGE_AUTODEV_GEMINI_API_KEY: ${{ secrets.GOLGE_AUTODEV_GEMINI_API_KEY }}
           GOLGE_AUTODEV_MODEL: ${{ vars.GOLGE_AUTODEV_MODEL || 'gemini-2.5-flash' }}
+          GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED: ${{ vars.GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED || 'false' }}
         shell: bash
         run: |
           set -euo pipefail
+          if [ "$GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED" != "true" ]; then
+            echo "::notice::Cloud model budget policy is not explicitly enabled; repair NOT_RUN."
+            echo "proposed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -z "$GOLGE_AUTODEV_GEMINI_API_KEY" ]; then
             echo "::warning::Repair provider is not configured; repair NOT_RUN."
             echo "proposed=false" >> "$GITHUB_OUTPUT"
@@ -353,6 +412,7 @@ jobs:
           published = publisher.publish(
               proposal_id=proposal_id, branch=prepared["branch"], paths=relative,
               goal=proposal["summary"], autonomous_goal_id=goal_id,
+              autonomous_candidate_id=proposal.get("discovery_candidate_id"),
           )
           print("AUTODEV:DRAFT_PR:" + published["pull_request"])
           print("AUTODEV:COMMIT:" + published["commit_sha"])
