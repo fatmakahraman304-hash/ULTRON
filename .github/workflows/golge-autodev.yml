@@ -59,7 +59,8 @@ jobs:
           BASE_SHA="$(git rev-parse HEAD)"
           echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
           gh pr list --repo "$GITHUB_REPOSITORY" --state open --base feat/ultron-cloud-shared-memory --json title,body --limit 100 > golge-autodev-open-prs.json
-          python scripts/golge_autodev/engine.py plan --base-sha "$BASE_SHA" --open-prs golge-autodev-open-prs.json
+          gh pr list --repo "$GITHUB_REPOSITORY" --state merged --base feat/ultron-cloud-shared-memory --json title,body --limit 100 > golge-autodev-merged-prs.json
+          python scripts/golge_autodev/engine.py plan --base-sha "$BASE_SHA" --open-prs golge-autodev-open-prs.json --merged-prs golge-autodev-merged-prs.json
       - name: Generate a strictly bounded proposal with a configured coding model
         id: generate
         env:
