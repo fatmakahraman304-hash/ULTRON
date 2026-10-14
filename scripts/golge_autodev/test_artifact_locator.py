@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from artifact_locator import select_latest, validate_run_details
+from artifact_locator import assert_no_existing_memory_artifact, select_latest, validate_run_details
 
 
 class ArtifactLocatorContracts(unittest.TestCase):
@@ -76,6 +76,31 @@ class ArtifactLocatorContracts(unittest.TestCase):
         self.assertFalse(validate_run_details(selected, details, repository_id="12", workflow_id="34",
                                               source_branch="feat/ultron-cloud-shared-memory",
                                               current_run_id="402"))
+
+    def test_empty_memory_can_only_be_initialized_when_listing_is_complete_and_empty(self):
+        self.assertTrue(assert_no_existing_memory_artifact({"total_count": 0, "artifacts": []}))
+        self.assertTrue(assert_no_existing_memory_artifact({"total_count": 1, "artifacts": [
+            {"name": "golge-autodev-discovery"},
+        ]}))
+        with self.assertRaisesRegex(ValueError, "memory_bootstrap_refused_existing_artifact"):
+            assert_no_existing_memory_artifact({"total_count": 1, "artifacts": [{
+                "name": "golge-autodev-engineering-memory", "expired": True,
+            }]})
+
+    def test_memory_bootstrap_rejects_incomplete_or_malformed_artifact_listing(self):
+        with self.assertRaisesRegex(ValueError, "artifact_listing_incomplete"):
+            assert_no_existing_memory_artifact({"total_count": 2, "artifacts": [
+                {"name": "golge-autodev-discovery"},
+            ]})
+        with self.assertRaisesRegex(ValueError, "artifact_listing_invalid"):
+            assert_no_existing_memory_artifact({"total_count": 0, "artifacts": [None]})
+
+    def test_restore_rejects_a_truncated_first_page_instead_of_guessing(self):
+        with self.assertRaisesRegex(ValueError, "artifact_listing_incomplete"):
+            select_latest({"total_count": 101, "artifacts": [self.artifact]},
+                          repository_id="12", workflow_id="34",
+                          source_branch="feat/ultron-cloud-shared-memory",
+                          current_run_id="402", now=self.now)
 
 
 if __name__ == "__main__":

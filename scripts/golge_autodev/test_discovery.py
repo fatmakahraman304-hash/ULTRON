@@ -313,6 +313,15 @@ class DiscoveryContracts(unittest.TestCase):
     def test_workflow_discovery_only_is_read_only_and_proposal_requires_pipeline(self):
         workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/golge-autodev.yml").read_text()
         self.assertIn("- discovery_only", workflow)
+        self.assertIn("- main", workflow.split("  pull_request:", 1)[1].split("    paths:", 1)[0])
+        self.assertIn("confirm_empty_memory_bootstrap", workflow)
+        bootstrap = workflow.split("  initialize_memory:\n", 1)[1].split("  scheduler_control:\n", 1)[0]
+        self.assertIn("inputs.mode == 'initialize_memory'", bootstrap)
+        self.assertIn('"$GITHUB_REF" != "refs/heads/main"', bootstrap)
+        self.assertIn("--assert-empty-memory", bootstrap)
+        self.assertIn("retention-days: 90", bootstrap)
+        self.assertNotIn("contents: write", bootstrap)
+        self.assertNotIn("GOLGE_AUTODEV_GEMINI_API_KEY", bootstrap)
         discover = workflow.split("  discover:\n", 1)[1].split("  propose:\n", 1)[0]
         self.assertIn("contents: read", discover)
         self.assertIn("actions: read", discover)

@@ -5,6 +5,7 @@ name: GOLGE Autonomous Development (Draft PR Only)
 on:
   pull_request:
     branches:
+      - main
       - feat/ultron-cloud-shared-memory
       - feat/golge-autonomous-development-v1-20261014
       - feat/golge-autonomous-development-v2-20261014
@@ -30,7 +31,13 @@ on:
           - pipeline
           - pause
           - resume
+          - initialize_memory
         default: contracts_only
+      confirm_empty_memory_bootstrap:
+        description: "Confirm this is the first seed; this cannot restore missing or expired memory."
+        required: true
+        type: boolean
+        default: false
   schedule:
     - cron: "23 6 * * 1,4"
 
@@ -45,6 +52,69 @@ env:
   TOOLS_REF: ${{ (github.event_name == 'schedule' || github.ref_name == 'main') && 'feat/ultron-cloud-shared-memory' || github.sha }}
 
 jobs:
+  initialize_memory:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'initialize_memory'
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Require explicit first-seed acknowledgement on the default branch
+        env:
+          CONFIRM_EMPTY_MEMORY_BOOTSTRAP: ${{ inputs.confirm_empty_memory_bootstrap }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::Memory initialization is allowed only from main."
+            exit 1
+          fi
+          if [ "$CONFIRM_EMPTY_MEMORY_BOOTSTRAP" != "true" ]; then
+            echo "::error::Explicit empty-memory acknowledgement is required."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Refuse to replace any existing or expired memory artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" > memory-artifact-list.json
+          python scripts/golge_autodev/artifact_locator.py \
+            --input memory-artifact-list.json --assert-empty-memory
+      - name: Export a provenance-bound empty initial snapshot
+        run: |
+          set -euo pipefail
+          mkdir -p .autodev
+          python scripts/golge_autodev/engineering_memory.py summary \
+            --db .autodev/engineering-memory.sqlite > memory-summary.json
+          python scripts/golge_autodev/engineering_memory.py export \
+            --db .autodev/engineering-memory.sqlite --file engineering-memory.json
+          python - <<'PY'
+          import json
+          summary = json.load(open("memory-summary.json", encoding="utf-8"))
+          artifact = json.load(open("engineering-memory.json", encoding="utf-8"))
+          assert summary == {"candidates": 0, "attempts": 0, "state": "running"}
+          assert artifact.get("artifact_version") == 2
+          assert artifact.get("memory", {}).get("schema_version") == 1
+          assert artifact.get("memory", {}).get("candidates") == []
+          assert artifact.get("memory", {}).get("attempts") == []
+          assert artifact.get("artifact_context", {}).get("source_branch") == "feat/ultron-cloud-shared-memory"
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-engineering-memory
+          path: engineering-memory.json
+          retention-days: 90
+          if-no-files-found: error
+
   scheduler_control:
     if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'pause' || inputs.mode == 'resume')
     runs-on: ubuntu-latest
@@ -71,7 +141,7 @@ jobs:
           WORKFLOW_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows" \
             --jq '[.workflows[] | select(.path == ".github/workflows/golge-autodev.yml")] | last | .id // empty')"
           test -n "$WORKFLOW_ID"
-          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" > memory-artifact-list.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" > memory-artifact-list.json
           if ! python scripts/golge_autodev/artifact_locator.py \
             --input memory-artifact-list.json --repository-id "$REPOSITORY_ID" \
             --workflow-id "$WORKFLOW_ID" --source-branch "$BASE_BRANCH" \
@@ -135,19 +205,38 @@ jobs:
         with:
           python-version: "3.12"
       - name: Prepare the pinned network-isolated generated-code sandbox
+        if: github.event_name != 'pull_request' || github.base_ref != 'main'
         run: |
           docker info --format '{{.ServerVersion}}'
           docker pull ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
       - name: Install the generated-regression test runner
+        if: github.event_name != 'pull_request' || github.base_ref != 'main'
         run: python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'mypy==1.15.0'
       - name: Install the locked frontend toolchain for the TypeScript oracle
+        if: github.event_name != 'pull_request' || github.base_ref != 'main'
         run: npm ci --prefix ultron/frontend --no-audit --no-fund
       - name: Check autonomous patch, retry, and disclosure contracts
+        if: github.event_name != 'pull_request' || github.base_ref != 'main'
         run: |
           python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v
           PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_github_pr_publisher.py
           python scripts/golge_autodev/coding_bench.py --max-cases 8 > coding-bench-model-not-run.json
           python -c "import json; d=json.load(open('coding-bench-model-not-run.json')); assert d['model_status']=='NOT_RUN' and d['summary']['not_run']==8 and d['score'] is None"
+      - name: Check default-branch activation workflow wiring
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path(".github/workflows/golge-autodev.yml").read_text(encoding="utf-8")
+          assert "      - main\n" in text
+          assert "BASE_BRANCH: feat/ultron-cloud-shared-memory" in text
+          assert "github.ref_name == 'main'" in text
+          assert "initialize_memory" in text and "confirm_empty_memory_bootstrap" in text
+          assert "--assert-empty-memory" in text and "retention-days: 90" in text
+          assert "contents: write" in text and "pull-requests: write" in text
+          assert "--slurp" not in text
+          print("default_branch_activation_contracts=PASS")
+          PY
 
   discover:
     if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'pipeline' || inputs.mode == 'discovery_only')
@@ -184,7 +273,7 @@ jobs:
           WORKFLOW_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows" \
             --jq '[.workflows[] | select(.path == ".github/workflows/golge-autodev.yml")] | last | .id // empty')"
           test -n "$WORKFLOW_ID"
-          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" > memory-artifact-list.json
+          gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" > memory-artifact-list.json
           if ! python autodev-tools/scripts/golge_autodev/artifact_locator.py \
             --input memory-artifact-list.json --repository-id "$REPOSITORY_ID" \
             --workflow-id "$WORKFLOW_ID" --source-branch "$BASE_BRANCH" \

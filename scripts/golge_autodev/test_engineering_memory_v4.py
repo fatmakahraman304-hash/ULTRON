@@ -276,11 +276,39 @@ class EngineeringMemoryContracts(unittest.TestCase):
         self.assertFalse(restored.retry_allowed(cid))
         restored.close()
 
+    def test_provenance_bound_empty_bootstrap_survives_a_worker_restart(self):
+        context = {"repository": "fatmakahraman304-hash/ULTRON",
+                   "workflow": "GOLGE Autonomous Development (Draft PR Only)",
+                   "source_branch": engine.BASE_BRANCH, "producer_run_id": "101",
+                   "exported_at": "2026-10-14T12:00:00+00:00"}
+        first_worker = EngineeringMemory(self.db)
+        artifact = self.root / "initial-memory.json"
+        first_worker.export_json(artifact, artifact_context=context)
+        first_worker.close()
+
+        restarted_worker = EngineeringMemory(self.root / "restarted.sqlite")
+        restarted_worker.import_json(
+            artifact,
+            expected_context={key: value for key, value in context.items() if key != "exported_at"},
+            current_run_id="102",
+            now="2026-10-14T13:00:00+00:00",
+        )
+        restored = restarted_worker.snapshot()
+        self.assertEqual(restored["candidates"], [])
+        self.assertEqual(restored["attempts"], [])
+        self.assertEqual(restored["scheduler"]["state"], "running")
+        restarted_worker.close()
+
     def test_workflow_fails_closed_on_missing_memory_and_keeps_ninety_day_retention(self):
         workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/golge-autodev.yml").read_text(encoding="utf-8")
         self.assertIn("memory artifact missing or expired", workflow.lower())
         self.assertIn("retention-days: 90", workflow)
         self.assertIn("memory_available", workflow)
+        self.assertIn("initialize_memory", workflow)
+        self.assertIn("confirm_empty_memory_bootstrap", workflow)
+        self.assertIn('"$GITHUB_REF" != "refs/heads/main"', workflow)
+        self.assertIn("--assert-empty-memory", workflow)
+        self.assertIn("main", workflow.split("  pull_request:", 1)[1].split("    paths:", 1)[0])
         self.assertIn("--network=none", Path(__file__).with_name("sandbox.py").read_text(encoding="utf-8"))
         self.assertIn("docker pull ubuntu:24.04@sha256:", workflow)
         for job in ("verify_initial", "verify_repair"):

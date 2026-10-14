@@ -23,6 +23,11 @@ katmanları ekler:
   kökeniyle taşınır. Eski V4 snapshot yalnızca GitHub artefakt/run metaverisi
   doğrulandıktan sonra içe alınabilir. Artefaktın 90 günlük ömrü kalıcı depolama
   değildir; eksik, eski veya uyuşmayan artefakt proposal akışını durdurur.
+- İlk kurulumda `main` dalından yalnızca açık `initialize_memory` workflow
+  dispatch'i boş snapshot üretir. Operatör ayrıca boş başlangıcı onaylamalı ve
+  tam artefakt listesinde daha önceki bir hafıza artefaktı bulunmamalıdır.
+  Eski/süresi dolmuş kayıt veya kayıp hafıza bu yolla sıfırlanmaz; o durumda
+  iş akışı durur ve kayıt kurtarma/incelemesi gerekir.
 - İzole sahte-model E2E gerçek pytest hatası → bir onarım → yeniden test → var
   olan `GitHubPRPublisher` sözleşmesini ağ çağrıları taklit edilerek çalıştırır
   ve SQLite hafızasında tekrar seçilmeme durumunu doğrular. Bu, gerçek model
