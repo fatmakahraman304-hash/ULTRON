@@ -778,7 +778,7 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 6. After owner approval, release separately; verify production commit, Render deploy SHA and health. Physical iPhone/Windows acceptance remains a separate NOT_RUN item.
 ## Current priority — Autonomous Engineer V4 review
 
-1. Review the new V4 draft stacked on PR #41 and exact-head checks; keep #38, #39, #40, and #41 unmerged unless separately approved.
+1. Review V4 draft [PR #42](https://github.com/fatmakahraman304-hash/ULTRON/pull/42), head `9c36694d723cebbbfca7ad9afe327dcffb38405d`, stacked on PR #41; keep #38, #39, #40, and #41 unmerged unless separately approved.
 2. Run hosted `discovery_only`, `pause`, and `resume` workflow dispatches to confirm artifact restore and scheduler state across Actions runs. Current local tests cover the state machine only.
 3. Ask an authorized maintainer to inspect repository secrets and Actions write permissions; this workspace receives 403 for secret inventory. Keep provider budget approval disabled until cost/quota limits are explicitly agreed. Then perform one real provider-to-draft-PR test if authorized.
 4. Add authenticated long-term storage beyond the 90-day Actions artifact and independent type/dependency/security/performance/API compatibility runners; those gates are currently **NOT_RUN**.
