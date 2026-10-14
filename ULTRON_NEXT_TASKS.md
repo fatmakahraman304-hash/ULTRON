@@ -1,9 +1,14 @@
-## Next tasks — verify the fixed first-run setup on Windows
+## Next tasks — review the context-policy fix and continue cognition work
 
-1. Pull the current `feat/ultron-cloud-shared-memory` branch and run `START.bat`. On first boot, confirm the Gemini key field receives keyboard input immediately; use SHOW/HIDE only as needed and submit once.
-2. Restart GÖLGE and confirm the setup screen stays closed because `config/api_keys.json` was saved. Do not paste the key into chat, logs, or a bug report. Confirm prior `llm_model`/provider settings remain in the local config.
-3. If first boot still cannot accept text, capture only the visible UI behavior and run `python -m pytest tests/test_setup_overlay.py -q`; do not include the API key or config contents in diagnostics.
-4. After startup works, continue real laptop checks for Qwen, Gemini fallback, image upload and 3D create/move/remove/undo. Keep unavailable provider/device results `NOT_RUN` and do not infer model quality from deterministic tests.
+1. Review the draft PR for `feat/golge-context-policy-budget-20261014` and inspect its exact-SHA Actions. Do not merge it automatically: `feat/ultron-cloud-shared-memory` triggers production Render deploys, and release approval must remain owner-controlled.
+2. Keep PR #30 (`9c7817f`) intact. On the physical iPhone, verify foreground microphone permission, a long listening session, explicit “Cevap ver”, and reconnect/resume; record actual Safari/iOS/provider details. Background or locked-screen listening is not promised. This device test remains **NOT_RUN**.
+3. Continue the next cognition slice on an isolated branch: lightweight intent/context routing connected to real chat dispatch, with tests for fast-chat bypass, tool/permission boundaries and truthful completion. Do not add a second model call to ordinary chat.
+4. Run the frozen 100-case suite against real Gemini and laptop Qwen only when each provider is actually available; collect transcripts, model identity and latency, then obtain independent review. Deterministic checks do not earn model-quality points. Current 100-case structural validation is complete; real provider scoring is **NOT_RUN**.
+5. After the one-time Windows setup, check the already installed Qwen models, Gemini fallback, image upload and 3D create/edit/undo on the real laptop. Keep unavailable provider/device results **NOT_RUN** and preserve approval, privacy and model settings.
+
+## Archived next tasks — first-run setup verification
+
+The first-run setup focus/persistence fix is on the owner’s Windows handoff path. The owner reported `INSTALL.bat` completed at `4648d70`; opening `START.bat`, checking first-run typing, and confirming the setup stays closed after persistence still require the physical laptop. Do not paste API keys into chat, logs or bug reports.
 
 ## Completed checkpoint — provider error privacy hardening
 
