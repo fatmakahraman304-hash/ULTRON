@@ -1,6 +1,8 @@
 """Regression tests for the zero-extra-call shared conversational router."""
 import sys
 import unittest
+import os
+import subprocess
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -18,6 +20,30 @@ from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
 
 
 class ConversationIntentRouterTests(unittest.TestCase):
+    def test_lightweight_intent_router_does_not_require_aiohttp(self):
+        # Desktop Fast Brain uses persona routing but must not depend on the
+        # cloud HTTP server framework merely to classify a user message.
+        script = r'''
+import importlib.abc
+import sys
+class BlockAiohttp(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "aiohttp" or fullname.startswith("aiohttp."):
+            raise ModuleNotFoundError("aiohttp intentionally unavailable")
+sys.meta_path.insert(0, BlockAiohttp())
+from conversation_persona import classify_intent
+assert classify_intent("Geçen hafta ne konuşmuştuk?").kind == "episode_recall"
+'''
+        env = dict(os.environ)
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(HERE), str(ROOT), env.get("PYTHONPATH", "")]
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], cwd=ROOT, env=env,
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_route_priority_and_elliptical_turns(self):
         cases = [
             ("Selam, nasılsın?", "chat"),

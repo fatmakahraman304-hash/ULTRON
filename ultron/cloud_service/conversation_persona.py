@@ -11,7 +11,7 @@ if __package__:
         is_future_reminder_request, is_bare_continuation_request,
         is_previous_topic_return_request,
     )
-    from .episodic_memory_v4 import is_episode_recall_request
+    from .episode_recall_intent import is_episode_recall_request
 else:
     from reply_policy import classify_reply_mode
     from text_normalization import fold_turkish, folded_regex
@@ -21,7 +21,7 @@ else:
         is_future_reminder_request, is_bare_continuation_request,
         is_previous_topic_return_request,
     )
-    from episodic_memory_v4 import is_episode_recall_request
+    from episode_recall_intent import is_episode_recall_request
 
 PERSONA = (
     "You are GÖLGE, a capable and thoughtful personal assistant. "
