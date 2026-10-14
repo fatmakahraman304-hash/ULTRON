@@ -776,3 +776,12 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 4. Test real Gemini and Qwen only when providers are reachable and credentials are available; report model/version, first-token/total latency, and all 100 scenarios with NOT_RUN for missing cases. Do not install/download models or modify the owner’s Windows laptop in this branch task.
 5. Add bounded PDF parsing only if a safe dependency and decompression/page limits are justified; retain HTML/text-only truthful behavior until then.
 6. After owner approval, release separately; verify production commit, Render deploy SHA and health. Physical iPhone/Windows acceptance remains a separate NOT_RUN item.
+## Current priority — Autonomous Engineer V4 review
+
+1. Review V4 draft [PR #42](https://github.com/fatmakahraman304-hash/ULTRON/pull/42), head `9c36694d723cebbbfca7ad9afe327dcffb38405d`, stacked on PR #41; keep #38, #39, #40, and #41 unmerged unless separately approved.
+2. Run hosted `discovery_only`, `pause`, and `resume` workflow dispatches to confirm artifact restore and scheduler state across Actions runs. Current local tests cover the state machine only.
+3. Ask an authorized maintainer to inspect repository secrets and Actions write permissions; this workspace receives 403 for secret inventory. Keep provider budget approval disabled until cost/quota limits are explicitly agreed. Then perform one real provider-to-draft-PR test if authorized.
+4. Add authenticated long-term storage beyond the 90-day Actions artifact and independent type/dependency/security/performance/API compatibility runners; those gates are currently **NOT_RUN**.
+5. Update/activate PR #40 on `main` only after the stacked code dependencies are ready; do not merge or deploy V4 during review.
+
+## Prior checkpoint — Autonomous Engineer V3

@@ -13,6 +13,7 @@ import os
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -191,7 +192,8 @@ def _eligible_discovery_by_goal(goals: list[dict], candidates: list[dict] | None
 
 def select_goal(goals: list[dict], open_prs: list[dict],
                 merged_prs: list[dict] | None = None,
-                discovery_candidates: list[dict] | None = None) -> dict | None:
+                discovery_candidates: list[dict] | None = None,
+                memory_snapshot: dict | None = None) -> dict | None:
     """Prioritize evidence-backed goals and avoid files owned by open PRs."""
     if not isinstance(open_prs, list) or not isinstance(merged_prs or [], list):
         raise ProposalError("invalid_pr_list")
@@ -206,6 +208,29 @@ def select_goal(goals: list[dict], open_prs: list[dict],
         completed.update(re.findall(r"GOLGE-AUTODEV:([a-z0-9-]{5,64})", text))
         completed.update(re.findall(r"GÖLGE autonomous: ([a-z0-9-]{5,64})", text))
         completed_candidates.update(re.findall(r"GOLGE-CANDIDATE:([a-f0-9]{20})", text))
+    memory_excluded: set[str] = set()
+    if isinstance(memory_snapshot, dict):
+        rows = memory_snapshot.get("candidates", [])
+        attempts = memory_snapshot.get("attempts", [])
+        attempt_counts: dict[str, int] = {}
+        for attempt in attempts if isinstance(attempts, list) else []:
+            if (isinstance(attempt, dict) and attempt.get("stage") in {"generate", "verify", "repair"}
+                    and isinstance(attempt.get("candidate_id"), str)):
+                attempt_counts[attempt["candidate_id"]] = attempt_counts.get(attempt["candidate_id"], 0) + 1
+        now = datetime.now(timezone.utc)
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict) or not re.fullmatch(r"[a-f0-9]{20}", str(row.get("candidate_id", ""))):
+                continue
+            cid = row["candidate_id"]
+            retry_at = row.get("next_retry_at")
+            waiting = False
+            if isinstance(retry_at, str):
+                try:
+                    waiting = datetime.fromisoformat(retry_at.replace("Z", "+00:00")) > now
+                except ValueError:
+                    waiting = True
+            if row.get("status") in {"already_addressed", "draft_pr_open", "blocked"} or waiting or attempt_counts.get(cid, 0) >= MAX_MODEL_CALLS:
+                memory_excluded.add(cid)
     touched = set()
     for row in open_prs:
         if not isinstance(row, dict):
@@ -214,7 +239,9 @@ def select_goal(goals: list[dict], open_prs: list[dict],
             value = item.get("path") if isinstance(item, dict) else item
             if isinstance(value, str):
                 touched.add(value.removeprefix("./"))
-    discovered = _eligible_discovery_by_goal(goals, discovery_candidates, completed_candidates)
+    discovered = _eligible_discovery_by_goal(
+        goals, discovery_candidates, completed_candidates | memory_excluded
+    )
     ordered = []
     for original in goals:
         if any(path in touched for path in original["paths"]):
@@ -294,10 +321,11 @@ def validate_proposal(proposal: dict, goal: dict, *, root: Path = ROOT) -> list[
 
 def plan_goal(base_sha: str, open_prs: list[dict], merged_prs: list[dict] | None = None,
               discovery_candidates: list[dict] | None = None,
-              require_discovery: bool = False) -> dict:
+              require_discovery: bool = False,
+              memory_snapshot: dict | None = None) -> dict:
     if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
         raise ProposalError("invalid_base_sha")
-    goal = select_goal(load_goals(), open_prs, merged_prs, discovery_candidates)
+    goal = select_goal(load_goals(), open_prs, merged_prs, discovery_candidates, memory_snapshot)
     if not goal or (require_discovery and "_discovery_candidate" not in goal):
         return {"status": "nothing_to_generate", "base_sha": base_sha}
     discovery_candidate = goal.pop("_discovery_candidate", None)
@@ -314,6 +342,12 @@ def plan_goal(base_sha: str, open_prs: list[dict], merged_prs: list[dict] | None
         task["evidence_source"] = discovery_candidate["source"]
         task["evidence_ref"] = discovery_candidate["source_ref"]
         task["candidate_id"] = discovery_candidate["candidate_id"]
+        if isinstance(memory_snapshot, dict):
+            task["model_calls_used"] = sum(
+                1 for row in memory_snapshot.get("attempts", [])
+                if isinstance(row, dict) and row.get("candidate_id") == discovery_candidate["candidate_id"]
+                and row.get("stage") in {"generate", "verify", "repair"}
+            )
     result = {"status": "ready", "base_sha": base_sha, "goal": goal, "task": task}
     if discovery_candidate:
         result["discovery_candidate"] = discovery_candidate
@@ -401,11 +435,11 @@ def generate(plan: dict, provider: str, *, root: Path = ROOT,
              failure_summary: str = "", previous_proposal: dict | None = None) -> dict:
     if plan.get("status") != "ready":
         raise ProposalError("no_goal_available")
-    attempt = 2 if failure_summary else 1
-    if attempt > MAX_MODEL_CALLS or (
-        failure_summary and previous_proposal
-        and int(previous_proposal.get("attempt", 1)) >= MAX_MODEL_CALLS
-    ):
+    if failure_summary:
+        attempt = int((previous_proposal or {}).get("attempt", 1)) + 1
+    else:
+        attempt = int(plan.get("task", {}).get("model_calls_used", 0)) + 1
+    if attempt > MAX_MODEL_CALLS:
         raise ProposalError("model_call_budget_exceeded")
     goal = plan["goal"]
     backend_root = root / "ultron" / "backend"
@@ -497,7 +531,14 @@ def apply(proposal: dict, *, root: Path = ROOT) -> list[str]:
 def verify_proposal(proposal: dict, *, root: Path = ROOT,
                     report_path: Path | None = None) -> dict:
     """Apply and test one proposal in the caller's disposable, no-secret checkout."""
+    gates = {}
+    test_path = ""
     try:
+        from quality_gates import preflight
+        goal = next((g for g in load_goals() if g["id"] == proposal.get("goal_id")), None)
+        if goal is None:
+            raise ProposalError("unknown_goal")
+        gates = preflight(proposal, goal, root=root, engine_module=sys.modules[__name__])
         changed_paths = apply(proposal, root=root)
         for rel in changed_paths:
             if rel.endswith(".py"):
@@ -519,17 +560,34 @@ def verify_proposal(proposal: dict, *, root: Path = ROOT,
             "returncode": result.returncode,
             "changed_paths": changed_paths,
             "diagnostics": "" if result.returncode == 0 else diagnostics,
-            "repairable": result.returncode != 0 and failure_is_repairable(diagnostics),
+            "failure_class": (None if result.returncode == 0 else
+                              "code" if failure_is_repairable(diagnostics) else "infrastructure"),
+            "repairable": (result.returncode != 0 and failure_is_repairable(diagnostics)
+                           and int(proposal.get("attempt", 1)) < MAX_MODEL_CALLS),
+            "quality_gates": gates,
         }
+        gates["unit_test"] = {"status": "PASS" if result.returncode == 0 else "FAIL",
+                              "test_path": test_path}
+        report["quality_gates"] = gates
     except subprocess.TimeoutExpired as exc:
         report = {"status": "failed", "returncode": 124, "changed_paths": [],
                   "diagnostics": sanitize_diagnostics(str(exc) or "test_timeout"),
-                  "repairable": False}
+                  "failure_class": "infrastructure",
+                  "repairable": False, "quality_gates": gates}
+        if gates:
+            gates["unit_test"] = {"status": "FAIL", "reason": "timeout"}
     except Exception as exc:  # keep report machine-readable, without local paths/secrets
         diagnostics = sanitize_diagnostics(type(exc).__name__ + ": " + str(exc))
         report = {"status": "failed", "returncode": 2, "changed_paths": [],
                   "diagnostics": diagnostics,
-                  "repairable": failure_is_repairable(diagnostics)}
+                  "failure_class": "preflight",
+                  # Scope, syntax, secret, or stale-checkout rejections are
+                  # policy/preflight failures; do not ask a model to route
+                  # around them with another patch.
+                  "repairable": False,
+                  "quality_gates": gates}
+        if gates:
+            gates["unit_test"] = {"status": "NOT_RUN", "reason": "preflight_or_apply_failed"}
     if report_path is not None:
         report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     return report
@@ -544,6 +602,8 @@ def main(argv=None) -> int:
     parser.add_argument("--merged-prs", type=Path)
     parser.add_argument("--discovery-file", type=Path,
                         help="Read-only verified candidates produced by discovery.py")
+    parser.add_argument("--memory-file", type=Path,
+                        help="Privacy-filtered engineering-memory snapshot")
     parser.add_argument("--require-discovery", action="store_true",
                         help="Do not plan a registry fallback without eligible observed evidence")
     parser.add_argument("--plan-file", type=Path, default=Path("golge-autodev-plan.json"))
@@ -566,8 +626,16 @@ def main(argv=None) -> int:
                 discoveries = data.get("candidates", []) if isinstance(data, dict) else []
                 if not isinstance(discoveries, list) or len(discoveries) > 200:
                     raise ProposalError("invalid_discovery_candidates")
+            memory = None
+            if args.memory_file:
+                if args.memory_file.is_symlink() or args.memory_file.stat().st_size > 4_000_000:
+                    raise ProposalError("memory_file_rejected")
+                memory = json.loads(args.memory_file.read_text(encoding="utf-8"))
+                if not isinstance(memory, dict) or memory.get("schema_version") != 1:
+                    raise ProposalError("invalid_memory_schema")
             plan = plan_goal(args.base_sha, open_prs, merged_prs, discoveries,
-                             require_discovery=args.require_discovery)
+                             require_discovery=args.require_discovery,
+                             memory_snapshot=memory)
             args.plan_file.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
             print("AUTODEV:" + plan["status"])
         elif args.command == "generate":
@@ -595,6 +663,12 @@ def main(argv=None) -> int:
             print("AUTODEV:repair_proposal_generated")
         elif args.command == "verify":
             proposal = json.loads(args.proposal.read_text(encoding="utf-8"))
+            if root.resolve() == ROOT.resolve():
+                raise ProposalError("verify_requires_disposable_checkout")
+            status = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"],
+                                    cwd=root, capture_output=True, text=True, timeout=5, check=True)
+            if status.stdout.strip():
+                raise ProposalError("verify_requires_clean_disposable_checkout")
             report = verify_proposal(proposal, root=root, report_path=args.report_file)
             print("AUTODEV:verify_" + report["status"])
             if report["status"] != "passed":

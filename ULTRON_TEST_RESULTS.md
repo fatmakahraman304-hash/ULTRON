@@ -1,3 +1,15 @@
+## 2026-10-14 — Autonomous Engineer V4 local verification
+
+- `python -m py_compile scripts/golge_autodev/*.py`: passed.
+- `python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v`: **56 passed**. Includes provenance/path/privacy validation; 7/5/0 issue triage states; persistent memory import/export; correct draft-not-resolved semantics; restart deduplication; one-worker SQLite lease, SHA mismatch, pause/resume state; fake-model repair pipeline.
+- Fake-model isolated integration: **passed**. A controlled temporary Git repo had a real generated-test failure, one bounded model-fixture repair, real child `pytest` pass, and a local commit/draft receipt through the existing `GitHubPRPublisher`; its GitHub fetch/push and `gh` commands were stubbed. Patch/failure/test/PR metadata survived restart and the candidate was suppressed on its second selection. No network/provider/GitHub call occurred in this test.
+- `PYTHONPATH=ultron/backend python -m pytest -q` over self-coding, CodeGen pipeline/path boundary, approval gate, GitHub publisher, autonomous runtime/task: **42 passed**.
+- Workflow YAML parsed with `yaml.BaseLoader`; required job/concurrency contracts passed. `git diff --check`: passed.
+- Draft [PR #42](https://github.com/fatmakahraman304-hash/ULTRON/pull/42) exact code head `9c36694d723cebbbfca7ad9afe327dcffb38405d`; Actions run [38616976680](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38616976680) passed `contracts`. Discovery, provider, test/repair, and publisher hosted jobs were skipped because the trigger was a pull request.
+- Live evidence re-triage: **12 total; 7 review_required, 5 insufficient_evidence, 0 eligible**. No candidate was sent to a model.
+- Real Gemini/Qwen, hosted provider→GitHub PR publication, hosted pause/resume, Windows/iPhone, and Render change validation: **NOT_RUN**. GitHub Actions secrets/settings inventory returned 403. `workflow_dispatch` also depends on a default-branch workflow file; PR #40 is not merged. Render `/health` was read-only HTTP 200 at production SHA `6ef3f5d207fc9430cbbd552988935995529e87f5`; no deployment occurred.
+- Type check, dependency vulnerability scan, separate security analyzer, performance baseline, and API compatibility runner: **NOT_RUN** (no configured runner in the current proposal workflow).
+
 ## 2026-10-14 — Self-Discovery V3 verification
 
 - `python -m unittest discover -s scripts/golge_autodev -p 'test_*.py'`: **48 passed**. Covers source validation, issue/log/health/performance/roadmap/static-analysis candidate generation, priority sorting, candidate dedup, open-PR conflicts, evidence redaction, workflow budget/permission contracts, and no-generation without observed evidence.
