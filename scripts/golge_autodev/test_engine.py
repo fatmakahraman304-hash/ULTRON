@@ -50,6 +50,34 @@ class AutonomousPatchContracts(unittest.TestCase):
         ]))
         self.assertEqual(engine.select_goal([self.goal], [])[ "id"], self.goal["id"])
 
+    def test_completed_goal_is_skipped_for_next_queued_goal(self):
+        goals = engine.load_goals()
+        completed = [{"title": "GÖLGE autonomous: voice-interrupt-contract", "body": ""}]
+        goal = engine.select_goal(goals, [], completed)
+        self.assertIsNotNone(goal)
+        self.assertEqual(goal["id"], "dialogue-continuity-contract")
+        self.assertIsNone(engine.select_goal(goals, [], [
+            {"body": "GOLGE-AUTODEV:voice-interrupt-contract"},
+            {"body": "GOLGE-AUTODEV:dialogue-continuity-contract"},
+        ]))
+
+    def test_generate_uses_a_fake_model_then_proves_bounded_patch(self):
+        source = self.root / self.code_path
+        source.write_text("def safe():\n    return False\n", encoding="utf-8")
+        plan = {"status": "ready", "base_sha": SHA, "goal": self.goal}
+        with patch.object(engine, "infer", return_value=json.dumps(self.proposal)) as fake:
+            result = engine.generate(plan, "ollama", root=self.root)
+        self.assertEqual(result["goal_id"], self.goal["id"])
+        self.assertTrue(fake.called)
+        self.assertEqual(source.read_text(encoding="utf-8"), "def safe():\n    return False\n")
+
+    def test_valid_patch_can_apply_only_on_pinned_commit(self):
+        with patch("subprocess.run") as run:
+            run.return_value.stdout = SHA + "\n"
+            paths = engine.apply(self.proposal, root=self.root)
+        self.assertEqual(set(paths), set(self.goal["paths"]))
+        self.assertIn("def safe():", (self.root / self.code_path).read_text(encoding="utf-8"))
+
     def test_valid_patch_and_explicit_test_requirement(self):
         paths = engine.validate_proposal(self.proposal, self.goal, root=self.root)
         self.assertEqual(len(paths), 2)
