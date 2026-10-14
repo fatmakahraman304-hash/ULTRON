@@ -1,0 +1,318 @@
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+import threading
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import discovery
+import engine
+from engineering_memory import EngineeringMemory
+from remember_pipeline import record_pipeline
+from triage import triage_candidates
+
+SHA = "a" * 40
+
+
+class LocalDraftPublisher:
+    """No-token/no-network publisher used only inside a temporary test repo."""
+    def __init__(self, root: Path, metadata: Path):
+        self.root = root
+        self.metadata = metadata
+
+    def publish(self, proposal: dict, goal: dict) -> dict:
+        paths = [path for path, _ in engine.validate_proposal(proposal, goal, root=self.root)]
+        changed = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"],
+                                 cwd=self.root, check=True, capture_output=True, text=True).stdout.splitlines()
+        touched = {line[3:] for line in changed if len(line) >= 4
+                   and "/__pycache__/" not in line[3:]
+                   and not line[3:].startswith(".pytest_cache/")
+                   and not line[3:].endswith(".pyc")}
+        if not touched or not touched.issubset(set(paths)):
+            raise ValueError("fixture_publisher_path_scope")
+        subprocess.run(["git", "switch", "-c", "fixture/draft-proposal"], cwd=self.root,
+                       check=True, capture_output=True)
+        subprocess.run(["git", "add", "--", *paths], cwd=self.root, check=True)
+        subprocess.run(["git", "commit", "-m", "fixture verified draft"], cwd=self.root,
+                       check=True, capture_output=True)
+        commit_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.root, check=True,
+                                    capture_output=True, text=True).stdout.strip()
+        result = {"draft": True, "commit_sha": commit_sha, "paths": paths,
+                  "network_calls": 0, "provider_calls": 0}
+        self.metadata.write_text(json.dumps(result), encoding="utf-8")
+        return result
+
+
+class EngineeringMemoryContracts(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.db = self.root / "memory.sqlite"
+        self.candidate = discovery.candidates_from_actions([{
+            "databaseId": 987654, "conclusion": "failure",
+            "headBranch": engine.BASE_BRANCH, "headSha": SHA,
+            "jobs": [{"conclusion": "failure", "steps": [{
+                "conclusion": "failure",
+                "name": "pytest ultron/backend/tests/test_autodev_communication.py",
+            }]}],
+        }])[0]
+
+    def test_memory_keeps_only_bounded_structured_evidence_and_round_trips(self):
+        candidate = dict(self.candidate, status="eligible", verification_status="reproduced",
+                         verified_test="ultron/backend/tests/test_autodev_communication.py",
+                         evidence_commit_sha="b" * 40, verification_sha=SHA)
+        candidate["evidence"] = "API_KEY=AIza0123456789abcdefghijklmnop raw exception details"
+        memory = EngineeringMemory(self.db)
+        memory.record_candidate(candidate, source_sha=SHA)
+        memory.record_attempt(candidate["candidate_id"], attempt_no=1, stage="verify",
+                              outcome="failed", source_sha=SHA,
+                              tests=["ultron/backend/tests/test_autodev_communication.py"],
+                              retry_after="2099-01-01T00:00:00+00:00")
+        snapshot = memory.snapshot()
+        packed = json.dumps(snapshot)
+        self.assertNotIn("AIza0123456789abcdefghijklmnop", packed)
+        self.assertNotIn("raw exception details", packed)
+        self.assertEqual(snapshot["candidates"][0]["source_sha"], SHA)
+        self.assertEqual(snapshot["candidates"][0]["evidence_sha"], "b" * 40)
+        self.assertEqual(snapshot["candidates"][0]["verification_sha"], SHA)
+        self.assertEqual(snapshot["attempts"][0].get("failure_class"), None)
+        self.assertFalse(memory.retry_allowed(candidate["candidate_id"], now="2098-01-01T00:00:00+00:00"))
+        out = self.root / "memory.json"
+        memory.export_json(out)
+        memory.close()
+
+        restored = EngineeringMemory(self.root / "restored.sqlite")
+        restored.import_json(out)
+        after = restored.snapshot()
+        self.assertEqual(len(after["candidates"]), 1)
+        self.assertEqual(len(after["attempts"]), 1)
+        self.assertEqual(after["attempts"][0]["outcome"], "failed")
+        restored.close()
+
+    def test_model_text_unknown_paths_and_bad_provenance_cannot_enter_memory(self):
+        memory = EngineeringMemory(self.db)
+        candidate = dict(self.candidate)
+        candidate["source_ref"] = "model says this is a bug"
+        with self.assertRaisesRegex(ValueError, "untrusted_evidence_reference"):
+            memory.record_candidate(candidate, source_sha=SHA)
+        candidate = dict(self.candidate, affected_files=["../../secrets.py"])
+        with self.assertRaisesRegex(ValueError, "path_outside_registered_scope"):
+            memory.record_candidate(candidate, source_sha=SHA)
+        memory.close()
+
+    def test_draft_pr_is_not_claimed_as_resolved_and_requires_passing_receipts(self):
+        memory = EngineeringMemory(self.db)
+        candidate = dict(self.candidate, status="eligible", verification_status="reproduced",
+                         verified_test="ultron/backend/tests/test_autodev_communication.py")
+        memory.record_candidate(candidate, source_sha=SHA)
+        cid = candidate["candidate_id"]
+        with self.assertRaisesRegex(ValueError, "draft_pr_without_test_and_publish_receipts"):
+            memory.record_draft_pr(cid, commit_sha=SHA,
+                                     pr_url="https://github.com/fatmakahraman304-hash/ULTRON/pull/123",
+                                     passing_tests=["ultron/backend/tests/test_autodev_communication.py"])
+        memory.record_attempt(cid, attempt_no=1, stage="verify", outcome="passed", source_sha=SHA,
+                              tests=["ultron/backend/tests/test_autodev_communication.py"])
+        memory.record_attempt(cid, attempt_no=1, stage="publish", outcome="created", source_sha=SHA,
+                              tests=["ultron/backend/tests/test_autodev_communication.py"],
+                              commit_sha=SHA,
+                              pr_url="https://github.com/fatmakahraman304-hash/ULTRON/pull/123")
+        memory.record_draft_pr(cid, commit_sha=SHA,
+                                 pr_url="https://github.com/fatmakahraman304-hash/ULTRON/pull/123",
+                                 passing_tests=["ultron/backend/tests/test_autodev_communication.py"])
+        self.assertEqual(memory.snapshot()["candidates"][0]["status"], "draft_pr_open")
+        self.assertFalse(memory.retry_allowed(cid))
+        self.assertFalse(memory.record_candidate(candidate, source_sha=SHA))
+        memory.close()
+
+    def test_confirmed_no_longer_reproduced_candidate_survives_worker_restart(self):
+        candidate = dict(self.candidate, status="already_addressed", verification_status="passed",
+                         verified_test="ultron/backend/tests/test_autodev_communication.py",
+                         verification_sha=SHA)
+        memory = EngineeringMemory(self.db)
+        memory.record_candidate(candidate, source_sha=SHA)
+        out = self.root / "confirmed.json"
+        memory.export_json(out)
+        memory.close()
+        restored = EngineeringMemory(self.root / "confirmed-restored.sqlite")
+        restored.import_json(out)
+        self.assertEqual(restored.snapshot()["candidates"][0]["status"], "already_addressed")
+        self.assertFalse(restored.record_candidate(candidate, source_sha=SHA))
+        restored.close()
+
+    def test_scheduler_is_single_flight_sha_pinned_and_pauseable(self):
+        memory = EngineeringMemory(self.db)
+        self.assertFalse(memory.acquire_write_slot(owner="stale", base_sha=SHA, current_sha="b" * 40))
+        self.assertTrue(memory.acquire_write_slot(owner="run-1", base_sha=SHA, current_sha=SHA))
+        self.assertFalse(memory.acquire_write_slot(owner="run-2", base_sha=SHA, current_sha=SHA))
+        self.assertFalse(memory.release_write_slot("run-2"))
+        self.assertTrue(memory.release_write_slot("run-1"))
+        memory.set_paused(True, "test failure")
+        self.assertFalse(memory.acquire_write_slot(owner="run-3", base_sha=SHA, current_sha=SHA))
+        memory.set_paused(False)
+        self.assertTrue(memory.acquire_write_slot(owner="run-3", base_sha=SHA, current_sha=SHA))
+        memory.close()
+
+    def test_scheduler_competing_workers_get_only_one_write_lease(self):
+        initialized = EngineeringMemory(self.db)
+        initialized.close()
+        barrier = threading.Barrier(2)
+        results = []
+
+        def claim(name):
+            store = EngineeringMemory(self.db)
+            barrier.wait()
+            results.append(store.acquire_write_slot(owner=name, base_sha=SHA, current_sha=SHA))
+            store.close()
+
+        threads = [threading.Thread(target=claim, args=("worker-a",)),
+                   threading.Thread(target=claim, args=("worker-b",))]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=5)
+        self.assertEqual(results.count(True), 1)
+        self.assertEqual(results.count(False), 1)
+
+    def test_triage_requires_reproduced_registered_test_and_blocks_open_pr_conflicts(self):
+        candidate = dict(self.candidate)
+        test_path = "ultron/backend/tests/test_autodev_communication.py"
+        failed = triage_candidates([candidate], base_sha=SHA,
+                                   test_results={test_path: {"state": "failed_code", "returncode": 1}})[0]
+        self.assertEqual(failed["status"], "eligible")
+        passed = triage_candidates([candidate], base_sha=SHA,
+                                   test_results={test_path: {"state": "passed", "returncode": 0}})[0]
+        self.assertEqual(passed["status"], "already_addressed")
+        blocked = triage_candidates([candidate], base_sha=SHA,
+                                    open_prs=[{"paths": ["ultron/backend/app/cognitive/communication.py"]}],
+                                    test_results={test_path: {"state": "failed_code", "returncode": 1}})[0]
+        self.assertEqual(blocked["status"], "blocked")
+        invalid = dict(candidate, evidence="model-invented failure")
+        invalid["candidate_id"] = "f" * 20
+        rejected = triage_candidates([invalid], base_sha=SHA,
+                                     test_results={test_path: {"state": "failed_code", "returncode": 1}})[0]
+        self.assertEqual(rejected["status"], "insufficient_evidence")
+
+
+class FakeModelAutonomyIntegration(unittest.TestCase):
+    """End-to-end fake model + real pytest + local-only draft publication.
+
+    This intentionally does not make a Gemini/Qwen request or connect to GitHub.
+    """
+    def test_discover_code_fail_repair_pytest_publish_and_deduplicate(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        backend = root / "ultron/backend"
+        code_rel = "ultron/backend/app/cognitive/communication.py"
+        test_rel = "ultron/backend/tests/test_autodev_communication.py"
+        (root / code_rel).parent.mkdir(parents=True)
+        (root / test_rel).parent.mkdir(parents=True)
+        (root / code_rel).write_text("def safe():\n    return False\n", encoding="utf-8")
+        subprocess.run(["git", "init", "-b", "fixture-base"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "config", "user.name", "Autodev Fixture"], cwd=root, check=True)
+        subprocess.run(["git", "config", "user.email", "fixture@example.invalid"], cwd=root, check=True)
+        subprocess.run(["git", "add", code_rel], cwd=root, check=True)
+        subprocess.run(["git", "commit", "-m", "fixture base"], cwd=root, check=True, capture_output=True)
+        base_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True,
+                                  capture_output=True, text=True).stdout.strip()
+        goal = next(item for item in engine.load_goals() if item["id"] == "dialogue-continuity-contract")
+        observed = discovery.candidates_from_actions([{
+            "databaseId": 987655, "conclusion": "failure",
+            "headBranch": engine.BASE_BRANCH, "headSha": base_sha,
+            "jobs": [{"conclusion": "failure", "steps": [{
+                "conclusion": "failure", "name": "pytest " + goal["test_path"],
+            }]}],
+        }])[0]
+        triaged = triage_candidates([observed], base_sha=base_sha,
+                                    test_results={goal["test_path"]: {"state": "failed_code", "returncode": 1}})
+        self.assertEqual(triaged[0]["status"], "eligible")
+        memory_path = root.with_name(root.name + "-memory.sqlite")
+        for path in (memory_path, Path(str(memory_path) + "-wal"), Path(str(memory_path) + "-shm")):
+            self.addCleanup(lambda path=path: path.unlink(missing_ok=True))
+        memory = EngineeringMemory(memory_path)
+        memory.record_candidate(triaged[0], source_sha=base_sha)
+        self.assertTrue(memory.acquire_write_slot(owner="fixture-run", base_sha=base_sha,
+                                                 current_sha=base_sha))
+        plan = engine.plan_goal(base_sha, [], [], triaged, require_discovery=True,
+                                memory_snapshot=memory.snapshot())
+        self.assertEqual(plan["status"], "ready")
+        self.assertEqual(plan["goal"]["id"], goal["id"])
+
+        regression = "from app.cognitive.communication import safe\n\ndef test_safe():\n    assert safe() is True\n"
+        first_model = {"summary": "Add a tested safe communication behavior", "files": [
+            {"path": "app/cognitive/communication.py", "content": "def safe():\n    return False\n"},
+            {"path": "tests/test_autodev_communication.py", "content": regression},
+        ]}
+        repair_model = {"summary": "Correct the reproduced communication regression", "files": [
+            {"path": "app/cognitive/communication.py", "content": "def safe():\n    return True\n"},
+            {"path": "tests/test_autodev_communication.py", "content": regression},
+        ]}
+        with patch.object(engine, "infer", side_effect=[json.dumps(first_model), json.dumps(repair_model)]) as fake:
+            proposal1 = engine.generate(plan, "ollama", root=root)
+            self.assertEqual(proposal1["discovery_candidate_id"], triaged[0]["candidate_id"])
+            failed = engine.verify_proposal(proposal1, root=root)
+            self.assertEqual(failed["status"], "failed")
+            subprocess.run(["git", "reset", "--hard", base_sha], cwd=root, check=True, capture_output=True)
+            subprocess.run(["git", "clean", "-fd"], cwd=root, check=True, capture_output=True)
+            proposal2 = engine.generate(plan, "ollama", root=root,
+                                        failure_summary=failed["diagnostics"], previous_proposal=proposal1)
+            self.assertEqual(proposal2["attempt"], 2)
+            passed = engine.verify_proposal(proposal2, root=root)
+        self.assertEqual(fake.call_count, 2)
+        self.assertEqual(passed["status"], "passed", passed["diagnostics"])
+
+        # This narrow test publisher has no token/network. It creates only a
+        # fixture-local commit from the validated registered paths.
+        publisher_metadata = root.with_name(root.name + "-fixture-pr.json")
+        self.addCleanup(lambda: publisher_metadata.unlink(missing_ok=True))
+        fake_publisher = LocalDraftPublisher(root, publisher_metadata)
+        published = fake_publisher.publish(proposal2, goal)
+        commit_sha = published["commit_sha"]
+        self.assertRegex(commit_sha, r"^[0-9a-f]{40}$")
+        self.assertTrue(published["draft"])
+        self.assertEqual(published["network_calls"], 0)
+        ast_path = root / code_rel
+        __import__("ast").parse(ast_path.read_text(encoding="utf-8"))
+        outcome = record_pipeline(memory, candidate_id=triaged[0]["candidate_id"],
+                                  source_sha=base_sha, plan_status="ready", proposed=True,
+                                  propose_result="success", initial_result="failure",
+                                  repair_result="success", verify_repair_result="success",
+                                  initial_failure_class="code", repair_failure_class="none",
+                                  initial_patch_sha="b" * 64, repair_patch_sha="c" * 64,
+                                  draft_result="success",
+                                  pr_url="https://github.com/fatmakahraman304-hash/ULTRON/pull/999",
+                                  commit_sha=commit_sha)
+        self.assertTrue(outcome["draft_pr_created"])
+        self.assertFalse(outcome["problem_resolved"])
+        self.assertTrue(memory.release_write_slot("fixture-run"))
+        export_path = root.with_name(root.name + "-engineering-memory.json")
+        memory.export_json(export_path)
+        memory.close()
+        restarted_path = root.with_name(root.name + "-restarted.sqlite")
+        for path in (restarted_path, Path(str(restarted_path) + "-wal"), Path(str(restarted_path) + "-shm")):
+            self.addCleanup(lambda path=path: path.unlink(missing_ok=True))
+        restarted = EngineeringMemory(restarted_path)
+        restarted.import_json(export_path)
+        snapshot = restarted.snapshot()
+        self.assertEqual(len(snapshot["attempts"]), 3)
+        self.assertIn(commit_sha, [row["commit_sha"] for row in snapshot["attempts"]])
+        verify_attempt = next(row for row in snapshot["attempts"] if row["stage"] == "verify")
+        repair_attempt = next(row for row in snapshot["attempts"] if row["stage"] == "repair")
+        self.assertEqual(verify_attempt["failure_class"], "code")
+        self.assertEqual(verify_attempt["patch_sha"], "b" * 64)
+        self.assertEqual(repair_attempt["patch_sha"], "c" * 64)
+        self.assertEqual(snapshot["candidates"][0]["status"], "draft_pr_open")
+        self.assertNotEqual(engine.plan_goal(base_sha, [], [], triaged,
+                                             require_discovery=True,
+                                             memory_snapshot=snapshot)["status"], "ready")
+        restarted.close()
+
+
+if __name__ == "__main__":
+    unittest.main()

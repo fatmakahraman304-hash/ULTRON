@@ -236,8 +236,10 @@ class AutonomousPatchContracts(unittest.TestCase):
         with patch.object(engine, "apply", side_effect=materialize):
             result = engine.verify_proposal(self.proposal, root=self.root)
         self.assertEqual(result["status"], "failed")
-        self.assertIn("[REDACTED_CREDENTIAL]", result["diagnostics"])
+        self.assertEqual(result["failure_class"], "preflight")
+        self.assertFalse(result["repairable"])
         self.assertNotIn("AIza0123456789abcdefghijklmnop", result["diagnostics"])
+        self.assertIn("credential_like_content", result["diagnostics"])
 
     def test_verify_accepts_a_passing_generated_regression(self):
         self.proposal["files"][1]["content"] = (
@@ -254,6 +256,11 @@ class AutonomousPatchContracts(unittest.TestCase):
             result = engine.verify_proposal(self.proposal, root=self.root)
         self.assertEqual(result["status"], "passed", result["diagnostics"])
         self.assertEqual(result["returncode"], 0)
+        self.assertEqual(result["quality_gates"]["syntax"]["status"], "PASS")
+        self.assertEqual(result["quality_gates"]["unit_test"]["status"], "PASS")
+        self.assertEqual(result["quality_gates"]["type_check"]["status"], "NOT_RUN")
+        self.assertEqual(result["quality_gates"]["performance_regression"]["status"], "NOT_RUN")
+        self.assertIsNone(result["failure_class"])
 
     def test_fake_model_to_failing_test_to_repair_and_retest(self):
         backend = self.root / "ultron/backend"
@@ -284,6 +291,7 @@ class AutonomousPatchContracts(unittest.TestCase):
             first = engine.generate(plan, "ollama", root=self.root)
             failed = engine.verify_proposal(first, root=self.root)
             self.assertEqual(failed["status"], "failed")
+            self.assertEqual(failed["failure_class"], "code")
             self.assertGreater(len(failed["diagnostics"]), 0)
             subprocess.run(["git", "reset", "--hard", base_sha], cwd=self.root, check=True, capture_output=True)
             subprocess.run(["git", "clean", "-fd"], cwd=self.root, check=True, capture_output=True)

@@ -8,6 +8,7 @@ on:
       - feat/ultron-cloud-shared-memory
       - feat/golge-autonomous-development-v1-20261014
       - feat/golge-autonomous-development-v2-20261014
+      - feat/golge-self-discovery-v1-20261014
     paths:
       - "scripts/golge_autodev/**"
       - "ultron/backend/github_pr_publisher.py"
@@ -22,6 +23,8 @@ on:
           - contracts_only
           - discovery_only
           - pipeline
+          - pause
+          - resume
         default: contracts_only
   schedule:
     - cron: "23 6 * * 1,4"
@@ -37,6 +40,52 @@ env:
   TOOLS_REF: ${{ (github.event_name == 'schedule' || github.ref_name == 'main') && 'feat/ultron-cloud-shared-memory' || github.sha }}
 
 jobs:
+  scheduler_control:
+    if: github.event_name == 'workflow_dispatch' && (inputs.mode == 'pause' || inputs.mode == 'resume')
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Restore latest repository engineering-memory snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=golge-autodev-engineering-memory&per_page=100" \
+            --jq '.artifacts | map(select(.expired == false)) | sort_by(.created_at) | last | .workflow_run.id // empty')"
+          if [ -n "$RUN_ID" ]; then
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name golge-autodev-engineering-memory --dir prior-memory
+            python scripts/golge_autodev/engineering_memory.py import \
+              --db .autodev/engineering-memory.sqlite --file prior-memory/engineering-memory.json
+          fi
+      - name: Persist requested pause or resume state
+        run: |
+          mkdir -p .autodev
+          python scripts/golge_autodev/engineering_memory.py "$MODE" \
+            --db .autodev/engineering-memory.sqlite --reason "workflow_dispatch"
+          python scripts/golge_autodev/engineering_memory.py export \
+            --db .autodev/engineering-memory.sqlite --file engineering-memory.json
+        env:
+          MODE: ${{ inputs.mode }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-engineering-memory
+          path: engineering-memory.json
+          retention-days: 90
+          overwrite: true
+          if-no-files-found: error
+
   contracts:
     runs-on: ubuntu-latest
     timeout-minutes: 6
@@ -62,6 +111,8 @@ jobs:
     needs: contracts
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    outputs:
+      paused: ${{ steps.scheduler.outputs.paused }}
     permissions:
       contents: read
       actions: read
@@ -78,10 +129,52 @@ jobs:
           ref: ${{ env.BASE_BRANCH }}
           path: source
           persist-credentials: false
+      - name: Find the latest unexpired engineering-memory artifact
+        id: prior_memory
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID="$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=golge-autodev-engineering-memory&per_page=100" \
+            --jq '.artifacts | map(select(.expired == false)) | sort_by(.created_at) | last | .workflow_run.id // empty')"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+      - name: Restore prior engineering-memory snapshot when available
+        if: steps.prior_memory.outputs.run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-engineering-memory
+          run-id: ${{ steps.prior_memory.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: prior-memory
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install the bounded regression-test runner
+        run: python -m pip install --disable-pip-version-check 'pytest>=8,<9'
+      - name: Restore privacy-filtered memory into the worker-local database
+        if: steps.prior_memory.outputs.run_id != ''
+        run: |
+          python autodev-tools/scripts/golge_autodev/engineering_memory.py import \
+            --db .autodev/engineering-memory.sqlite \
+            --file prior-memory/engineering-memory.json
+      - name: Check persistent scheduler state
+        id: scheduler
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATE="$(python autodev-tools/scripts/golge_autodev/engineering_memory.py summary \
+            --db .autodev/engineering-memory.sqlite | python -c "import json,sys; print(json.load(sys.stdin)['state'])")"
+          if [ "$STATE" = "paused" ]; then
+            echo "paused=true" >> "$GITHUB_OUTPUT"
+            python autodev-tools/scripts/golge_autodev/engineering_memory.py export \
+              --db .autodev/engineering-memory.sqlite --file engineering-memory.json
+            echo "Persistent scheduler is paused; no discovery, provider call, or publisher will run."
+          else
+            echo "paused=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Collect read-only GitHub and repository evidence
+        if: steps.scheduler.outputs.paused != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -89,15 +182,53 @@ jobs:
           python autodev-tools/scripts/golge_autodev/discovery.py collect
           --root source --repo "$GITHUB_REPOSITORY"
           --output golge-autodev-discovery.json
-      - uses: actions/upload-artifact@v4
+      - name: Reproduce only registered, allowlisted regression tests
+        if: steps.scheduler.outputs.paused != 'true'
+        run: |
+          python -c "import json; d=json.load(open('golge-autodev-discovery.json')); json.dump({'paths':d.get('open_pr_paths',[])},open('golge-autodev-open-pr-paths.json','w'))"
+          SOURCE_SHA="$(git -C source rev-parse HEAD)"
+          python autodev-tools/scripts/golge_autodev/triage.py \
+            --root source --input golge-autodev-discovery.json \
+            --open-pr-paths golge-autodev-open-pr-paths.json \
+            --base-sha "$SOURCE_SHA" --output golge-autodev-triage.json
+      - name: Persist candidate evidence without source logs or model text
+        if: steps.scheduler.outputs.paused != 'true'
+        run: |
+          SOURCE_SHA="$(git -C source rev-parse HEAD)"
+          python autodev-tools/scripts/golge_autodev/engineering_memory.py observe \
+            --db .autodev/engineering-memory.sqlite --file golge-autodev-triage.json \
+            --source-sha "$SOURCE_SHA"
+          python autodev-tools/scripts/golge_autodev/engineering_memory.py export \
+            --db .autodev/engineering-memory.sqlite --file engineering-memory.json
+          python autodev-tools/scripts/golge_autodev/engineering_memory.py summary \
+            --db .autodev/engineering-memory.sqlite
+      - if: steps.scheduler.outputs.paused != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-engineering-memory
+          path: engineering-memory.json
+          retention-days: 90
+          if-no-files-found: error
+      - if: steps.scheduler.outputs.paused != 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: golge-autodev-discovery
-          path: golge-autodev-discovery.json
+          path: |
+            golge-autodev-discovery.json
+            golge-autodev-triage.json
           retention-days: 2
+          if-no-files-found: error
+      - if: steps.scheduler.outputs.paused == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-engineering-memory
+          path: engineering-memory.json
+          retention-days: 90
+          overwrite: true
           if-no-files-found: error
 
   propose:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'pipeline')
+    if: github.event_name != 'pull_request' && needs.discover.outputs.paused != 'true' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'pipeline')
     needs: [contracts, discover]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -108,6 +239,8 @@ jobs:
       proposed: ${{ steps.generate.outputs.proposed }}
       base_sha: ${{ steps.plan.outputs.base_sha }}
       goal_id: ${{ steps.plan.outputs.goal_id }}
+      candidate_id: ${{ steps.plan.outputs.candidate_id }}
+      plan_status: ${{ steps.plan.outputs.plan_status }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -127,6 +260,10 @@ jobs:
         with:
           name: golge-autodev-discovery
           path: discovery
+      - uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-engineering-memory
+          path: memory
       - name: Pin source SHA and collect open/merged PR evidence
         id: plan
         env:
@@ -142,11 +279,16 @@ jobs:
             --root source --base-sha "$BASE_SHA" \
             --open-prs golge-autodev-open-prs.json \
             --merged-prs golge-autodev-merged-prs.json \
-            --discovery-file discovery/golge-autodev-discovery.json \
+            --discovery-file discovery/golge-autodev-triage.json \
+            --memory-file memory/engineering-memory.json \
             --require-discovery \
             --plan-file golge-autodev-plan.json
           GOAL_ID="$(python -c "import json; p=json.load(open('golge-autodev-plan.json')); print(p.get('goal',{}).get('id',''))")"
+          CANDIDATE_ID="$(python -c "import json; p=json.load(open('golge-autodev-plan.json')); print((p.get('discovery_candidate') or {}).get('candidate_id',''))")"
+          PLAN_STATUS="$(python -c "import json; print(json.load(open('golge-autodev-plan.json')).get('status',''))")"
           echo "goal_id=$GOAL_ID" >> "$GITHUB_OUTPUT"
+          echo "candidate_id=$CANDIDATE_ID" >> "$GITHUB_OUTPUT"
+          echo "plan_status=$PLAN_STATUS" >> "$GITHUB_OUTPUT"
       - name: Generate one bounded proposal with the configured Gemini coding model
         id: generate
         env:
@@ -198,6 +340,8 @@ jobs:
     outputs:
       passed: ${{ steps.verify.outputs.passed }}
       repairable: ${{ steps.verify.outputs.repairable }}
+      failure_class: ${{ steps.verify.outputs.failure_class }}
+      patch_sha: ${{ steps.verify.outputs.patch_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -231,8 +375,15 @@ jobs:
           repairable=false
           if [ -f golge-autodev-verification.json ]; then
             repairable="$(python -c "import json; print(str(bool(json.load(open('golge-autodev-verification.json')).get('repairable'))).lower())")"
+            failure_class="$(python -c "import json; print(json.load(open('golge-autodev-verification.json')).get('failure_class') or 'none')")"
+            patch_sha="$(sha256sum golge-autodev-proposal.json | cut -d ' ' -f1)"
+          else
+            failure_class=unknown
+            patch_sha=
           fi
           echo "repairable=$repairable" >> "$GITHUB_OUTPUT"
+          echo "failure_class=$failure_class" >> "$GITHUB_OUTPUT"
+          echo "patch_sha=$patch_sha" >> "$GITHUB_OUTPUT"
           exit "$status"
       - name: Keep only bounded, redacted failure evidence for one repair attempt
         if: always()
@@ -315,6 +466,9 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
+    outputs:
+      failure_class: ${{ steps.verify.outputs.failure_class }}
+      patch_sha: ${{ steps.verify.outputs.patch_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -336,10 +490,24 @@ jobs:
       - name: Install bounded verifier dependencies
         run: python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'numpy>=1.26,<3'
       - name: Apply and retest the one repair in a fresh no-secret checkout
+        id: verify
+        shell: bash
         run: |
+          set +e
           python autodev-tools/scripts/golge_autodev/engine.py verify \
             --root source --proposal golge-autodev-repair.json \
             --report-file golge-autodev-repair-verification.json
+          status=$?
+          if [ -f golge-autodev-repair-verification.json ]; then
+            failure_class="$(python -c "import json; print(json.load(open('golge-autodev-repair-verification.json')).get('failure_class') or 'none')")"
+            patch_sha="$(sha256sum golge-autodev-repair.json | cut -d ' ' -f1)"
+          else
+            failure_class=unknown
+            patch_sha=
+          fi
+          echo "failure_class=$failure_class" >> "$GITHUB_OUTPUT"
+          echo "patch_sha=$patch_sha" >> "$GITHUB_OUTPUT"
+          exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -356,6 +524,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      pull_request: ${{ steps.publish.outputs.pr_url }}
+      commit_sha: ${{ steps.publish.outputs.commit_sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -384,6 +555,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Publish a draft using the existing GitHubPRPublisher; never run model output with write access
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -416,4 +588,91 @@ jobs:
           )
           print("AUTODEV:DRAFT_PR:" + published["pull_request"])
           print("AUTODEV:COMMIT:" + published["commit_sha"])
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("pr_url=" + published["pull_request"] + "\n")
+              output.write("commit_sha=" + published["commit_sha"] + "\n")
           PY
+
+  remember:
+    if: always() && needs.discover.result == 'success' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (inputs.mode == 'pipeline' || inputs.mode == 'discovery_only')))
+    needs: [discover, propose, verify_initial, repair, verify_repair, draft_pr]
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Restore this run's observed engineering memory
+        uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-engineering-memory
+          run-id: ${{ github.run_id }}
+          github-token: ${{ github.token }}
+          path: state
+      - name: Record bounded pipeline receipts and refresh durable memory artifact
+        env:
+          CANDIDATE_ID: ${{ needs.propose.outputs.candidate_id }}
+          SOURCE_SHA: ${{ needs.propose.outputs.base_sha }}
+          PLAN_STATUS: ${{ needs.propose.outputs.plan_status }}
+          PROPOSED: ${{ needs.propose.outputs.proposed }}
+          PROPOSE_RESULT: ${{ needs.propose.result }}
+          INITIAL_RESULT: ${{ needs.verify_initial.result }}
+          REPAIR_RESULT: ${{ needs.repair.result }}
+          VERIFY_REPAIR_RESULT: ${{ needs.verify_repair.result }}
+          INITIAL_FAILURE_CLASS: ${{ needs.verify_initial.outputs.failure_class || 'unknown' }}
+          REPAIR_FAILURE_CLASS: ${{ needs.verify_repair.outputs.failure_class || 'unknown' }}
+          INITIAL_PATCH_SHA: ${{ needs.verify_initial.outputs.patch_sha || '' }}
+          REPAIR_PATCH_SHA: ${{ needs.verify_repair.outputs.patch_sha || '' }}
+          DRAFT_RESULT: ${{ needs.draft_pr.result }}
+          PR_URL: ${{ needs.draft_pr.outputs.pull_request }}
+          COMMIT_SHA: ${{ needs.draft_pr.outputs.commit_sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .autodev
+          python scripts/golge_autodev/engineering_memory.py import \
+            --db .autodev/engineering-memory.sqlite \
+            --file state/engineering-memory.json
+          if [ -n "$CANDIDATE_ID" ]; then
+            python - <<'PY'
+          import json, os
+          receipt = {
+              "candidate_id": os.environ["CANDIDATE_ID"],
+              "source_sha": os.environ["SOURCE_SHA"],
+              "plan_status": os.environ.get("PLAN_STATUS", ""),
+              "proposed": os.environ.get("PROPOSED", "") == "true",
+              "propose_result": os.environ.get("PROPOSE_RESULT", ""),
+              "initial_result": os.environ.get("INITIAL_RESULT", ""),
+              "repair_result": os.environ.get("REPAIR_RESULT", ""),
+              "verify_repair_result": os.environ.get("VERIFY_REPAIR_RESULT", ""),
+              "initial_failure_class": os.environ.get("INITIAL_FAILURE_CLASS", "unknown"),
+              "repair_failure_class": os.environ.get("REPAIR_FAILURE_CLASS", "unknown"),
+              "initial_patch_sha": os.environ.get("INITIAL_PATCH_SHA", ""),
+              "repair_patch_sha": os.environ.get("REPAIR_PATCH_SHA", ""),
+              "draft_result": os.environ.get("DRAFT_RESULT", ""),
+              "pr_url": os.environ.get("PR_URL", ""),
+              "commit_sha": os.environ.get("COMMIT_SHA", ""),
+          }
+          with open("pipeline-receipt.json", "w", encoding="utf-8") as output:
+              json.dump(receipt, output)
+          PY
+            python scripts/golge_autodev/remember_pipeline.py \
+              --db .autodev/engineering-memory.sqlite --receipt pipeline-receipt.json \
+              --export engineering-memory.json
+          else
+            python scripts/golge_autodev/engineering_memory.py export \
+              --db .autodev/engineering-memory.sqlite --file engineering-memory.json
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-engineering-memory
+          path: engineering-memory.json
+          retention-days: 90
+          overwrite: true
+          if-no-files-found: error

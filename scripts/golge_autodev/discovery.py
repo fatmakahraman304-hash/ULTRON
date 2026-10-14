@@ -155,6 +155,7 @@ def candidates_from_actions(runs: list[dict]) -> list[dict]:
                 risk_level="medium", status="eligible", goal_id=goal_id,
                 success_criteria=["The registered failing test passes without weakening existing assertions."],
                 required_tests=[matched_goal["test_path"]],
+                evidence_commit_sha=sha,
             ))
         else:
             out.append(_candidate(
@@ -167,6 +168,7 @@ def candidates_from_actions(runs: list[dict]) -> list[dict]:
                 risk_level="medium", status="review_required", goal_id=None,
                 success_criteria=["A maintainer maps the failure to a verified test and allowlisted component."],
                 required_tests=["Add or run a focused regression test before code generation."],
+                evidence_commit_sha=sha,
             ))
     return out
 
@@ -559,13 +561,27 @@ def main(argv: list[str] | None = None) -> int:
             static_report=static_report, roadmap_text=roadmap,
             roadmap_sources=roadmap_sources, open_prs=open_prs,
         )
-        result = {"schema_version": 1, "source_counts": {
+        try:
+            source_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=args.root,
+                                        capture_output=True, text=True, timeout=5, check=True).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            source_sha = ""
+        if not re.fullmatch(r"[0-9a-f]{40}", source_sha):
+            raise ValueError("source_sha_unavailable")
+        open_paths = sorted({
+            (item.get("path") if isinstance(item, dict) else item).removeprefix("./")
+            for pr in open_prs if isinstance(pr, dict)
+            for item in pr.get("files", []) if isinstance(pr.get("files", []), list)
+            if isinstance(item.get("path") if isinstance(item, dict) else item, str)
+        })[:2000]
+        result = {"schema_version": 1, "source_sha": source_sha,
+            "source_counts": {
             "actions_failures": len(runs), "open_issues": len(issues),
             "open_pull_requests": len(open_prs),
             "application_log_lines": len(app_lines),
             "static_findings": len(static_report.get("issues", [])) if isinstance(static_report, dict) else 0,
             "roadmap_sources": 1 + len(roadmap_sources) if roadmap else len(roadmap_sources),
-        }, "candidates": candidates}
+        }, "open_pr_paths": open_paths, "candidates": candidates}
         args.output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
         print(json.dumps({"status": "ok", "candidates": len(candidates),
                           "eligible": sum(row["status"] == "eligible" for row in candidates),
