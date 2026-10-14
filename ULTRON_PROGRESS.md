@@ -4,7 +4,7 @@
 - Test-first: three regressions failed before the fixes. Local Qwen now receives the shared configured prompt through the same bounded composer; oversized optional guidance is dropped whole, and a 64-character cap keeps required policy whole while omitting context.
 - Targeted conversation, local-bridge and PR #30 continuity tests: **67 passed, 86 subtests passed**. Full Cloud Python: **275 passed, 60 skipped** because disposable PostgreSQL/integration prerequisites are absent. Long-listening Node contracts **22/22**, listening browser tests **7/7**, dataset validation **100 scenarios / 50 TR / 50 EN**.
 - No live Gemini/Qwen call was made. The frozen 100-case set was structurally validated only; model quality and p50/p95 latency remain NOT MEASURED. Physical iPhone Safari/microphone validation remains NOT_RUN.
-- Production GÖLGE `/health` is `ok` at merge SHA `9c7817f`; Render deploy `dep-db7jjdm7bikc73d3h5og` is LIVE. This feature branch has not been deployed. Branch CI/PR status will be added after push.
+- Draft [PR #31](https://github.com/fatmakahraman304-hash/ULTRON/pull/31) is open at code SHA `db1fd50b63b1abd1097e0ec5082e833b2e81f15e`; its Cloud/PostgreSQL, Local Qwen Listening and Scene Actions are in progress. Production GÖLGE `/health` is `ok` at merge SHA `9c7817f`; Render deploy `dep-db7jjdm7bikc73d3h5og` is LIVE. This feature branch has not been deployed.
 
 ## 2026-10-14 — First-run setup accepts typing and persists once
 
