@@ -122,10 +122,18 @@ def append_research_sources(answer: str, result: dict | None) -> str:
     if conflicts:
         lines.append("Kaynaklar arasında aynı yıl/birim/metin bağlamında olası sayısal uyuşmazlık bulundu; anlamsal çözümleme yapılmadı:")
         for conflict in conflicts[:5]:
-            values = ", ".join(str(row.get("value", "?")) for row in conflict.get("values", [])[:4])
+            values = []
+            for row in conflict.get("values", [])[:4]:
+                source_urls = [str(source.get("url", ""))[:500]
+                               for source in row.get("sources", [])[:3]
+                               if isinstance(source, dict) and source.get("url")]
+                detail = str(row.get("value", "?"))
+                if source_urls:
+                    detail += " (" + ", ".join(source_urls) + ")"
+                values.append(detail)
             lines.append(
                 f"- {conflict.get('reference_year', 'tarih belirsiz')} / "
-                f"{str(conflict.get('unit', 'birim bilinmiyor'))[:40]}: {values}"
+                f"{str(conflict.get('unit', 'birim bilinmiyor'))[:40]}: {'; '.join(values)}"
             )
     lines.append("Bu kaynakların okunması, iddiaların bağımsız veya anlamsal doğrulaması değildir.")
     return (text + "\n" + "\n".join(lines)).strip()

@@ -92,6 +92,8 @@ def test_research_marks_syndicated_copy_non_independent_and_flags_same_period_co
     assert "sayfada güncelleme: 2024-06-01" in response
     assert "HTTP Last-Modified: 2024-06-02" in response
     assert "olası sayısal uyuşmazlık" in response
+    assert "https://public.example/report" in response
+    assert "https://other.example/report" in response
 
 
 def test_numeric_evidence_requires_the_same_unit_not_just_the_same_number():
