@@ -25,13 +25,17 @@ class _AsyncScope:
 
 
 class _LocalCancelConnection:
-    def __init__(self, *, command_status):
+    def __init__(self, *, command_status, no_request=False, foreign_request=False):
         self.command_status = command_status
+        self.no_request = no_request
+        self.foreign_request = foreign_request
         self.calls = []
     def transaction(self): return _AsyncScope()
     async def fetchrow(self, sql, *args):
         self.calls.append((sql, args))
         if "FROM local_chat_requests" in sql:
+            if self.no_request:
+                return None
             return {"command_id": 91, "conversation_id": uuid.UUID("56e1b7da-999e-4a77-9d79-102fd6b923c0"),
                     "reply_saved": False, "cancellation_requested": False,
                     "provider_stopped": False, "request_key_hash": hashlib.sha256(
@@ -43,12 +47,16 @@ class _LocalCancelConnection:
         return "UPDATE 1"
     async def fetchval(self, sql, *args):
         self.calls.append((sql, args))
+        if "SELECT EXISTS" in sql:
+            return self.foreign_request
         return "cancelled" if self.command_status in ("queued", "delivered") else None
 
 
 class _LocalCancelPool:
-    def __init__(self, *, command_status):
-        self.conn = _LocalCancelConnection(command_status=command_status)
+    def __init__(self, *, command_status, no_request=False, foreign_request=False):
+        self.conn = _LocalCancelConnection(command_status=command_status,
+                                           no_request=no_request,
+                                           foreign_request=foreign_request)
     def acquire(self): return _AsyncScopeWithValue(self.conn)
     async def fetchval(self, *_args): return False
 
@@ -97,6 +105,21 @@ class LocalFirstBridgeTests(unittest.TestCase):
         payload = json.loads(asyncio.run(local_brain_bridge.cancel_local_chat(MockRequest(request))).text)
         self.assertEqual(payload["status"], "cancellation_requested")
         self.assertFalse(payload["provider_stopped"])
+
+    def test_local_chat_cancel_does_not_probe_foreign_owner_request(self):
+        request = {
+            "auth_kind": "web", "user_id": "owner-b",
+            "app": {"db": _LocalCancelPool(command_status="queued", no_request=True,
+                                           foreign_request=True)},
+            "body": {"request_id": str(uuid.uuid4()), "request_key": "b" * 64},
+        }
+        class MockRequest(dict):
+            app = request["app"]
+            async def json(self): return self["body"]
+        response = asyncio.run(local_brain_bridge.cancel_local_chat(MockRequest(request)))
+        self.assertEqual(response.status, 404)
+        calls = request["app"]["db"].conn.calls
+        self.assertFalse(any("INSERT INTO local_chat_cancellations" in sql for sql, _ in calls))
 
     def test_local_chat_cancel_rejects_non_web_session(self):
         class MockRequest(dict):

@@ -1,3 +1,9 @@
+## 2026-10-14 — True Interruption Engine V1 (review draft)
+
+PR #37 (`feat/golge-true-interruption-v1-20261014`) adds per-turn request IDs/keys and server cancellation for desktop Ollama and paired-phone local Qwen, plus stale-response/TTS suppression in the Dashboard and PWA. Queued Qwen work can be prevented before start; delivered work is only reported stopped after a worker transport-close acknowledgment. Gemini inference remains uncancellable through the current SDK path and is reported as output-suppressed. Computer-agent approval/task state is independent.
+
+All exact-code checks passed at `b67dfd758bf046758228b380b9931d391d0c5f44`: Cloud/PostgreSQL #38578144804 (real local chat Postgres suite 14/14), Responsive #38578144813, Local Qwen Listening #38578144841, and Scene #38578144679. PR #37 remains a draft stacked on PR #36; no merge/deploy. Windows Ollama inference, Gemini/Qwen real generation, iPhone audio/microphone, and physical cancellation latency remain NOT_RUN. Next: physical device cancellation validation.
+
 ## 2026-10-14 — Natural Conversation & Voice: desktop cancellation recovery
 
 PR [#36](https://github.com/fatmakahraman304-hash/ULTRON/pull/36) adds a focused reliability fix on a separate branch based on production SHA `6ef3f5d207fc9430cbbd552988935995529e87f5`. When the desktop `/api/merged/invoke` request is stopped, the dashboard now returns its local state to IDLE immediately; an expected browser `AbortError` is silent. Network/timeout errors also clear THINKING but remain visible. The existing native interrupt command still runs. No microphone, routing, model, or mobile layout behavior was changed.

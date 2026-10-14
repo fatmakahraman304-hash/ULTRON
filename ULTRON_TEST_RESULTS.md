@@ -1,3 +1,12 @@
+## 2026-10-14 — True Interruption Engine V1
+
+- Exact code SHA: `b67dfd758bf046758228b380b9931d391d0c5f44`, draft [PR #37](https://github.com/fatmakahraman304-hash/ULTRON/pull/37), stacked on PR #36 head `cbac06dc2acefcfb2791fbcf2e6ff64994d430e4`.
+- GitHub Actions on the code SHA all passed: Cloud/PostgreSQL [#38578144804](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38578144804), Responsive UI [#38578144813](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38578144813), Local Qwen Listening [#38578144841](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38578144841), Scene Build [#38578144679](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38578144679). Hosted disposable-PostgreSQL local-chat integration: **14 passed**, including request-key/owner isolation, stop-before-submit, concurrent submit/cancel, late result suppression, and worker acknowledgment. Hosted Chromium fake-provider phone/local-chat flow: **6 passed**.
+- Local: backend **1,152 passed, 3 skipped, 6 subtests**; Cloud Python discovery **371 run, 68 skipped** (local DB unavailable); local bridge **13 passed**; request-cancellation + model-router **34 passed**; paired Qwen worker **7 passed**; Dashboard identity **9 passed**; browser/playback/long-listen **38 passed**; TypeScript/Vite build and Python compilation passed.
+- Fake Ollama HTTP stream close across 12 local fixture runs measured p50 **0.343 ms**, p95 **0.608 ms**, maximum **0.705 ms**. This is only fixture transport-close time. The phone-to-laptop lease poll is set to 600 ms; end-to-end latency is **NOT_RUN**.
+- Actual local model termination on Windows, iPhone Safari microphone/TTS, live Gemini/Qwen generation, and live model cancellation are **NOT_RUN**. Gemini inference is only output-suppressed; no inference-stop claim is made. No Render deployment or merge occurred.
+- The first hosted PostgreSQL attempt uncovered a real key-selection/owner-scope defect. The suite was corrected and made fail loudly when configured dependencies are missing; a subsequent exact-code run passed all 14 tests. One earlier job attempt also hit the public ECR Docker data limit before tests started; only that failed job was rerun.
+
 ## 2026-10-14 — Natural Conversation & Voice interruption reliability
 
 - PR #36 fixes a visible interruption bug: stopped desktop Cloud chat no longer leaves `Dashboard` in THINKING or shows the expected AbortError as a failure. The native `interrupt` action remains forwarded; network and timeout failures still notify.

@@ -292,6 +292,15 @@ async def cancel_local_chat(request: web.Request) -> web.Response:
                 request["user_id"], request_id,
             )
             if not row:
+                foreign_request = await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM local_chat_requests "
+                    "WHERE request_id=$1 AND user_id<>$2)",
+                    request_id, request["user_id"],
+                )
+                if foreign_request:
+                    # Preserve owner isolation without revealing whether the
+                    # request exists to a different signed-in user.
+                    return web.json_response({"error":"not_found", "provider_stopped":False}, status=404)
                 prior = await conn.fetchrow(
                     "SELECT request_key_hash,(expires_at>NOW()) AS active "
                     "FROM local_chat_cancellations WHERE user_id=$1 AND request_id=$2 FOR UPDATE",

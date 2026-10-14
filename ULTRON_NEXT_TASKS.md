@@ -1,9 +1,11 @@
-## 2026-10-14 — Next: end-to-end voice cancellation and device validation
+## Next tasks — True Interruption Engine V1 device validation
 
-1. Trace whether browser cancellation stops the active Gemini/Qwen request and local TTS playback. Add request-identity/cancellation tests before changing model or device ownership; `AbortController` alone does not prove server-side cancellation.
-2. Keep PR #30 long-listening behavior and its regression suite intact. Verify real Windows and iPhone microphone, barge-in, resume, and speech timing only on those devices; current physical device/model checks remain **NOT_RUN**.
-3. Preserve simple mobile UI and microphone ownership. Do not claim wake-word, always-on background listening, or cross-device microphone transfer without real integration/device evidence.
-4. Memory V4 PR #34 and Evidence PR #35 are ready for review with exact-head Actions passed; neither has approval or a Render deployment. Natural Conversation PR #36 remains separate and unmerged. Production stays on `6ef3f5d207fc9430cbbd552988935995529e87f5`.
+1. Review draft [PR #37](https://github.com/fatmakahraman304-hash/ULTRON/pull/37) at code SHA `b67dfd758bf046758228b380b9931d391d0c5f44`. Its exact-code Cloud/PostgreSQL, Responsive, Local Qwen Listening and Scene Actions passed. PR #37 is stacked on PR #36; do not merge or deploy without explicit release approval.
+2. On Windows, test ESC/Stop during real Ollama streaming and confirm the local process stops. The adapter closes its streaming HTTP response, but actual Qwen process termination remains **NOT_RUN**.
+3. On a physical iPhone, test Stop during Gemini output, queued local Qwen, delivered local Qwen, WebAudio and browser TTS. Keep microphone restart and PR #30 long-listening behavior intact. These device checks remain **NOT_RUN**.
+4. Measure cancellation end-to-end on the owner laptop and iPhone. The 0.343/0.608 ms p50/p95 figures measure a local fake HTTP fixture only; 600 ms is the configured phone-to-laptop lease poll interval.
+5. Gemini generation is only output-suppressed, not provider-cancelled. Approval-gated computer tasks stay independent from chat cancellation. Keep those boundaries and the no-extra-panel mobile UI.
+6. PR #34 Memory V4, #35 Evidence V4, and #36 natural conversation recovery remain open/unmerged. Production stays on `6ef3f5d207fc9430cbbd552988935995529e87f5`.
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.
