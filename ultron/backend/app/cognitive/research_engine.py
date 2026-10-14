@@ -1,23 +1,17 @@
-"""Research Engine — Wave 5 §7.
+"""Conservative public search-result discovery.
 
-SEARCH → DISCOVER → FILTER → RANK → CROSS-CHECK → CONTRADICTION CHECK →
-SYNTHESIS → CITATIONS → CONFIDENCE
+This module currently searches, filters, ranks and cites result metadata. It
+does not fetch source pages or verify claims. Consequently, it reports source
+quality separately from answer confidence and never labels search results as
+corroboration, contradiction analysis, or supported evidence.
 
-- Kaynak güvenilirliği domain bazlı ayrı değerlendirilir (+kullanıcı override)
-- Ağ yoksa / arama sağlanmadıysa dürüst 'unavailable' — SAHTE sonuç ÜRETİLMEZ
-- Cross-check: bir iddia en az 2 BAĞIMSIZ domainde geçiyorsa 'corroborated'
-- Contradiction: aynı iddiada çelişken rakam/scala tespiti
-- Synthesis: deterministik madde toplama; LLM YOK
-- Her çıktı citation (url) + confidence taşır
-
-Test edilebilirlik: search_fn injeksiyonu ile gerçek HTTP döngüsü
-localhost sunucusunda GERÇEK test edilir (dış ağ bağımlılığı yok).
+Testability: search_fn injection lets the HTTP boundary run against a local
+server without depending on external network access.
 """
 from __future__ import annotations
 
 import json
 import re
-import sqlite3
 from app.core.database import connect as managed_connect
 import threading
 import time
@@ -29,7 +23,6 @@ DEFAULT_DOMAIN_RELIABILITY = {
     "stackoverflow.com": 0.6, "wikipedia.org": 0.7, "docs.python.org": 0.85,
 }
 UNRELIABLE = ("forum", "answer", "yahoo", "quora", "reddit")
-_NUM = re.compile(r"\d+(?:\.\d+)?")
 
 
 def default_web_search(query: str, timeout: float = 4.0) -> list[dict]:
@@ -74,7 +67,8 @@ class ResearchEngine:
     def source_reliability(self, url: str) -> float:
         host = (urlparse(url).hostname or "").lower()
         for dom, score in self.domain_reliability.items():
-            if host.endswith(dom):
+            domain = dom.lower().lstrip(".")
+            if host == domain or host.endswith("." + domain):
                 return float(score)
         if any(u in host for u in UNRELIABLE):
             return 0.25
@@ -88,6 +82,7 @@ class ResearchEngine:
         if not results:
             out = {"ok": False, "error": "search-unavailable-or-empty",
                    "query": query, "citations": [],
+                   "evidence_level": "none",
                    "note": "ağ/arayüz yok — sonuç UYDURULMAZ"}
             if store:
                 self._store(query, out)
@@ -115,39 +110,35 @@ class ResearchEngine:
             ranked.append((score, r))
         ranked.sort(key=lambda x: -x[0])
         top = [r for _, r in ranked[:max_sources]]
-        # 5) CROSS-CHECK: iddia token kümeleri kaç BAĞIMSIZ domainde?
+        # Search result titles/snippets are discovery metadata, not page-level
+        # evidence. Do not infer corroboration or contradiction from unrelated
+        # domains or numbers until source pages have actually been read.
         domains = {urlparse(r["url"]).hostname or "?" for r in top}
-        claim_key = " ".join(sorted(qtoks))[:120]
-        corroborated_by = len(domains)
-        # 6) CONTRADICTION CHECK: sayısal değerler kaynaklarda farklıysa
-        numbers = []
-        for r in top:
-            numbers += _NUM.findall(r.get("snippet", "") or
-                                    r.get("title", ""))
-        distinct_nums = sorted(set(numbers))
-        # dağınıklık eşiği: kaynak sayısının yarısından fazlası farklı rakam
-        contradiction = (len(distinct_nums)
-                         > max(2, len(top) // 2))
-        if not numbers:
-            contradiction = False
-        # 7) SYNTHESIS + 8) CITATIONS + 9) CONFIDENCE
-        avg_rel = sum(self.source_reliability(r["url"]) for r in top) / len(top)
-        confidence = round(min(0.9, avg_rel * min(1.0, corroborated_by / 2.0)),
-                           3)
+        # This is source-quality metadata only, not confidence that an answer
+        # or claim is true. Keep answer confidence at zero until page evidence
+        # and claim-to-evidence matching exist.
+        source_quality = round(
+            sum(self.source_reliability(r["url"]) for r in top) / len(top), 3
+        ) if top else 0.0
         findings = [{"title": r.get("title", "")[:160], "url": r["url"],
-                     "reliability": self.source_reliability(r["url"])}
+                     "reliability": self.source_reliability(r["url"]),
+                     "snippet": (r.get("snippet", "") or "")[:500],
+                     "basis": "search_result_metadata"}
                     for r in top]
         out = {
-            "ok": True, "query": query,
-            "claim": claim_key,
-            "corroborated_by_domains": corroborated_by,
-            "contradiction_suspected": bool(contradiction),
-            "confidence": confidence,
+            "ok": True, "status": "sources_discovered", "query": query,
+            "claim": None,
+            "evidence_level": "search_results_only",
+            "source_domains": len(domains),
+            "corroborated_by_domains": 0,
+            "contradiction_suspected": False,
+            "confidence": 0.0,
+            "source_quality_score": source_quality,
             "synthesis": {
-                "supported": confidence >= 0.5,
+                "supported": False,
                 "findings": findings,
-                "caveat": ("sayısal değerler kaynaklar arasında dağınık — "
-                           "çelişki şüphesi") if contradiction else "",
+                "caveat": ("Page content was not read. Search result titles and snippets "
+                           "do not verify a claim."),
             },
             "citations": [r["url"] for r in top],
         }

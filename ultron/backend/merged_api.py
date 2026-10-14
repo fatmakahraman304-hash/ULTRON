@@ -7,6 +7,7 @@ from pathlib import Path
 from aiohttp import web
 
 from cloud_client import CloudClient, safe_cloud_error
+from ultron.cloud_service.conversation_persona import classify_intent
 
 
 def install(app, hub):
@@ -67,11 +68,45 @@ def install(app, hub):
             rt = hub.bridge.runtime if hub.bridge and hub.bridge.available else None
             if rt is None:
                 return web.json_response({'ok': False, 'status': 'UNAVAILABLE', 'error': 'runtime yok'})
+            intent = classify_intent(text)
+            # General/coding/fast are presentation/model preferences. An
+            # explicit computer operation still belongs to the existing local
+            # approval-gated agent, never the read-only Cloud chat path.
+            if intent.kind == 'computer_task' and mode in ('auto', 'general', 'coding', 'fast'):
+                mode = 'agent'
             if mode == 'agent':
                 # Server-owned approval boundary; no caller can pass approved=True.
-                await hub.agent.run(text, approved=False)
-                return web.json_response({'ok': True, 'state': hub.agent.state,
-                                          'pending_approval': hub.pending_task})
+                result = await hub.agent.run(text, approved=False)
+                result = result if isinstance(result, dict) else {}
+                state = str(getattr(hub.agent, 'state', 'UNKNOWN'))
+                message = str(getattr(hub.agent, 'message', '') or '').strip()
+                waiting = state == 'WAITING_APPROVAL' or result.get('result') == 'waiting-approval'
+                partial = state == 'DONE' and message.startswith('PLAN PARTIAL ')
+                no_intent = result.get('result') == 'no-intent'
+                completed = (state == 'DONE' and result.get('ok') is True
+                             and not partial and not no_intent)
+                if waiting:
+                    pending = getattr(hub, 'pending_task', None)
+                    task_id = pending.get('id') if isinstance(pending, dict) else result.get('task_id')
+                    response_text = 'İşlem güvenlik onayı bekliyor.'
+                    if task_id:
+                        response_text += f' Onay isteği: {task_id}.'
+                elif completed:
+                    response_text = message or str(result.get('output') or '').strip()
+                    if not response_text:
+                        response_text = 'İşlem tamamlandı ve agent sonucu doğruladı.'
+                elif state == 'ERROR':
+                    response_text = message or 'İşlem başarısız oldu.'
+                elif state == 'DONE' and message:
+                    response_text = message
+                else:
+                    response_text = 'İşlemin sonucu doğrulanamadı; tamamlandı diyemem.'
+                return web.json_response({
+                    'ok': waiting or completed, 'text': response_text, 'state': state,
+                    'result': result, 'completed': completed,
+                    'pending_approval': waiting,
+                    'intent': intent.kind,
+                })
             if mode == 'task':
                 task = await hub.supervisor.submit(text, budgets={}, spawn=True)
                 return web.json_response({'ok': True, 'task_id': task['id'], 'status': task['status']})

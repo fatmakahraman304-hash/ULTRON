@@ -1,6 +1,7 @@
 """Consistent GÖLGE conversation style across the cloud and local assistant."""
 from __future__ import annotations
 import re
+from dataclasses import dataclass
 if __package__:
     from .reply_policy import classify_reply_mode
     from .text_normalization import fold_turkish, folded_regex
@@ -8,6 +9,7 @@ if __package__:
         is_thread_recap_request, is_first_topic_return,
         is_named_recall_request, is_topic_switch_request,
         is_future_reminder_request, is_bare_continuation_request,
+        is_previous_topic_return_request,
     )
 else:
     from reply_policy import classify_reply_mode
@@ -16,6 +18,7 @@ else:
         is_thread_recap_request, is_first_topic_return,
         is_named_recall_request, is_topic_switch_request,
         is_future_reminder_request, is_bare_continuation_request,
+        is_previous_topic_return_request,
     )
 
 PERSONA = (
@@ -72,17 +75,151 @@ _FOLLOWUP = folded_regex(
     r"^(?:peki\b|devam et\b|biraz daha\b|o zaman\b|"
     r"onun(?:la|un|u|dan)?\b|onu\b|buna\b|şunu\b|"
     r"bun(?:un|u|dan|larla)?\b|"
-    r"what about\b|and (?:it|that|then)\b|continue\b)",
+    r"what about\b|and (?:it|that|then)\b|continue\b|"
+    r"(?:could|can) you (?:expand on|elaborate on|say more about) (?:it|that|this)\b|"
+    r"(?:tell me|explain) more about (?:it|that|this)\b|"
+    r"give me (?:one more|another) example of (?:it|that|this)\b|"
+    r"(?:az önceki|önceki) .{1,50} (?:sürdür|devam ettir)\b|"
+    r"continue (?:the )?\w+ from (?:before|earlier)\b)",
     re.I
 )
 _CORRECT = folded_regex(
     r"^(?:hayır\b|yok\b(?!\s+(?:mu|mı|mi|mü)\b)|"
     r"yanlış anladın\b|onu demedim\b|öyle değil\b|"
     r"aslında\b|düzeltme\s*:|"
-    r"actually,?\s+(?:i meant|it was|i was referring)|"
-    r"no,?\b|that's not what i meant\b)",
+    r"actually,?\s+(?:i meant|i asked|it was|i was referring)|"
+    r"no,?\b|not,?\s+(?:\d{4}|the|this|that)\b|"
+    r"that's not what i meant\b|that is not what i (?:asked|meant)\b)|"
+    r"\b(?:demek istediğim|kastettiğim|kastetmiştim|kastettim|şunu demek istedim|"
+    r"yanlış ifade ettim|beni yanlış anladın|i meant|i was referring to|"
+    r"to clarify.{0,36}\b(?:i meant|i was referring to)|correction\s*:)",
     re.I
 )
+
+
+@dataclass(frozen=True)
+class IntentDecision:
+    """One cheap routing result shared by chat guidance and local model choice."""
+
+    kind: str
+    requires_context: bool
+    requires_tool: bool
+    model_task: str
+
+
+_MODEL_CODE = folded_regex(
+    r"\b(?:python|javascript|typescript|react|git|github|debug|api|endpoint|"
+    r"fonksiyon|function|kod(?:u|ları|larıyla| yaz| yazdır)?|script|betik|"
+    r"programla|programlama|bug|hata ayıkla|hata düzelt|refactor|"
+    r"derle|compile|class|sınıf|algoritma|sql|docker|terminal|"
+    r"npm|pip|test yaz|build)\b", re.I,
+)
+_MODEL_VISION = folded_regex(
+    r"(?:görseli|fotoğrafı|resmi|ekran görüntüsünü|screenshot|"
+    r"resimdeki|fotoğraftaki|görseldeki).*(?:incele|analiz|anlat|oku)|"
+    r"(?:bu (?:resim|fotoğraf|görsel|ekran görüntüsü))", re.I,
+)
+_MODEL_RESEARCH = folded_regex(
+    r"\b(?:araştır(?:ma|ın|ıp|arak)?|(?:resmî |güvenilir |güncel )?kaynakları? (?:bul|kontrol et|karşılaştır(?:ıp|arak)?)|"
+    r"kaynaklarla (?:doğrula|teyit et)|"
+    r"web(?:'de|de)? ara|güncel kaynak|kanıtları? incele|"
+    r"compare.{0,30}(?:official |reliable )?sources|"
+    r"research|look up|search (?:the )?web|find (?:reliable )?sources|"
+    r"check current sources|cite sources|fact.?check)\b", re.I,
+)
+_MODEL_DEEP = folded_regex(
+    r"(?:detaylı (?:karşılaştır|analiz|açıkla)|ayrıntılı (?:karşılaştır|analiz|açıkla)|"
+    r"kapsamlı (?:analiz|karşılaştır|açıkla)|uzun rapor|matematiksel ispat|"
+    r"derinlemesine|çok aşamalı|mantık yürüt|artılarını eksilerini karşılaştır|"
+    r"step by step reasoning|deep analysis|compare in detail)", re.I,
+)
+_SCENE_REQUEST = folded_regex(
+    r"(?:\b(?:3d|3 boyutlu|hologram(?:daki|da|de)?|sahne(?:de|ye|yi|deki)?|scene)\b.{0,100}"
+    r"\b(?:oluştur|yarat|ekle|göster|taşı|döndür|yakınlaş|sil|gizle|"
+    r"create|make|add|show|move|rotate|zoom|remove|hide)\b|"
+    r"\b(?:oluştur|yarat|ekle|taşı|döndür|yakınlaş|sil|gizle|renklendir|boya|"
+    r"create|make|add|move|rotate|zoom|remove|hide|paint|recolor)\b.{0,70}"
+    r"\b(?:3d|3 boyutlu|hologram(?:daki|da|de)?|sahne(?:de|ye|yi|deki)?|scene|model)\b|"
+    r"\b(?:dünya(?:yı)?\s+(?:aç|göster)|open (?:the )?(?:earth|globe|scene))\b)",
+    re.I,
+)
+_COMPUTER_ACTION = folded_regex(
+    r"\b(?:projeyi aç|dosyayı? (?:incele|değiştir|düzelt|kaydet|sil)|"
+    r"klasördeki dosyaları? incele|inspect (?:the |this |that )?(?:file|files|folder|repository)|"
+    r"testleri? çalıştır|test yaz|"
+    r"kod(?:unu|u|da|ları)? (?:.{0,25})?(?:hata(?:yı)? |bug.{0,15})?(?:değiştir|düzelt|çalıştır|derle)|"
+    r"github.{0,30}(?:değişiklikleri? kontrol et|check.{0,20}changes|pr oluştur)|"
+    r"git (?:commit|push|pull)|bilgisayarda (?:aç|çalıştır|değiştir)|"
+    r"open (?:the )?project|inspect (?:the )?(?:files|folder|repository)|"
+    r"edit (?:(?:the|this|that|my) )?(?:file|code|project)|change (?:the )?(?:code|file)|"
+    r"run (?:the )?(?:tests?|script|build)|fix (?:the )?(?:(?:bug|error).{0,20}in the )?code|"
+    r"check .{0,30}github|create (?:a )?pull request|git (?:commit|push|pull))\b", re.I,
+)
+_MEMORY_RECALL = folded_regex(
+    r"\b(?:hafızanda|hafizanda|kalıcı hafızanda|belleğinde|"
+    r"benim (?:tercihlerimden|hedeflerimden|uzun vadeli hedeflerimden) ne(?:leri)? (?:hatırlıyorsun|biliyorsun)|"
+    r"benim hakkımda (?:neleri? )?(?:hatırlıyorsun|hatirliyorsun|kayıtlı|"
+    r"daha önce kaydettiğin bilg(?:i|iyi)|"
+    r"daha önce kaydettiğin)|"
+    r"what do you remember about (?:me|my preferences|my goals)|"
+    r"what do you know about my (?:long-term )?(?:goals|preferences)|"
+    r"what (?:facts|preferences) have you saved about me|what is in your memory about me|"
+    r"what have you saved about me|my saved preferences)\b", re.I,
+)
+
+
+def classify_model_task(message: str) -> str:
+    """Select an existing single-pass model capability without a model call."""
+    text = fold_turkish(str(message or "").strip())
+    if _MODEL_VISION.search(text):
+        return "VISION"
+    if _MODEL_RESEARCH.search(text):
+        return "RESEARCH"
+    if _COMPUTER_ACTION.search(text):
+        return "CODING"
+    if _MODEL_CODE.search(text):
+        return "CODING"
+    if _MODEL_DEEP.search(text):
+        return "GENERAL"
+    return "FAST"
+
+
+def classify_intent(message: str) -> IntentDecision:
+    """Route intent from existing lexical/context recognizers; never calls a model."""
+    text = str(message or "").strip()
+    task = classify_model_task(text)
+    act = classify_dialogue_act(text)
+    if act == "correction":
+        kind = "correction"
+    elif is_topic_switch_request(text):
+        # A current explicit topic change always supersedes recalled projects.
+        kind = "chat"
+    elif is_previous_topic_return_request(text) or is_first_topic_return(text):
+        kind = "topic_return"
+    elif _MEMORY_RECALL.search(fold_turkish(text)):
+        kind = "memory_recall"
+    elif is_thread_recap_request(text) or is_named_recall_request(text):
+        kind = "history_recall"
+    elif _SCENE_REQUEST.search(fold_turkish(text)):
+        kind = "scene_visual"
+    elif _COMPUTER_ACTION.search(fold_turkish(text)):
+        kind = "computer_task"
+    elif is_future_reminder_request(text):
+        kind = "computer_task"
+    elif task == "RESEARCH":
+        kind = "research"
+    elif act == "followup" or is_bare_continuation_request(text):
+        kind = "continuation"
+    else:
+        kind = "chat"
+    return IntentDecision(
+        kind=kind,
+        requires_context=kind in {
+            "continuation", "correction", "topic_return", "history_recall", "memory_recall",
+        },
+        requires_tool=kind in {"research", "computer_task", "scene_visual"},
+        model_task=task,
+    )
 
 
 def classify_dialogue_act(message: str) -> str:
@@ -98,7 +235,10 @@ def classify_dialogue_act(message: str) -> str:
 def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
     """Bounded, transparent style hints for Gemini and small local Qwen alike."""
     mode = classify_reply_mode(message)
-    act = classify_dialogue_act(message)
+    route = classify_intent(message)
+    act = "correction" if route.kind == "correction" else (
+        "followup" if route.kind == "continuation" else "new"
+    )
     hints = []
     if mode == "brief":
         hints.append("REPLY LENGTH: Answer briefly and directly; avoid an unnecessary numbered list.")
@@ -118,6 +258,42 @@ def dialogue_guidance(message: str, *, has_prior_turns: bool = False) -> str:
             "TOPIC SWITCH: The owner explicitly changed the subject. Address "
             "the new topic directly; previous discussion is background data, "
             "not a task to resume. Do not silently carry old goals forward."
+        )
+    if route.kind == "topic_return" and not is_first_topic_return(message):
+        hints.append(
+            "TOPIC RETURN: Use only this same conversation's selected history to identify the prior topic. "
+            "Prefer the topic immediately before the latest explicit topic switch. If the history is missing "
+            "or more than one prior project could fit, ask one short clarification. Do not select a project "
+            "from unrelated saved memory or revive a superseded goal without the owner's current request."
+        )
+    if route.kind == "history_recall":
+        hints.append(
+            "HISTORY RECALL: Answer only from verified turns in this same conversation. "
+            "For 'what did I just say' use the latest owner turn; distinguish the owner's words from your "
+            "reply. If the needed turn was not supplied, say you cannot verify it."
+        )
+    if route.kind == "memory_recall":
+        hints.append(
+            "MEMORY RECALL: Use only the explicit owner-memory records supplied in this request. "
+            "Do not substitute another conversation's history, infer a saved fact, or claim a memory "
+            "exists when no matching record was supplied."
+        )
+    if route.kind == "research":
+        hints.append(
+            "RESEARCH ROUTE: Do not claim current web research or invent citations. If no authorized "
+            "search results are supplied by a real tool, say live sources were not checked and answer "
+            "only from general knowledge with uncertainty stated."
+        )
+    if route.kind == "computer_task":
+        hints.append(
+            "COMPUTER TASK ROUTE: A request to inspect, change, run or schedule something requires an "
+            "authorized tool and a verified result. In this chat path, do not claim any edit, test, "
+            "device action or reminder succeeded unless a real tool confirms it."
+        )
+    if route.kind == "scene_visual":
+        hints.append(
+            "SCENE ROUTE: Treat this as a scene command only when the real scene controller handles it. "
+            "Do not claim an object was created, moved, changed or removed without confirmation from that controller."
         )
     if is_thread_recap_request(message):
         hints.append(

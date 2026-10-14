@@ -140,7 +140,7 @@ def test_e2e_failure_recovery_and_honest_stop(tmp_path):
         assert s["loop"].checkpoints(run["run_id"])
 
 
-def test_e2e_research_to_knowledge_with_citations(tmp_path):
+def test_e2e_search_discovery_is_not_ingested_as_verified_knowledge(tmp_path):
     with nullcontext(str(tmp_path)) as tmp:
         s = build(tmp)
         fake = [{"url": "https://arxiv.org/abs/51", "title":
@@ -152,22 +152,18 @@ def test_e2e_research_to_knowledge_with_citations(tmp_path):
                              search_fn=lambda q: fake)
         res = re_.research("rag hallucination")
         assert res["ok"] and res["citations"]
-        # bulgular bilgi katmanına provenance ile iner
-        did = s["ke"].ingest(
-            "rag-bulgular", "RAG halüsinasyonu azaltır; 42 pct grounded",
-            source=res["citations"][0], source_confidence=0.8,
-            claims={"rag_etkisi": "halüsinasyon azaltır"})["doc_id"]
-        got = s["ke"].search("rag")
-        assert any(r["doc_id"] == did for r in got["results"])
-        assert got["results"][0]["source"].startswith("https://arxiv.org")
-        # meta-reasoning: güvenilir bileşim
+        assert res["evidence_level"] == "search_results_only"
+        assert res["confidence"] == 0
+        assert res["synthesis"]["supported"] is False
+        assert s["ke"].search("rag")["results"] == []
+        # Meta-reasoning must remain uncertain without verified evidence.
         mr = MetaReasoning()
         conf = mr.reasoning_confidence(
             evidences=[{"confidence": res["confidence"], "text": "42"}],
-            claims=[{"key": "rag_etkisi", "value": "halüsinasyon azaltır",
-                     "source": did}],
+            claims=[],
             citations=res["citations"], answer="42 pct grounded")
-        assert conf["confidence"] > 0
+        assert conf["confidence"] == 0
+        assert conf["level"] == "insufficient"
 
 
 def test_e2e_capability_gate_missing_needs_user(tmp_path):

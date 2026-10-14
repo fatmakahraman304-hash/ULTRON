@@ -88,6 +88,12 @@ class QualityModelRoutingTests(unittest.TestCase):
         self.assertEqual(selected.model,"qwen3:8b")
         self.assertTrue(selected.inventory_checked)
 
+    def test_research_prefers_configured_installed_reasoning_model(self):
+        policy=FastBrainPolicy({"enabled":True,"research_models":["qwen3:8b"]})
+        selected=policy.choose(task=classify_text("Kaynaklarla araştır ve doğrula"),
+                              installed=["qwen3:4b","qwen3:8b"],primary="qwen3:4b")
+        self.assertEqual((selected.task,selected.model),("RESEARCH","qwen3:8b"))
+
     def test_short_chat_stays_on_fast_low_resource_model(self):
         self.assertEqual(classify_text("Selam nasılsın?"),"FAST")
         policy=FastBrainPolicy({"enabled":True})

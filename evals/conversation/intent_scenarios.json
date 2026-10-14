@@ -1,0 +1,902 @@
+[
+  {
+    "id": "casual_chat-tr-01",
+    "category": "casual_chat",
+    "language": "tr",
+    "message": "Selam, nasılsın?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-tr-02",
+    "category": "casual_chat",
+    "language": "tr",
+    "message": "Bugün biraz sohbet edelim.",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-tr-03",
+    "category": "casual_chat",
+    "language": "tr",
+    "message": "Kahve mi çay mı tercih edersin?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-tr-04",
+    "category": "casual_chat",
+    "language": "tr",
+    "message": "Teşekkürler, işime yaradı.",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-tr-05",
+    "category": "casual_chat",
+    "language": "tr",
+    "message": "İyi geceler GÖLGE.",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-en-01",
+    "category": "casual_chat",
+    "language": "en",
+    "message": "Hey, how are you?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-en-02",
+    "category": "casual_chat",
+    "language": "en",
+    "message": "Let us chat for a minute.",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-en-03",
+    "category": "casual_chat",
+    "language": "en",
+    "message": "Coffee or tea, which would you pick?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-en-04",
+    "category": "casual_chat",
+    "language": "en",
+    "message": "Thanks, that helped.",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "casual_chat-en-05",
+    "category": "casual_chat",
+    "language": "en",
+    "message": "Good night, GÖLGE.",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-tr-01",
+    "category": "general_question",
+    "language": "tr",
+    "message": "Kıbrıs’ın başkenti neresidir?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-tr-02",
+    "category": "general_question",
+    "language": "tr",
+    "message": "Işık hızı yaklaşık ne kadardır?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-tr-03",
+    "category": "general_question",
+    "language": "tr",
+    "message": "Fotosentez nasıl çalışır?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-tr-04",
+    "category": "general_question",
+    "language": "tr",
+    "message": "Bir dairenin alanı nasıl hesaplanır?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-tr-05",
+    "category": "general_question",
+    "language": "tr",
+    "message": "Python hangi amaçlarla kullanılır?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-en-01",
+    "category": "general_question",
+    "language": "en",
+    "message": "What is the capital of Cyprus?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-en-02",
+    "category": "general_question",
+    "language": "en",
+    "message": "How fast does light travel?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-en-03",
+    "category": "general_question",
+    "language": "en",
+    "message": "How does photosynthesis work?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-en-04",
+    "category": "general_question",
+    "language": "en",
+    "message": "How do you calculate a circle’s area?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "general_question-en-05",
+    "category": "general_question",
+    "language": "en",
+    "message": "What is Python commonly used for?",
+    "expected_intent": "chat",
+    "requires_context": false,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-tr-01",
+    "category": "continuation",
+    "language": "tr",
+    "message": "Devam et.",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-tr-02",
+    "category": "continuation",
+    "language": "tr",
+    "message": "Peki onun yakıt tüketimi?",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-tr-03",
+    "category": "continuation",
+    "language": "tr",
+    "message": "Buna bir örnek daha ver.",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-tr-04",
+    "category": "continuation",
+    "language": "tr",
+    "message": "Bunu biraz daha açıklar mısın?",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-tr-05",
+    "category": "continuation",
+    "language": "tr",
+    "message": "Az önceki karşılaştırmayı sürdür.",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-en-01",
+    "category": "continuation",
+    "language": "en",
+    "message": "Continue.",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-en-02",
+    "category": "continuation",
+    "language": "en",
+    "message": "What about its fuel economy?",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-en-03",
+    "category": "continuation",
+    "language": "en",
+    "message": "Give me one more example of that.",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-en-04",
+    "category": "continuation",
+    "language": "en",
+    "message": "Could you elaborate on that?",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "continuation-en-05",
+    "category": "continuation",
+    "language": "en",
+    "message": "Continue the comparison from before.",
+    "expected_intent": "continuation",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-tr-01",
+    "category": "correction",
+    "language": "tr",
+    "message": "Hayır, 2009 modelini demiştim.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-tr-02",
+    "category": "correction",
+    "language": "tr",
+    "message": "Yok, 2016 değil 2015 olanı.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-tr-03",
+    "category": "correction",
+    "language": "tr",
+    "message": "Yanlış anladın; Kıbrıs’ı soruyorum.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-tr-04",
+    "category": "correction",
+    "language": "tr",
+    "message": "Aslında kısa değil, detaylı anlat demiştim.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-tr-05",
+    "category": "correction",
+    "language": "tr",
+    "message": "Bir şey daha: kastettiğim dizel modeldi.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-en-01",
+    "category": "correction",
+    "language": "en",
+    "message": "No, I meant the 2009 model.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-en-02",
+    "category": "correction",
+    "language": "en",
+    "message": "Not 2016, the 2015 one.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-en-03",
+    "category": "correction",
+    "language": "en",
+    "message": "That is not what I asked; I meant Cyprus.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-en-04",
+    "category": "correction",
+    "language": "en",
+    "message": "Actually, I asked for a detailed explanation.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "correction-en-05",
+    "category": "correction",
+    "language": "en",
+    "message": "To clarify, I was referring to the diesel model.",
+    "expected_intent": "correction",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-tr-01",
+    "category": "topic_return",
+    "language": "tr",
+    "message": "Önceki projeye dön.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-tr-02",
+    "category": "topic_return",
+    "language": "tr",
+    "message": "Bir önceki konuya geri dönelim.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-tr-03",
+    "category": "topic_return",
+    "language": "tr",
+    "message": "Eski çalışmaya dönelim.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-tr-04",
+    "category": "topic_return",
+    "language": "tr",
+    "message": "Önceki başlığa dön.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-tr-05",
+    "category": "topic_return",
+    "language": "tr",
+    "message": "Bir önceki projeyi sürdür.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-en-01",
+    "category": "topic_return",
+    "language": "en",
+    "message": "Go back to the previous project.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-en-02",
+    "category": "topic_return",
+    "language": "en",
+    "message": "Let’s go back to the prior topic.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-en-03",
+    "category": "topic_return",
+    "language": "en",
+    "message": "Return to the earlier project.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-en-04",
+    "category": "topic_return",
+    "language": "en",
+    "message": "Back to the previous subject.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "topic_return-en-05",
+    "category": "topic_return",
+    "language": "en",
+    "message": "Resume the previous project.",
+    "expected_intent": "topic_return",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-tr-01",
+    "category": "history_recall",
+    "language": "tr",
+    "message": "Az önce ben ne demiştim?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-tr-02",
+    "category": "history_recall",
+    "language": "tr",
+    "message": "Bir önceki mesajım neydi?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-tr-03",
+    "category": "history_recall",
+    "language": "tr",
+    "message": "Son yazdığım şey neydi?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-tr-04",
+    "category": "history_recall",
+    "language": "tr",
+    "message": "Bu sohbette en son ne sordum?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-tr-05",
+    "category": "history_recall",
+    "language": "tr",
+    "message": "Ne demiştim az önce?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-en-01",
+    "category": "history_recall",
+    "language": "en",
+    "message": "What did I just say?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-en-02",
+    "category": "history_recall",
+    "language": "en",
+    "message": "What was my previous message?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-en-03",
+    "category": "history_recall",
+    "language": "en",
+    "message": "What did I ask earlier?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-en-04",
+    "category": "history_recall",
+    "language": "en",
+    "message": "Can you repeat my previous message?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "history_recall-en-05",
+    "category": "history_recall",
+    "language": "en",
+    "message": "What did I tell you just now?",
+    "expected_intent": "history_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-tr-01",
+    "category": "memory_recall",
+    "language": "tr",
+    "message": "Hafızanda benimle ilgili neler kayıtlı?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-tr-02",
+    "category": "memory_recall",
+    "language": "tr",
+    "message": "Benim tercihlerimden neleri hatırlıyorsun?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-tr-03",
+    "category": "memory_recall",
+    "language": "tr",
+    "message": "Benim uzun vadeli hedeflerimden ne biliyorsun?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-tr-04",
+    "category": "memory_recall",
+    "language": "tr",
+    "message": "Kalıcı hafızanda hangi tercihimi kaydettin?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-tr-05",
+    "category": "memory_recall",
+    "language": "tr",
+    "message": "Benim hakkımda daha önce kaydettiğin bilgi ne?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-en-01",
+    "category": "memory_recall",
+    "language": "en",
+    "message": "What do you remember about me?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-en-02",
+    "category": "memory_recall",
+    "language": "en",
+    "message": "What preferences have you saved about me?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-en-03",
+    "category": "memory_recall",
+    "language": "en",
+    "message": "What do you know about my long-term goals?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-en-04",
+    "category": "memory_recall",
+    "language": "en",
+    "message": "What is in your memory about me?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "memory_recall-en-05",
+    "category": "memory_recall",
+    "language": "en",
+    "message": "What facts have you saved about me?",
+    "expected_intent": "memory_recall",
+    "requires_context": true,
+    "requires_tool": false
+  },
+  {
+    "id": "research-tr-01",
+    "category": "research",
+    "language": "tr",
+    "message": "Kaynakları kontrol ederek güncel araştırma yap.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-tr-02",
+    "category": "research",
+    "language": "tr",
+    "message": "Bu konuda güvenilir kaynaklar bul.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-tr-03",
+    "category": "research",
+    "language": "tr",
+    "message": "Son gelişmeleri internetten araştır.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-tr-04",
+    "category": "research",
+    "language": "tr",
+    "message": "Resmî kaynakları karşılaştırıp özetle.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-tr-05",
+    "category": "research",
+    "language": "tr",
+    "message": "Bu iddiayı kaynaklarla doğrula.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-en-01",
+    "category": "research",
+    "language": "en",
+    "message": "Research this using current sources.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-en-02",
+    "category": "research",
+    "language": "en",
+    "message": "Find reliable sources on this topic.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-en-03",
+    "category": "research",
+    "language": "en",
+    "message": "Search the web for the latest developments.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-en-04",
+    "category": "research",
+    "language": "en",
+    "message": "Compare and summarize official sources.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "research-en-05",
+    "category": "research",
+    "language": "en",
+    "message": "Fact-check this claim and cite sources.",
+    "expected_intent": "research",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-tr-01",
+    "category": "computer_task",
+    "language": "tr",
+    "message": "Projeyi aç ve testleri çalıştır.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-tr-02",
+    "category": "computer_task",
+    "language": "tr",
+    "message": "Bu dosyayı incele ve değiştir.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-tr-03",
+    "category": "computer_task",
+    "language": "tr",
+    "message": "Kodda hatayı düzelt, sonra test et.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-tr-04",
+    "category": "computer_task",
+    "language": "tr",
+    "message": "GitHub’daki son değişiklikleri kontrol et.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-tr-05",
+    "category": "computer_task",
+    "language": "tr",
+    "message": "Bu klasördeki dosyaları incele.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-en-01",
+    "category": "computer_task",
+    "language": "en",
+    "message": "Open the project and run the tests.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-en-02",
+    "category": "computer_task",
+    "language": "en",
+    "message": "Inspect this file and edit it.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-en-03",
+    "category": "computer_task",
+    "language": "en",
+    "message": "Fix the bug in the code, then test it.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-en-04",
+    "category": "computer_task",
+    "language": "en",
+    "message": "Check the latest changes on GitHub.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "computer_task-en-05",
+    "category": "computer_task",
+    "language": "en",
+    "message": "Inspect the files in this folder.",
+    "expected_intent": "computer_task",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-tr-01",
+    "category": "scene_visual",
+    "language": "tr",
+    "message": "Sahnede mavi bir küre oluştur.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-tr-02",
+    "category": "scene_visual",
+    "language": "tr",
+    "message": "3D bir araba oluştur.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-tr-03",
+    "category": "scene_visual",
+    "language": "tr",
+    "message": "Hologramdaki robot kolunu döndür.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-tr-04",
+    "category": "scene_visual",
+    "language": "tr",
+    "message": "Nesneyi 3D sahnede sağa taşı.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-tr-05",
+    "category": "scene_visual",
+    "language": "tr",
+    "message": "3 boyutlu modele yaklaş ve motoru göster.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-en-01",
+    "category": "scene_visual",
+    "language": "en",
+    "message": "Create a blue sphere in the scene.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-en-02",
+    "category": "scene_visual",
+    "language": "en",
+    "message": "Create a 3D sports car.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-en-03",
+    "category": "scene_visual",
+    "language": "en",
+    "message": "Rotate the robot arm in the hologram.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-en-04",
+    "category": "scene_visual",
+    "language": "en",
+    "message": "Move the object to the right in the 3D scene.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  },
+  {
+    "id": "scene_visual-en-05",
+    "category": "scene_visual",
+    "language": "en",
+    "message": "Zoom into the engine in the 3D model.",
+    "expected_intent": "scene_visual",
+    "requires_context": false,
+    "requires_tool": true
+  }
+]

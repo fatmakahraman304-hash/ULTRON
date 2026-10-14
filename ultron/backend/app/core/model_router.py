@@ -11,6 +11,7 @@ class TaskType:
     CODING = "CODING"
     VISION = "VISION"
     FAST = "FAST"
+    RESEARCH = "RESEARCH"
 
 
 CAPABILITY_HINTS = {

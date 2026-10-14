@@ -113,6 +113,7 @@ _COMMON_TERMS = frozenset((
     "previous", "remember", "please", "tell", "more", "that", "this",
     "than", "then", "continue", "conversation",
     "demiştik", "konuşmuştuk", "hatırlat", "söylediklerimi",
+    "demiştim", "dedim", "sordum", "yazdım", "mesajım", "mesajim",
     "konuştuklarımız", "previously", "earlier", "discussed", "discuss",
     "remember", "remind", "said", "talked",
 ))
@@ -162,7 +163,9 @@ _OLD_TURN_CORRECTION = folded_regex(
     r"yanlış anladın\b|onu demedim\b|düzeltme\s*:|"
     r"aslında\b.{0,95}\b(?:kastettim|demiştim|istiyorum|olacak|olsun)\b|"
     r"no[,!:]\s|no,?\s+i meant\b|"
-    r"actually,?\s+i meant\b|correction\s*:)",
+    r"actually,?\s+i meant\b|correction\s*:)|"
+    r"^.{0,80}\b(?:demek istediğim|kastettiğim|kastetmiştim|kastettim|"
+    r"i meant|i was referring to)\b",
     re.I | re.S,
 )
 
@@ -427,6 +430,87 @@ def is_first_topic_return(question: str) -> bool:
         _FIRST_RETURN.fullmatch(fold_turkish(" ".join(question.strip().split()))))
 
 
+_PREVIOUS_TOPIC_RETURN = folded_regex(
+    r"^(?:önceki|bir önceki|eski)\s+(?:proje(?:ye|yi|ye geri)?|konu(?:ya|yu|ya geri)?|"
+    r"başlığa|çalışmaya)\s+(?:geri\s+)?(?:dön(?:elim|mek)?|sürdür(?:elim)?)[.!?]*$|"
+    r"^(?:geri\s+)?dön(?:elim|mek)?\s+(?:önceki|bir önceki|eski)\s+"
+    r"(?:proje(?:ye)?|konu(?:ya)?|başlığa|çalışmaya)[.!?]*$|"
+    r"^(?:(?:let['’]?s|can we)\s+)?(?:go\s+back\s+to|back\s+to)\s+"
+    r"(?:the\s+)?(?:previous|prior|earlier|last)\s+"
+    r"(?:project|topic|subject|work)[.!?]*$|"
+    r"^(?:return\s+to|resume)\s+(?:the\s+)?(?:previous|prior|earlier|last)\s+"
+    r"(?:project|topic|subject)[.!?]*$",
+    re.I,
+)
+
+
+def is_previous_topic_return_request(question: str) -> bool:
+    """Explicitly return to the prior topic; unlike a switch, retrieve history."""
+    return isinstance(question, str) and len(question) <= 180 and bool(
+        _PREVIOUS_TOPIC_RETURN.fullmatch(
+            fold_turkish(" ".join(question.strip().split()))
+        )
+    )
+
+
+def select_previous_topic_turns(rows, *, max_chars: int = 3200,
+                                max_turns: int = 14) -> list[dict[str, str]]:
+    """Keep evidence for the topic before the latest explicit topic switch.
+
+    When the thread never explicitly marked a switch, sample its beginning,
+    middle and recent turns so the composer can ask if "previous" is ambiguous.
+    This remains same-thread, role-labelled history and does not guess a topic.
+    """
+    cap = max(0, min(int(max_chars), 7200))
+    count = max(0, min(int(max_turns), 20))
+    clean = [
+        {"role": row.get("role"), "content": row.get("content")}
+        for row in rows
+        if hasattr(row, "get") and row.get("role") in ("user", "assistant")
+        and isinstance(row.get("content"), str) and row["content"].strip()
+    ]
+    if not clean or not cap or not count:
+        return []
+    if len(clean) <= count:
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    switches = [
+        index for index, row in enumerate(clean)
+        if row["role"] == "user" and is_topic_switch_request(row["content"])
+    ]
+    if not switches:
+        return select_recap_turns(clean, max_chars=cap, max_turns=count)
+
+    switch = switches[-1]
+    anchor_index = next(
+        (index for index in range(switch - 1, -1, -1)
+         if clean[index]["role"] == "user"
+         and not is_bare_continuation_request(clean[index]["content"])
+         and not is_explicit_turn_correction(clean[index]["content"])),
+        None,
+    )
+    if anchor_index is None:
+        return select_recap_turns(clean, max_chars=cap, max_turns=count)
+
+    anchor_end = anchor_index
+    if (anchor_index + 1 < switch
+            and clean[anchor_index + 1]["role"] == "assistant"):
+        anchor_end += 1
+    anchors = clean[anchor_index:anchor_end + 1]
+    tail = clean[switch:]
+    room_for_tail = max(1, count - len(anchors))
+    recent = tail[-room_for_tail:]
+    allowance = cap // 3
+    anchor_turns = prepare_turns(
+        anchors, max_chars=allowance, max_turns=min(len(anchors), count - 1)
+    )
+    recent_turns = prepare_turns(
+        recent, max_chars=cap - sum(len(item["content"]) for item in anchor_turns),
+        max_turns=count - len(anchor_turns),
+    )
+    return anchor_turns + recent_turns
+
+
 _REMINDER_VERB = folded_regex(
     r"\b(?:hatırlat|hatirlat|anımsat|animsat|remind me)\b", re.I
 )
@@ -449,7 +533,13 @@ def is_future_reminder_request(question: str) -> bool:
 
 
 _NAMED_RECALL = folded_regex(
-    r"\b(?:ne demiştik|ne konuşmuştuk|ne konuştuk|"
+    r"\b(?:ne demiştim|ne demiştik|ne konuşmuştuk|ne konuştuk|"
+    r"az önce (?:ben )?ne|önceki mesaj(?:ım|im)? ne(?:ydi)?|"
+    r"son (?:yazdığım|sorduğum) (?:şey|mesaj) ne(?:ydi)?|"
+    r"bu sohbette en son ne (?:sordum|yazdım)|"
+    r"what did i just say|what was my (?:last|previous) message|"
+    r"what did i ask (?:earlier|before)|repeat my previous message|"
+    r"what did i tell you just now|"
     r"(?:konuştuğumuzu|konuşmamızı|sohbetimizi|konuştuklarımızı)\s+hatırlat|"
     r"hatırlıyor musun|daha önce ne|"
     r"what did we (?:say|discuss|decide)|remind me what|"
@@ -542,6 +632,53 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                 break
             rows.extend(page)
         return select_continuation_turns(
+            list(reversed(rows)), max_chars=max_chars, max_turns=n
+        )
+    if is_previous_topic_return_request(question):
+        # An explicit return request is the only normal-chat path that samples
+        # beyond the recent window without a named keyword. Search a bounded
+        # amount of this same thread for the most recent topic switch and its
+        # prior user anchor; never query another conversation or owner.
+        window = max(n, min(int(lookback), 80))
+        rows = list(await pool.fetch(
+            "SELECT id,role,content FROM messages "
+            "WHERE user_id=$1 AND conversation_id=$2 "
+            "AND ($3::bigint IS NULL OR id < $3) "
+            "AND role IN ('user','assistant') ORDER BY id DESC LIMIT $4",
+            user_id, conversation_id, before_id, window,
+        ))
+        page = rows
+        for _ in range(3):
+            chronological = list(reversed(rows))
+            switches = [
+                index for index, row in enumerate(chronological)
+                if row.get("role") == "user" and isinstance(row.get("content"), str)
+                and is_topic_switch_request(row["content"])
+            ]
+            if len(page) < window or (switches and switches[-1] > 0):
+                break
+            ids = [row.get("id") for row in page if hasattr(row, "get")
+                   and type(row.get("id")) is int and row["id"] > 0]
+            if not ids:
+                break
+            cursor = min(ids)
+            try:
+                older = await pool.fetch(
+                    "SELECT id,role,content FROM messages "
+                    "WHERE user_id=$1 AND conversation_id=$2 "
+                    "AND ($3::bigint IS NULL OR id < $3) "
+                    "AND role IN ('user','assistant') AND id < $5 "
+                    "ORDER BY id DESC LIMIT $4",
+                    user_id, conversation_id, before_id, window, cursor,
+                )
+            except Exception:
+                break
+            page = [row for row in older if hasattr(row, "get")
+                    and type(row.get("id")) is int and 0 < row["id"] < cursor]
+            if not page:
+                break
+            rows.extend(page)
+        return select_previous_topic_turns(
             list(reversed(rows)), max_chars=max_chars, max_turns=n
         )
     if is_first_topic_return(question):

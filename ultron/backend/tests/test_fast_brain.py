@@ -53,7 +53,7 @@ class TestClassification(unittest.TestCase):
     def test_code_deep_vision(self):
         self.assertEqual(classify_text("Python kodu yaz"),"CODING")
         self.assertEqual(classify_text("React API hatası düzelt"),"CODING")
-        self.assertEqual(classify_text("Detaylı araştır ve kapsamlı analiz yap"),"GENERAL")
+        self.assertEqual(classify_text("Detaylı araştır ve kapsamlı analiz yap"),"RESEARCH")
         self.assertEqual(classify_text("Bu ekran görüntüsünü analiz et"),"VISION")
     def test_only_pure_greetings_can_skip_tool_schemas(self):
         for phrase in ('Merhaba', 'Nasılsın?', 'Bana bir şaka anlat', 'Selam!'):

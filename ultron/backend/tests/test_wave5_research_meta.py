@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.cognitive.capability_discovery import (  # noqa: E402
     CapabilityDiscovery, MetaReasoning)
 from app.cognitive.research_engine import ResearchEngine  # noqa: E402
+from app.core.ultron_capabilities import CAPABILITIES  # noqa: E402
 
 
 # ---------------------------------------------------------------- §7 research
@@ -41,12 +42,49 @@ def test_pipeline_rank_crosscheck_synthesis_with_fake_backend(tmp_path):
         urls = out["citations"]
         assert urls[0].startswith("https://arxiv.org")   # güvenilir önce
         assert any("forum" not in u for u in urls)
-        assert out["corroborated_by_domains"] >= 2
+        assert out["source_domains"] >= 2
+        assert out["corroborated_by_domains"] == 0
+        assert out["synthesis"]["supported"] is False
+        assert out["evidence_level"] == "search_results_only"
         assert out["synthesis"]["findings"][0]["reliability"] >= 0.8
-        assert 0 < out["confidence"] <= 0.9
+        assert out["confidence"] == 0
+        assert out["source_quality_score"] > 0
 
 
-def test_contradiction_suspected_on_scattered_numbers(tmp_path):
+def test_search_result_titles_are_not_claimed_as_verified_evidence(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
+        results = [
+            {"url": "https://arxiv.org/abs/1", "title": "quantum computing overview",
+             "snippet": ""},
+            {"url": "https://docs.python.org/guide", "title": "python guide",
+             "snippet": ""},
+        ]
+        re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
+                             search_fn=lambda q: results)
+        out = re_.research("quantum computing")
+
+        assert out["evidence_level"] == "search_results_only"
+        assert out["corroborated_by_domains"] == 0
+        assert out["contradiction_suspected"] is False
+        assert out["synthesis"]["supported"] is False
+        assert "page content was not read" in out["synthesis"]["caveat"].lower()
+
+
+def test_reliability_domain_match_rejects_lookalike_hosts(tmp_path):
+    with nullcontext(str(tmp_path)) as d:
+        re_ = ResearchEngine(db_path=os.path.join(d, "r.db"), search_fn=lambda q: [])
+
+        assert re_.source_reliability("https://arxiv.org/abs/1") == 0.9
+        assert re_.source_reliability("https://evil-arxiv.org/abs/1") == 0.4
+
+
+def test_research_capability_is_not_overstated():
+    research = next(c for c in CAPABILITIES if c.id == "research")
+    assert research.status == "adapter"
+    assert "claims are not verified" in research.description
+
+
+def test_search_result_numbers_are_not_claimed_as_contradiction(tmp_path):
     with nullcontext(str(tmp_path)) as d:
         results = [
             {"url": f"https://s{i}.example.org/q", "title": "answer count",
@@ -55,8 +93,9 @@ def test_contradiction_suspected_on_scattered_numbers(tmp_path):
         re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
                              search_fn=lambda q: results)
         out = re_.research("answer count")
-        assert out["contradiction_suspected"] is True
-        assert "çelişki" in out["synthesis"]["caveat"]
+        assert out["contradiction_suspected"] is False
+        assert out["confidence"] == 0
+        assert "page content was not read" in out["synthesis"]["caveat"].lower()
 
 
 def test_real_http_fetch_via_local_server(tmp_path):
