@@ -1,3 +1,12 @@
+## 2026-10-14 — Episodic Memory V4 ready for review
+
+- PR [#34](https://github.com/fatmakahraman304-hash/ULTRON/pull/34), branch `feat/golge-episodic-memory-v4-20261014`; implementation commit `95db098`, CI/import separation fix `3af7cae`. The PR is now ready for review, but has no approval and is not merged.
+- Added explicit owner-confirmed episode recall to the cloud and local-Qwen shared context path. A normal chat does not query episodes or add a model call. Retrieval returns up to five current records, filters by supported UTC relative dates, lexical relevance and owner ID, and labels the result as untrusted memory data.
+- Kept same-user phone/laptop sharing via the existing authenticated web account. Added exact Origin/Sec-Fetch-Site checks, request size/content-type bounds, explicit write confirmation, audit metadata without saved text, and PostgreSQL advisory transaction locking for concurrent correction/full deletion. Schema upgrade retains old episode rows and indexes normalized search text. No UI added.
+- The router now imports a pure recall-intent module without requiring cloud `aiohttp`; PostgreSQL CI installs the service requirement set needed to test authenticated app routes.
+- Local validation: Cloud discovery with disposable PostgreSQL **376/376**; V4 tests **13/13**; Fast Brain **15/15**; intent router **9/9**. GitHub Actions at code SHA `3af7cae`: persona-policy, postgres-fencing, qwen-listening and Scene verify **4/4 pass**. Query microbenchmark only: 10,000 synthetic rows / 100 runs, p50 7.612→6.671 ms, p95 9.256→7.977 ms.
+- Not verified: actual iPhone Safari/Windows usage, real Gemini/Qwen inference, semantic/vector retrieval, and end-to-end chat latency. No Render deployment. Production SHA was last read as `6ef3f5d`; recheck before release.
+
 ## 2026-10-14 — Shared cognitive intent router v2
 
 - Started clean from production `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0` on isolated branch `feat/golge-cognitive-router-v2-20261014`; previous local branch and user files were preserved.

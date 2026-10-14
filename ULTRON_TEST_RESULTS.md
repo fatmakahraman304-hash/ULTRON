@@ -1,3 +1,12 @@
+## 2026-10-14 — Episodic Memory V4 PR #34 validation
+
+- Code/import-fix SHA `3af7cae5b26f8139f741fcf88791c6ebc8473473`; PR #34 is ready for review and remains unmerged (no review approval).
+- `python -m unittest discover -s ultron/cloud_service -p 'test_*.py'` with an isolated disposable PostgreSQL 16: **376 passed, 0 skipped** in 6.443 s. V4 Postgres/API subset **13 passed**, including owner isolation, migration preservation, concurrency/correction/delete, authenticated API, same-origin and explicit-consent checks. The 376 total includes the V4 subset.
+- `PYTHONPATH=ultron/backend python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v`: **15 passed**. `test_conversation_intent_router.py`: **9 passed**, including subprocess import with aiohttp blocked. `python -m py_compile` and `git diff --check`: pass. Existing aiohttp AppKey warnings remain informational.
+- GitHub Actions on the exact code fix commit: [persona-policy](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38562726911) pass; [postgres-fencing](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38562726911) pass; [qwen-listening](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38562726922) pass; [Scene verify](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38562726927) pass.
+- Disposable PostgreSQL query-only benchmark (10,000 synthetic episodes, 100 queries): previous predicate p50 7.612 ms / p95 9.256 ms; bounded AND-ranked predicate p50 6.671 ms / p95 7.977 ms. No model or total-response timing was measured.
+- No model answers or external websites were used in tests. Real Gemini/Qwen inference, real iPhone Safari and physical Windows verification are **NOT_RUN**. Render was not changed; production was previously verified at `6ef3f5d` and must be refreshed before release.
+
 ## 2026-10-14 — Cognitive intent router v2, local verification
 
 - Production base was fetched and verified as `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0`; PR #30 SHA `9c7817f` is its ancestor. The work is isolated on `feat/golge-cognitive-router-v2-20261014`; prior branch/worktree was clean and left intact.
