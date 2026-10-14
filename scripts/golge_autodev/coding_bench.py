@@ -320,7 +320,8 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
                 "attempts": max_attempts, "provider_calls": calls,
                 "elapsed_ms": int((time.perf_counter()-start)*1000),
                 "model_ms": model_ms, "test_ms": test_ms,
-                "reason": "independent_oracle_failed_after_bounded_repair"}
+                "reason": "independent_oracle_failed_after_bounded_repair",
+                "oracle_diagnostics": _sanitize(last_diagnostics)}
 
 
 def run_benchmark(*, provider: str | None, max_cases: int = MAX_TASKS,

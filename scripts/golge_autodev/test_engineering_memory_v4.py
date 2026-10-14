@@ -241,7 +241,7 @@ class EngineeringMemoryContracts(unittest.TestCase):
                          verified_test=None)
         memory.record_candidate(candidate, source_sha=SHA)
         artifact = self.root / "corrupt.json"
-        memory.export_json(artifact)
+        artifact.write_text(json.dumps(memory.snapshot()), encoding="utf-8")
         memory.close()
         data = json.loads(artifact.read_text(encoding="utf-8"))
         data["candidates"].append({"candidate_id": "invalid"})
@@ -414,7 +414,7 @@ class FakeModelAutonomyIntegration(unittest.TestCase):
             proposal1 = engine.generate(plan, "ollama", root=root)
             self.assertEqual(proposal1["discovery_candidate_id"], triaged[0]["candidate_id"])
             failed = engine.verify_proposal(proposal1, root=root)
-            self.assertEqual(failed["status"], "failed")
+            self.assertEqual(failed["status"], "failed", failed)
             self.assertEqual(failed["failure_class"], "code")
             self.assertTrue(failed["repairable"])
             subprocess.run(["git", "reset", "--hard", base_sha], cwd=root, check=True, capture_output=True)
