@@ -92,13 +92,21 @@ def validate_path(path: str, *, root: Path = ROOT) -> Path:
     return destination
 
 
-def select_goal(goals: list[dict], open_prs: list[dict]) -> dict | None:
-    """One proposed change at a time. Never spawn on top of pending PRs."""
-    if not isinstance(open_prs, list):
+def select_goal(goals: list[dict], open_prs: list[dict],
+                merged_prs: list[dict] | None = None) -> dict | None:
+    """One PR at a time; never re-open a previously merged objective."""
+    if not isinstance(open_prs, list) or not isinstance(merged_prs or [], list):
         raise ProposalError("invalid_pr_list")
     if any("GOLGE-AUTODEV:" in str(row.get("body") or "") for row in open_prs if isinstance(row, dict)):
         return None
-    return goals[0] if goals else None
+    completed = set()
+    for row in merged_prs or []:
+        if not isinstance(row, dict):
+            continue
+        text = str(row.get("title") or "") + "\n" + str(row.get("body") or "")
+        completed.update(re.findall(r"GOLGE-AUTODEV:([a-z0-9-]{5,64})", text))
+        completed.update(re.findall(r"GÖLGE autonomous: ([a-z0-9-]{5,64})", text))
+    return next((goal for goal in goals if goal["id"] not in completed), None)
 
 
 def validate_proposal(proposal: dict, goal: dict, *, root: Path = ROOT) -> list[tuple[str, str]]:
@@ -141,12 +149,12 @@ def validate_proposal(proposal: dict, goal: dict, *, root: Path = ROOT) -> list[
     return changed
 
 
-def plan_goal(base_sha: str, open_prs: list[dict]) -> dict:
+def plan_goal(base_sha: str, open_prs: list[dict], merged_prs: list[dict] | None = None) -> dict:
     if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
         raise ProposalError("invalid_base_sha")
-    goal = select_goal(load_goals(), open_prs)
+    goal = select_goal(load_goals(), open_prs, merged_prs)
     if not goal:
-        return {"status": "already_pending", "base_sha": base_sha}
+        return {"status": "nothing_to_generate", "base_sha": base_sha}
     return {"status": "ready", "base_sha": base_sha, "goal": goal}
 
 
@@ -266,6 +274,7 @@ def main(argv=None) -> int:
     parser.add_argument("command", choices=("plan", "generate", "validate", "apply"))
     parser.add_argument("--base-sha", default="")
     parser.add_argument("--open-prs", type=Path)
+    parser.add_argument("--merged-prs", type=Path)
     parser.add_argument("--plan-file", type=Path, default=Path("golge-autodev-plan.json"))
     parser.add_argument("--proposal", type=Path, default=Path("golge-autodev-proposal.json"))
     parser.add_argument("--provider", choices=("gemini", "ollama"), default="gemini")
@@ -273,7 +282,8 @@ def main(argv=None) -> int:
     try:
         if args.command == "plan":
             open_prs = json.loads(args.open_prs.read_text(encoding="utf-8")) if args.open_prs else []
-            plan = plan_goal(args.base_sha, open_prs)
+            merged_prs = json.loads(args.merged_prs.read_text(encoding="utf-8")) if args.merged_prs else []
+            plan = plan_goal(args.base_sha, open_prs, merged_prs)
             args.plan_file.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
             print("AUTODEV:" + plan["status"])
         elif args.command == "generate":
