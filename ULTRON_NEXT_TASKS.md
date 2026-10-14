@@ -1,4 +1,12 @@
-## Current priority — Autonomous Development V2
+## Current priority — Autonomous Engineer V3
+
+1. Review [draft PR #41](https://github.com/fatmakahraman304-hash/ULTRON/pull/41), head `ab71f77d3a3eff09fb2cd565a7024037514eaf7c`, stacked on PR #39. Exact-head PR Actions #38609317454 passed `contracts`; discovery-only dispatch #38609340725 passed `contracts` and `discover` and reported 12 candidates / 0 eligible. Neither run invoked a provider; proposal/repair/verify/publisher jobs were skipped.
+2. Before a real provider-to-draft-PR test, an authorized maintainer must verify repository secret `GOLGE_AUTODEV_GEMINI_API_KEY`, set `GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED=true` only after reviewing quota/cost, and confirm Actions `contents:write` + `pull-requests:write` for the isolated final publisher job. Current secret listing API access is 403; do not guess or bypass it.
+3. PR #40 scheduler workflow is updated at head `8a22869d8147bf86c3a8eac15f75bb1893c059d3`; keep it draft until PR #38 → #39 → #41 have been separately reviewed and required code is on production. The schedule is not active yet.
+4. Next implementation: add durable, privacy-filtered attempt history (including failed attempts, bounded test result, accepted repair, commit and PR) and load it into future discovery without importing personal chat memory. Add approved read-only Render log/health/performance sources only after explicit access is available.
+5. Physical Windows/Ollama, iPhone/Safari/microphone, and real Gemini/Qwen model tests remain **NOT_RUN**. Render currently remains LIVE at `6ef3f5d`; this branch is not deployed.
+
+## Prior checkpoint — Autonomous Development V2
 
 1. Review draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39), V2 code/workflow commit `f75ec5c2334342360f3599cea9000f433357a8c8`. Verification checkpoint `0cae002c953b6cbae09a76c6bae1469edb4dee2e`: PR run #38593948734 and contracts-only dispatch #38593954661 passed; model/verify/repair/publisher were skipped. Manual `workflow_dispatch` defaults to `contracts_only`; `pipeline` must be explicitly chosen. Real provider-to-draft-PR remains unverified.
 2. Keep scheduler-only draft [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40) against default `main` unmerged until PR #38 plus V2 have landed on production. Confirm Actions secret `GOLGE_AUTODEV_GEMINI_API_KEY` and write permissions with an authorized maintainer.
