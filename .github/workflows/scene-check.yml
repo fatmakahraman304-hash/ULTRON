@@ -111,11 +111,13 @@ jobs:
       - name: ULTRON Fast Brain single-pass and Ollama wire regression tests
         env:
           PYTHONPATH: ultron/backend
-        run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
+        run: |
+          python -m pip install --disable-pip-version-check 'aiohttp>=3.9,<4'
+          python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
       - name: Desktop model, agent, vision and merged API privacy regressions
         run: |
           python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'aiohttp>=3.9,<4' 'Pillow>=10' 'psutil>=5'
-          python -m pytest -q ultron/backend/tests/test_model_router.py
+          python -m pytest -q ultron/backend/tests/test_model_router.py ultron/backend/tests/test_request_cancellation.py
       - name: SSRF-bounded source reading and 100-case memory research evaluation
         env:
           PYTHONPATH: ultron/backend:ultron/cloud_service
