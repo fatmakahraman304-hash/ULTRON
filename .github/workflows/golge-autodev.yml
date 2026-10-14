@@ -143,6 +143,7 @@ jobs:
             --open-prs golge-autodev-open-prs.json \
             --merged-prs golge-autodev-merged-prs.json \
             --discovery-file discovery/golge-autodev-discovery.json \
+            --require-discovery \
             --plan-file golge-autodev-plan.json
           GOAL_ID="$(python -c "import json; p=json.load(open('golge-autodev-plan.json')); print(p.get('goal',{}).get('id',''))")"
           echo "goal_id=$GOAL_ID" >> "$GITHUB_OUTPUT"

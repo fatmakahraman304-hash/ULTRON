@@ -293,11 +293,12 @@ def validate_proposal(proposal: dict, goal: dict, *, root: Path = ROOT) -> list[
 
 
 def plan_goal(base_sha: str, open_prs: list[dict], merged_prs: list[dict] | None = None,
-              discovery_candidates: list[dict] | None = None) -> dict:
+              discovery_candidates: list[dict] | None = None,
+              require_discovery: bool = False) -> dict:
     if not re.fullmatch(r"[0-9a-f]{40}", base_sha):
         raise ProposalError("invalid_base_sha")
     goal = select_goal(load_goals(), open_prs, merged_prs, discovery_candidates)
-    if not goal:
+    if not goal or (require_discovery and "_discovery_candidate" not in goal):
         return {"status": "nothing_to_generate", "base_sha": base_sha}
     discovery_candidate = goal.pop("_discovery_candidate", None)
     task = {
@@ -543,6 +544,8 @@ def main(argv=None) -> int:
     parser.add_argument("--merged-prs", type=Path)
     parser.add_argument("--discovery-file", type=Path,
                         help="Read-only verified candidates produced by discovery.py")
+    parser.add_argument("--require-discovery", action="store_true",
+                        help="Do not plan a registry fallback without eligible observed evidence")
     parser.add_argument("--plan-file", type=Path, default=Path("golge-autodev-plan.json"))
     parser.add_argument("--proposal", type=Path, default=Path("golge-autodev-proposal.json"))
     parser.add_argument("--previous-proposal", type=Path)
@@ -563,7 +566,8 @@ def main(argv=None) -> int:
                 discoveries = data.get("candidates", []) if isinstance(data, dict) else []
                 if not isinstance(discoveries, list) or len(discoveries) > 200:
                     raise ProposalError("invalid_discovery_candidates")
-            plan = plan_goal(args.base_sha, open_prs, merged_prs, discoveries)
+            plan = plan_goal(args.base_sha, open_prs, merged_prs, discoveries,
+                             require_discovery=args.require_discovery)
             args.plan_file.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
             print("AUTODEV:" + plan["status"])
         elif args.command == "generate":

@@ -255,6 +255,17 @@ class DiscoveryContracts(unittest.TestCase):
         conflicted = engine.plan_goal("a" * 40, open_pr, [], [voice_candidate])
         self.assertNotEqual(conflicted.get("goal", {}).get("id"), "voice-interrupt-contract")
 
+    def test_pipeline_requires_discovered_evidence_instead_of_static_goal_fallback(self):
+        fallback = engine.plan_goal("a" * 40, [], [], [], require_discovery=True)
+        self.assertEqual(fallback["status"], "nothing_to_generate")
+        candidate = discovery.candidates_from_issues([{
+            "number": 49, "url": "https://github.com/fatmakahraman304-hash/ULTRON/issues/49",
+            "labels": [{"name": "autodev:verified"}, {"name": "component:conversation"}],
+        }])
+        observed = engine.plan_goal("a" * 40, [], [], candidate, require_discovery=True)
+        self.assertEqual(observed["status"], "ready")
+        self.assertEqual(observed["discovery_candidate"]["source"], "github_issue")
+
     def test_completed_candidate_is_deduplicated_but_a_new_candidate_can_recur(self):
         first = discovery.candidates_from_issues([{
             "number": 31, "url": "https://github.com/fatmakahraman304-hash/ULTRON/issues/31",
@@ -316,6 +327,7 @@ class DiscoveryContracts(unittest.TestCase):
         self.assertIn("vars.GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED", propose)
         self.assertIn('!= "true"', propose)
         self.assertLess(propose.index('!= "true"'), propose.index("engine.py generate"))
+        self.assertIn("--require-discovery", workflow)
         repair = workflow.split("  repair:\n", 1)[1].split("  verify_repair:\n", 1)[0]
         self.assertIn("vars.GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED", repair)
         self.assertIn('!= "true"', repair)

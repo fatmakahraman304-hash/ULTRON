@@ -46,6 +46,8 @@ kontrol listeleri ve yerel statik incelemeyi toplar; hiç model çağırmaz.
 işaret ederse otomatik aday olur. Issue içeriği okunmaz; yalnızca `autodev:verified`
 ve desteklenen `component:voice` / `component:conversation` etiketleri otomatik
 hedef eşlemesi sağlayabilir. Diğer bulgular insan incelemesi bekler.
+`pipeline` planlaması ayrıca `--require-discovery` kullanır; mevcut sabit görev
+listesindeki genel bir hedef, uygun keşif kanıtı bulunmadan modele gönderilmez.
 Gerçek model/PR akışı için secret ve
 repository izinlerinin yanında sağlayıcı kotası/maliyeti yetkili biri tarafından
 kontrol edilmeli ve `GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED=true` repository
