@@ -7,8 +7,12 @@ to the user and checked for ownership on every poll. Cloud memory is shared.
 """
 from __future__ import annotations
 
+import asyncio
+import hmac
 import json
+import hashlib
 import os
+import re
 import time
 import uuid
 
@@ -45,6 +49,11 @@ async def post_local_chat(request: web.Request) -> web.Response:
             raise ValueError()
     except (ValueError, TypeError):
         return web.json_response({"error":"invalid_request_id"}, status=400)
+    request_key = body.get("request_key")
+    if request_key is not None and (request_id is None or not isinstance(request_key, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", request_key)):
+        return web.json_response({"error":"invalid_request_key"}, status=400)
+    request_key_hash = hashlib.sha256(request_key.encode("ascii")).hexdigest() if request_key else None
     pool = request.app["db"]
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -56,11 +65,28 @@ async def post_local_chat(request: web.Request) -> web.Response:
                 "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
                 "ultron-local-chat:" + request["user_id"],
             )
+            if request_id is not None and request_key_hash:
+                lock_name = f"ultron-local-chat-request:{request['user_id']}:{request_id}"
+                await conn.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
+                    lock_name,
+                )
+                tombstone = await conn.fetchrow(
+                    "SELECT request_key_hash FROM local_chat_cancellations "
+                    "WHERE user_id=$1 AND request_id=$2 AND expires_at>NOW() FOR UPDATE",
+                    request["user_id"], request_id,
+                )
+                if tombstone:
+                    if not hmac.compare_digest(str(tombstone["request_key_hash"]).strip(), request_key_hash):
+                        return web.json_response({"error":"request_id_conflict"}, status=409)
+                    return web.json_response({"status":"cancelled_before_start",
+                        "provider":"local", "provider_stopped":False,
+                        "prevented_start":True, "request_id":str(request_id)})
             # A lost POST response must return the existing task, even if the
             # desktop went offline since acceptance. Never fall back and duplicate it.
             if request_id is not None:
                 previous = await conn.fetchrow(
-                    "SELECT l.command_id,l.conversation_id,l.user_message_id,c.payload "
+                    "SELECT l.command_id,l.conversation_id,l.user_message_id,c.payload,l.request_key_hash "
                     "FROM local_chat_requests l JOIN device_commands c ON c.id=l.command_id "
                     "WHERE l.user_id=$1 AND c.user_id=$1 AND l.request_id=$2",
                     request["user_id"], request_id,
@@ -70,6 +96,8 @@ async def post_local_chat(request: web.Request) -> web.Response:
                     if isinstance(payload, str):
                         payload = json.loads(payload)
                     if payload.get("text") != text or (raw_conv and previous["conversation_id"] != conversation):
+                        return web.json_response({"error":"request_id_conflict"}, status=409)
+                    if request_key_hash and previous["request_key_hash"] != request_key_hash:
                         return web.json_response({"error":"request_id_conflict"}, status=409)
                     return web.json_response({"status":"queued", "command_id":previous["command_id"],
                         "conversation_id":str(previous["conversation_id"]), "provider":"local",
@@ -170,8 +198,8 @@ async def post_local_chat(request: web.Request) -> web.Response:
                 conversation, request["user_id"], text, request["device_id"],
             )
             await conn.execute(
-                "INSERT INTO local_chat_requests(command_id,user_id,conversation_id,request_id,user_message_id) "
-                "VALUES($1,$2,$3,$4,$5)",row["id"],request["user_id"],conversation,request_id,user_message_id,
+                "INSERT INTO local_chat_requests(command_id,user_id,conversation_id,request_id,user_message_id,request_key_hash) "
+                "VALUES($1,$2,$3,$4,$5,$6)",row["id"],request["user_id"],conversation,request_id,user_message_id,request_key_hash,
             )
     # User text accepted into the real local queue; no assistant/tool text is learned.
     try:
@@ -187,10 +215,12 @@ async def post_local_chat(request: web.Request) -> web.Response:
 async def _save_reply(conn, user_id, ident, details):
     """Persist validated local output once, including before the next turn loads history."""
     pending = await conn.fetchrow(
-        "SELECT reply_saved,conversation_id,assistant_message_id FROM local_chat_requests "
+        "SELECT reply_saved,conversation_id,assistant_message_id,cancellation_requested FROM local_chat_requests "
         "WHERE command_id=$1 AND user_id=$2 FOR UPDATE", ident, user_id,
     )
     if not pending:
+        return None
+    if pending["cancellation_requested"]:
         return None
     if pending["reply_saved"]:
         return pending["assistant_message_id"]
@@ -216,7 +246,8 @@ async def save_pending_local_replies(pool, user_id):
                 "JOIN device_commands c ON c.id=l.command_id "
                 "WHERE l.user_id=$1 AND c.user_id=$1 AND l.reply_saved=FALSE "
                 "AND c.status='completed' AND c.command='agent_task' "
-                "AND c.payload->>'mode'='local_brain' ORDER BY l.command_id LIMIT 100",
+                "AND c.payload->>'mode'='local_brain' AND l.cancellation_requested=FALSE "
+                "ORDER BY l.command_id LIMIT 100",
                 user_id,
             )
             for row in rows:
@@ -226,6 +257,111 @@ async def save_pending_local_replies(pool, user_id):
                 details = _validated_local_reply(result)
                 if details is not None:
                     await _save_reply(conn, user_id, row["command_id"], details)
+
+
+async def cancel_local_chat(request: web.Request) -> web.Response:
+    if request.get("auth_kind") != "web":
+        raise web.HTTPForbidden(text='{"error":"web_session_required"}',
+                                content_type="application/json")
+    try:
+        body = await request.json()
+        request_id = uuid.UUID(str(body.get("request_id", "")))
+        request_key = body.get("request_key", "")
+        if not isinstance(request_key, str) or not re.fullmatch(r"[0-9a-f]{64}", request_key):
+            raise ValueError()
+    except (TypeError, ValueError, AttributeError):
+        return web.json_response({"error":"invalid_request_identity"}, status=400)
+    key_hash = hashlib.sha256(request_key.encode("ascii")).hexdigest()
+    pool = request.app["db"]
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            lock_name = f"ultron-local-chat-request:{request['user_id']}:{request_id}"
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))",
+                lock_name,
+            )
+            await conn.execute(
+                "DELETE FROM local_chat_cancellations WHERE ctid IN ("
+                "SELECT ctid FROM local_chat_cancellations WHERE expires_at<=NOW() "
+                "ORDER BY expires_at LIMIT 100)"
+            )
+            row = await conn.fetchrow(
+                "SELECT l.command_id,l.conversation_id,l.reply_saved,l.cancellation_requested,l.provider_stopped,c.status AS command_status "
+                "FROM local_chat_requests l JOIN device_commands c ON c.id=l.command_id AND c.user_id=l.user_id "
+                "WHERE l.user_id=$1 AND l.request_id=$2 FOR UPDATE OF l,c",
+                request["user_id"], request_id,
+            )
+            if not row:
+                prior = await conn.fetchrow(
+                    "SELECT request_key_hash,(expires_at>NOW()) AS active "
+                    "FROM local_chat_cancellations WHERE user_id=$1 AND request_id=$2 FOR UPDATE",
+                    request["user_id"], request_id,
+                )
+                if prior and not hmac.compare_digest(
+                        str(prior["request_key_hash"]).strip(), key_hash):
+                    return web.json_response({"error":"not_found","provider_stopped":False}, status=404)
+                if prior and prior["active"]:
+                    return web.json_response({"status":"cancelled_before_start",
+                        "provider":"local", "provider_stopped":False,
+                        "prevented_start":True, "request_id":str(request_id)})
+                if prior:
+                    await conn.execute(
+                        "DELETE FROM local_chat_cancellations WHERE user_id=$1 AND request_id=$2",
+                        request["user_id"], request_id,
+                    )
+                await conn.execute(
+                    "INSERT INTO local_chat_cancellations(user_id,request_id,request_key_hash) "
+                    "VALUES($1,$2,$3)", request["user_id"], request_id, key_hash,
+                )
+                return web.json_response({"status":"cancelled_before_start",
+                    "provider":"local", "provider_stopped":False,
+                    "prevented_start":True, "request_id":str(request_id)})
+            if not hmac.compare_digest(str(row.get("request_key_hash") or "").strip(), key_hash):
+                return web.json_response({"error":"not_found","provider_stopped":False}, status=404)
+            if row["reply_saved"]:
+                return web.json_response({"status":"already_completed","provider_stopped":False,
+                                          "conversation_id":str(row["conversation_id"])})
+            await conn.execute(
+                "UPDATE local_chat_requests SET cancellation_requested=TRUE WHERE command_id=$1 AND user_id=$2",
+                row["command_id"], request["user_id"],
+            )
+            cancelled_status = await conn.fetchval(
+                "UPDATE device_commands SET status='cancelled',"
+                "result=jsonb_build_object('message','Chat request cancelled before delivery.'),"
+                "completed_at=NOW() "
+                "WHERE id=$1 AND user_id=$2 AND target='desktop' "
+                "AND status IN ('queued','delivered') RETURNING status",
+                row["command_id"], request["user_id"],
+            )
+    prevented_start = bool(cancelled_status and row["command_status"] == "queued")
+    provider_stopped = bool(row["provider_stopped"])
+    if cancelled_status and row["command_status"] == "delivered" and not provider_stopped:
+        # The paired worker closes its active Ollama stream and records a
+        # request-fenced acknowledgement. Bound the wait; never infer success
+        # merely because the queue row was marked cancelled.
+        for _ in range(20):
+            await asyncio.sleep(0.05)
+            provider_stopped = bool(await pool.fetchval(
+                "SELECT provider_stopped FROM local_chat_requests "
+                "WHERE user_id=$1 AND request_id=$2 AND request_key_hash=$3",
+                request["user_id"], request_id, key_hash,
+            ))
+            if provider_stopped:
+                break
+    if provider_stopped:
+        status = "cancelled"
+    elif prevented_start:
+        status = "cancelled_before_start"
+    elif cancelled_status and row["command_status"] == "delivered":
+        status = "cancellation_requested"
+    elif row["cancellation_requested"] and row["command_status"] == "cancelled":
+        status = "cancellation_requested"
+    else:
+        status = "output_suppressed"
+    return web.json_response({"status":status,
+        "provider":"local", "provider_stopped":provider_stopped,
+        "prevented_start":prevented_start,
+        "conversation_id":str(row["conversation_id"])})
 
 
 async def get_local_chat(request: web.Request) -> web.Response:
@@ -241,7 +377,7 @@ async def get_local_chat(request: web.Request) -> web.Response:
     pool=request.app["db"]
     # Ownership + local-only mode checked in SQL. No access to other tasks.
     row=await pool.fetchrow(
-        "SELECT c.status,c.result,c.payload,l.conversation_id,l.reply_saved "
+        "SELECT c.status,c.result,c.payload,l.conversation_id,l.reply_saved,l.cancellation_requested,l.provider_stopped "
         "FROM local_chat_requests l JOIN device_commands c ON c.id=l.command_id "
         "WHERE l.command_id=$1 AND l.user_id=$2 AND c.user_id=$2 "
         "AND c.payload->>'mode'='local_brain'",
@@ -249,6 +385,10 @@ async def get_local_chat(request: web.Request) -> web.Response:
     )
     if not row:
         return web.json_response({"error":"not_found"},status=404)
+    if row["cancellation_requested"]:
+        return web.json_response({"status":"output_suppressed","provider":"local",
+                                  "provider_stopped":bool(row["provider_stopped"]),
+                                  "conversation_id":str(row["conversation_id"])})
     status=str(row["status"])
     result=row["result"]
     if isinstance(result,str):
@@ -273,6 +413,9 @@ async def get_local_chat(request: web.Request) -> web.Response:
     async with pool.acquire() as conn:
         async with conn.transaction():
             assistant_message_id = await _save_reply(conn, request["user_id"], ident, details)
+    if assistant_message_id is None:
+        return web.json_response({"status":"output_suppressed","provider":"local",
+                                  "provider_stopped":False,"conversation_id":str(row["conversation_id"])})
     return web.json_response({
         "status":"completed","provider":"local", "result_provider":result.get("provider", "local-ollama"),
         "assistant_message_id":assistant_message_id, "command_id":ident,
@@ -285,4 +428,5 @@ def register_local_brain_routes(app:web.Application,memory_context,recent_contex
     app["local_memory_context"]=memory_context
     app["local_recent_context"]=recent_context
     app.router.add_post("/api/local-chat",post_local_chat)
+    app.router.add_post("/api/local-chat/cancel",cancel_local_chat)
     app.router.add_get("/api/local-chat/{id}",get_local_chat)

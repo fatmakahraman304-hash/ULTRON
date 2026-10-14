@@ -85,7 +85,7 @@
     .stage-status{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;align-items:center;gap:9px;width:max-content;max-width:90%;padding:9px 16px;border:1px solid rgba(255,48,71,.5);background:rgba(18,5,8,.86);border-radius:999px;color:#ff8a98;font-size:11px;letter-spacing:.04em;box-shadow:0 0 24px rgba(255,35,60,.1)}.stage-wave{letter-spacing:2px;color:#ff3047;text-shadow:0 0 10px #ff3047}
     #messages{padding:7px 1px 188px;gap:12px}.msg{position:relative;max-width:82%;font-size:14px;line-height:1.48;padding:13px 15px;box-shadow:0 12px 30px rgba(0,0,0,.28)}.msg.assistant{margin-left:42px;border-color:#353b44;background:linear-gradient(180deg,#15191e,#0c0f13)}.msg.assistant:before{content:"U";position:absolute;left:-43px;top:2px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:900;color:#ff5267;background:radial-gradient(circle,#371019,#08090b 68%);border:1px solid #8d1d30;box-shadow:0 0 16px rgba(255,48,71,.24)}.msg.user{background:linear-gradient(180deg,#5d101d,#350810);border-color:#a62538}
     .composer{bottom:calc(72px + env(safe-area-inset-bottom));padding:9px 9px 8px;border-radius:22px;border-color:#3a3034;background:rgba(5,7,10,.96);box-shadow:0 -10px 45px rgba(0,0,0,.55),0 0 0 1px rgba(255,48,71,.08)}
-    .composer .row{gap:7px}.composer textarea{min-height:52px;border-radius:18px;background:#0b0e12;padding:15px 12px}.composer #sendBtn{width:50px;height:50px;border-radius:50%;padding:0;font-size:0}.composer #sendBtn:after{content:"➤";font-size:22px}.voice-btn{width:54px;height:54px;border-radius:50%;padding:0;flex:0 0 54px;font-size:22px;background:radial-gradient(circle,#d51b34,#7d0c1d 58%,#22050a);border:1px solid #ff5267;box-shadow:0 0 0 5px rgba(255,48,71,.06),0 0 25px rgba(255,48,71,.36)}.voice-btn.listening{animation:voicePulse .9s ease-in-out infinite alternate;background:radial-gradient(circle,#ff4059,#a40f26 62%,#34060e)}@keyframes voicePulse{to{box-shadow:0 0 0 10px rgba(255,48,71,.08),0 0 42px rgba(255,48,71,.65);transform:scale(1.04)}}.voice-btn.unsupported{opacity:.45;box-shadow:none}
+    .composer .row{gap:7px}.composer textarea{min-height:52px;border-radius:18px;background:#0b0e12;padding:15px 12px}.composer #sendBtn{width:50px;height:50px;border-radius:50%;padding:0;font-size:0}.composer #sendBtn:after{content:"➤";font-size:22px}.composer #sendBtn.is-stop:after{content:"■";font-size:16px}.voice-btn{width:54px;height:54px;border-radius:50%;padding:0;flex:0 0 54px;font-size:22px;background:radial-gradient(circle,#d51b34,#7d0c1d 58%,#22050a);border:1px solid #ff5267;box-shadow:0 0 0 5px rgba(255,48,71,.06),0 0 25px rgba(255,48,71,.36)}.voice-btn.listening{animation:voicePulse .9s ease-in-out infinite alternate;background:radial-gradient(circle,#ff4059,#a40f26 62%,#34060e)}@keyframes voicePulse{to{box-shadow:0 0 0 10px rgba(255,48,71,.08),0 0 42px rgba(255,48,71,.65);transform:scale(1.04)}}.voice-btn.unsupported{opacity:.45;box-shadow:none}
     .attach-btn{width:44px;height:44px;border-radius:50%;padding:0;flex:0 0 44px;background:#11151b;border-color:#3a404b;color:#dfe4eb;font-size:19px}.attach-wrap{position:relative;flex:0 0 auto}.attach-menu{position:absolute;left:0;bottom:58px;z-index:18;display:none;min-width:178px;padding:8px;border:1px solid #343b45;border-radius:16px;background:rgba(8,10,14,.98);box-shadow:0 18px 50px rgba(0,0,0,.6),0 0 30px rgba(255,48,71,.08);backdrop-filter:blur(18px)}.attach-menu.show{display:grid;gap:7px}.attach-menu button{display:flex;align-items:center;gap:10px;width:100%;padding:11px 12px;text-align:left;background:#10141a;border-color:#292f38;color:#eef1f5;font-size:12px}.attach-menu button span:first-child{width:24px;text-align:center;font-size:18px}.attach-menu small{display:block;color:#7f8997;font-size:9px;margin-top:2px;font-weight:500}.plus-btn{width:48px;height:48px;border-radius:50%;padding:0;flex:0 0 48px;background:#101319;border:1px solid #3a414c;color:#fff;font-size:28px;font-weight:300;line-height:1;transition:.18s transform,.18s border-color,.18s background}.plus-btn.open{transform:rotate(45deg);border-color:#a7283d;background:#260810}.camera-panel{display:none;margin:9px 0 0;padding:10px;border:1px solid #332a2e;border-radius:16px;background:#080b0f}.camera-panel.show{display:block}.camera-wrap{position:relative;overflow:hidden;border-radius:14px;background:#020304;aspect-ratio:3/4}.camera-wrap video{width:100%;height:100%;object-fit:cover;display:block}.camera-hud{position:absolute;inset:0;pointer-events:none;border:1px solid rgba(255,48,71,.35);box-shadow:inset 0 0 60px rgba(255,20,45,.08)}.camera-actions{display:flex;gap:8px;margin-top:9px}.camera-actions button{flex:1;padding:9px;font-size:10px}.camera-caption{margin-top:8px;font-size:11px;line-height:1.45;color:#aeb7c3;min-height:16px}.camera-live{display:inline-flex;align-items:center;gap:6px;color:#ff6679}.camera-live:before{content:"";width:7px;height:7px;border-radius:50%;background:#ff3047;box-shadow:0 0 10px #ff3047}.image-preview{display:none;align-items:center;gap:8px;margin:7px 4px 0;padding:8px 10px;border:1px solid #2f3640;border-radius:13px;background:#0d1116;color:#b7c0cb;font-size:11px}.image-preview.show{display:flex}.image-preview img{width:42px;height:42px;object-fit:cover;border-radius:9px;border:1px solid #3d4652}.image-preview button{margin-left:auto;padding:5px 8px;font-size:10px;background:#151a21;border-color:#343c46}.voice-status{display:flex;align-items:center;justify-content:center;gap:7px;padding:5px 2px 0;color:#8993a1;font-size:10px}.voice-status.live{color:#ff7183}.voice-dot{width:6px;height:6px;border-radius:50%;background:#59616d}.voice-status.live .voice-dot{background:#ff3047;box-shadow:0 0 10px #ff3047}
     .tabs{border-color:#34272b;background:rgba(6,8,11,.96)}
     @media(max-width:430px){.shell{padding-left:11px;padding-right:11px}.remote-grid{grid-template-columns:1fr 1fr}.hero{min-height:118px}.core{width:74px;height:74px}.composer,.tabs{width:calc(100% - 22px)}}
@@ -193,6 +193,7 @@
     .plus-btn svg{width:26px;height:26px;stroke:#fff}
     #sendBtn{width:68px!important;min-width:68px!important;height:52px!important;padding:0!important;border-radius:999px!important;background:linear-gradient(180deg,#ff2145,#c20a2a)!important;border:1px solid #ff6b80!important;color:transparent!important;font-size:0!important;box-shadow:0 0 18px rgba(255,36,71,.28);position:relative}
     #sendBtn:before{content:"➤";color:#fff;font-size:22px;line-height:1}
+    #sendBtn.is-stop:before{content:"■";font-size:17px}
     .voice-status{padding-top:7px!important;color:#98a1ad!important}
 
     .tabs{position:fixed!important;z-index:8!important;left:50%;transform:translateX(-50%);bottom:max(8px,env(safe-area-inset-bottom))!important;width:min(732px,calc(100% - 28px))!important;padding:7px!important;border-radius:22px!important;background:linear-gradient(180deg,rgba(18,7,10,.94),rgba(7,8,11,.94))!important;border:1px solid rgba(255,36,71,.62)!important;box-shadow:0 0 20px rgba(255,36,71,.12)!important;backdrop-filter:blur(12px)}
@@ -663,7 +664,7 @@
 <script>
 const $=s=>document.querySelector(s);
 
-let chatSending=false,chatSendVersion=0,messageLoadSeq=0;
+let chatSending=false,chatSendVersion=0,messageLoadSeq=0,activeChatRequest=null,chatRequestGeneration=0;
 let conversationId=localStorage.getItem('ultronConversationId')||'';
 let currentView='chat',messageSignature='',toastTimer=null,unreadCount=0,initialMessagesLoaded=false;
 const knownMessageIds=new Set();
@@ -889,7 +890,7 @@ $('#approvePhoneAction').onclick=()=>{
   toast('İsteğinle GÖLGE Bridge açılıyor; sonucu iOS belirler.');
   location.href=url;
 };
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&pendingIOSAction)closeIOSApproval()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeChatRequest){e.preventDefault();cancelActiveChat()}if(e.key==='Escape'&&pendingIOSAction)closeIOSApproval()});
 function setAttachMenu(open){
   attachMenuOpen=!!open;$('#attachMenu').classList.toggle('show',attachMenuOpen);$('#plusBtn').classList.toggle('open',attachMenuOpen);$('#plusBtn').setAttribute('aria-expanded',attachMenuOpen?'true':'false');
 }
@@ -1576,6 +1577,9 @@ async function openLiveSocket(){
       toast('Geliştirme isteği kaydedildi. ChatGPT’ye aktarma onayı gerekiyor.');
     }
     if(d.type==='input_transcript'&&d.text){
+      if(activeChatRequest&&isSpokenStopCommand(d.text)){
+        cancelActiveChat();liveStatus('Yanıt kesiliyor…',true);return;
+      }
       if(window.ULTRONLongListen.isStart(d.text)&&!longListenController.active()){
         void stopLiveVoice();
         showLongListenTap();
@@ -2045,10 +2049,56 @@ localVoiceController=window.ULTRONLocalVoice?.create({
     await send(true,voiceToken);
   },
 });
-async function localBrainAnswer(text,userBubble){
+function newChatIdentity(){
+  const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);
+  const request_key=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  const request_id=crypto.randomUUID();
+  return {request_id,request_key};
+}
+function isSpokenStopCommand(text){
+  const value=String(text||'').toLocaleLowerCase('tr-TR').normalize('NFKC')
+    .replace(/[’']/g,'').replace(/[.,!?]+/g,' ').replace(/\s+/g,' ').trim();
+  return /^(?:(?:gölge|ultron)\s+)?(?:dur|sus|konuşmayı kes|konusmayi kes|yanıtı durdur|yaniti durdur|cevabı kes|cevabi kes|stop|stop speaking|be quiet)$/iu.test(value);
+}
+function mayApplyChatCancelResult(requestId){
+  return !activeChatRequest||activeChatRequest.identity.request_id===requestId;
+}
+function cancelActiveChat(){
+  const active=activeChatRequest;if(!active)return false;
+  activeChatRequest=null;
+  if(active.provider==='gemini-cloud'||active.provider==='local-qwen'){
+    // Start the authenticated provider-specific cancel/suppression request
+    // before aborting the visible poll or chat fetch.
+    const cancelPath=active.provider==='gemini-cloud'?'/api/chat/cancel':'/api/local-chat/cancel';
+    void api(cancelPath,{method:'POST',timeoutMs:3000,
+      body:JSON.stringify({request_id:active.identity.request_id,request_key:active.identity.request_key})
+    }).then(data=>{
+      if(!mayApplyChatCancelResult(active.identity.request_id))return;
+      if(data.conversation_id){conversationId=data.conversation_id;localStorage.setItem('ultronConversationId',conversationId)}
+      if(data.provider_stopped)toast('Yerel Qwen durduruldu.');
+      else if(data.prevented_start)toast('İstek model başlamadan iptal edildi.');
+      else if(active.provider==='gemini-cloud')toast('Yanıt ve ses kesildi; Gemini işlemi arka planda sürebilir.');
+      else if(data.status==='cancellation_requested')toast('Laptop durdurma isteğini aldı; provider duruşu henüz doğrulanmadı.');
+      else if(data.status==='already_completed')toast('Yanıt iptalden önce tamamlanmıştı.');
+      else toast('Yanıt kesildi; provider duruşu doğrulanmadı.');
+    }).catch(()=>toast('Yanıt ve ses yerel olarak kesildi; sunucu iptali doğrulanamadı.'));
+  }else{
+    toast('Model seçimi sırasında durduruldu; üretim başlamadı.');
+  }
+  active.controller.abort();
+  chatRequestGeneration++;chatSendVersion++;chatSending=false;$('#busy').textContent='';
+  $('#sendBtn').disabled=false;$('#sendBtn').classList.remove('is-stop');$('#sendBtn').setAttribute('aria-label','Gönder');
+  voiceTurnGuard.cancel();
+  try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}
+  stopPlayback();
+  return true;
+}
+function mayFinalizeChatSend(generation){return generation===chatRequestGeneration}
+async function localBrainAnswer(text,userBubble,identity,signal){
   // Generate once per accepted UI send; lost POST responses reuse this key.
-  const body={message:text,conversation_id:conversationId||undefined,request_id:crypto.randomUUID()};
+  const body={message:text,conversation_id:conversationId||undefined,request_id:identity.request_id,request_key:identity.request_key};
   return window.ULTRONChatTransport.localAnswer(api,body,{
+    signal,
     onSubmitted:submitted=>{
       conversationId=submitted.conversation_id||conversationId;
       localStorage.setItem('ultronConversationId',conversationId);
@@ -2064,8 +2114,9 @@ async function localBrainAnswer(text,userBubble){
 async function send(fromVoice=false,voiceToken=null,options={}){
   if(chatSending)return false;
   const text=$('#message').value.trim();if(!text&&!pendingImage&&!pendingPdf)return false;
+  const sendGeneration=++chatRequestGeneration;
   chatSending=true;chatSendVersion++;$('#sendBtn').disabled=true;
-  let userBubble;
+  let userBubble,chatIdentity=null,requestController=null;
   try{
     if(pendingImage){await sendImage();return}
     if(pendingPdf){await sendPdf();return}
@@ -2133,18 +2184,28 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     const directHandled=!options.forceChat&&runDirectPhoneCommand(text);
     if(directHandled){toast('Komut uygulanıyor…');return}
     $('#busy').textContent='GÖLGE düşünüyor…';
-    const cloud=()=>api('/api/chat',{method:'POST',timeoutMs:120000,body:JSON.stringify({message:text,conversation_id:conversationId||undefined})});
+    chatIdentity=newChatIdentity();requestController=new AbortController();
+    activeChatRequest={identity:chatIdentity,controller:requestController,provider:'routing'};
+    $('#sendBtn').disabled=false;$('#sendBtn').classList.add('is-stop');$('#sendBtn').setAttribute('aria-label','Konuşmayı durdur');
+    const cloud=()=>api('/api/chat',{method:'POST',timeoutMs:120000,signal:requestController.signal,
+      body:JSON.stringify({message:text,conversation_id:conversationId||undefined,...chatIdentity})});
     const preferred=await refreshAutoBrain(true);
+    if(requestController.signal.aborted)return false;
+    activeChatRequest.provider=preferred==='local'?'local-qwen':'gemini-cloud';
     let d;
     if(preferred==='local'){
-      try{d=await localBrainAnswer(text,userBubble)}
+      try{d=await localBrainAnswer(text,userBubble,chatIdentity,requestController.signal)}
       catch(e){
+        if(requestController.signal.aborted)return false;
         // Only a confirmed rejection before creation permits cloud fallback.
         if(!window.ULTRONAutoBrain.safeToFallback(e))throw e;
         brainMode='gemini';brainLastCheck=Date.now();
+        activeChatRequest.provider='gemini-cloud';
         d=await cloud();
       }
     }else d=await cloud();
+    if(requestController.signal.aborted||activeChatRequest?.identity.request_id!==chatIdentity.request_id)return false;
+    if(d.status==='cancelled'||d.status==='output_suppressed')return false;
     if(typeof d.reply!=='string'||!d.reply.trim())throw new Error('Yanıt boş geldi.');
     conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);
     if(d.user_message_id&&userBubble){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id));consumePendingVoice('user',text)}
@@ -2159,6 +2220,7 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     }
     return true;
   }catch(e){
+    if(requestController?.signal.aborted||e?.name==='AbortError')return false;
     const msg=e.network?'Bağlantı geçici olarak koptu. Mesaj sunucuya ulaşmış olabilir; sohbeti yenileyerek kontrol et.':(e.data?.detail||e.message);
     addMessage('assistant','Hata: '+msg);
     if(options.restoreOnFailure&&!$('#message').value.trim()){
@@ -2167,10 +2229,13 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     }
     return false;
   }finally{
-    chatSending=false;chatSendVersion++;$('#busy').textContent='';$('#sendBtn').disabled=false;scrollChatToBottom(false);
+    if(mayFinalizeChatSend(sendGeneration)){
+      if(activeChatRequest?.identity.request_id===chatIdentity?.request_id)activeChatRequest=null;
+      chatSending=false;chatSendVersion++;$('#busy').textContent='';$('#sendBtn').disabled=false;$('#sendBtn').classList.remove('is-stop');$('#sendBtn').setAttribute('aria-label','Gönder');scrollChatToBottom(false);
+    }
   }
 }
-$('#sendBtn').onclick=()=>send(false);
+$('#sendBtn').onclick=()=>{if(activeChatRequest){cancelActiveChat();return}void send(false)};
 updateBrainModeUi();
 $('#longListenBegin').onclick=async()=>{
   longListenAwaitingTap=false;
@@ -2233,6 +2298,7 @@ $('#longListenSaveMemory').onclick=async()=>{
 $('#longListenAnswer').onclick=()=>longListenController.finish(true);
 $('#longListenCancel').onclick=()=>{longListenAwaitingTap=false;longListenController.cancel();longListenAnalysisProvider=null;longListenRequestedChoice=null;$('#longListenProvider').disabled=false;localListeningClient.clear();longListenAnalyzer.clear();$('#longListenSaveMemory').disabled=false;$('#longListenSaveMemory').textContent='Özeti hafızaya kaydet';$('#longListenReport').textContent='';$('#longListenReportWrap').classList.add('hidden');$('#longListenPanel').classList.add('hidden');};
 $('#voiceBtn').onclick=async()=>{
+ if(activeChatRequest)cancelActiveChat();
  if(longListenController.active()){toast('Uzun dinleme açık. “Cevap ver” dediğinde yanıtlayacağım.');return;}
  if(liveDesired||voiceListening){await stopLiveVoice();return}
  if(localVoiceController?.active()){

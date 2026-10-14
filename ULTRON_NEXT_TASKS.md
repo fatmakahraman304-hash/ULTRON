@@ -758,3 +758,11 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 4. Test real Gemini and Qwen only when providers are reachable and credentials are available; report model/version, first-token/total latency, and all 100 scenarios with NOT_RUN for missing cases. Do not install/download models or modify the owner’s Windows laptop in this branch task.
 5. Add bounded PDF parsing only if a safe dependency and decompression/page limits are justified; retain HTML/text-only truthful behavior until then.
 6. After owner approval, release separately; verify production commit, Render deploy SHA and health. Physical iPhone/Windows acceptance remains a separate NOT_RUN item.
+## Next — True Interruption Engine V1 review and device verification
+
+1. Push the tested branch and create a draft PR stacked on PR #36 head cbac06d. Do not alter PRs #34/#35 and do not merge/deploy.
+2. Wait for exact-head GitHub Actions; require Cloud/PostgreSQL, Scene/frontend and Local Qwen Listening checks to pass. The cancel-before-submit and concurrent submit/cancel cases require the disposable PostgreSQL job.
+3. On Windows, test ESC/Stop during local Qwen token streaming and verify Ollama exits; on iPhone, test Stop during Cloud Gemini, queued Qwen, delivered Qwen, and speech playback. Keep missing physical tests NOT_RUN.
+4. Confirm cancel latency on actual devices; the 600 ms lease polling interval and fake transport p50/p95 are not end-to-end measurements.
+5. Gemini inference can currently only be output-suppressed, not stopped. Keep `provider_stopped=false` until a provider-side cancellation acknowledgement exists.
+6. Preserve approval-gated computer tasks and PR #30 long-listening behavior. Do not merge or deploy this draft.
