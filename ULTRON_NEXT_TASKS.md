@@ -1,11 +1,10 @@
-## Next tasks — cognitive router v2 review and measured provider validation
+## Next tasks — cognitive router v2 follow-up
 
-1. Review the current isolated cognitive-router branch and draft PR after it is opened. Do not merge or deploy it without explicit owner approval; production branch `feat/ultron-cloud-shared-memory` is Render-connected.
-2. Inspect exact-head Cloud/PostgreSQL and Scene/Frontend GitHub Actions. Fix genuine failures; update this section and `ULTRON_TEST_RESULTS.md` with run IDs and exact results.
-3. When a real Gemini credential or the paired laptop's Ollama service is available, run the frozen 100-case real-model suite with recorded model identities/transcripts/latencies, then obtain independent review. Keep quality, first-token and total response latency **NOT_RUN** until that evidence exists.
+1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`. Exact code-head Cloud/PostgreSQL #38546131703, Scene/Frontend #38546131626 and Local Qwen Listening #38546131604 passed. Do not merge or deploy without explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.
+2. Next code slice: verify intent-to-action handoff end-to-end through the existing authorized scene, computer and research handlers. Preserve read-only chat, Approval Gate, audit trail, owner/thread isolation and the unchanged simple phone UI; add regression tests before changing dispatch.
+3. When a real Gemini credential or the paired laptop's Ollama service is available, run the frozen 100-case real-model suite with recorded model identities, transcripts and latencies, then obtain independent review. Keep quality, first-token and total response latency **NOT_RUN** until that evidence exists.
 4. On the Windows laptop, measure Qwen3:4B/Qwen3:8B/coder routing and latency on the stated RTX 2050/24 GB hardware. Verify installed-only selection, Gemini fallback, file/test authorization and truthful failures; do not download models or alter Windows during this branch task.
 5. On physical iPhone Safari, preserve PR #30 checks: foreground mic, long listening, explicit “Cevap ver”, reconnect/resume. Background/locked-screen listening remains unsupported unless real device behavior proves otherwise.
-6. Next code slice after provider evidence: verify action intent handoff to existing authorized task handlers end-to-end. Preserve read-only chat, Approval Gate, audit trail, owner/thread isolation and the unchanged simple phone UI.
 
 ## Archived next tasks — first-run setup verification
 
