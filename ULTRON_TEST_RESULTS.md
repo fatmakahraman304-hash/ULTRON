@@ -6,6 +6,12 @@
 - `python evals/conversation/run.py --validate`: real-answer suite structurally valid at 100 (50 TR/50 EN); provider quality remains **NOT_RUN**. No `GEMINI_API_KEY` is configured and `127.0.0.1:11434` is unreachable. First-token latency, total model latency, actual Qwen selection/inference, actual Gemini answers and physical iPhone behavior are **NOT_RUN**. No mock was scored as a model.
 - Public Render health returned HTTP 200 and exact production commit `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0`. Draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) is open at head `d2dbfe6f8b50cb078d73a20e2d1487fc927fade7` and is not merged. Exact-head GitHub Actions: Cloud Queue PostgreSQL Integration #38546131703 **SUCCESS**, ULTRON Scene Build Check #38546131626 **SUCCESS**, and ULTRON Local Qwen Listening Analysis #38546131604 **SUCCESS**. No Render deployment was triggered.
 
+## 2026-10-14 — Desktop intent-to-agent dispatch, local verification
+
+- Regression first failed because an explicit “Run the tests” request on the default/general path reached Cloud chat and the API returned no agent result. `merged_api.invoke` now uses the shared `classify_intent`; computer tasks bypass read-only chat and go to the existing local agent with `approved=False`. It returns the actual state/message, distinguishes approval pending, and leaves partial/no-intent results incomplete. Ordinary question remains on Cloud chat.
+- HTTP contract covers computer-action dispatch, chat preservation, ignoring a client `approved:true` flag, and an unsupported action not being reported completed. Approval-gate state test covers real server agent `message`. Focused tests **7 passed**; full backend: **1,026 passed, 3 skipped, 6 subtests passed**; `py_compile` and `git diff --check` passed.
+- These tests use fake Cloud/agent contracts; no actual Windows command, browser task, Gemini or Ollama inference ran. Physical Windows/iPhone behavior and provider latency remain **NOT_RUN**. The follow-up code commit is awaiting its exact-head GitHub Actions; no Render deployment was triggered.
+
 ## 2026-10-14 — Conversation policy context-budget regression
 
 - New regressions first failed on the old behavior: a long optional configured prompt hid persona/read-only rules under a 4,500-character budget; a 64-character cap returned a policy fragment; and the local Qwen request did not receive the shared system prompt. The bounded composer now keeps runtime policy intact and local Qwen uses the same configured prompt as Gemini.

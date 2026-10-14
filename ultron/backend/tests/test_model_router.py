@@ -192,6 +192,120 @@ def test_merged_local_model_failure_does_not_echo_provider_details(monkeypatch):
     asyncio.run(run())
 
 
+def test_merged_invoke_routes_explicit_actions_to_agent_and_returns_verified_result(monkeypatch):
+    """Natural action wording must bypass chat and show the actual gated agent result."""
+    import asyncio
+    from types import SimpleNamespace
+    from aiohttp import web
+    from aiohttp.test_utils import TestClient, TestServer
+    import merged_api
+
+    monkeypatch.setenv("MARK_ULTRON_TOKEN", "")
+
+    class FakeCloud:
+        enabled = True
+
+        def __init__(self):
+            self.calls = []
+
+        async def chat(self, text):
+            self.calls.append(text)
+            return {"reply": "cloud chat path"}
+
+    cloud_instances = []
+    def make_cloud():
+        instance = FakeCloud()
+        cloud_instances.append(instance)
+        return instance
+
+    monkeypatch.setattr(merged_api, "CloudClient", make_cloud)
+
+    class Agent:
+        def __init__(self):
+            self.state = "IDLE"
+            self.message = ""
+            self.calls = []
+
+        async def run(self, text, approved=False):
+            assert approved is False
+            self.calls.append((text, approved))
+            if text == "Run the tests":
+                self.state = "DONE"
+                self.message = "Test result: 3 passed, 0 failed."
+                return {"ok": True, "result": "test-run-verified"}
+            if text == "Edit this project":
+                self.state = "DONE"
+                self.message = "No matching intent. Try a supported action."
+                return {"ok": True, "result": "no-intent"}
+            self.state = "WAITING_APPROVAL"
+            self.message = "File edit requires approval."
+            return {"ok": True, "result": "waiting-approval", "task_id": "approval-42"}
+
+    async def run():
+        hub = SimpleNamespace(
+            bridge=SimpleNamespace(runtime=object(), available=True),
+            agent=Agent(), pending_task=None,
+            memory=SimpleNamespace(add_session=lambda *_args: None),
+        )
+
+        async def on_activity(*_args):
+            return None
+
+        async def broadcast(*_args):
+            return None
+
+        hub.on_activity = on_activity
+        hub.broadcast = broadcast
+        app = web.Application()
+        merged_api.install(app, hub)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            response = await client.post("/api/merged/invoke", json={
+                "text": "Run the tests", "mode": "general",
+            })
+            payload = await response.json()
+            assert response.status == 200
+            assert payload["state"] == "DONE"
+            assert payload["text"] == "Test result: 3 passed, 0 failed."
+            assert payload["result"] == {"ok": True, "result": "test-run-verified"}
+            assert hub.agent.calls == [("Run the tests", False)]
+            assert cloud_instances[0].calls == []
+
+            response = await client.post("/api/merged/invoke", json={
+                "text": "What is a test runner?", "mode": "general",
+            })
+            payload = await response.json()
+            assert payload["source"] == "cloud"
+            assert payload["text"] == "cloud chat path"
+            assert hub.agent.calls == [("Run the tests", False)]
+            assert cloud_instances[0].calls == ["What is a test runner?"]
+
+            response = await client.post("/api/merged/invoke", json={
+                "text": "Edit this project", "mode": "general",
+            })
+            payload = await response.json()
+            assert payload["intent"] == "computer_task"
+            assert payload["completed"] is False
+            assert payload["ok"] is False
+            assert "No matching intent" in payload["text"]
+            assert cloud_instances[0].calls == ["What is a test runner?"]
+
+            response = await client.post("/api/merged/invoke", json={
+                "text": "Edit the file", "mode": "general", "approved": True,
+            })
+            payload = await response.json()
+            assert payload["state"] == "WAITING_APPROVAL"
+            assert payload["pending_approval"] is True
+            assert payload["completed"] is False
+            assert "onayı bekliyor" in payload["text"]
+            assert hub.agent.calls[-1] == ("Edit the file", False)
+        finally:
+            await client.close()
+
+    asyncio.run(run())
+
+
 def test_desktop_agent_does_not_echo_model_or_vision_provider_errors(monkeypatch, tmp_path):
     from types import SimpleNamespace
     from app.agent.agent import Agent
