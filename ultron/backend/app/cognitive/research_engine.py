@@ -638,6 +638,102 @@ def _numeric_disagreements(findings: list[dict], query: str) -> list[dict]:
     return conflicts
 
 
+def _bounded_history_result(result: dict, max_chars: int = 8000) -> str:
+    """Store valid compact JSON instead of truncating arbitrary JSON mid-token."""
+    synthesis = result.get("synthesis") or {}
+    findings = []
+    for item in synthesis.get("findings", [])[:5]:
+        if not isinstance(item, dict):
+            continue
+        findings.append({
+            "title": str(item.get("title", ""))[:128],
+            "url": str(item.get("url", ""))[:512],
+            "accessed_at": str(item.get("accessed_at", ""))[:40],
+            "published_at": str(item.get("published_at") or "")[:40] or None,
+            "updated_at": str(item.get("updated_at") or "")[:40] or None,
+            "http_last_modified_at": str(item.get("http_last_modified_at") or "")[:40] or None,
+            "excerpt": str(item.get("excerpt", ""))[:600],
+            "basis": str(item.get("basis", ""))[:40],
+            "page_read": bool(item.get("page_read")),
+            "reliability": item.get("reliability", 0),
+            "independent_source": bool(item.get("independent_source", False)),
+            "independence_status": str(item.get("independence_status", "unknown"))[:40],
+            "copy_of_url": str(item.get("copy_of_url") or "")[:512] or None,
+        })
+    conflicts = []
+    for item in synthesis.get("numeric_conflicts", [])[:4]:
+        if not isinstance(item, dict):
+            continue
+        values = []
+        for value in item.get("values", [])[:4]:
+            if not isinstance(value, dict):
+                continue
+            sources = [{
+                "url": str(source.get("url", ""))[:512],
+                "title": str(source.get("title", ""))[:128],
+                "published_at": str(source.get("published_at") or "")[:40] or None,
+            } for source in value.get("sources", [])[:2] if isinstance(source, dict)]
+            values.append({"value": str(value.get("value", ""))[:32], "sources": sources})
+        conflicts.append({
+            "status": str(item.get("status", ""))[:50],
+            "reference_year": item.get("reference_year"),
+            "unit": str(item.get("unit", ""))[:40],
+            "context": str(item.get("context", ""))[:240],
+            "values": values,
+            "semantic_resolution": "not_performed",
+        })
+    compact = {
+        "ok": bool(result.get("ok")),
+        "status": str(result.get("status", "unknown"))[:50],
+        "query": str(result.get("query", ""))[:1000],
+        "evidence_level": str(result.get("evidence_level", "none"))[:50],
+        "source_domains": result.get("source_domains", 0),
+        "independent_source_domains": result.get("independent_source_domains", 0),
+        "independent_source_count": result.get("independent_source_count", 0),
+        "contradiction_suspected": bool(result.get("contradiction_suspected")),
+        "confidence": result.get("confidence", 0.0),
+        "source_quality_score": result.get("source_quality_score", 0.0),
+        "citations": [str(url)[:512] for url in result.get("citations", [])[:5]],
+        "synthesis": {
+            "supported": bool(synthesis.get("supported", False)),
+            "findings": findings,
+            "unread_sources": [
+                {"title": str(item.get("title", ""))[:128],
+                 "read_status": str(item.get("read_status", "unknown"))[:60]}
+                for item in synthesis.get("unread_sources", [])[:10]
+                if isinstance(item, dict)
+            ],
+            "numeric_conflicts": conflicts,
+            "caveat": str(synthesis.get("caveat", ""))[:500],
+        },
+    }
+    encoded = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+    if len(encoded) > max_chars:
+        compact["synthesis"]["findings"] = compact["synthesis"]["findings"][:3]
+        for item in compact["synthesis"]["findings"]:
+            item["excerpt"] = item["excerpt"][:300]
+        compact["citations"] = compact["citations"][:3]
+        compact["synthesis"]["numeric_conflicts"] = compact["synthesis"]["numeric_conflicts"][:2]
+        encoded = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+    if len(encoded) > max_chars:
+        compact["synthesis"]["findings"] = [
+            {"title": item["title"], "url": item["url"], "excerpt": item["excerpt"][:120],
+             "basis": item["basis"], "page_read": item["page_read"]}
+            for item in compact["synthesis"]["findings"][:2]
+        ]
+        compact["synthesis"]["numeric_conflicts"] = []
+        encoded = json.dumps(compact, ensure_ascii=False, separators=(",", ":"))
+    if len(encoded) > max_chars:
+        encoded = json.dumps({
+            "status": compact["status"],
+            "query": compact["query"][:256],
+            "evidence_level": compact["evidence_level"],
+            "synthesis": {"findings": [], "numeric_conflicts": [],
+                          "caveat": "Stored summary was reduced to fit the history limit."},
+        }, ensure_ascii=False, separators=(",", ":"))
+    return encoded
+
+
 def select_evidence_excerpt(query: str, text: str, *, max_chars: int = 1400) -> str:
     """Choose page sentences relevant to the query; excerpts stay source-labelled."""
     sentences = [" ".join(s.split()) for s in re.split(r"(?<=[.!?…])\s+|\n+", text or "")]
@@ -883,7 +979,7 @@ class ResearchEngine:
         with self.lock:
             self.db.execute(
                 "INSERT INTO sessions(ts,query,result_json) VALUES(?,?,?)",
-                (time.time(), query, json.dumps(out, ensure_ascii=False)[:8000]))
+                (time.time(), query[:1000], _bounded_history_result(out)))
             self.db.commit()
 
     def history(self, limit: int = 10) -> list[dict]:

@@ -1,6 +1,7 @@
 """V4 date provenance, copied-source grouping, and numeric caveat regressions."""
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -174,3 +175,29 @@ def test_short_pages_are_not_counted_as_independent_sources(tmp_path):
     assert result["independent_source_count"] == 0
     assert all(row["independence_status"] == "unassessed_short_content"
                for row in result["synthesis"]["findings"])
+
+
+def test_research_history_stays_valid_json_under_the_storage_bound():
+    engine = ResearchEngine(db_path=":memory:")
+    result = {
+        "ok": True, "status": "sources_read", "query": "battery capacity",
+        "evidence_level": "source_pages_read", "source_domains": 5,
+        "independent_source_domains": 5, "independent_source_count": 5,
+        "contradiction_suspected": False, "confidence": 0,
+        "source_quality_score": 0.5,
+        "citations": ["https://public.example/" + "x" * 4000 for _ in range(5)],
+        "synthesis": {"supported": False, "caveat": "caveat " * 1000,
+            "findings": [{"title": "Report", "url": "https://public.example/" + "x" * 4000,
+                "excerpt": "evidence " * 2000, "basis": "source_page_excerpt",
+                "page_read": True, "independent_source": True} for _ in range(5)],
+            "unread_sources": [], "numeric_conflicts": []},
+    }
+    try:
+        engine._store("battery capacity", result)
+        stored = engine.db.execute("SELECT result_json FROM sessions").fetchone()[0]
+        parsed = json.loads(stored)
+        assert len(stored) <= 8000
+        assert parsed["status"] == "sources_read"
+        assert parsed["synthesis"]["findings"]
+    finally:
+        engine.close()
