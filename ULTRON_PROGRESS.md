@@ -1,3 +1,10 @@
+## 2026-10-14 — Desktop conversation interruption recovery
+
+- PR [#36](https://github.com/fatmakahraman304-hash/ULTRON/pull/36), branch `feat/golge-natural-conversation-voice-20261014`, is separate from Memory PR #34 and Evidence PR #35 and is based on production V3 SHA `6ef3f5d207fc9430cbbd552988935995529e87f5`.
+- Dashboard now clears the local THINKING state when a request is interrupted or fails. `AbortError` is handled as a user interruption with no error toast; real network/timeouts remain visible. Stop and Escape immediately set local IDLE, suppress only stale server THINKING, keep real task/listening states visible, and still forward `interrupt` to the native layer. No UI layout changed.
+- Added a deterministic failure/state helper and **7** Node regressions. Local: **7** new tests, **6** Earth tests, **1** WebGL bundle test, **20** existing voice tests; TypeScript/Vite production build passed. GitHub Scene `verify` + responsive UI passed on the final PR head before the review-ready transition.
+- No provider inference or physical iPhone/Windows/audio test ran. This is not streaming or server-side cancellation. Render remains LIVE on `6ef3f5d`; health returned HTTP 200 with the exact SHA. PR #36 remains unmerged/undeployed; PRs #34 and #35 are also unmerged and have no approval.
+
 ## 2026-10-14 — Shared cognitive intent router v2
 
 - Started clean from production `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0` on isolated branch `feat/golge-cognitive-router-v2-20261014`; previous local branch and user files were preserved.

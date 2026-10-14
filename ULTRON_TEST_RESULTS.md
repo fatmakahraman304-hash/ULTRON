@@ -1,3 +1,10 @@
+## 2026-10-14 — Natural Conversation & Voice interruption reliability
+
+- PR #36 fixes a visible interruption bug: stopped desktop Cloud chat no longer leaves `Dashboard` in THINKING or shows the expected AbortError as a failure. The native `interrupt` action remains forwarded; network and timeout failures still notify.
+- New Node interruption/state tests: **7 passed** (plain AbortError, browser DOMException, network error, timeout error, unknown error). Frontend `npm run build` passed; `npm run test:earth` **6 passed**; `npm run test:bundle` **1 passed**. Existing Python voice runtime/state/VAD tests: **20 passed**. `git diff --check` and Scene workflow YAML parsing passed.
+- GitHub Actions for Scene `verify` and responsive UI passed on the final PR head before the review-ready transition.
+- Real device microphone/speech and Gemini/Qwen quality/latency are **NOT_RUN**. No Render deployment occurred; Render health was HTTP 200 at production commit `6ef3f5d207fc9430cbbd552988935995529e87f5`.
+
 ## 2026-10-14 — Cognitive intent router v2, local verification
 
 - Production base was fetched and verified as `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0`; PR #30 SHA `9c7817f` is its ancestor. The work is isolated on `feat/golge-cognitive-router-v2-20261014`; prior branch/worktree was clean and left intact.

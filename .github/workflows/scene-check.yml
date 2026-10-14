@@ -10,6 +10,8 @@ on:
       - feat/golge-qwen-goal-routing-20261013
     paths:
       - "ultron/cloud_service/**"
+      - "ultron/frontend/src/dashboard/**"
+      - "ultron/frontend/tests/conversationRequestFailure.test.mjs"
       - "mark_app.py"
       - "integration/**"
       - "scripts/tests/test_listening_browser.py"
@@ -230,6 +232,9 @@ jobs:
       - name: Install frontend
         working-directory: ultron/frontend
         run: npm ci
+      - name: Conversation interruption state contracts
+        working-directory: ultron/frontend
+        run: node --experimental-strip-types --test tests/conversationRequestFailure.test.mjs
       - name: TypeScript and Vite build
         working-directory: ultron/frontend
         run: npm run build

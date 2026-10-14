@@ -1,3 +1,9 @@
+## 2026-10-14 — Next: end-to-end voice cancellation and device validation
+
+1. Trace whether browser cancellation stops the active Gemini/Qwen request and local TTS playback. Add request-identity/cancellation tests before changing model or device ownership; `AbortController` alone does not prove server-side cancellation.
+2. Keep PR #30 long-listening behavior and its regression suite intact. Verify real Windows and iPhone microphone, barge-in, resume, and speech timing only on those devices; current physical device/model checks remain **NOT_RUN**.
+3. Preserve simple mobile UI and microphone ownership. Do not claim wake-word, always-on background listening, or cross-device microphone transfer without real integration/device evidence.
+4. Memory V4 PR #34 and Evidence PR #35 are ready for review with exact-head Actions passed; neither has approval or a Render deployment. Natural Conversation PR #36 remains separate and unmerged. Production stays on `6ef3f5d207fc9430cbbd552988935995529e87f5`.
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.

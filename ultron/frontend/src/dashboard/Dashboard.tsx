@@ -4,6 +4,7 @@ import {Home,Settings,Gamepad2,Box,Folder,Wrench,Puzzle,Power,Globe,Files,Termin
 import {useUltron,request,type CoreState} from './runtime';
 import {Panel,ModelPanel,ToolPanel} from './Panels';
 import {resolvePanelIntent} from './panelIntent';
+import {conversationRequestFailure,visibleConversationState} from './conversationRequestFailure';
 import {SystemRail,FileDrop} from './ReferencePanels';
 import './dashboard.css';
 import './golge-minimal.css';
@@ -13,7 +14,7 @@ const HologramLab=lazy(()=>import('../hologram/HologramLab'));
 export default function Dashboard(){
  const [sceneRequest,setSceneRequest]=useState<{id:number;text:string}>();
  const [stageBundleReady,setStageBundleReady]=useState(false);
- const u=useUltron(),[devDraft,setDevDraft]=useState(''),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general');
+ const u=useUltron(),[devDraft,setDevDraft]=useState(''),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[suppressServerThinking,setSuppressServerThinking]=useState(false),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general');
  const messages=useRef<HTMLDivElement>(null),abort=useRef<AbortController|null>(null),errorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
  const voiceRouteSeen=useRef<string|null>(''),typedRouteSeen=useRef('');
  useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),1000);return()=>{clearInterval(timer);clearTimeout(errorTimer.current);abort.current?.abort();};},[]);
@@ -369,10 +370,11 @@ export default function Dashboard(){
   if(model==='native'){if(u.native)u.native.send(text);return;}
   u.add('user',text);
   try{const stageReply=await stageIntent(text);if(stageReply){u.add('assistant',stageReply);return;}}catch(e){notify((e as Error).message);return;}
-  setBusy(true);setLocalState('THINKING');const ctl=new AbortController();abort.current=ctl;
-  try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{})},ctl.signal);u.add('assistant',r.text||JSON.stringify(r));setLocalState('IDLE');}catch(e){notify((e as Error).message);}finally{setBusy(false);abort.current=null;}};
- const state:CoreState=localState!=='IDLE'?localState:u.state!=='IDLE'?u.state:u.taskState!=='IDLE'?u.taskState:u.nativeState;
- const stop=()=>{abort.current?.abort();u.native?.action('interrupt');};
+  setBusy(true);setLocalState('THINKING');setSuppressServerThinking(false);const ctl=new AbortController();abort.current=ctl;
+  try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{})},ctl.signal);u.add('assistant',r.text||JSON.stringify(r));setLocalState('IDLE');}catch(e){const failure=conversationRequestFailure(e);setLocalState(failure.state);setSuppressServerThinking(failure.suppressServerThinking);if(failure.notification)notify(failure.notification);}finally{setBusy(false);abort.current=null;}};
+ useEffect(()=>{if(u.state!=='THINKING')setSuppressServerThinking(false);},[u.state]);
+ const state:CoreState=visibleConversationState(localState,u.state,u.taskState,u.nativeState,suppressServerThinking) as CoreState;
+ const stop=()=>{if(abort.current){abort.current.abort();setLocalState('IDLE');setSuppressServerThinking(true);}u.native?.action('interrupt');};
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){stop();setModal('');}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[u.native]);
  const review=async(path:string,id:string)=>{try{await request(path,{id});u.setPending(null);u.setPatch(null);}catch(e){notify((e as Error).message);}};
  const run=async(path:string,body?:unknown)=>{try{setExtra(JSON.stringify(await request(path,body),null,2));}catch(e){notify((e as Error).message);}};
