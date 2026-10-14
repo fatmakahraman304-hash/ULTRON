@@ -1,0 +1,175 @@
+name: GOLGE Autonomous Development (Draft PR Only)
+
+# Schedule works only after this workflow exists on the default branch (main).
+# Checkout and PR base always use the Render-linked production branch.
+on:
+  pull_request:
+    branches: [feat/ultron-cloud-shared-memory]
+    paths:
+      - "scripts/golge_autodev/**"
+      - ".github/workflows/golge-autodev.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "23 6 * * 1,4"
+
+concurrency:
+  group: golge-autodev-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Verify autonomous development boundaries
+        run: python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v
+
+  propose:
+    if: github.event_name != 'pull_request'
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      proposed: ${{ steps.generate.outputs.proposed }}
+      base_sha: ${{ steps.plan.outputs.base_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/ultron-cloud-shared-memory
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pin production source and inspect pending autonomous drafts
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA="$(git rev-parse HEAD)"
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --base feat/ultron-cloud-shared-memory --json title,body --limit 100 > golge-autodev-open-prs.json
+          python scripts/golge_autodev/engine.py plan --base-sha "$BASE_SHA" --open-prs golge-autodev-open-prs.json
+      - name: Generate a strictly bounded proposal with a configured coding model
+        id: generate
+        env:
+          GOLGE_AUTODEV_GEMINI_API_KEY: ${{ secrets.GOLGE_AUTODEV_GEMINI_API_KEY }}
+          GOLGE_AUTODEV_MODEL: ${{ vars.GOLGE_AUTODEV_MODEL || 'gemini-2.5-flash' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(python -c "import json;print(json.load(open('golge-autodev-plan.json'))['status'])")"
+          if [ "$STATUS" != "ready" ]; then
+            echo "Existing autonomous draft pending; refusing duplicate."
+            echo "proposed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -z "$GOLGE_AUTODEV_GEMINI_API_KEY" ]; then
+            echo "::warning::No coding-model key configured: model generation NOT_RUN."
+            echo "proposed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python scripts/golge_autodev/engine.py generate --provider gemini
+          python scripts/golge_autodev/engine.py validate
+          echo "proposed=true" >> "$GITHUB_OUTPUT"
+      - if: steps.generate.outputs.proposed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-proposal
+          path: golge-autodev-proposal.json
+          retention-days: 2
+          if-no-files-found: error
+
+  verify:
+    if: needs.propose.outputs.proposed == 'true'
+    needs: propose
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.propose.outputs.base_sha }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-proposal
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Apply only in a no-secret sandbox job
+        run: |
+          python scripts/golge_autodev/engine.py apply
+          git diff --check
+      - name: Compile changes and run generated regression
+        run: |
+          python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'numpy>=1.26,<3'
+          python - <<'PY'
+          import json, py_compile, subprocess, sys
+          proposal=json.load(open("golge-autodev-proposal.json"))
+          for item in proposal["files"]:
+              py_compile.compile(item["path"], doraise=True)
+          path=next(f["path"] for f in proposal["files"] if "/tests/test_autodev_" in f["path"])
+          raise SystemExit(subprocess.call([sys.executable,"-m","pytest","-q",path]))
+          PY
+          python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v
+      - name: Truthful proof boundary
+        run: echo 'Provider and physical iPhone/Windows inference, TTS and audio NOT_RUN.'
+
+  draft_pr:
+    if: needs.verify.result == 'success'
+    needs: [propose, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.propose.outputs.base_sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-proposal
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Revalidate and commit exact allowlisted paths; do not run model code with write token
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/golge_autodev/engine.py apply
+          git diff --check
+          python - <<'PY'
+          import json, subprocess
+          files=json.load(open("golge-autodev-proposal.json"))["files"]
+          subprocess.run(["git","add","--",*(f["path"] for f in files)], check=True)
+          PY
+          git diff --cached --quiet && { echo "Empty patch"; exit 1; } || true
+          BRANCH="golge/autodev/${{ github.run_id }}"
+          git switch -c "$BRANCH"
+          git -c user.name="GÖLGE Automation" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "GÖLGE autonomous bounded draft ${{ github.run_id }}"
+          git push origin "$BRANCH"
+      - name: Open draft PR only; no merging or Render deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          GOAL_ID="$(python -c "import json;print(json.load(open('golge-autodev-proposal.json'))['goal_id'])")"
+          gh pr create --repo "$GITHUB_REPOSITORY" --draft             --base feat/ultron-cloud-shared-memory             --head "golge/autodev/${{ github.run_id }}"             --title "GÖLGE autonomous: $GOAL_ID"             --body "GOLGE-AUTODEV:$GOAL_ID
+          Bounded model-generated source patch. Isolated no-secret regression job passed.
+          NOT_RUN: real model/device/TTS validation. NOT_MERGED, NOT_DEPLOYED.
+          A PR created with GITHUB_TOKEN may not trigger separate GitHub CI.
+          Require review and independent full CI before production merge."
