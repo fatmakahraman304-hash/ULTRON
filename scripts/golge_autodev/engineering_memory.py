@@ -10,8 +10,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sqlite3
+import tempfile
+from collections.abc import Sequence
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -19,6 +22,7 @@ from urllib.parse import urlparse
 MAX_CANDIDATES = 500
 MAX_ATTEMPTS = 1000
 MAX_EXPORT_BYTES = 4_000_000
+MAX_ARTIFACT_AGE_DAYS = 90
 SOURCES = {"github_actions_failure", "github_issue", "static_analysis",
            "application_error_log", "health_report", "performance_report",
            "roadmap_backlog"}
@@ -73,7 +77,7 @@ def _safe_candidate(candidate: dict, source_sha: str, observed_at: str) -> dict:
     verification = candidate.get("verification_status", "not_run")
     if not isinstance(cid, str) or not ID_RE.fullmatch(cid):
         raise ValueError("invalid_candidate_id")
-    if source not in SOURCES or not _validate_source_ref(source, ref):
+    if source not in SOURCES or not isinstance(ref, str) or not _validate_source_ref(source, ref):
         raise ValueError("untrusted_evidence_reference")
     if status not in STATUSES or verification not in VERIFICATIONS:
         raise ValueError("invalid_evidence_state")
@@ -221,7 +225,7 @@ class EngineeringMemory:
         return True
 
     def record_attempt(self, candidate_id: str, *, attempt_no: int, stage: str,
-                       outcome: str, source_sha: str, tests: list[str] = (),
+                       outcome: str, source_sha: str, tests: Sequence[str] = (),
                        patch_sha: str | None = None, commit_sha: str | None = None,
                        pr_url: str | None = None, proof_kind: str | None = None,
                        failure_class: str | None = None,
@@ -374,8 +378,69 @@ class EngineeringMemory:
                 "attempts": attempts,
                 "scheduler": settings}
 
-    def export_json(self, path: Path | str) -> None:
-        data = json.dumps(self.snapshot(), ensure_ascii=False, separators=(",", ":")).encode()
+    @staticmethod
+    def _validate_artifact_context(context: dict, *, now: str | None = None) -> dict:
+        if not isinstance(context, dict):
+            raise ValueError("memory_artifact_context_invalid")
+        repository = context.get("repository")
+        workflow = context.get("workflow")
+        source_branch = context.get("source_branch")
+        producer_run_id = str(context.get("producer_run_id", ""))
+        exported_at = context.get("exported_at")
+        if (not isinstance(repository, str)
+                or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100}", repository)
+                or not isinstance(workflow, str) or not 1 <= len(workflow) <= 120
+                or not isinstance(source_branch, str)
+                or not re.fullmatch(r"[A-Za-z0-9_./-]{1,150}", source_branch)
+                or not re.fullmatch(r"[1-9][0-9]{0,19}", producer_run_id)):
+            raise ValueError("memory_artifact_context_invalid")
+        try:
+            exported = datetime.fromisoformat(str(exported_at).replace("Z", "+00:00"))
+            moment = datetime.fromisoformat((now or now_utc()).replace("Z", "+00:00"))
+        except (TypeError, ValueError):
+            raise ValueError("memory_artifact_timestamp_invalid") from None
+        if exported.utcoffset() is None or moment.utcoffset() is None:
+            raise ValueError("memory_artifact_timestamp_invalid")
+        age = moment - exported
+        if age.total_seconds() < -300 or age > timedelta(days=MAX_ARTIFACT_AGE_DAYS):
+            raise ValueError("memory_artifact_expired")
+        return {"repository": repository, "workflow": workflow, "source_branch": source_branch,
+                "producer_run_id": producer_run_id, "exported_at": exported.isoformat()}
+
+    @staticmethod
+    def _github_artifact_context_from_env() -> dict | None:
+        repo = os.getenv("GITHUB_REPOSITORY", "")
+        run_id = os.getenv("GITHUB_RUN_ID", "")
+        workflow = os.getenv("GITHUB_WORKFLOW", "")
+        branch = os.getenv("BASE_BRANCH", "")
+        if not (repo and run_id and workflow and branch):
+            return None
+        return {"repository": repo, "workflow": workflow, "source_branch": branch,
+                "producer_run_id": run_id, "exported_at": now_utc()}
+
+    @staticmethod
+    def _github_import_context_from_env() -> tuple[dict | None, str | None, str | None]:
+        repo = os.getenv("GITHUB_REPOSITORY", "")
+        workflow = os.getenv("GITHUB_WORKFLOW", "")
+        branch = os.getenv("BASE_BRANCH", "")
+        artifact_run = os.getenv("GOLGE_AUTODEV_MEMORY_ARTIFACT_RUN_ID", "")
+        artifact_created = os.getenv("GOLGE_AUTODEV_MEMORY_ARTIFACT_CREATED_AT", "")
+        current_run = os.getenv("GITHUB_RUN_ID", "")
+        if not (repo and workflow and branch and artifact_run):
+            return None, current_run or None, None
+        expected = {"repository": repo, "workflow": workflow, "source_branch": branch,
+                    "producer_run_id": artifact_run}
+        return expected, current_run or None, artifact_created
+
+    def export_json(self, path: Path | str, *, artifact_context: dict | None = None) -> None:
+        context = artifact_context if artifact_context is not None else self._github_artifact_context_from_env()
+        snapshot = self.snapshot()
+        payload = snapshot if context is None else {
+            "artifact_version": 2,
+            "artifact_context": self._validate_artifact_context(context),
+            "memory": snapshot,
+        }
+        data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode()
         if len(data) > MAX_EXPORT_BYTES:
             raise ValueError("memory_export_too_large")
         target = Path(path)
@@ -386,11 +451,57 @@ class EngineeringMemory:
         temp.write_bytes(data)
         temp.replace(target)
 
-    def import_json(self, path: Path | str) -> None:
+    def import_json(self, path: Path | str, *, expected_context: dict | None = None,
+                    current_run_id: str | None = None,
+                    trusted_legacy_run_id: str | None = None,
+                    trusted_legacy_created_at: str | None = None,
+                    now: str | None = None) -> None:
         source = Path(path)
         if source.is_symlink() or source.stat().st_size > MAX_EXPORT_BYTES:
             raise ValueError("memory_import_rejected")
         data = json.loads(source.read_text(encoding="utf-8"))
+        env_expected, env_current_run, env_legacy_created = self._github_import_context_from_env()
+        expected_context = expected_context if expected_context is not None else env_expected
+        current_run_id = current_run_id if current_run_id is not None else env_current_run
+        trusted_legacy_created_at = trusted_legacy_created_at or env_legacy_created
+        if isinstance(data, dict) and data.get("artifact_version") == 2:
+            raw_context = data.get("artifact_context")
+            if not isinstance(raw_context, dict):
+                raise ValueError("memory_artifact_context_invalid")
+            context = self._validate_artifact_context(raw_context, now=now)
+            if expected_context:
+                for key in ("repository", "workflow", "source_branch", "producer_run_id"):
+                    if str(expected_context.get(key, "")) != context[key]:
+                        raise ValueError("memory_artifact_context_mismatch")
+            data = data.get("memory")
+        elif expected_context:
+            # V4 JSON snapshots predate an embedded envelope. The workflow may
+            # import one only after its artifact locator verified same-repo,
+            # same-workflow provenance and age from GitHub's artifact API.
+            expected = dict(expected_context)
+            legacy_run = str(trusted_legacy_run_id or os.getenv("GOLGE_AUTODEV_MEMORY_ARTIFACT_RUN_ID", ""))
+            legacy_created = trusted_legacy_created_at or ""
+            if legacy_run != str(expected.get("producer_run_id", "")) or not legacy_created:
+                raise ValueError("memory_artifact_context_missing")
+            self._validate_artifact_context({**expected, "exported_at": legacy_created}, now=now)
+        if not isinstance(data, dict) or data.get("schema_version") != 1:
+            raise ValueError("memory_schema_unsupported")
+        populated = sum(self.db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                        for table in ("candidates", "observations", "attempts"))
+        if populated:
+            raise ValueError("memory_import_target_not_empty")
+        # Validate the entire import against a disposable database first. A
+        # malformed later row must not leave a partially imported prefix.
+        with tempfile.TemporaryDirectory(prefix="golge-memory-validate-") as tmp:
+            staged = EngineeringMemory(Path(tmp) / "staged.sqlite")
+            try:
+                staged._import_snapshot(data)
+                validated = staged.snapshot()
+            finally:
+                staged.close()
+        self._import_snapshot(validated)
+
+    def _import_snapshot(self, data: dict) -> None:
         if not isinstance(data, dict) or data.get("schema_version") != 1:
             raise ValueError("memory_schema_unsupported")
         if len(data.get("candidates", [])) > MAX_CANDIDATES or len(data.get("attempts", [])) > MAX_ATTEMPTS or len(data.get("observations", [])) > MAX_ATTEMPTS:
@@ -432,9 +543,13 @@ class EngineeringMemory:
                     or row.get("status") not in STATUSES or row.get("verification_status") not in VERIFICATIONS):
                 raise ValueError("invalid_memory_observation")
             datetime.fromisoformat(str(row.get("observed_at", "")).replace("Z", "+00:00"))
-            self.db.execute("""INSERT OR IGNORE INTO observations(candidate_id,source_sha,observed_at,
+            self.db.execute("""INSERT INTO observations(candidate_id,source_sha,observed_at,
                              evidence_sha,verification_sha,evidence_digest,status,verification_status)
-                             VALUES(?,?,?,?,?,?,?,?)""",
+                             VALUES(?,?,?,?,?,?,?,?)
+                             ON CONFLICT(candidate_id,evidence_digest) DO UPDATE SET
+                             source_sha=excluded.source_sha,evidence_sha=excluded.evidence_sha,
+                             verification_sha=excluded.verification_sha,observed_at=excluded.observed_at,
+                             status=excluded.status,verification_status=excluded.verification_status""",
                             (row["candidate_id"], row["source_sha"], row["observed_at"],
                              row.get("evidence_sha", row["source_sha"]),
                              row.get("verification_sha", row["source_sha"]), row["evidence_digest"],

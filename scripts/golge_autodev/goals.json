@@ -16,7 +16,13 @@
         "ultron/backend/app/multimodal/voice_runtime.py",
         "ultron/backend/tests/test_autodev_voice_interrupt.py"
       ],
-      "test_path": "ultron/backend/tests/test_autodev_voice_interrupt.py"
+      "test_path": "ultron/backend/tests/test_autodev_voice_interrupt.py",
+      "quality_gate_policy": "v5",
+      "integration_tests": [
+        "ultron/backend/tests/test_wave4_voice_runtime.py",
+        "ultron/backend/tests/test_wave4_failure.py"
+      ],
+      "performance_sensitive": false
     },
     {
       "id": "dialogue-continuity-contract",
@@ -32,7 +38,13 @@
         "ultron/backend/app/cognitive/communication.py",
         "ultron/backend/tests/test_autodev_communication.py"
       ],
-      "test_path": "ultron/backend/tests/test_autodev_communication.py"
+      "test_path": "ultron/backend/tests/test_autodev_communication.py",
+      "quality_gate_policy": "v5",
+      "integration_tests": [
+        "ultron/backend/tests/test_wave5_proactive_comm.py",
+        "ultron/backend/tests/test_wave5_e2e.py"
+      ],
+      "performance_sensitive": false
     }
   ]
 }
