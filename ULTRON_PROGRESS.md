@@ -1,8 +1,8 @@
 ## 2026-10-14 — PR #39 and scheduler activation state
 
-- V2 code head `97d3b4ba9413f74f67d4e60e1a6b653d09f23ad9`; draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39) is based on open PR #38, with no merge/deploy. Exact-head Actions [38593142739](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593142739): `contracts` SUCCESS; `propose`, `verify_initial`, `repair`, `verify_repair`, and `draft_pr` SKIPPED because PR events do not call models or publish.
+- V2 code head `f75ec5c2334342360f3599cea9000f433357a8c8`; draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39) is based on open PR #38, with no merge/deploy. Exact-head Actions [38593404628](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593404628): `contracts` SUCCESS; `propose`, `verify_initial`, `repair`, `verify_repair`, and `draft_pr` SKIPPED because PR events do not call models or publish.
 - Earlier run #38592971246 failed because pytest was missing in the contract runner; installed `pytest>=8,<9` in that job. No test was removed or altered to mask the cause.
-- Prepared default-branch scheduler draft [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40), head `da6c9a4686ebf80d40d02432277e1c07c7ec97dd`. It has no checks yet; it must remain draft until V2 engine/publisher code is present in production.
+- Prepared default-branch scheduler draft [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40), head `61a6074b7924d6a94b036e335dd1f11ef900d884`. It has no checks yet; it must remain draft until V2 engine/publisher code is present in production.
 - No Actions model call was issued. Secret and repo Actions-permission APIs return 403 to this integration, so presence of `GOLGE_AUTODEV_GEMINI_API_KEY` and write permissions is unknown. No paid model request, auto-generated candidate PR, merge, or Render deploy occurred.
 - Render service/health remains LIVE/HTTP 200 at `6ef3f5d207fc9430cbbd552988935995529e87f5`.
 
