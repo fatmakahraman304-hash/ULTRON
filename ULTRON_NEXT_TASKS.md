@@ -4,7 +4,7 @@
 2. Keep PR #35 stacked on PR #34. Do not merge either PR without required review/approval. Confirm PR #34 exact head `a7b5906b73b467ae2fd1bce115b86e6f60b13a1d` and its four checks (all passed) remain current.
 3. Once Evidence V4 is reviewed and its CI is green, begin the separate Natural Conversation & Voice PR. First inspect the existing PR #30 interruption/long-listening paths and add regression coverage before changing them. Preserve the mobile layout; no UI additions are requested.
 4. Measure real Gemini/Qwen inference and physical iPhone/Windows microphone behavior only when devices and credentials are actually available. Keep unavailable checks `NOT_RUN`; do not score fixtures as model quality.
-5. Before any release, refresh the production Render deploy SHA, `/health` body and relevant logs. Production remains on the verified V3 branch and neither PR #34 nor #35 has been deployed.
+5. Before any release, refresh the production Render deploy SHA, `/health` body and relevant logs. Production remains on V3 SHA `6ef3f5d207fc9430cbbd552988935995529e87f5`; Render deploy `dep-db7mfuss728c73db4k10` is LIVE and `/health` returned HTTP 200 at 12:42 UTC. Neither PR #34 nor #35 has been deployed.
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.

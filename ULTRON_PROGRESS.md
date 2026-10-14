@@ -5,7 +5,7 @@
 - Explicit cloud research requests now read up to five candidates; ordinary chat remains search-free. No UI changed. Existing request pinning, DNS/SSRF and redirect safety remain in place.
 - `test_evidence_engine_v4.py`, `test_evidence_v4_eval.py`, existing Wave 5 source reader/agent and V3 research eval: **221 passed**. The independent frozen set contains **100 scenarios (50 Turkish, 50 English), all deterministic fixtures**. Cloud research integration: **6 passed**. Full Cloud/PostgreSQL suite with isolated local DB: **376 passed** at Memory V4; prior-stage actions passed 4/4.
 - Synthetic five-candidate source-processing benchmark (baseline commit `a7b5906` vs V4 pipeline): p50 **2.223 vs 5.341 ms**, p95 **3.316 vs 8.870 ms**. This is processing-only and shows a small deterministic CPU cost from extra diagnostics; no external network, Gemini/Qwen inference, or full user-response latency was measured.
-- Not verified: real public-site retrieval, live model quality, physical iPhone Safari, physical Windows laptop. Render was not touched; refresh its deploy SHA and `/health` before any later approved release.
+- Not verified: real public-site retrieval, live model quality, physical iPhone Safari, physical Windows laptop. Render was not touched by these PRs. At 12:42 UTC, the existing deploy `dep-db7mfuss728c73db4k10` remained LIVE and `/health` returned HTTP 200 with production SHA `6ef3f5d207fc9430cbbd552988935995529e87f5`.
 
 ## 2026-10-14 — Episodic Memory V4 ready for review
 
