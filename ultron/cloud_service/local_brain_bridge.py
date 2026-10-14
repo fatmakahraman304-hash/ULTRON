@@ -8,6 +8,7 @@ to the user and checked for ownership on every poll. Cloud memory is shared.
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 
@@ -140,6 +141,7 @@ async def post_local_chat(request: web.Request) -> web.Response:
                 conn, request["user_id"], focus_query
             ))[:2400]
             system = build_system_instruction(
+                base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
                 memory=memory, recent="Conversation turns provided separately with roles.",
                 user_message=text, read_only=True, max_chars=4500,
                 has_prior_turns=bool(turns),
