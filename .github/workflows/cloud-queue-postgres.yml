@@ -69,6 +69,10 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_reference_return.py' -v
       - name: Long chat contextual recall and no cross-thread contamination
         run: python -m unittest discover -s ultron/cloud_service -p 'test_contextual_recall.py' -v
+      - name: Bilingual single-pass intent routing and context return regressions
+        run: |
+          python -m unittest discover -s ultron/cloud_service -p 'test_conversation_intent_router.py' -v
+          python evals/conversation/intent_eval.py
       - name: Owner-reviewed conversation notes preview and input validation
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_notes.py' -v
       - name: JARVIS-style topic-aware memory and intelligent local Qwen routing

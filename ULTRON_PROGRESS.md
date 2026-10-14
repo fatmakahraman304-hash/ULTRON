@@ -1,3 +1,12 @@
+## 2026-10-14 — Shared cognitive intent router v2
+
+- Started clean from production `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0` on isolated branch `feat/golge-cognitive-router-v2-20261014`; previous local branch and user files were preserved.
+- Test-first regressions covered mixed Turkish/English corrections, continuation, previous-topic return, recent history vs personal memory, research and tool/scene honesty. Previous-topic context is owner/thread-scoped and bounded to at most 320 source turns; recent “what did I just say?” no longer creates a misleading old-keyword search.
+- Unified intent and model-task recognition now feeds Cloud/local dialogue guidance and the existing Qwen FastBrain model router. Research can select the configured installed reasoning model; basic conversation stays on FAST. Existing specific UI tool handlers, read-only chat and Approval Gate remain unchanged.
+- Frozen route suite: **100/100** deterministic label/context/tool matches (10 categories, 50 TR/50 EN). Production legacy dialogue-act label coverage on that corpus was **32/100**. Router-only p50/p95 moved from **0.003164/0.004637 ms** to **0.038924/0.080290 ms** across repeated local samples; it adds **zero model calls**. This does not measure model response quality or answer latency.
+- Verification: Cloud **345 passed, 60 skipped**; backend model/tool regressions **56 passed + 4 subtests**; local-cloud bridge **6 passed**; Earth backend **5 passed**; frontend `npm ci` + production build passed (existing large GLTF chunk advisory); Earth frontend **6 passed**; chat transport UI **8 passed**, panel routing UI **4 passed**; frozen real-model suite structurally valid.
+- Provider/device check: no Gemini key or reachable Ollama in this environment. Real Gemini/Qwen transcript quality, first-token and total response time, laptop inference and iPhone behavior are **NOT_RUN**. Render `/health` still reports production commit `b6b563d...`; no deploy was requested or triggered. GitHub Actions/PR status is recorded after push below.
+
 ## 2026-10-14 — Conversation policy survives context compression
 
 - Followed PR #30 by inspecting `build_system_instruction`: under a small Qwen context cap, a long optional `ULTRON_SYSTEM_PROMPT` consumed the budget before persona and read-only policy. The previous implementation then cut the complete instruction at an arbitrary character boundary. The phone-to-Qwen path also failed to pass the shared configured prompt that Gemini receives.

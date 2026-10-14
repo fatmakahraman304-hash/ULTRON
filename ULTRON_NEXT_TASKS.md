@@ -1,10 +1,11 @@
-## Next tasks — review the context-policy fix and continue cognition work
+## Next tasks — cognitive router v2 review and measured provider validation
 
-1. Review draft [PR #31](https://github.com/fatmakahraman304-hash/ULTRON/pull/31), current head `971673e1c55b16a4f0389610e8cb7c16b7c61f27` (runtime code `db1fd50b63b1abd1097e0ec5082e833b2e81f15e`). Exact-head Cloud/PostgreSQL `38541558443`, Local Qwen Listening `38541558445`, and Scene `38541558508` Actions all **SUCCESS**. Do not merge automatically: `feat/ultron-cloud-shared-memory` triggers production Render deploys, and release approval must remain owner-controlled.
-2. Keep PR #30 (`9c7817f`) intact. On the physical iPhone, verify foreground microphone permission, a long listening session, explicit “Cevap ver”, and reconnect/resume; record actual Safari/iOS/provider details. Background or locked-screen listening is not promised. This device test remains **NOT_RUN**.
-3. Continue the next cognition slice on an isolated branch: lightweight intent/context routing connected to real chat dispatch, with tests for fast-chat bypass, tool/permission boundaries and truthful completion. Do not add a second model call to ordinary chat.
-4. Run the frozen 100-case suite against real Gemini and laptop Qwen only when each provider is actually available; collect transcripts, model identity and latency, then obtain independent review. Deterministic checks do not earn model-quality points. Current 100-case structural validation is complete; real provider scoring is **NOT_RUN**.
-5. After the one-time Windows setup, check the already installed Qwen models, Gemini fallback, image upload and 3D create/edit/undo on the real laptop. Keep unavailable provider/device results **NOT_RUN** and preserve approval, privacy and model settings.
+1. Review the current isolated cognitive-router branch and draft PR after it is opened. Do not merge or deploy it without explicit owner approval; production branch `feat/ultron-cloud-shared-memory` is Render-connected.
+2. Inspect exact-head Cloud/PostgreSQL and Scene/Frontend GitHub Actions. Fix genuine failures; update this section and `ULTRON_TEST_RESULTS.md` with run IDs and exact results.
+3. When a real Gemini credential or the paired laptop's Ollama service is available, run the frozen 100-case real-model suite with recorded model identities/transcripts/latencies, then obtain independent review. Keep quality, first-token and total response latency **NOT_RUN** until that evidence exists.
+4. On the Windows laptop, measure Qwen3:4B/Qwen3:8B/coder routing and latency on the stated RTX 2050/24 GB hardware. Verify installed-only selection, Gemini fallback, file/test authorization and truthful failures; do not download models or alter Windows during this branch task.
+5. On physical iPhone Safari, preserve PR #30 checks: foreground mic, long listening, explicit “Cevap ver”, reconnect/resume. Background/locked-screen listening remains unsupported unless real device behavior proves otherwise.
+6. Next code slice after provider evidence: verify action intent handoff to existing authorized task handlers end-to-end. Preserve read-only chat, Approval Gate, audit trail, owner/thread isolation and the unchanged simple phone UI.
 
 ## Archived next tasks — first-run setup verification
 
