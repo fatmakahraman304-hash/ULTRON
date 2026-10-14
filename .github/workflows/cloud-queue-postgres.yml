@@ -46,8 +46,14 @@ jobs:
         run: python -m unittest discover -s ultron/cloud_service -p 'test_live_voice_policy.py' -v
       - name: Natural conversation threading and realistic persona regression
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_turns.py' -v
-      - name: Bounded owner-goal retrieval after 100 continuation turns
+      - name: Bounded owner-goal retrieval through 500 continuation turns
         run: python -m unittest discover -s ultron/cloud_service -p 'test_continuation_paging.py' -v
+      - name: Versioned memory and research chat route contracts
+        env:
+          PYTHONPATH: ultron/cloud_service
+        run: |
+          python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_verified_research_integration.py' -v
       - name: Local 4GB Qwen natural dialogue request and safe sampling
         run: python -m unittest discover -s ultron/cloud_service -p 'test_local_dialogue_runtime.py' -v
       - name: Context-aware natural dialogue and no-hallucinated-history contracts
@@ -147,6 +153,10 @@ jobs:
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus_postgres.py' -v
+      - name: Real PostgreSQL owner memory versioning, isolation and purge
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
       - name: Private generated images on real PostgreSQL, quota and tenant isolation
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test

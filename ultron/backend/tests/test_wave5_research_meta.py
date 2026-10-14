@@ -13,6 +13,20 @@ from app.cognitive.research_engine import ResearchEngine  # noqa: E402
 from app.core.ultron_capabilities import CAPABILITIES  # noqa: E402
 
 
+class _ReadFixture:
+    def read(self, url):
+        return {"ok": True, "url": url.split("#", 1)[0],
+                "title": "Quantum computing source",
+                "text": "Quantum computing survey: quantum computing has important limits. " * 3,
+                "accessed_at": "2026-10-14T00:00:00Z",
+                "content_type": "text/html"}
+
+
+class _UnreadFixture:
+    def read(self, url):
+        return {"ok": False, "status": "timeout", "url": url}
+
+
 # ---------------------------------------------------------------- §7 research
 def test_search_unavailable_is_honest_failure(tmp_path):
     with nullcontext(str(tmp_path)) as d:
@@ -36,7 +50,8 @@ def test_pipeline_rank_crosscheck_synthesis_with_fake_backend(tmp_path):
              "unrelated python docs", "snippet": "python"},
         ]
         re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
-                             search_fn=lambda q: results)
+                             search_fn=lambda q: results,
+                             source_reader=_ReadFixture())
         out = re_.research("quantum computing")
         assert out["ok"] is True
         urls = out["citations"]
@@ -45,10 +60,11 @@ def test_pipeline_rank_crosscheck_synthesis_with_fake_backend(tmp_path):
         assert out["source_domains"] >= 2
         assert out["corroborated_by_domains"] == 0
         assert out["synthesis"]["supported"] is False
-        assert out["evidence_level"] == "search_results_only"
+        assert out["evidence_level"] == "source_pages_read"
         assert out["synthesis"]["findings"][0]["reliability"] >= 0.8
         assert out["confidence"] == 0
         assert out["source_quality_score"] > 0
+        assert out["synthesis"]["findings"][0]["basis"] == "source_page_excerpt"
 
 
 def test_search_result_titles_are_not_claimed_as_verified_evidence(tmp_path):
@@ -60,7 +76,8 @@ def test_search_result_titles_are_not_claimed_as_verified_evidence(tmp_path):
              "snippet": ""},
         ]
         re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
-                             search_fn=lambda q: results)
+                             search_fn=lambda q: results,
+                             source_reader=_UnreadFixture())
         out = re_.research("quantum computing")
 
         assert out["evidence_level"] == "search_results_only"
@@ -80,8 +97,8 @@ def test_reliability_domain_match_rejects_lookalike_hosts(tmp_path):
 
 def test_research_capability_is_not_overstated():
     research = next(c for c in CAPABILITIES if c.id == "research")
-    assert research.status == "adapter"
-    assert "claims are not verified" in research.description
+    assert research.status == "implemented"
+    assert "semantic claim verification" in research.description
 
 
 def test_search_result_numbers_are_not_claimed_as_contradiction(tmp_path):
@@ -91,7 +108,8 @@ def test_search_result_numbers_are_not_claimed_as_contradiction(tmp_path):
              "snippet": f"value {v} units"} for i, v in enumerate(
                 (3, 9, 17, 25, 31))]
         re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
-                             search_fn=lambda q: results)
+                             search_fn=lambda q: results,
+                             source_reader=_UnreadFixture())
         out = re_.research("answer count")
         assert out["contradiction_suspected"] is False
         assert out["confidence"] == 0
@@ -133,10 +151,12 @@ def test_real_http_fetch_via_local_server(tmp_path):
 
         with nullcontext(str(tmp_path)) as d:
             re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
-                                 search_fn=fetch)
+                                 search_fn=fetch,
+                                 source_reader=_UnreadFixture())
             out = re_.research("proof")
-            assert out["ok"] is True
-            assert "https://arxiv.org/abs/9001" in out["citations"]
+            assert out["ok"] is False
+            assert out["status"] == "sources_not_read"
+            assert out["evidence_level"] == "search_results_only"
             assert served  # gerçek istek gerçekleşti
     finally:
         srv.shutdown()
@@ -147,7 +167,8 @@ def test_research_history_persisted(tmp_path):
         re_ = ResearchEngine(db_path=os.path.join(d, "r.db"),
                              search_fn=lambda q: [
                                  {"url": "https://arxiv.org/a", "title": "t",
-                                  "snippet": ""}])
+                                  "snippet": ""}],
+                             source_reader=_UnreadFixture())
         re_.research("konu")
         h = re_.history()
         assert h and h[0]["query"] == "konu"

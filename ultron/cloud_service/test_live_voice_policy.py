@@ -94,7 +94,7 @@ class LiveVoiceInstructionTests(unittest.TestCase):
         guard = source.index(
             'if not explicit_memory_save_requested(" ".join(in_parts)):'
         )
-        write = source.index('INSERT INTO memories(user_id, category, key, value', guard)
+        write = source.index('upsert_owner_memory(', guard)
         self.assertLess(guard, write)
 
         tree = ast.parse(source)
@@ -113,6 +113,12 @@ class LiveVoiceInstructionTests(unittest.TestCase):
 
 
 class LiveVoiceToolEnforcementTests(unittest.TestCase):
+    @staticmethod
+    async def _fake_memory_upsert(pool, user_id, device_id, category, key, value):
+        return await pool.fetchrow(
+            "memory_upsert", user_id, device_id, category, key, value
+        )
+
     def _run_save_tool(self, utterance, value, category="PREFERENCE"):
         source = (HERE / "app.py").read_text(encoding="utf-8")
         tree = ast.parse(source)
@@ -133,10 +139,6 @@ class LiveVoiceToolEnforcementTests(unittest.TestCase):
             def __init__(self):
                 self.writes = []
 
-            async def fetchrow(self, query, *args):
-                self.writes.append((query, args))
-                return {"version": 1}
-
         FakeCall = type("FakeCall", (), {})
         call = FakeCall()
         call.id = "call-1"
@@ -154,6 +156,10 @@ class LiveVoiceToolEnforcementTests(unittest.TestCase):
         async def send_json(payload):
             messages.append(payload)
 
+        async def save_memory(pool, user_id, device_id, category, key, saved_value):
+            pool.writes.append(("memory_upsert", (user_id, device_id, category, key, saved_value)))
+            return {"version": 1}
+
         namespace = {
             "types": FakeTypes,
             "pool": pool,
@@ -163,6 +169,7 @@ class LiveVoiceToolEnforcementTests(unittest.TestCase):
             "send_json": send_json,
             "explicit_memory_save_requested": explicit_request,
             "safe_manual_memory_value": safe_value,
+            "upsert_owner_memory": save_memory,
         }
         module = ast.Module(body=[handler], type_ignores=[])
         exec(compile(module, str(HERE / "app.py"), "exec"), namespace)
@@ -191,7 +198,7 @@ class LiveVoiceToolEnforcementTests(unittest.TestCase):
             "Kısa yanıtlar", category="NOTE",
         )
         self.assertTrue(normalized.response["ok"])
-        self.assertEqual(normalized_writes[0][1][1], "FACT")
+        self.assertEqual(normalized_writes[0][1][2], "FACT")
 
         denied, denied_writes, denied_messages = self._run_save_tool(
             "Bunu hatırla: API anahtarım", "API key: sk-proj-" + "x" * 28
@@ -317,6 +324,7 @@ class LiveVoiceToolEnforcementTests(unittest.TestCase):
             "conv_uuid": "thread-a",
             "explicit_memory_save_requested": explicit_memory_save_requested,
             "safe_manual_memory_value": safe_manual_memory_value,
+            "upsert_owner_memory": self._fake_memory_upsert,
         }
         module = ast.Module(body=list(nested.values()), type_ignores=[])
         exec(compile(module, str(HERE / "app.py"), "exec"), namespace)

@@ -743,3 +743,12 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 2. On the owner laptop during the requested final combined update, ask GÖLGE to add a concrete feature; inspect the bounded diff and test plan, approve by ID, then confirm local tests and draft-only PR. Also verify oversized/protected proposals are rejected before approval.
 3. Run real Turkish and English multimodal/voice dialogues and score the existing frozen 100-case suite using actual Gemini and installed Qwen transcripts; keep quality unscored until independent review.
 4. Continue to defer Windows installation/model downloads until the owner requests the combined final update.
+
+## Next tasks — Memory and Verified Research V3
+
+1. Draft [PR #33](https://github.com/fatmakahraman304-hash/ULTRON/pull/33) remains unmerged; Cloud/PostgreSQL #38555225630, Scene #38555225647 and Local Qwen Listening #38555225690 passed at `698190a94ac8f8a471cc91dc481cac59d0f71ea5`. Continue only with the next memory/research scope below; do not merge or deploy without explicit release approval.
+2. Add time-aware episodic/project recall using authenticated owner and current-thread data. Support “dün”, “bir hafta önce”, “son projeye dön” and user corrections with source/time metadata; never use unrelated history as fallback. Add 200–500-turn cross-thread and stale-decision regressions.
+3. Extend research evaluation from excerpt overlap to typed claim extraction, contradiction checks, source-domain independence, and quote/claim provenance. Keep any model-based verifier optional and measure its extra latency; deterministic fixtures must not be reported as semantic verification.
+4. Test real Gemini and Qwen only when providers are reachable and credentials are available; report model/version, first-token/total latency, and all 100 scenarios with NOT_RUN for missing cases. Do not install/download models or modify the owner’s Windows laptop in this branch task.
+5. Add bounded PDF parsing only if a safe dependency and decompression/page limits are justified; retain HTML/text-only truthful behavior until then.
+6. After owner approval, release separately; verify production commit, Render deploy SHA and health. Physical iPhone/Windows acceptance remains a separate NOT_RUN item.

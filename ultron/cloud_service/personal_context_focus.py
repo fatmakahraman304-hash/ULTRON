@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from datetime import date
 from memory_safety import explicit_style_slots, normalized_value
+from live_voice_policy import safe_manual_memory_value
+from text_normalization import fold_turkish
 from conversation_turns import (
     bounded_user_request, is_bare_continuation_request,
     is_explicit_turn_correction, is_topic_switch_request,
@@ -29,12 +31,59 @@ _PAST_PLAN_WORDS = re.compile(
     r"(?iu)\b(?:geçmiş|eski|önceki|kaçırdığım|dün|"
     r"past|previous|overdue|missed|yesterday)\b"
 )
+_MEMORY_HISTORY_REQUEST = re.compile(
+    r"(?iu)\b(?:önceki|onceki|eski|önceden|once|önceki zamanlarda|geçen sefer|"
+    r"bir hafta önce|önceki karar|eski karar|önceki fikr|önceki terci|"
+    r"previous|prior|older|earlier|recall|last time|previous decision|"
+    r"old(?:er)?(?:\s+\w+){0,2}\s+(?:idea|decision|version|preference|choice)|"
+    r"past preference|memory history)\b"
+)
 
 
 def _historical_plan_request(question: str) -> bool:
     """Only explicitly historical planning questions prioritize older dates."""
     value = str(question or "")
     return bool(_PLAN.search(value) and _PAST_PLAN_WORDS.search(value))
+
+
+def is_memory_history_request(question: str) -> bool:
+    """Only explicit old-version questions may retrieve superseded values."""
+    return bool(_MEMORY_HISTORY_REQUEST.search(fold_turkish(str(question or ""))))
+
+
+def select_memory_history_context(records, question="", *, max_chars=1000):
+    """Render superseded values as dated history, never as current preferences."""
+    cap = max(0, min(1800, int(max_chars)))
+    if cap < 64:
+        return ""
+    rows = list(records or [])[:40]
+    if not rows:
+        return "No superseded version of this owner's saved memory was found."
+    q = _terms(question)
+
+    def score(row):
+        text = f"{_value(row, 'key')} {_value(row, 'category')} {_value(row, 'value')}"
+        return len(q & _terms(text))
+
+    rows.sort(key=lambda row: (score(row), _value(row, "valid_until")), reverse=True)
+    out = "Superseded owner memory versions (historical only; never current):\n"
+    for row in rows[:5]:
+        key = _one_line(_value(row, "key"), 100)
+        category = _one_line(_value(row, "category", "FACT"), 24).upper()
+        version = _value(row, "version", "?")
+        valid_until = _value(row, "valid_until", "unknown time")
+        if hasattr(valid_until, "isoformat"):
+            valid_until = valid_until.isoformat()
+        value = _one_line(_value(row, "value"), 320)
+        # Older deployments may contain records written before the secret
+        # guard was centralized. Never expose those through model context.
+        if not safe_manual_memory_value(key + " " + value):
+            continue
+        line = f"- [OUTDATED {category} v{version}; valid until {valid_until}] {key}: {value}\n"
+        if len(out) + len(line) > cap:
+            break
+        out += line
+    return out.rstrip()
 
 
 
@@ -107,7 +156,7 @@ def select_personal_context(memories, plans, question="", *, max_chars=3500,
         category = _one_line(_value(record, "category", "FACT"), 30).upper()
         key = _one_line(_value(record, "key"), 100)
         value = _one_line(_value(record, "value"), 400)
-        if not key or not value:
+        if not key or not value or not safe_manual_memory_value(key + " " + value):
             continue
         identity = (category, "" if category == "PREFERENCE" else key, normalized_value(value))
         if identity in seen_values:
@@ -218,6 +267,22 @@ async def load_focused_owner_context(pool, user_id: str, query: str = "") -> str
     # Reuse the database reference date for display semantics at timezone
     # boundaries; no additional network query or calendar connector.
     reference_today = _value(plans[0], "context_today") if plans else None
-    return select_personal_context(
+    context = select_personal_context(
         rows, plans, query, max_chars=3400, today=reference_today
     )
+    if is_memory_history_request(query):
+        terms = sorted(_terms(query))[:8]
+        search = " | ".join(term for term in terms if term.isalnum())
+        history = []
+        if search:
+            history = await pool.fetch(
+                "SELECT category,key,value,version,updated_by_device,valid_from,valid_until "
+                "FROM memory_history WHERE user_id=$1 AND "
+                "to_tsvector('simple',key || ' ' || value) @@ to_tsquery('simple',$2) "
+                "ORDER BY valid_until DESC,version DESC LIMIT 40",
+                user_id, search,
+            )
+        historical = select_memory_history_context(history, query, max_chars=1000)
+        if historical:
+            context = context + "\n" + historical
+    return context

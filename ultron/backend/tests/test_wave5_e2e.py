@@ -148,13 +148,23 @@ def test_e2e_search_discovery_is_not_ingested_as_verified_knowledge(tmp_path):
                  "snippet": "RAG reduces hallucination 42 pct"},
                 {"url": "https://arxiv.org/abs/52", "title":
                  "rag systems evaluation", "snippet": "RAG grounded 42 pct"}]
+        class ReadFixture:
+            def read(self, url):
+                return {"ok": True, "url": url, "title": "RAG survey",
+                        "text": "Retrieval augmented generation can reduce hallucination in some evaluations. "
+                                "The result depends on the dataset and retrieval quality.",
+                        "accessed_at": "2026-10-14T00:00:00Z",
+                        "content_type": "text/html"}
+
         re_ = ResearchEngine(db_path=os.path.join(tmp, "r.db"),
-                             search_fn=lambda q: fake)
+                             search_fn=lambda q: fake,
+                             source_reader=ReadFixture())
         res = re_.research("rag hallucination")
         assert res["ok"] and res["citations"]
-        assert res["evidence_level"] == "search_results_only"
+        assert res["evidence_level"] == "source_pages_read"
         assert res["confidence"] == 0
         assert res["synthesis"]["supported"] is False
+        assert res["verified_claims"] == []
         assert s["ke"].search("rag")["results"] == []
         # Meta-reasoning must remain uncertain without verified evidence.
         mr = MetaReasoning()

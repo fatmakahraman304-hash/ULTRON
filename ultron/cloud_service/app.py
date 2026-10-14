@@ -25,7 +25,10 @@ from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
 from local_listening_bridge import register_local_listening_analysis_routes, listening_cleanup_loop
-from conversation_persona import build_system_instruction
+from conversation_persona import build_system_instruction, classify_intent
+from verified_research import (append_research_sources,
+                               build_research_prompt_block,
+                               research_for_chat)
 from personal_context_focus import load_focused_owner_context, memory_focus_question
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
@@ -33,6 +36,8 @@ from response_quality import finalize_response
 from live_voice_policy import (build_live_voice_instruction,
                                explicit_memory_save_requested,
                                safe_manual_memory_value)
+from memory_history import (delete_owner_memory, list_owner_memory_history,
+                            upsert_owner_memory)
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
 from google import genai
@@ -213,38 +218,40 @@ async def list_memories(request: web.Request) -> web.Response:
     return web.json_response({"memories": [dict(r) for r in rows]}, dumps=_json_dumps)
 
 
+async def list_memory_history(request: web.Request) -> web.Response:
+    key = str(request.match_info.get("key", "")).strip()[:120]
+    if not key:
+        raise web.HTTPBadRequest(text='{"error":"memory_key_required"}',
+                                 content_type="application/json")
+    rows = await list_owner_memory_history(
+        request.app["db"], request["user_id"], key,
+        limit=request.query.get("limit", 20),
+    )
+    return web.json_response({"history": rows}, dumps=_json_dumps)
+
+
 async def upsert_memory(request: web.Request) -> web.Response:
     body = await request.json()
-    key = str(body.get("key", "")).strip()[:120]
-    value = str(body.get("value", "")).strip()[:8000]
-    category = str(body.get("category", "FACT")).strip().upper()[:40] or "FACT"
-    if not key or not value:
-        raise web.HTTPBadRequest(text=json.dumps({"error": "key_and_value_required"}), content_type="application/json")
-
-    row = await request.app["db"].fetchrow(
-        """
-        INSERT INTO memories(user_id, category, key, value, version, updated_by_device)
-        VALUES($1,$2,$3,$4,1,$5)
-        ON CONFLICT(user_id,key) DO UPDATE SET
-          category=EXCLUDED.category,
-          value=EXCLUDED.value,
-          version=memories.version+1,
-          updated_by_device=EXCLUDED.updated_by_device,
-          updated_at=NOW()
-        RETURNING category,key,value,version,updated_by_device,updated_at
-        """,
-        request["user_id"], category, key, value, request["device_id"],
-    )
-    return web.json_response({"memory": dict(row)}, dumps=_json_dumps)
+    try:
+        if not isinstance(body, dict):
+            raise ValueError("invalid_body")
+        category = body.get("category", "FACT")
+        row = await upsert_owner_memory(
+            request.app["db"], request["user_id"], request["device_id"],
+            category, body.get("key"), body.get("value"),
+        )
+    except ValueError as exc:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": str(exc)[:80]}),
+            content_type="application/json",
+        )
+    return web.json_response({"memory": row}, dumps=_json_dumps)
 
 
 async def delete_memory(request: web.Request) -> web.Response:
     key = request.match_info["key"]
-    result = await request.app["db"].execute(
-        "DELETE FROM memories WHERE user_id=$1 AND key=$2",
-        request["user_id"], key,
-    )
-    return web.json_response({"ok": result.endswith("1")})
+    ok = await delete_owner_memory(request.app["db"], request["user_id"], key)
+    return web.json_response({"ok": ok})
 
 
 async def send_device_command(request: web.Request) -> web.Response:
@@ -1576,15 +1583,25 @@ async def chat(request: web.Request) -> web.Response:
     # is only "continue". Context remains current-conversation and owner scoped.
     focus_query = memory_focus_question(text, turns)
     memory = await _memory_context(pool, request["user_id"], query=focus_query)
+    research_result = None
+    if classify_intent(text).kind == "research":
+        # This outbound read is limited to the user's explicit current research
+        # request. Personal memory/history are deliberately not added to the
+        # query or persisted in the research store.
+        research_result = await research_for_chat(text)
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
         user_message=text, read_only=True, has_prior_turns=bool(turns),
     )
+    if research_result is not None:
+        system_instruction += build_research_prompt_block(research_result)
     prompt = text
 
     try:
         reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
+        if research_result is not None:
+            reply = append_research_sources(reply, research_result)
     except Exception as exc:
         error_code = _safe_provider_error(exc)
         await pool.execute(
@@ -2027,20 +2044,15 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                                 "note": "No memory was written because the value resembles a credential.",
                             },
                         )
-                    row = await pool.fetchrow(
-                        """
-                        INSERT INTO memories(user_id, category, key, value, version, updated_by_device)
-                        VALUES($1,$2,$3,$4,1,$5)
-                        ON CONFLICT(user_id,key) DO UPDATE SET
-                          category=EXCLUDED.category,
-                          value=EXCLUDED.value,
-                          version=memories.version+1,
-                          updated_by_device=EXCLUDED.updated_by_device,
-                          updated_at=NOW()
-                        RETURNING category,key,value,version,updated_at
-                        """,
-                        user_id, category, key, value, device_id,
-                    )
+                    try:
+                        row = await upsert_owner_memory(
+                            pool, user_id, device_id, category, key, value
+                        )
+                    except ValueError:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "invalid_or_sensitive_memory"},
+                        )
                     await send_json({
                         "type": "memory_saved",
                         "key": key,
@@ -2574,6 +2586,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/device-presence", device_presence)
     app.router.add_get("/api/memories", list_memories)
     app.router.add_put("/api/memories", upsert_memory)
+    app.router.add_get("/api/memories/{key}/history", list_memory_history)
     app.router.add_delete("/api/memories/{key}", delete_memory)
     app.on_response_prepare.append(prevent_stale_chat_assets)
     app.on_startup.append(init_db)

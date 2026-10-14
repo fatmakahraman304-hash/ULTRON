@@ -132,6 +132,15 @@ class UltronRuntime:
             print(f"[WARN] router: {e}")
             self.router = None
 
+        # Explicit RESEARCH requests share the bounded source reader without
+        # creating a persisted query history or adding an inference call.
+        try:
+            from app.cognitive.research_engine import ResearchEngine
+            self.research_engine = ResearchEngine(db_path=":memory:")
+        except Exception as e:
+            print(f"[WARN] research_engine: {e}")
+            self.research_engine = None
+
         # ── Code Agent / Intel ────────────────────────────────────────────
         try:
             from app.code_agent.code_agent import CodeAgent
@@ -200,6 +209,7 @@ class UltronRuntime:
                 router=self.router,
                 world_fn=lambda: self.world_context_fn,
                 redact_fn=self.vault.redact,
+                research_engine=self.research_engine,
             )
         except Exception as e:
             print(f"[WARN] agent: {e}")
