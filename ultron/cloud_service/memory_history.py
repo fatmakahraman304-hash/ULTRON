@@ -30,7 +30,7 @@ def validate_memory_record(category: str, key: str, value: str) -> tuple[str, st
     if not isinstance(value, str) or not value.strip() or len(value.strip()) > 8000 or "\x00" in value:
         raise ValueError("invalid_value")
     normalized_value = value.strip()
-    if not safe_manual_memory_value(normalized_value):
+    if not safe_manual_memory_value(key.strip() + " " + normalized_value):
         raise ValueError("sensitive_memory_rejected")
     return category.strip().upper(), key.strip(), normalized_value
 
