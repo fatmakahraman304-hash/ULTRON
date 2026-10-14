@@ -112,3 +112,40 @@ test('UI exposes manual memory save, stopped analysis and readonly authenticated
                        "/api/listening-analysis", "window.confirm(", "category:'NOTE'",
                        "longListenAnalyzer.run(meta.transcript)"])assert.ok(html.includes(needle),needle);
 });
+
+test('valid Python-sized FINAL containing astral characters is accepted on the phone',async()=>{
+  const final='✅ Son karar: '+ '😀'.repeat(5000);
+  assert.ok(Array.from(final).length<9500);
+  assert.ok(final.length>9500);
+  const worker=analysis.create({request:async p=>({stage:p.stage,analysis:p.stage==='final'?final:'Not'})});
+  assert.equal((await worker.run('Konuşma')).answer,final);
+});
+
+test('split never exceeds its boundary or cuts an astral character in half',()=>{
+  for(const text of ['x'.repeat(analysis.CHUNK_SIZE)+'\nson', 'x'.repeat(analysis.CHUNK_SIZE-1)+'😀son']){
+    const chunks=analysis.split(text);
+    assert.equal(chunks.join(''),text);
+    assert.ok(chunks.every(s=>s.length<=analysis.CHUNK_SIZE));
+    for(const chunk of chunks)assert.equal(chunk.isWellFormed(),true);
+  }
+});
+
+test('valid larger MAP notes are reduced within input budget without dropping any note',async()=>{
+  const text='x'.repeat(analysis.CHUNK_SIZE*5),calls=[];
+  const notes=Array.from({length:5},(_,i)=>'Karar-'+(i+1)+' '+ 'a'.repeat(3000));
+  const worker=analysis.create({request:async p=>{
+    calls.push(p);assert.ok(Array.from(p.text).length<=12000);
+    return {stage:p.stage,analysis:p.stage==='map'?notes[p.part-1]:p.stage==='reduce'?'Birleşmiş not':'Son rapor'};
+  }});
+  const result=await worker.run(text);
+  assert.equal(result.chunksAnalyzed,5);
+  for(const note of notes)assert.ok(calls.some(p=>p.stage==='reduce'&&p.text.includes(note)));
+  assert.equal(calls.at(-1).stage,'final');
+});
+
+test('safe analysis error text excludes arbitrary provider, SQL and transcript detail',()=>{
+  const secret='SECRET token and private transcript';
+  assert.ok(!analysis.errorMessage(Error(secret)).includes(secret));
+  assert.match(analysis.errorMessage({code:'invalid_local_analysis'}),/doğrulanamadı/);
+  assert.match(analysis.errorMessage({code:'local_analysis_pending'}),/aynı görev/);
+});

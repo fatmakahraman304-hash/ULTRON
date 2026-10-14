@@ -5,6 +5,7 @@ All speech segments, API results and approvals are intentionally synthetic.
 """
 import asyncio
 import json
+import os
 import unittest
 from pathlib import Path
 from aiohttp import web
@@ -55,12 +56,17 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
         await server.start()
         self.url="http://127.0.0.1:"+str(server._server.sockets[0].getsockname()[1])
         self.playwright=await async_playwright().start()
-        self.browser=await self.playwright.chromium.launch(args=["--no-sandbox"])
+        self.browser=await self.playwright.chromium.launch(
+            args=["--no-sandbox"],
+            executable_path=os.getenv("ULTRON_TEST_BROWSER_EXECUTABLE") or None)
         self.context=await self.browser.new_context(
             viewport={"width":390,"height":844},service_workers="block")
         await self.context.add_init_script(script=MIC_STUB)
         self.api_calls=[]
         self.worker_ready=False
+        self.local_jobs={}
+        self.local_read_failures={}
+        self.final_text="Özet: kararlar. Hiçbir işlem uygulanmadı."
         async def api(route):
             request=route.request
             path=request.url.split("/api/",1)[-1].split("?",1)[0]
@@ -71,10 +77,19 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
                     "state":{"local_listening_analysis_ready":True}}]
                     if self.worker_ready else []}
             elif path=="local-listening-analysis" and request.method=="POST":
-                value={"id":501,"status":"queued","provider":"local-ollama"}
-            elif path=="local-listening-analysis/501":
-                value={"status":"completed","stage":"map",
-                       "analysis":"Bu test gerçek kullanıcı konuşması içermiyor.",
+                ident=501+len(self.local_jobs)
+                self.local_jobs[ident]=body
+                value={"id":ident,"status":"queued","provider":"local-ollama"}
+            elif path.startswith("local-listening-analysis/"):
+                job=self.local_jobs[int(path.rsplit("/",1)[-1])]
+                stage=job["stage"]
+                if self.local_read_failures.get(stage,0):
+                    self.local_read_failures[stage]-=1
+                    await route.fulfill(status=503,content_type="application/json",
+                                        body=json.dumps({"detail":"SECRET provider and transcript detail"}))
+                    return
+                value={"status":"completed","stage":stage,
+                       "analysis":self.final_text if stage=="final" else "Bu test gerçek kullanıcı konuşması içermiyor.",
                        "model":"qwen3:4b","provider":"local-ollama"}
             elif path=="listening-analysis":
                 value={"stage":body["stage"],
@@ -165,6 +180,41 @@ class ListeningBrowserTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.page.evaluate("longListenController.transcript()"),"")
         self.assertEqual(await self.page.locator("#sceneCanvas").count(),1)
         self.assertEqual(await self.page.locator("#sceneForm").count(),1)
+        self.assertEqual(self.errors,[])
+
+    async def test_local_map_reduce_final_recovers_lost_reads_and_accepts_unicode_final(self):
+        self.worker_ready=True
+        self.local_read_failures={'reduce':1,'final':1}
+        self.final_text='Özet: '+ '😀'*5000
+        await self.arm_and_emit()
+        # Long synthetic transcription drives every stage through the real UI.
+        await self.page.evaluate("for(let i=0;i<25;i++)window.__testSpeech.emit('Karar '+i+': '+ 'örnek '.repeat(180))")
+        await self.page.locator("#longListenProviderWrap summary").click()
+        await self.page.locator("#longListenProvider").select_option("local")
+        await self.page.locator("#longListenAnswer").click()
+        await self.page.wait_for_function("longListenController.state()==='submitted'")
+        self.assertEqual(await self.page.locator("#longListenReport").text_content(),self.final_text)
+        jobs=list(self.local_jobs.values())
+        maps=[job for job in jobs if job['stage']=='map']
+        self.assertGreater(len(maps),1)
+        self.assertEqual([job['part'] for job in maps],list(range(1,len(maps)+1)))
+        self.assertTrue(any(job['stage']=='reduce' for job in jobs))
+        self.assertEqual(len([job for job in jobs if job['stage']=='final']),1)
+        self.assertEqual(len({job['request_id'] for job in jobs}),len(jobs))
+        self.assertEqual(await self.page.evaluate("longListenController.transcript()"),'')
+        self.assertFalse(any(name=='listening-analysis' for name,_ in self.api_calls))
+        self.assertNotIn('SECRET',await self.page.locator('#toast').text_content())
+        self.assertEqual(self.errors,[])
+
+    async def test_chat_render_failure_preserves_confirmed_panel_report(self):
+        await self.arm_and_emit()
+        await self.page.locator("#longListenProviderWrap summary").click()
+        await self.page.locator("#longListenProvider").select_option("gemini")
+        await self.page.evaluate("()=>{addMessage=()=>{throw Error('SECRET presentation detail')};}")
+        await self.page.locator("#longListenAnswer").click()
+        await self.page.wait_for_function("longListenController.state()==='submitted'")
+        self.assertIn('Özet:',await self.page.locator('#longListenReport').text_content())
+        self.assertNotIn('SECRET',await self.page.locator('#toast').text_content())
         self.assertEqual(self.errors,[])
 
     async def test_denied_consent_never_uploads_and_keeps_transcript(self):
