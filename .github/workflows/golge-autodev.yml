@@ -12,6 +12,15 @@ on:
       - "ultron/backend/github_pr_publisher.py"
       - ".github/workflows/golge-autodev.yml"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Use contracts-only to avoid provider calls; choose pipeline only after secrets/permissions are reviewed."
+        required: true
+        type: choice
+        options:
+          - contracts_only
+          - pipeline
+        default: contracts_only
   schedule:
     - cron: "23 6 * * 1,4"
 
@@ -47,7 +56,7 @@ jobs:
           PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_github_pr_publisher.py
 
   propose:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.mode == 'pipeline')
     needs: contracts
     runs-on: ubuntu-latest
     timeout-minutes: 10

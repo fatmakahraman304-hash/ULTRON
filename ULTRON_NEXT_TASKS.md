@@ -2,7 +2,7 @@
 
 1. Review draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39), head `97d3b4ba9413f74f67d4e60e1a6b653d09f23ad9`. Exact-head run #38593142739 passed contracts; model/verify/repair/publisher were skipped as designed for PR events. Real provider-to-draft-PR remains unverified.
 2. Keep scheduler-only draft [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40) against default `main` unmerged until PR #38 plus V2 have landed on production. Confirm Actions secret `GOLGE_AUTODEV_GEMINI_API_KEY` and write permissions with an authorized maintainer.
-3. After the review/dependency and configuration exist, run one controlled `workflow_dispatch`; verify real model output, isolated no-secret test, bounded repair (at most one), and GÖLGE-created draft PR. Do not treat PR #39’s successful contracts run as this proof.
+3. After the review/dependency and configuration exist, run `workflow_dispatch` with `contracts_only` first; only after checking the secret/write policy should an authorized operator explicitly select `pipeline` to verify real model output, isolated no-secret test, bounded repair (at most one), and GÖLGE-created draft PR. Do not treat PR #39’s contracts run as this proof.
 4. Expand discovery sources from the current goal registry/open-PR/merged-goal state to failed Actions evidence, labelled GitHub issues, capability probes, privacy-filtered app errors and measured performance.
 5. Then address True Interruption V2 and Natural Conversation V5 in separate reviewable changes. Physical Windows Ollama, iPhone Safari, microphones/TTS, live model quality/latency and production canary remain NOT_RUN. PR #34–#38 remain unmerged.
 

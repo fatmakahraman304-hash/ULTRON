@@ -36,6 +36,11 @@ Her workflow çalıştırmasında en fazla iki Gemini isteği ve her istekte en 
 **NOT_RUN** olur. Yalnızca sabit/sahte modelle test geçmesi, gerçek modelin kod
 kalitesini doğrulamaz.
 
+`workflow_dispatch` varsayılan olarak `contracts_only` modundadır ve provider
+çağrısı yapmaz. Gerçek model/PR akışı ancak secrets ve repository izinleri
+yetkili biri tarafından kontrol edildikten sonra açıkça `pipeline` seçilerek
+başlatılmalıdır. Zamanlanmış çalışma `pipeline` yolunu kullanır.
+
 ## Zamanlayıcı
 
 GitHub `schedule` yalnızca varsayılan `main` dalındaki workflow üzerinden
