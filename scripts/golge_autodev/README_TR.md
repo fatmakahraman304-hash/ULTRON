@@ -1,3 +1,51 @@
+# GÖLGE Autonomous Engineer V5 — gerçek görev ölçümü ve sınırlı, güvenli doğrulama
+
+V5, V4 keşif/SQLite mühendislik hafızası hattını korur ve şu doğrulanabilir
+katmanları ekler:
+
+- `coding_bench.py` sekiz bağımsız Python/TypeScript kodlama görevini, modelin
+  prompt'una eklenmeyen test oracles ile değerlendirir. Her görev en çok iki
+  üretim/onarım çağrısı alır. Gerçek provider belirtilmezse sonuç **NOT_RUN**,
+  başarı puanı `null` olur. Sahte provider testleri `simulated=true` olarak
+  ayrılır; gerçek Qwen/Gemini puanına eklenmez.
+- Test çalıştırıcısı Linux'ta Bubblewrap ile ağsız PID/IPC alanında çalışır.
+  Checkout varsayılan olarak salt okunurdur; `/tmp` geçicidir, kişisel home ve
+  gizli environment değerleri sandbox'a aktarılmaz. Bubblewrap yoksa test
+  çalıştırma **BLOCKED/NOT_RUN** kalır. Windows üzerinde güvenli yerel test
+  için doğrulanmış bir sandbox henüz yoktur.
+- V5 kalite kapıları syntax, type, unit, integration, secret, dependency,
+  security boundary, API uyumluluğu, performans ve rollback durumlarını ayrı
+  kaydeder. Zorunlu bir kapı `PASS` veya açık `NOT_APPLICABLE` değilse taslak
+  PR yayımlama yolu başarılı sayılmaz. Performans tabanı yoksa ölçülmüş başarı
+  değil, `NOT_APPLICABLE` raporlanır.
+- Engineering Memory V4 snapshot'ları V5 zarfında repo/workflow/branch/run/SHA
+  kökeniyle taşınır. Eski V4 snapshot yalnızca GitHub artefakt/run metaverisi
+  doğrulandıktan sonra içe alınabilir. Artefaktın 90 günlük ömrü kalıcı depolama
+  değildir; eksik, eski veya uyuşmayan artefakt proposal akışını durdurur.
+- İzole sahte-model E2E gerçek pytest hatası → bir onarım → yeniden test → var
+  olan `GitHubPRPublisher` sözleşmesini ağ çağrıları taklit edilerek çalıştırır
+  ve SQLite hafızasında tekrar seçilmeme durumunu doğrular. Bu, gerçek model
+  çıkarımı veya GÖLGE'nin gerçek GitHub'a otomatik PR açması değildir.
+
+Benchmark güvenli, izole Linux ortamında ve provider erişimi olduğunda örneğin:
+
+```bash
+python scripts/golge_autodev/coding_bench.py --provider ollama --max-cases 8 --max-calls 16
+```
+
+Gemini için ayrıca `--confirm-cloud-budget`, açık `GOLGE_AUTODEV_CLOUD_MODEL_BUDGET_APPROVED=true`,
+API anahtarı, pozitif maliyet tavanı ve kullanıcı tarafından belirtilen çağrı
+limiti gerekir. Bu kontroller API faturalamasını bağımsız doğrulamaz; gerçek
+kota/maliyet incelemesi yine yetkili operatörün sorumluluğundadır.
+
+V5 bu oturumda gerçek model çağrısı yapmadı: GitHub secret/settings envanteri
+403 ile kapalıydı ve yerel Ollama endpoint'i erişilemiyordu. Bu nedenle 8
+benchmark görevinin gerçek başarı puanı **NOT_RUN**'dur. Windows/iPhone ve
+Render doğrulaması da ayrıca raporlanır; commit veya draft PR bunların yerine
+geçmez.
+
+---
+
 # GÖLGE Autonomous Development V3 — kanıta dayalı keşif ve sınırlı taslak PR döngüsü
 
 Bu sistem modelin doğrudan çalışan GÖLGE kurulumuna yazmasına izin vermez.

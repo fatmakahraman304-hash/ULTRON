@@ -86,14 +86,30 @@ def load_goals(path: Path = GOALS) -> list[dict]:
         if not isinstance(goal.get("success_criteria"), list) or not goal["success_criteria"]:
             raise ProposalError("invalid_goal_success_criteria")
         paths = goal.get("paths")
-        if not isinstance(paths, list) or not 2 <= len(paths) <= MAX_FILES:
+        if (not isinstance(paths, list) or not 2 <= len(paths) <= MAX_FILES
+                or any(not isinstance(path, str) for path in paths)):
             raise ProposalError("invalid_goal_paths")
         if len(set(paths)) != len(paths):
             raise ProposalError("duplicate_goal_path")
         if goal.get("test_path") not in paths or not goal["test_path"].startswith("ultron/backend/tests/"):
             raise ProposalError("test_path_required")
         for path in paths:
+            if not isinstance(path, str):
+                raise ProposalError("invalid_goal_paths")
             validate_path(path, root=ROOT)
+        if goal.get("quality_gate_policy") == "v5":
+            integration_tests = goal.get("integration_tests")
+            if (not isinstance(integration_tests, list) or not integration_tests
+                    or len(integration_tests) > 4):
+                raise ProposalError("invalid_integration_test_registry")
+            for test_path in integration_tests:
+                if not isinstance(test_path, str) or not test_path.startswith("ultron/backend/tests/test_"):
+                    raise ProposalError("invalid_integration_test_path")
+                validate_path(test_path, root=ROOT)
+            if type(goal.get("performance_sensitive", False)) is not bool:
+                raise ProposalError("invalid_performance_scope")
+            if goal.get("performance_test"):
+                validate_path(goal["performance_test"], root=ROOT)
     return goals
 
 
@@ -146,8 +162,12 @@ def _eligible_discovery_by_goal(goals: list[dict], candidates: list[dict] | None
         if not isinstance(candidate, dict) or candidate.get("status") != "eligible":
             continue
         goal_id = candidate.get("goal_id")
+        if not isinstance(goal_id, str):
+            continue
         goal = goal_by_id.get(goal_id)
         source = candidate.get("source")
+        if not isinstance(source, str):
+            continue
         pattern = patterns.get(source)
         evidence = candidate.get("evidence")
         candidate_id = candidate.get("candidate_id")
@@ -280,7 +300,7 @@ def validate_proposal(proposal: dict, goal: dict, *, root: Path = ROOT) -> list[
         if not isinstance(entry, dict) or set(entry) != {"path", "content"}:
             raise ProposalError("invalid_file_entry")
         path, content = entry.get("path"), entry.get("content")
-        if path not in allowed or path in seen or not isinstance(content, str):
+        if not isinstance(path, str) or path not in allowed or path in seen or not isinstance(content, str):
             raise ProposalError("not_allowed_or_duplicate")
         validate_path(path, root=root)
         encoded = content.encode("utf-8")
@@ -374,7 +394,9 @@ def _json_request(url: str, body: dict, headers: dict) -> dict:
         raise ProposalError("model_unavailable:" + type(exc).__name__) from None
 
 
-def infer(prompt: str, provider: str) -> str:
+def infer(prompt: str, provider: str, *, max_output_tokens: int = MAX_MODEL_OUTPUT_TOKENS) -> str:
+    if type(max_output_tokens) is not int or not 1 <= max_output_tokens <= MAX_MODEL_OUTPUT_TOKENS:
+        raise ProposalError("invalid_model_output_budget")
     if provider == "gemini":
         key = os.getenv("GOLGE_AUTODEV_GEMINI_API_KEY", "")
         model = os.getenv("GOLGE_AUTODEV_MODEL", "gemini-2.5-flash")
@@ -386,7 +408,7 @@ def infer(prompt: str, provider: str) -> str:
             "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent",
             {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
              "generationConfig": {"responseMimeType": "application/json", "temperature": 0.1,
-                                  "maxOutputTokens": MAX_MODEL_OUTPUT_TOKENS}},
+                                  "maxOutputTokens": max_output_tokens}},
             {"x-goog-api-key": key},
         )
         parts = ((result.get("candidates") or [{}])[0].get("content") or {}).get("parts") or []
@@ -399,7 +421,7 @@ def infer(prompt: str, provider: str) -> str:
         result = _json_request(
             "http://127.0.0.1:11434/api/generate",
             {"model": model, "prompt": prompt, "stream": False, "format": "json",
-             "options": {"temperature": 0.1, "num_predict": MAX_MODEL_OUTPUT_TOKENS}},
+             "options": {"temperature": 0.1, "num_predict": max_output_tokens}},
             {},
         )
         return str(result.get("response") or "")
@@ -533,11 +555,17 @@ def verify_proposal(proposal: dict, *, root: Path = ROOT,
     """Apply and test one proposal in the caller's disposable, no-secret checkout."""
     gates = {}
     test_path = ""
+    original_sources: dict[str, str] = {}
     try:
         from quality_gates import preflight
         goal = next((g for g in load_goals() if g["id"] == proposal.get("goal_id")), None)
         if goal is None:
             raise ProposalError("unknown_goal")
+        changed = validate_proposal(proposal, goal, root=root)
+        original_sources = {
+            path: (root / path).read_text(encoding="utf-8") if (root / path).is_file() else ""
+            for path, _ in changed
+        }
         gates = preflight(proposal, goal, root=root, engine_module=sys.modules[__name__])
         changed_paths = apply(proposal, root=root)
         for rel in changed_paths:
@@ -546,29 +574,71 @@ def verify_proposal(proposal: dict, *, root: Path = ROOT,
         test_path = next(
             path for path in changed_paths if "/tests/" in path and Path(path).name.startswith("test_")
         )
-        env = os.environ.copy()
+        env = {key: os.environ[key] for key in
+               ("PATH", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL")
+               if key in os.environ}
         backend = str((root / "ultron" / "backend").resolve())
-        env["PYTHONPATH"] = backend + os.pathsep + env.get("PYTHONPATH", "")
-        result = subprocess.run(
+        env["PYTHONPATH"] = backend
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
+        from sandbox import SandboxUnavailable, run_sandboxed
+        result = run_sandboxed(
             [sys.executable, "-m", "pytest", "-q", test_path],
-            cwd=str(root), env=env, capture_output=True, text=True,
-            timeout=MAX_TEST_SECONDS, check=False,
+            cwd=root, env=env, timeout=MAX_TEST_SECONDS,
         )
         diagnostics = sanitize_diagnostics((result.stdout or "") + "\n" + (result.stderr or ""))
-        report = {
-            "status": "passed" if result.returncode == 0 else "failed",
-            "returncode": result.returncode,
-            "changed_paths": changed_paths,
-            "diagnostics": "" if result.returncode == 0 else diagnostics,
-            "failure_class": (None if result.returncode == 0 else
-                              "code" if failure_is_repairable(diagnostics) else "infrastructure"),
-            "repairable": (result.returncode != 0 and failure_is_repairable(diagnostics)
-                           and int(proposal.get("attempt", 1)) < MAX_MODEL_CALLS),
-            "quality_gates": gates,
-        }
         gates["unit_test"] = {"status": "PASS" if result.returncode == 0 else "FAIL",
                               "test_path": test_path}
-        report["quality_gates"] = gates
+        if goal.get("quality_gate_policy") == "v5":
+            from quality_gates import complete_verification, gates_approved
+            gates = complete_verification(
+                proposal, goal, root=root, engine_module=sys.modules[__name__],
+                changed_paths=changed_paths, original_sources=original_sources,
+                unit_status="PASS" if result.returncode == 0 else "FAIL",
+            )
+            quality_passed = gates_approved(gates)
+            blocking = [name for name, item in gates.items()
+                        if item.get("status") not in {"PASS", "NOT_APPLICABLE"}]
+            has_code_failure = any(gates.get(name, {}).get("status") == "FAIL"
+                                   for name in ("unit_test", "integration_test", "type_check"))
+            unsafe_failure = any(gates.get(name, {}).get("status") == "FAIL"
+                                 for name in ("secret_scan", "security_boundary", "api_compatibility",
+                                              "dependency_integrity", "rollback_readiness"))
+            failure_details = []
+            if result.returncode != 0 and diagnostics:
+                failure_details.append("generated_unit_test:\n" + diagnostics)
+            for name in ("type_check", "integration_test", "security_boundary", "api_compatibility",
+                         "secret_scan", "dependency_integrity", "performance_regression", "rollback_readiness"):
+                item = gates.get(name, {})
+                if item.get("status") == "FAIL" and item.get("reason"):
+                    failure_details.append(name + ":\n" + sanitize_diagnostics(str(item["reason"])))
+            failure_message = sanitize_diagnostics("\n".join(failure_details))
+            repairable = (not quality_passed and has_code_failure and not unsafe_failure
+                          and int(proposal.get("attempt", 1)) < MAX_MODEL_CALLS)
+            result_status = "passed" if quality_passed else "failed" if repairable else "blocked"
+            report = {
+                "status": result_status,
+                "returncode": 0 if quality_passed else 1 if repairable else 2,
+                "changed_paths": changed_paths,
+                "diagnostics": "" if quality_passed else (
+                    "required_quality_gates_not_passed:" + ",".join(blocking)
+                    + ("\n" + failure_message if failure_message else "")),
+                "failure_class": None if quality_passed else "code" if has_code_failure else "preflight",
+                "repairable": repairable,
+                "quality_gates": gates,
+            }
+        else:
+            report = {
+                "status": "passed" if result.returncode == 0 else "failed",
+                "returncode": result.returncode,
+                "changed_paths": changed_paths,
+                "diagnostics": "" if result.returncode == 0 else diagnostics,
+                "failure_class": (None if result.returncode == 0 else
+                                  "code" if failure_is_repairable(diagnostics) else "infrastructure"),
+                "repairable": (result.returncode != 0 and failure_is_repairable(diagnostics)
+                               and int(proposal.get("attempt", 1)) < MAX_MODEL_CALLS),
+                "quality_gates": gates,
+            }
     except subprocess.TimeoutExpired as exc:
         report = {"status": "failed", "returncode": 124, "changed_paths": [],
                   "diagnostics": sanitize_diagnostics(str(exc) or "test_timeout"),
@@ -618,7 +688,7 @@ def main(argv=None) -> int:
         if args.command == "plan":
             open_prs = json.loads(args.open_prs.read_text(encoding="utf-8")) if args.open_prs else []
             merged_prs = json.loads(args.merged_prs.read_text(encoding="utf-8")) if args.merged_prs else []
-            discoveries = []
+            discoveries: list[dict] = []
             if args.discovery_file:
                 if args.discovery_file.stat().st_size > 2_000_000:
                     raise ProposalError("discovery_file_too_large")

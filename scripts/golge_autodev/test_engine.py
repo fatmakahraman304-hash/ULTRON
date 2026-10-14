@@ -233,7 +233,8 @@ class AutonomousPatchContracts(unittest.TestCase):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(entry["content"], encoding="utf-8")
             return [entry["path"] for entry in self.proposal["files"]]
-        with patch.object(engine, "apply", side_effect=materialize):
+        with patch.object(engine, "load_goals", return_value=[self.goal]), \
+             patch.object(engine, "apply", side_effect=materialize):
             result = engine.verify_proposal(self.proposal, root=self.root)
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["failure_class"], "preflight")
@@ -252,14 +253,15 @@ class AutonomousPatchContracts(unittest.TestCase):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(entry["content"], encoding="utf-8")
             return [entry["path"] for entry in self.proposal["files"]]
-        with patch.object(engine, "apply", side_effect=materialize):
+        with patch.object(engine, "load_goals", return_value=[self.goal]), \
+             patch.object(engine, "apply", side_effect=materialize):
             result = engine.verify_proposal(self.proposal, root=self.root)
         self.assertEqual(result["status"], "passed", result["diagnostics"])
         self.assertEqual(result["returncode"], 0)
         self.assertEqual(result["quality_gates"]["syntax"]["status"], "PASS")
         self.assertEqual(result["quality_gates"]["unit_test"]["status"], "PASS")
-        self.assertEqual(result["quality_gates"]["type_check"]["status"], "NOT_RUN")
-        self.assertEqual(result["quality_gates"]["performance_regression"]["status"], "NOT_RUN")
+        self.assertEqual(result["quality_gates"]["type_check"]["status"], "PENDING")
+        self.assertEqual(result["quality_gates"]["performance_regression"]["status"], "NOT_APPLICABLE")
         self.assertIsNone(result["failure_class"])
 
     def test_fake_model_to_failing_test_to_repair_and_retest(self):
@@ -287,7 +289,8 @@ class AutonomousPatchContracts(unittest.TestCase):
             {"path": "app/cognitive/communication.py", "content": "def safe():\n    return True\n"},
             {"path": "tests/test_autodev_communication.py", "content": test_content},
         ]}
-        with patch.object(engine, "infer", side_effect=[json.dumps(initial), json.dumps(repaired)]) as fake:
+        with patch.object(engine, "load_goals", return_value=[self.goal]), \
+             patch.object(engine, "infer", side_effect=[json.dumps(initial), json.dumps(repaired)]) as fake:
             first = engine.generate(plan, "ollama", root=self.root)
             failed = engine.verify_proposal(first, root=self.root)
             self.assertEqual(failed["status"], "failed")
