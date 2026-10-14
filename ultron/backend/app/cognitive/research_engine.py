@@ -987,5 +987,20 @@ class ResearchEngine:
             rows = self.db.execute(
                 "SELECT ts,query,result_json FROM sessions"
                 " ORDER BY id DESC LIMIT ?", (max(1, min(int(limit), 100)),)).fetchall()
-        return [{"ts": row[0], "query": row[1], "result": json.loads(row[2])}
-                for row in rows]
+        history = []
+        for row in rows:
+            try:
+                result = json.loads(row[2])
+                if not isinstance(result, dict):
+                    raise ValueError("stored_result_not_object")
+            except (json.JSONDecodeError, TypeError, ValueError):
+                result = {
+                    "ok": False, "status": "stored_result_unreadable",
+                    "query": str(row[1] or "")[:1000], "evidence_level": "none",
+                    "citations": [],
+                    "synthesis": {"findings": [], "unread_sources": [],
+                                  "numeric_conflicts": [],
+                                  "caveat": "A previous research record was incomplete."},
+                }
+            history.append({"ts": row[0], "query": row[1], "result": result})
+        return history

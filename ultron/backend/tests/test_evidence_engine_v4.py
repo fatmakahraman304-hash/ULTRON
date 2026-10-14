@@ -201,3 +201,17 @@ def test_research_history_stays_valid_json_under_the_storage_bound():
         assert parsed["synthesis"]["findings"]
     finally:
         engine.close()
+
+
+def test_legacy_truncated_research_history_does_not_break_history_reads():
+    engine = ResearchEngine(db_path=":memory:")
+    try:
+        engine.db.execute(
+            "INSERT INTO sessions(ts,query,result_json) VALUES(?,?,?)",
+            (1, "old query", '{"result":'),
+        )
+        history = engine.history()
+        assert history[0]["result"]["status"] == "stored_result_unreadable"
+        assert history[0]["result"]["query"] == "old query"
+    finally:
+        engine.close()
