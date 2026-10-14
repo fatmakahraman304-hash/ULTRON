@@ -156,7 +156,7 @@ jobs:
           files=json.load(open("golge-autodev-proposal.json"))["files"]
           subprocess.run(["git","add","--",*(f["path"] for f in files)], check=True)
           PY
-          git diff --cached --quiet && { echo "Empty patch"; exit 1; } || true
+          if git diff --cached --quiet; then echo "Empty patch"; exit 1; fi
           BRANCH="golge/autodev/${{ github.run_id }}"
           git switch -c "$BRANCH"
           git -c user.name="GÖLGE Automation" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "GÖLGE autonomous bounded draft ${{ github.run_id }}"
