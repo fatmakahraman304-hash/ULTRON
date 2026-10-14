@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -10,40 +11,55 @@ from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ultron/backend"))
 import discovery
 import engine
 from engineering_memory import EngineeringMemory
 from remember_pipeline import record_pipeline
 from triage import triage_candidates
+from github_pr_publisher import GitHubPRPublisher, BASE_BRANCH
 
 SHA = "a" * 40
 
 
 class LocalDraftPublisher:
-    """No-token/no-network publisher used only inside a temporary test repo."""
+    """Exercise the shared publisher while stubbing GitHub network commands."""
     def __init__(self, root: Path, metadata: Path):
         self.root = root
         self.metadata = metadata
 
     def publish(self, proposal: dict, goal: dict) -> dict:
         paths = [path for path, _ in engine.validate_proposal(proposal, goal, root=self.root)]
-        changed = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"],
-                                 cwd=self.root, check=True, capture_output=True, text=True).stdout.splitlines()
-        touched = {line[3:] for line in changed if len(line) >= 4
-                   and "/__pycache__/" not in line[3:]
-                   and not line[3:].startswith(".pytest_cache/")
-                   and not line[3:].endswith(".pyc")}
-        if not touched or not touched.issubset(set(paths)):
-            raise ValueError("fixture_publisher_path_scope")
-        subprocess.run(["git", "switch", "-c", "fixture/draft-proposal"], cwd=self.root,
-                       check=True, capture_output=True)
-        subprocess.run(["git", "add", "--", *paths], cwd=self.root, check=True)
-        subprocess.run(["git", "commit", "-m", "fixture verified draft"], cwd=self.root,
-                       check=True, capture_output=True)
-        commit_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=self.root, check=True,
-                                    capture_output=True, text=True).stdout.strip()
-        result = {"draft": True, "commit_sha": commit_sha, "paths": paths,
-                  "network_calls": 0, "provider_calls": 0}
+        calls = []
+
+        def no_network_run(args, **kwargs):
+            calls.append(list(args))
+            if args[:2] == ["git", "fetch"] or args[:2] == ["git", "push"]:
+                return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+            if args[:3] == ["gh", "auth", "status"]:
+                return subprocess.CompletedProcess(args, 0, stdout="authenticated fixture\n", stderr="")
+            if args[:3] == ["gh", "pr", "create"]:
+                return subprocess.CompletedProcess(
+                    args, 0, stdout="https://github.com/fatmakahraman304-hash/ULTRON/pull/999\n", stderr="")
+            return subprocess.run(args, **kwargs)
+
+        proposal_id = hashlib.sha256(b"isolated-autodev-fixture").hexdigest()[:12]
+        publisher = GitHubPRPublisher(self.root, run=no_network_run)
+        prepared = publisher.prepare(proposal_id)
+        if prepared["base"] != BASE_BRANCH:
+            raise ValueError("fixture_publisher_base")
+        applied = engine.apply(proposal, root=self.root)
+        if applied != paths:
+            raise ValueError("fixture_publisher_paths")
+        relative = [path.removeprefix("ultron/") for path in paths]
+        published = publisher.publish(
+            proposal_id=proposal_id, branch=prepared["branch"], paths=relative,
+            goal=proposal["summary"], autonomous_goal_id=goal["id"],
+            autonomous_candidate_id=proposal.get("discovery_candidate_id"),
+        )
+        result = {**published, "draft": True, "paths": paths,
+                  "network_calls": 0, "provider_calls": 0,
+                  "github_write_commands": [row[:3] for row in calls if row[:2] in (["gh", "pr"], ["git", "push"]) ]}
         self.metadata.write_text(json.dumps(result), encoding="utf-8")
         return result
 
@@ -214,13 +230,18 @@ class FakeModelAutonomyIntegration(unittest.TestCase):
         (root / code_rel).parent.mkdir(parents=True)
         (root / test_rel).parent.mkdir(parents=True)
         (root / code_rel).write_text("def safe():\n    return False\n", encoding="utf-8")
-        subprocess.run(["git", "init", "-b", "fixture-base"], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "init", "-b", BASE_BRANCH], cwd=root, check=True, capture_output=True)
         subprocess.run(["git", "config", "user.name", "Autodev Fixture"], cwd=root, check=True)
         subprocess.run(["git", "config", "user.email", "fixture@example.invalid"], cwd=root, check=True)
         subprocess.run(["git", "add", code_rel], cwd=root, check=True)
         subprocess.run(["git", "commit", "-m", "fixture base"], cwd=root, check=True, capture_output=True)
         base_sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, check=True,
                                   capture_output=True, text=True).stdout.strip()
+        subprocess.run(["git", "remote", "add", "origin",
+                        "https://github.com/fatmakahraman304-hash/ULTRON.git"], cwd=root,
+                       check=True, capture_output=True)
+        subprocess.run(["git", "update-ref", "refs/remotes/origin/" + BASE_BRANCH, base_sha],
+                       cwd=root, check=True, capture_output=True)
         goal = next(item for item in engine.load_goals() if item["id"] == "dialogue-continuity-contract")
         observed = discovery.candidates_from_actions([{
             "databaseId": 987655, "conclusion": "failure",
@@ -268,15 +289,20 @@ class FakeModelAutonomyIntegration(unittest.TestCase):
         self.assertEqual(passed["status"], "passed", passed["diagnostics"])
 
         # This narrow test publisher has no token/network. It creates only a
-        # fixture-local commit from the validated registered paths.
+        # fixture-local commit through the real shared GitHubPRPublisher code.
+        # Git fetch/push, gh auth and PR creation are stubbed; nothing is sent.
         publisher_metadata = root.with_name(root.name + "-fixture-pr.json")
         self.addCleanup(lambda: publisher_metadata.unlink(missing_ok=True))
+        subprocess.run(["git", "reset", "--hard", base_sha], cwd=root, check=True, capture_output=True)
+        subprocess.run(["git", "clean", "-fd"], cwd=root, check=True, capture_output=True)
         fake_publisher = LocalDraftPublisher(root, publisher_metadata)
         published = fake_publisher.publish(proposal2, goal)
         commit_sha = published["commit_sha"]
         self.assertRegex(commit_sha, r"^[0-9a-f]{40}$")
         self.assertTrue(published["draft"])
         self.assertEqual(published["network_calls"], 0)
+        self.assertEqual(published["pull_request"], "https://github.com/fatmakahraman304-hash/ULTRON/pull/999")
+        self.assertIn(["gh", "pr", "create"], published["github_write_commands"])
         ast_path = root / code_rel
         __import__("ast").parse(ast_path.read_text(encoding="utf-8"))
         outcome = record_pipeline(memory, candidate_id=triaged[0]["candidate_id"],
