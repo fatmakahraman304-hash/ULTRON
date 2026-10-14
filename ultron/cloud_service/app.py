@@ -2584,6 +2584,8 @@ def build_app() -> web.Application:
     app.router.add_get("/api/device-commands/recent", recent_device_commands)
     app.router.add_post("/api/device-presence/heartbeat", device_presence_heartbeat)
     app.router.add_get("/api/device-presence", device_presence)
+    from episodic_memory_v4 import register_routes as register_episode_routes
+    register_episode_routes(app)
     app.router.add_get("/api/memories", list_memories)
     app.router.add_put("/api/memories", upsert_memory)
     app.router.add_get("/api/memories/{key}/history", list_memory_history)
