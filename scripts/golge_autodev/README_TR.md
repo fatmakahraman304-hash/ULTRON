@@ -8,11 +8,12 @@ katmanları ekler:
   üretim/onarım çağrısı alır. Gerçek provider belirtilmezse sonuç **NOT_RUN**,
   başarı puanı `null` olur. Sahte provider testleri `simulated=true` olarak
   ayrılır; gerçek Qwen/Gemini puanına eklenmez.
-- Test çalıştırıcısı Linux'ta Bubblewrap ile ağsız PID/IPC alanında çalışır.
-  Checkout varsayılan olarak salt okunurdur; `/tmp` geçicidir, kişisel home ve
-  gizli environment değerleri sandbox'a aktarılmaz. Bubblewrap yoksa test
-  çalıştırma **BLOCKED/NOT_RUN** kalır. Windows üzerinde güvenli yerel test
-  için doğrulanmış bir sandbox henüz yoktur.
+- Test çalıştırıcısı digest ile sabitlenmiş Ubuntu Docker imajında ağsız,
+  salt okunur rootfs, capabilities kapalı, sınırlı PID/CPU/RAM alanında çalışır.
+  Checkout varsayılan olarak salt okunurdur; `/tmp` 64 MiB geçicidir, kişisel
+  home ve gizli environment değerleri sandbox'a aktarılmaz. Docker daemon veya
+  imaj yoksa test **BLOCKED/NOT_RUN** kalır. Windows üzerinde güvenli yerel
+  test için doğrulanmış bir sandbox henüz yoktur.
 - V5 kalite kapıları syntax, type, unit, integration, secret, dependency,
   security boundary, API uyumluluğu, performans ve rollback durumlarını ayrı
   kaydeder. Zorunlu bir kapı `PASS` veya açık `NOT_APPLICABLE` değilse taslak

@@ -89,7 +89,7 @@ def _run(command: list[str], *, cwd: Path, timeout: int = 240) -> tuple[str, str
     except subprocess.TimeoutExpired:
         return "FAIL", "quality_gate_timeout"
     except SandboxUnavailable:
-        return "NOT_RUN", "linux_bubblewrap_required"
+        return "NOT_RUN", "pinned_docker_sandbox_unavailable"
     if result.returncode == 0:
         return "PASS", ""
     diagnostics = ((result.stdout or "") + "\n" + (result.stderr or ""))[-4000:]

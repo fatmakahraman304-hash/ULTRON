@@ -134,13 +134,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install the network-isolated generated-code sandbox
+      - name: Prepare the pinned network-isolated generated-code sandbox
         run: |
-          if ! command -v bwrap >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y bubblewrap
-          fi
-          command -v bwrap
+          docker info --format '{{.ServerVersion}}'
+          docker pull ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
       - name: Install the generated-regression test runner
         run: python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'mypy==1.15.0'
       - name: Install the locked frontend toolchain for the TypeScript oracle
@@ -432,13 +429,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install the network-isolated generated-code sandbox
+      - name: Prepare the pinned network-isolated generated-code sandbox
         run: |
-          if ! command -v bwrap >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y bubblewrap
-          fi
-          command -v bwrap
+          docker info --format '{{.ServerVersion}}'
+          docker pull ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
       - name: Install only bounded verifier dependencies
         run: python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'numpy>=1.26,<3' 'mypy==1.15.0'
       - name: Apply in no-secret checkout and run the generated regression
@@ -566,13 +560,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install the network-isolated generated-code sandbox
+      - name: Prepare the pinned network-isolated generated-code sandbox
         run: |
-          if ! command -v bwrap >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y bubblewrap
-          fi
-          command -v bwrap
+          docker info --format '{{.ServerVersion}}'
+          docker pull ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
       - name: Install bounded verifier dependencies
         run: python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'numpy>=1.26,<3' 'mypy==1.15.0'
       - name: Apply and retest the one repair in a fresh no-secret checkout

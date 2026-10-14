@@ -217,7 +217,7 @@ class EngineeringMemoryContracts(unittest.TestCase):
                          verified_test=None)
         memory.record_candidate(candidate, source_sha=SHA)
         artifact = self.root / "legacy-v4.json"
-        memory.export_json(artifact)  # V4 snapshot shape, with no V5 envelope.
+        artifact.write_text(json.dumps(memory.snapshot()), encoding="utf-8")  # V4's unwrapped snapshot shape.
         memory.close()
         expected = {"repository": "fatmakahraman304-hash/ULTRON",
                     "workflow": "GOLGE Autonomous Development (Draft PR Only)",
@@ -281,6 +281,10 @@ class EngineeringMemoryContracts(unittest.TestCase):
         self.assertIn("memory artifact missing or expired", workflow.lower())
         self.assertIn("retention-days: 90", workflow)
         self.assertIn("memory_available", workflow)
+        self.assertIn("--network=none", Path(__file__).with_name("sandbox.py").read_text(encoding="utf-8"))
+        self.assertIn("docker pull ubuntu:24.04@sha256:", workflow)
+        for job in ("verify_initial", "verify_repair"):
+            self.assertIn("docker pull ubuntu:24.04@sha256:", workflow.split(f"  {job}:", 1)[1])
         for tracking_file in ("ULTRON_ROADMAP.md", "ULTRON_PROGRESS.md",
                               "ULTRON_NEXT_TASKS.md", "ULTRON_TEST_RESULTS.md"):
             self.assertIn(f'"{tracking_file}"', workflow)
