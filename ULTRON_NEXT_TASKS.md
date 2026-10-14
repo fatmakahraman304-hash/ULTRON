@@ -1,3 +1,12 @@
+## Current priority — Autonomous Development V2
+
+1. Push the isolated V2 branch and open a draft PR stacked on PR #38; inspect exact-head Actions and fix any workflow errors. Do not merge PR #38 or the V2 PR.
+2. If GitHub write access permits, prepare a separate draft scheduler-activation PR against default `main`. It must be marked dependent on the V2/PR #38 production rollout; do not merge it early. The schedule will take its reviewed tool code from the Render-linked production branch.
+3. The actual Gemini request and generated draft-PR path remain NOT_RUN. Do not trigger an unbounded or unbudgeted paid call. First establish that the configured Actions secret and write permissions are present; the current session cannot list repository secrets (403). Then run one controlled dispatch and inspect its two-call ceiling, isolated test, draft branch, marker and CI behavior.
+4. Extend discovery inputs beyond registry/open-PR/merged-goal state: failed Actions evidence, labelled issues, capability probes, privacy-filtered application errors, measured performance and roadmap requests. Keep unavailable sources explicitly absent; do not infer a defect.
+5. After V2 is reviewed, continue with one separate PR for True Interruption V2/Natural Conversation V5 and real device validation. PR #34–#37 remain open and untouched.
+6. Physical Windows Ollama, iPhone Safari, microphone/TTS, live Gemini/Qwen and latency are NOT_RUN in this workspace.
+
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.

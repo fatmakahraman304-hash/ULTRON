@@ -6,6 +6,12 @@
       "id": "voice-interrupt-contract",
       "title": "Strengthen voice interruption invariants",
       "goal": "Improve internal voice-runtime interruption and race safety. Verify cancellation state, stale result suppression and non-regression of LISTENING and WORKING. Do not claim real model/TTS cancellation unless backed by a real provider adapter. Preserve audio ownership.",
+      "priority": 95,
+      "risk_level": "medium",
+      "problem_evidence": "Owner-requested True Interruption V2; the open PR #37 owns voice-runtime changes, so this goal must be deferred automatically while its files remain in an open PR.",
+      "expected_improvement": "Add a deterministic regression for a voice-runtime cancellation race without changing provider, microphone, approval, or user data behavior.",
+      "test_scope": "The new isolated voice interruption test plus syntax compilation; full backend regression remains an independent PR check.",
+      "success_criteria": ["Existing voice runtime state invariants remain covered", "Cancellation state is owner scoped", "No claim of real provider/TTS cancellation from synthetic tests"],
       "paths": [
         "ultron/backend/app/multimodal/voice_runtime.py",
         "ultron/backend/tests/test_autodev_voice_interrupt.py"
@@ -16,6 +22,12 @@
       "id": "dialogue-continuity-contract",
       "title": "Strengthen conversation interruption continuity",
       "goal": "Improve bounded communication-state handling for interruptions and resumed turns, with deterministic regression tests. Do not change user data storage, device permissions, routing, security or microphone ownership.",
+      "priority": 80,
+      "risk_level": "low",
+      "problem_evidence": "Owner-requested Natural Conversation V5 requires preserving context after a user interrupts; the bounded communication state is a directly testable low-risk target.",
+      "expected_improvement": "Make interrupted and resumed dialogue state deterministic across short conversation sequences.",
+      "test_scope": "The new isolated communication regression test plus syntax compilation; no model or device inference is implied.",
+      "success_criteria": ["A stopped turn does not overwrite a newer turn", "Resumption retains only the same thread context", "No cross-user or cross-conversation state is introduced"],
       "paths": [
         "ultron/backend/app/cognitive/communication.py",
         "ultron/backend/tests/test_autodev_communication.py"

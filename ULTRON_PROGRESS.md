@@ -1,3 +1,12 @@
+## 2026-10-14 — Autonomous Development V2 implementation checkpoint
+
+- Inspected PR #38 and confirmed its last exact-head run (`ba87f00cb374d6597cdf927b19c1c461e1c72fd2`, Actions `38580865291`) only tested contracts; all real proposal/verification/PR jobs were skipped. Production and Render are still `6ef3f5d207fc9430cbbd552988935995529e87f5` / LIVE.
+- Started isolated V2 branch from PR #38 head. Extended the bounded generator to use the existing `CodeAgent`; added exact base-SHA and existing-test preservation, credential-redacted diagnostics, provider/environment failure classification, and a maximum of one repair request (two generation calls total, 6,000 output tokens per call).
+- Workflow is a single-flight 6-job pipeline: propose → isolated test → one eligible repair → fresh retest → existing `GitHubPRPublisher` draft publication. Model credentials exist only in proposal/repair jobs; write credentials only in the final publisher job, which never executes the patch. A generated proposal does not imply approval, merge or deploy.
+- Added structured evidence/risk/test/priority fields and open-PR path-conflict avoidance. Actual GitHub open-PR inventory selected `dialogue-continuity-contract`, correctly skipping the higher-priority voice goal because another open PR owns its file.
+- Validation: **24** autodev tests, **40** existing codegen/approval/publisher/autonomous-task tests, workflow YAML and per-job permission inspection, compilation, and diff checks all passed. The integration test uses a fake model but runs real pytest in a temporary Git repository; it does not establish Gemini/Qwen quality or GitHub write behavior.
+- Still NOT_RUN: real provider output, generated GitHub draft PR, Actions schedule, physical Windows/iPhone tests. The secret-list API is inaccessible to this session (403); no paid model request was sent. Separate `main` activation PR is required for scheduling after V2 reaches production.
+
 ## 2026-10-14 — Shared cognitive intent router v2
 
 - Started clean from production `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0` on isolated branch `feat/golge-cognitive-router-v2-20261014`; previous local branch and user files were preserved.

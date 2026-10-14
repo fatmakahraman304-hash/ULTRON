@@ -1,3 +1,12 @@
+## 2026-10-14 — Autonomous Development V2 local verification (before GitHub PR)
+
+- Existing PR #38: exact head `ba87f00cb374d6597cdf927b19c1c461e1c72fd2`; Actions run `38580865291` had `contracts=SUCCESS` and `propose`, `verify`, `draft_pr=SKIPPED`. This does not verify code generation.
+- New V2 tests: `python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v` — **24 passed**. Includes fake model → intentionally failing generated test → one repaired proposal → actual pytest pass in a temporary Git repository, immutable baseline-test checks, repair budget, transient failure classification, secret redaction, path protection, base pinning, and PR-path conflict selection.
+- Existing mechanisms: focused `pytest` for self-coding loop, CodeGen rollback/path rules, approval gate, `GitHubPRPublisher`, autonomous runtime/task — **40 passed**.
+- Python compilation, YAML parse plus six-job/least-privilege structural assertions and `git diff --check` passed. No model key or write token was present in the test subprocess.
+- Actual Gemini/Qwen, automatic remote branch push, real GitHub draft creation, generated-candidate hosted Actions, Windows/iPhone, and deployment are **NOT_RUN**. Secret inventory API returned 403; no model request was made.
+- Current Render service is LIVE on `6ef3f5d207fc9430cbbd552988935995529e87f5`; read-only `/health` HTTP 200 reported the same SHA. V2 is not deployed.
+
 ## 2026-10-14 — Cognitive intent router v2, local verification
 
 - Production base was fetched and verified as `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0`; PR #30 SHA `9c7817f` is its ancestor. The work is isolated on `feat/golge-cognitive-router-v2-20261014`; prior branch/worktree was clean and left intact.
