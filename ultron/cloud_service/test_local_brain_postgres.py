@@ -6,14 +6,16 @@ import unittest
 import uuid
 from pathlib import Path
 
+_IMPORT_ERROR = None
 try:
     import asyncpg
     from local_brain_bridge import (
         post_local_chat,get_local_chat,save_pending_local_replies,cancel_local_chat,
     )
     from app import append_device_command_progress
-except ImportError:
+except ImportError as exc:
     asyncpg=None
+    _IMPORT_ERROR = exc
 
 DATABASE=os.getenv("ULTRON_QUEUE_TEST_DATABASE_URL","")
 SCHEMA=Path(__file__).with_name("schema.sql")
@@ -34,9 +36,13 @@ class Request(dict):
         return self.body
 
 
-@unittest.skipUnless(bool(DATABASE and asyncpg),"requires disposable Postgres and aiohttp")
+@unittest.skipUnless(bool(DATABASE),"requires disposable Postgres")
 class LocalChatPostgresTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
+        if asyncpg is None:
+            raise RuntimeError(
+                "Postgres URL is configured but local chat test dependencies failed to import"
+            ) from _IMPORT_ERROR
         self.pool=await asyncpg.create_pool(DATABASE,min_size=1,max_size=4)
         async with self.pool.acquire() as db:
             await db.execute(SCHEMA.read_text(encoding="utf-8"))
