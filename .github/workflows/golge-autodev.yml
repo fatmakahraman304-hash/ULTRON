@@ -234,7 +234,7 @@ jobs:
           assert "initialize_memory" in text and "confirm_empty_memory_bootstrap" in text
           assert "--assert-empty-memory" in text and "retention-days: 90" in text
           assert "contents: write" in text and "pull-requests: write" in text
-          assert "--slurp" not in text
+          assert "--" + "slurp" not in text
           print("default_branch_activation_contracts=PASS")
           PY
 

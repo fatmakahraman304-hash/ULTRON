@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 import subprocess
+import textwrap
 from pathlib import Path
 from unittest.mock import patch
 
@@ -358,6 +359,15 @@ class DiscoveryContracts(unittest.TestCase):
         self.assertIn('!= "true"', repair)
         self.assertLess(repair.index('!= "true"'), repair.index("engine.py repair"))
         self.assertIn("feat/golge-autonomous-development-v2-20261014", workflow)
+
+    def test_default_branch_activation_contract_step_executes_successfully(self):
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/golge-autodev.yml").read_text()
+        step = workflow.split("      - name: Check default-branch activation workflow wiring\n", 1)[1]
+        body = step.split("          python - <<'PY'\n", 1)[1].split("\n          PY", 1)[0]
+        result = subprocess.run([sys.executable, "-c", textwrap.dedent(body)],
+                                cwd=Path(__file__).resolve().parents[2],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
