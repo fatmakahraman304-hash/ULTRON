@@ -132,7 +132,8 @@ def complete_verification(proposal: dict, goal: dict, *, root: Path,
              or ".." in Path(path).parts or not (root / path).is_file() for path in integration_paths):
         gates["integration_test"] = {"status": "FAIL", "reason": "registered integration test path missing or unsafe"}
     else:
-        status, reason = _run([sys.executable, "-m", "pytest", "-q", *integration_paths], cwd=root)
+        status, reason = _run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                               *integration_paths], cwd=root)
         gates["integration_test"] = {"status": status,
                                      "tests": [Path(path).name for path in integration_paths],
                                      **({"reason": reason} if reason else {})}
@@ -146,7 +147,8 @@ def complete_verification(proposal: dict, goal: dict, *, root: Path,
     if not boundary_paths:
         gates["security_boundary"] = {"status": "NOT_RUN", "reason": "security regression suite unavailable"}
     else:
-        command = [sys.executable, "-m", "pytest", "-q", *map(str, boundary_paths)]
+        command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                   *map(str, boundary_paths)]
         status, reason = _run(command, cwd=tools_root)
         gates["security_boundary"] = {"status": status, "tests": [p.name for p in boundary_paths],
                                       **({"reason": reason} if reason else {})}
@@ -170,7 +172,8 @@ def complete_verification(proposal: dict, goal: dict, *, root: Path,
         elif not (root / performance_test).is_file():
             gates["performance_regression"] = {"status": "FAIL", "reason": "registered performance test missing"}
         else:
-            status, reason = _run([sys.executable, "-m", "pytest", "-q", performance_test], cwd=root)
+            status, reason = _run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                                   performance_test], cwd=root)
             gates["performance_regression"] = {"status": status, "test": Path(performance_test).name,
                                                 "measurement": "registered threshold test",
                                                 **({"reason": reason} if reason else {})}

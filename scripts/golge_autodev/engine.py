@@ -583,7 +583,7 @@ def verify_proposal(proposal: dict, *, root: Path = ROOT,
         env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
         from sandbox import SandboxUnavailable, run_sandboxed
         result = run_sandboxed(
-            [sys.executable, "-m", "pytest", "-q", test_path],
+            [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", test_path],
             cwd=root, env=env, timeout=MAX_TEST_SECONDS,
         )
         diagnostics = sanitize_diagnostics((result.stdout or "") + "\n" + (result.stderr or ""))

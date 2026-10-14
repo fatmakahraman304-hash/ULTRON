@@ -6,6 +6,7 @@ import shutil
 import site
 import subprocess
 import sys
+import sysconfig
 import time
 from pathlib import Path
 
@@ -68,6 +69,11 @@ def run_sandboxed(command: list[str], *, cwd: Path, env: dict[str, str] | None =
     work_mode = "rw" if writable_cwd else "ro"
     args.extend(("--volume", f"{work}:/tmp/golge/work:{work_mode}",
                  "--volume", f"{runtime}:{runtime}:ro"))
+    multiarch = sysconfig.get_config_var("MULTIARCH")
+    if isinstance(multiarch, str) and multiarch:
+        for library_dir in (Path("/usr/lib") / multiarch, Path("/lib") / multiarch):
+            if library_dir.is_dir():
+                args.extend(("--volume", f"{library_dir}:{library_dir}:ro"))
     path_maps: list[tuple[str, str]] = [(str(work), "/tmp/golge/work")]
     try:
         user_site = Path(site.getusersitepackages()).resolve(strict=True)

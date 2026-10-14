@@ -190,7 +190,7 @@ def _run_oracle(task: dict, workspace: Path, oracle_dir: Path,
     started = time.perf_counter()
     env = _test_environment(workspace)
     if task["language"] == "python":
-        cmd = [sys.executable, "-m", "pytest", "-q", str(oracle)]
+        cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", str(oracle)]
         try:
             result = run_sandboxed(cmd, cwd=workspace, env=env, timeout=MAX_TEST_SECONDS,
                                    readonly_paths=(oracle_dir,))
@@ -209,9 +209,7 @@ def _run_oracle(task: dict, workspace: Path, oracle_dir: Path,
                        "--strict", "--target", "ES2022", "--module", "commonjs",
                        "--moduleResolution", "node", "--outDir", str(output), str(source)]
         node_path = Path(node_executable).resolve()
-        readonly_paths = [oracle_dir, typescript_bin.parent.parent]
-        if not str(node_path).startswith("/usr/"):
-            readonly_paths.append(node_path.parent)
+        readonly_paths = [oracle_dir, typescript_bin.parent.parent, node_path.parent]
         try:
             compiled = run_sandboxed(compile_cmd, cwd=workspace, env=env,
                                      timeout=MAX_TEST_SECONDS, writable_cwd=True,
