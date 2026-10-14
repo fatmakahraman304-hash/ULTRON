@@ -67,7 +67,8 @@ CREATE INDEX IF NOT EXISTS idx_memory_history_search ON memory_history
   USING GIN (to_tsvector('simple', key || ' ' || value));
 
 -- V4 episodic timeline: owner-confirmed only; corrections preserve superseded rows.
--- Normal dialogue never reads this table unless future owner-scoped recall is enabled.
+-- General chat never reads this table; only explicit owner-scoped retrospective
+-- questions load a short, current-version slice.
 CREATE TABLE IF NOT EXISTS episodic_memories (
   id BIGSERIAL PRIMARY KEY,
   user_id TEXT NOT NULL,
@@ -75,6 +76,7 @@ CREATE TABLE IF NOT EXISTS episodic_memories (
   version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
   title TEXT NOT NULL CHECK (char_length(title) BETWEEN 1 AND 160),
   summary TEXT NOT NULL CHECK (char_length(summary) BETWEEN 1 AND 2000),
+  search_text TEXT NOT NULL DEFAULT '',
   happened_at TIMESTAMPTZ NOT NULL,
   provenance TEXT NOT NULL DEFAULT 'owner_confirmed'
     CHECK (provenance='owner_confirmed'),
@@ -83,11 +85,21 @@ CREATE TABLE IF NOT EXISTS episodic_memories (
   superseded_at TIMESTAMPTZ,
   UNIQUE (user_id, series_id, version)
 );
+-- Idempotent upgrade for the existing draft/phase-1 table. The indexed text
+-- is a normalized search aid; API responses expose only the owner-entered text.
+ALTER TABLE episodic_memories ADD COLUMN IF NOT EXISTS search_text TEXT NOT NULL DEFAULT '';
 CREATE UNIQUE INDEX IF NOT EXISTS idx_episodes_owner_one_current
   ON episodic_memories(user_id,series_id) WHERE superseded_at IS NULL;
 CREATE INDEX IF NOT EXISTS idx_episodes_owner_timeline
   ON episodic_memories(user_id,happened_at DESC,id DESC)
   WHERE superseded_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_episodes_current_search
+  ON episodic_memories USING GIN (to_tsvector(
+    'simple',COALESCE(NULLIF(search_text,''),
+      translate(lower(title || ' ' || summary),'çğıöşü','cgiosu'))))
+  WHERE superseded_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_episodes_owner_series_history
+  ON episodic_memories(user_id,series_id,version DESC);
 
 CREATE TABLE IF NOT EXISTS events (
   id BIGSERIAL PRIMARY KEY,

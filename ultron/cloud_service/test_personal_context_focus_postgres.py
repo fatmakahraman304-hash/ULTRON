@@ -1,10 +1,12 @@
 """Real disposable PostgreSQL: targeted personal context with strict tenant bounds."""
 import os
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 try:
     import asyncpg
     from personal_context_focus import load_focused_owner_context
+    from episodic_memory_v4 import create_episode
 except ImportError:
     asyncpg=None
 DB=os.getenv("ULTRON_QUEUE_TEST_DATABASE_URL","")
@@ -17,9 +19,13 @@ class PersonalContextPgTests(unittest.IsolatedAsyncioTestCase):
     await self.pool.execute(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
     await self.pool.execute("DELETE FROM memories WHERE user_id LIKE 'ci-focus-%'")
     await self.pool.execute("DELETE FROM owner_plans WHERE user_id LIKE 'ci-focus-%'")
+    await self.pool.execute("DELETE FROM episodic_memories WHERE user_id LIKE 'ci-focus-%'")
+    await self.pool.execute("DELETE FROM events WHERE user_id LIKE 'ci-focus-%'")
  async def asyncTearDown(self):
     await self.pool.execute("DELETE FROM memories WHERE user_id LIKE 'ci-focus-%'")
     await self.pool.execute("DELETE FROM owner_plans WHERE user_id LIKE 'ci-focus-%'")
+    await self.pool.execute("DELETE FROM episodic_memories WHERE user_id LIKE 'ci-focus-%'")
+    await self.pool.execute("DELETE FROM events WHERE user_id LIKE 'ci-focus-%'")
     await self.pool.close()
 
  async def test_topic_preference_plans_and_no_cross_account_leaks(self):
@@ -70,6 +76,22 @@ class PersonalContextPgTests(unittest.IsolatedAsyncioTestCase):
     self.assertIn("OLD-STALLED-1", historical)
     self.assertIn("past date, not upcoming", historical)
     self.assertNotIn("FUTURE-ARCHITECTURE-EXAM", historical)
+
+ async def test_episodic_recall_is_explicit_owner_scoped_and_shared_with_local_context(self):
+    owner, other = "ci-focus-episode-a", "ci-focus-episode-b"
+    now = datetime.now(timezone.utc)
+    yesterday = now.replace(hour=12, minute=0, second=0, microsecond=0) - timedelta(days=1)
+    await create_episode(self.pool, owner, "phone", "PROJECT-MOBILE-ONLY",
+                         "Owner confirmed the design decision", yesterday.isoformat())
+    await create_episode(self.pool, other, "desktop", "PRIVATE-OTHER-OWNER",
+                         "Never cross the user boundary", yesterday.isoformat())
+    recalled = await load_focused_owner_context(
+        self.pool, owner, "Dün ne yapmıştık?")
+    self.assertIn("PROJECT-MOBILE-ONLY", recalled)
+    self.assertIn("Owner confirmed the design decision", recalled)
+    self.assertNotIn("PRIVATE-OTHER-OWNER", recalled)
+    ordinary = await load_focused_owner_context(self.pool, owner, "Selam, nasılsın?")
+    self.assertNotIn("PROJECT-MOBILE-ONLY", ordinary)
 
 if __name__=="__main__":
     unittest.main()
