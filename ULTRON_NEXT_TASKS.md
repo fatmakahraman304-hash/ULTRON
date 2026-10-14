@@ -1,11 +1,10 @@
 ## Current priority — Autonomous Development V2
 
-1. Push the isolated V2 branch and open a draft PR stacked on PR #38; inspect exact-head Actions and fix any workflow errors. Do not merge PR #38 or the V2 PR.
-2. If GitHub write access permits, prepare a separate draft scheduler-activation PR against default `main`. It must be marked dependent on the V2/PR #38 production rollout; do not merge it early. The schedule will take its reviewed tool code from the Render-linked production branch.
-3. The actual Gemini request and generated draft-PR path remain NOT_RUN. Do not trigger an unbounded or unbudgeted paid call. First establish that the configured Actions secret and write permissions are present; the current session cannot list repository secrets (403). Then run one controlled dispatch and inspect its two-call ceiling, isolated test, draft branch, marker and CI behavior.
-4. Extend discovery inputs beyond registry/open-PR/merged-goal state: failed Actions evidence, labelled issues, capability probes, privacy-filtered application errors, measured performance and roadmap requests. Keep unavailable sources explicitly absent; do not infer a defect.
-5. After V2 is reviewed, continue with one separate PR for True Interruption V2/Natural Conversation V5 and real device validation. PR #34–#37 remain open and untouched.
-6. Physical Windows Ollama, iPhone Safari, microphone/TTS, live Gemini/Qwen and latency are NOT_RUN in this workspace.
+1. Review draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39), head `97d3b4ba9413f74f67d4e60e1a6b653d09f23ad9`. Exact-head run #38593142739 passed contracts; model/verify/repair/publisher were skipped as designed for PR events. Real provider-to-draft-PR remains unverified.
+2. Keep scheduler-only draft [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40) against default `main` unmerged until PR #38 plus V2 have landed on production. Confirm Actions secret `GOLGE_AUTODEV_GEMINI_API_KEY` and write permissions with an authorized maintainer.
+3. After the review/dependency and configuration exist, run one controlled `workflow_dispatch`; verify real model output, isolated no-secret test, bounded repair (at most one), and GÖLGE-created draft PR. Do not treat PR #39’s successful contracts run as this proof.
+4. Expand discovery sources from the current goal registry/open-PR/merged-goal state to failed Actions evidence, labelled GitHub issues, capability probes, privacy-filtered app errors and measured performance.
+5. Then address True Interruption V2 and Natural Conversation V5 in separate reviewable changes. Physical Windows Ollama, iPhone Safari, microphones/TTS, live model quality/latency and production canary remain NOT_RUN. PR #34–#38 remain unmerged.
 
 ## Next tasks — cognitive router v2 follow-up
 

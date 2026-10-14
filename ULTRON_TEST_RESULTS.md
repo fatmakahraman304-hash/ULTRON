@@ -1,3 +1,11 @@
+## 2026-10-14 — PR #39 exact-head verification
+
+- V2 draft [PR #39](https://github.com/fatmakahraman304-hash/ULTRON/pull/39), head `97d3b4ba9413f74f67d4e60e1a6b653d09f23ad9`: GitHub Actions [38593142739](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38593142739) **SUCCESS** for `contracts`. The model proposal, test, repair and draft-publication jobs correctly **SKIPPED** on a pull-request event.
+- First exact-head run #38592971246 failed because the contract job had not installed pytest; the new end-to-end tests exposed the missing dependency. Added bounded `pytest>=8,<9` installation to the contract job. Second run passed without weakening tests.
+- V2 local checks remain **24/24 autodev** and **40/40 existing codegen/approval/publisher/autonomous-task**; Python compilation, JSON, YAML and permission assertions, and diff checks pass. Fake-provider integration runs actual pytest in a temporary Git repo; it does not equal real Gemini/Qwen or the hosted PR writer path.
+- Draft activation [PR #40](https://github.com/fatmakahraman304-hash/ULTRON/pull/40) is against `main` and has no checks reported. It remains draft and must not be merged before V2/PR #38 code reaches production.
+- GitHub secret/settings API access was denied (403), so real model generation and automatic candidate PR publication are **NOT_RUN**. Render remains HTTP 200/LIVE on production SHA `6ef3f5d`; no V2 deployment.
+
 ## 2026-10-14 — Autonomous Development V2 local verification (before GitHub PR)
 
 - Existing PR #38: exact head `ba87f00cb374d6597cdf927b19c1c461e1c72fd2`; Actions run `38580865291` had `contracts=SUCCESS` and `propose`, `verify`, `draft_pr=SKIPPED`. This does not verify code generation.
