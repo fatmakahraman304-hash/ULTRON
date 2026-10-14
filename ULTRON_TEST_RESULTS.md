@@ -725,3 +725,19 @@ Release verification: merge commit `bd09410034d369093b87430e61737cd6e9fbff1e` co
 - No generated patch was applied and no laptop GitHub credentials/device state were touched.
 
 - Exact code SHA `4112b3ca99c850c8e286dc087002a968788c5cd7`: Scene Action [38437781712](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38437781712) **SUCCESS**; compile, approval router, proposal boundary, frontend, WebGL, mobile and identity checks passed. Render remains LIVE at Cloud SHA `54f91bb`; self-development limits are desktop-only.
+
+## 2026-10-14 — Memory and Verified Research V3 local verification
+
+Code commit: `d95b64640381ae4a519024f767560892e20270a4`. Baseline: production commit `0b2315a77d657361821ae728814ba3506a79b309`, clean worktree; `feat/golge-memory-research-v3-20261014` created from that exact commit. Initial selected regression baseline was **46 passed**. Baseline deterministic timings: 98-record personal-context selection p50/p95 **0.3708/0.5109 ms**; search-only fake discovery p50/p95 **0.0121/0.0149 ms**.
+
+After changes:
+- Full backend pytest: **1,141 passed, 3 skipped, 6 subtests passed**.
+- Full Cloud pytest with disposable PostgreSQL 16: **354 passed, 7 skipped, 13 warnings, 320 subtests passed**.
+- Continuity regression first failed at 500 follow-ups on the old 320-message scan; after widening only the explicit continuation path to at most 1,200 same-thread messages (six 200-row pages), continuation, contextual recall, reference return and PostgreSQL history tests: **51 passed, 16 subtests passed**. The 500-turn check preserves the original goal, latest correction and newest status under the same output cap. All new memory tests—including two concurrent corrections, owner isolation, idempotence, explicit history, and delete purge—ran against the disposable DB. Seven skips are the existing listening tests that require a separate dedicated test database.
+- Focused Cloud research/memory/live-tool suite: **31 passed**, plus three PostgreSQL cases skipped in the no-DB focused invocation; those PostgreSQL tests passed in the full DB-backed run.
+- Focused research/evaluation suite: **135 passed**. The annotated evaluation has 100 distinct cases (50 Turkish/50 English; 20 each memory retrieval, historical recall, secret guard, SSRF policy, and evidence matching) plus an aggregate validation check: **101 passed**.
+- `py_compile` for changed Python modules: passed. Full suite includes SSRF fixtures, redirects/downgrade, private-address rejection, payload limits, HTML sanitization, actual page-read citations, untrusted source prompt, no search on normal chat, and one existing model call per Cloud/desktop response.
+- CPU-only deterministic fixture timing after change: memory selection p50/p95 **0.7471/0.9088 ms** for 98 records; fake search plus three fake page reads p50/p95 **0.0683/0.1036 ms**. These exclude external network and model time and are not end-to-end response latency.
+- Gemini/Qwen answer quality, actual public web reads, Windows/iPhone behavior, and real response/first-token latency: **NOT_RUN**. No credential values or user conversation data were used.
+
+The separate disposable PostgreSQL container was used only for tests and stopped after verification. Branch Actions/PR and unchanged Render production SHA are recorded after publication.

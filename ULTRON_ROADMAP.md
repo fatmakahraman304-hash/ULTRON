@@ -597,3 +597,16 @@ Keep synthetic provider tests separate from actual Gemini image quality and acce
 Before a generated code proposal reaches owner approval, validate resolved project ancestry, reject security-core paths and duplicate normalized targets, and bound review size to 12 files / 128 KiB per file / 512 KiB total. Keep approval, sandbox, tests, rollback and draft-only PR publication in force.
 
 Latest GÖLGE proposal-boundary release: Scene Action `38437781712` passed for `4112b3c`; the Cloud service remains at Render `54f91bb`, which contains the separate image ownership fix. No Windows installation or live-provider claim.
+
+## 2026-10-14 — Memory + verified research V3 scope
+
+Implemented in code commit `d95b64640381ae4a519024f767560892e20270a4` on a feature branch from production SHA `0b2315a77d657361821ae728814ba3506a79b309`; not merged or deployed.
+
+- **Memory delivered:** versioned owner memory corrections, additive history storage, idempotent writes, transaction-scoped owner/key serialization, explicit historical retrieval, delete-both-current-and-history, legacy-secret filtering, and shared write path for live voice. Current ordinary context remains current-value-only. Existing production rows are preserved; pre-V3 history is not inferable.
+- **Research delivered:** bounded public HTML/plain-text fetch after search discovery; pinned public IP connection, DNS checks on every redirect, blocked private/non-global targets, restricted ports/types, time/size/redirect bounds, no cookies/auth forwarding/script execution, source excerpts and actual read times. Explicit research intent is wired through Cloud and desktop's existing model call; normal chat avoids the reader.
+- **Evidence boundary:** search title/snippet is not evidence. Only read page excerpts can be cited. Sentence checks use lexical overlap and exact numbers and are plainly labelled; no semantic entailment, independent source corroboration, contradiction resolution, or PDF reading is claimed.
+- **Still open:** episodic/project/goal timelines beyond saved memory corrections; semantic/vector recall; temporal “one week ago” episode lookup; robust claim-level semantic verifier and independent-source clustering; PDF; live internet/provider/device testing; branch CI and draft PR verification.
+
+The continuation path also passed a test-first 500 “Devam et” regression: it preserves the original goal, a later correction, and the newest status after the prior 320-message scan failed. The read is limited to 1,200 rows in the same owner/thread and leaves model context size unchanged.
+
+Next dependency order: verify branch CI and draft PR → improve temporal/episode recall using existing owner/thread data without mixing scopes → add evidence claim extraction and contradiction/independent-domain checks with fixture-based evaluations → provider-backed Gemini/Qwen and live-network latency only when credentials/services are available → obtain explicit release approval before merge/deploy.
