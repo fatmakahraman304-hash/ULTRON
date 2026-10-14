@@ -1,0 +1,348 @@
+name: GOLGE Autonomous Development (Draft PR Only)
+
+# The scheduled workflow must also be copied to the repository default branch
+# (main). It always analyzes the Render-linked production branch below.
+on:
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+      - feat/golge-autonomous-development-v1-20261014
+    paths:
+      - "scripts/golge_autodev/**"
+      - "ultron/backend/github_pr_publisher.py"
+      - ".github/workflows/golge-autodev.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "23 6 * * 1,4"
+
+concurrency:
+  # A single group prevents a schedule and a manual dispatch from proposing
+  # the same goal concurrently. Never cancel an in-progress candidate.
+  group: golge-autodev-single-flight
+  cancel-in-progress: false
+
+env:
+  BASE_BRANCH: feat/ultron-cloud-shared-memory
+  TOOLS_REF: ${{ (github.event_name == 'schedule' || github.ref_name == 'main') && 'feat/ultron-cloud-shared-memory' || github.sha }}
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check autonomous patch, retry, and disclosure contracts
+        run: |
+          python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v
+          PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_github_pr_publisher.py
+
+  propose:
+    if: github.event_name != 'pull_request'
+    needs: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      proposed: ${{ steps.generate.outputs.proposed }}
+      base_sha: ${{ steps.plan.outputs.base_sha }}
+      goal_id: ${{ steps.plan.outputs.goal_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          path: autodev-tools
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASE_BRANCH }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pin source SHA and collect open/merged PR evidence
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA="$(git -C source rev-parse HEAD)"
+          echo "base_sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          gh pr list --repo "$GITHUB_REPOSITORY" --state open --json title,body,files --limit 100 > golge-autodev-open-prs.json
+          gh pr list --repo "$GITHUB_REPOSITORY" --state merged --base "$BASE_BRANCH" --json title,body --limit 100 > golge-autodev-merged-prs.json
+          python autodev-tools/scripts/golge_autodev/engine.py plan \
+            --root source --base-sha "$BASE_SHA" \
+            --open-prs golge-autodev-open-prs.json \
+            --merged-prs golge-autodev-merged-prs.json \
+            --plan-file golge-autodev-plan.json
+          GOAL_ID="$(python -c "import json; p=json.load(open('golge-autodev-plan.json')); print(p.get('goal',{}).get('id',''))")"
+          echo "goal_id=$GOAL_ID" >> "$GITHUB_OUTPUT"
+      - name: Generate one bounded proposal with the configured Gemini coding model
+        id: generate
+        env:
+          GOLGE_AUTODEV_GEMINI_API_KEY: ${{ secrets.GOLGE_AUTODEV_GEMINI_API_KEY }}
+          GOLGE_AUTODEV_MODEL: ${{ vars.GOLGE_AUTODEV_MODEL || 'gemini-2.5-flash' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATUS="$(python -c "import json; print(json.load(open('golge-autodev-plan.json'))['status'])")"
+          if [ "$STATUS" != "ready" ]; then
+            echo "proposed=false" >> "$GITHUB_OUTPUT"
+            echo "No eligible backlog goal; no model request made."
+            exit 0
+          fi
+          if [ -z "$GOLGE_AUTODEV_GEMINI_API_KEY" ]; then
+            echo "::warning::Coding model is not configured; real generation NOT_RUN."
+            echo "proposed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python autodev-tools/scripts/golge_autodev/engine.py generate \
+            --root source --provider gemini --plan-file golge-autodev-plan.json \
+            --proposal golge-autodev-proposal.json
+          python autodev-tools/scripts/golge_autodev/engine.py validate \
+            --root source --proposal golge-autodev-proposal.json
+          echo "proposed=true" >> "$GITHUB_OUTPUT"
+      - if: steps.generate.outputs.proposed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-plan-and-proposal
+          path: |
+            golge-autodev-plan.json
+            golge-autodev-proposal.json
+          retention-days: 2
+          if-no-files-found: error
+
+  verify_initial:
+    if: needs.propose.outputs.proposed == 'true'
+    needs: propose
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    outputs:
+      passed: ${{ steps.verify.outputs.passed }}
+      repairable: ${{ steps.verify.outputs.repairable }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.propose.outputs.base_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          path: autodev-tools
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-plan-and-proposal
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install only bounded verifier dependencies
+        run: python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'numpy>=1.26,<3'
+      - name: Apply in no-secret checkout and run the generated regression
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          python autodev-tools/scripts/golge_autodev/engine.py verify \
+            --root source --proposal golge-autodev-proposal.json \
+            --report-file golge-autodev-verification.json
+          status=$?
+          if [ "$status" -eq 0 ]; then echo "passed=true" >> "$GITHUB_OUTPUT"; else echo "passed=false" >> "$GITHUB_OUTPUT"; fi
+          repairable=false
+          if [ -f golge-autodev-verification.json ]; then
+            repairable="$(python -c "import json; print(str(bool(json.load(open('golge-autodev-verification.json')).get('repairable'))).lower())")"
+          fi
+          echo "repairable=$repairable" >> "$GITHUB_OUTPUT"
+          exit "$status"
+      - name: Keep only bounded, redacted failure evidence for one repair attempt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-initial-verification
+          path: golge-autodev-verification.json
+          retention-days: 2
+          if-no-files-found: ignore
+
+  repair:
+    if: always() && needs.propose.outputs.proposed == 'true' && needs.verify_initial.result == 'failure' && needs.verify_initial.outputs.repairable == 'true'
+    needs: [propose, verify_initial]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    outputs:
+      proposed: ${{ steps.repair.outputs.proposed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          path: autodev-tools
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.propose.outputs.base_sha }}
+          path: source
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-plan-and-proposal
+          path: first
+      - uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-initial-verification
+          path: failure
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Make at most one bounded repair request
+        id: repair
+        env:
+          GOLGE_AUTODEV_GEMINI_API_KEY: ${{ secrets.GOLGE_AUTODEV_GEMINI_API_KEY }}
+          GOLGE_AUTODEV_MODEL: ${{ vars.GOLGE_AUTODEV_MODEL || 'gemini-2.5-flash' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$GOLGE_AUTODEV_GEMINI_API_KEY" ]; then
+            echo "::warning::Repair provider is not configured; repair NOT_RUN."
+            echo "proposed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python autodev-tools/scripts/golge_autodev/engine.py repair \
+            --root source --provider gemini \
+            --plan-file first/golge-autodev-plan.json \
+            --previous-proposal first/golge-autodev-proposal.json \
+            --failure-file failure/golge-autodev-verification.json \
+            --proposal golge-autodev-repair.json
+          echo "proposed=true" >> "$GITHUB_OUTPUT"
+      - if: steps.repair.outputs.proposed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golge-autodev-repair-proposal
+          path: golge-autodev-repair.json
+          retention-days: 2
+          if-no-files-found: error
+
+  verify_repair:
+    if: needs.repair.outputs.proposed == 'true'
+    needs: [propose, repair]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.propose.outputs.base_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          path: autodev-tools
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-repair-proposal
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install bounded verifier dependencies
+        run: python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'numpy>=1.26,<3'
+      - name: Apply and retest the one repair in a fresh no-secret checkout
+        run: |
+          python autodev-tools/scripts/golge_autodev/engine.py verify \
+            --root source --proposal golge-autodev-repair.json \
+            --report-file golge-autodev-repair-verification.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: golge-autodev-repair-verification
+          path: golge-autodev-repair-verification.json
+          retention-days: 2
+          if-no-files-found: error
+
+  draft_pr:
+    if: always() && (needs.verify_initial.result == 'success' || needs.verify_repair.result == 'success')
+    needs: [propose, verify_initial, repair, verify_repair]
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.propose.outputs.base_sha }}
+          path: source
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TOOLS_REF }}
+          path: autodev-tools
+          persist-credentials: false
+      - name: Download only the proposal that passed isolated verification
+        if: needs.verify_initial.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-plan-and-proposal
+          path: selected
+      - name: Select the repaired proposal only after its fresh retest passed
+        if: needs.verify_repair.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: golge-autodev-repair-proposal
+          path: selected
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Publish a draft using the existing GitHubPRPublisher; never run model output with write access
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C source switch -C "$BASE_BRANCH" "origin/$BASE_BRANCH"
+          PYTHONPATH="autodev-tools/ultron/backend" python - <<'PY'
+          import hashlib, json, os, sys
+          from pathlib import Path
+          from github_pr_publisher import GitHubPRPublisher
+          sys.path.insert(0, "autodev-tools/scripts/golge_autodev")
+          import engine
+
+          repo = Path("source").resolve()
+          selected = Path("selected")
+          proposal_file = selected / ("golge-autodev-proposal.json" if (selected / "golge-autodev-proposal.json").exists() else "golge-autodev-repair.json")
+          proposal = json.loads(proposal_file.read_text(encoding="utf-8"))
+          goal_id = proposal["goal_id"]
+          proposal_id = hashlib.sha256((os.environ["GITHUB_REPOSITORY"] + os.environ["GITHUB_RUN_ID"] + os.environ.get("GITHUB_RUN_ATTEMPT", "1") + goal_id).encode()).hexdigest()[:12]
+          publisher = GitHubPRPublisher(repo)
+          prepared = publisher.prepare(proposal_id)
+          if prepared["base"] != os.environ["BASE_BRANCH"]:
+              raise SystemExit("unexpected_pr_base")
+          paths = engine.apply(proposal, root=repo)
+          relative = [p.removeprefix("ultron/") for p in paths]
+          published = publisher.publish(
+              proposal_id=proposal_id, branch=prepared["branch"], paths=relative,
+              goal=proposal["summary"], autonomous_goal_id=goal_id,
+          )
+          print("AUTODEV:DRAFT_PR:" + published["pull_request"])
+          print("AUTODEV:COMMIT:" + published["commit_sha"])
+          PY
