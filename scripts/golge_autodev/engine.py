@@ -394,9 +394,21 @@ def _json_request(url: str, body: dict, headers: dict) -> dict:
         raise ProposalError("model_unavailable:" + type(exc).__name__) from None
 
 
-def infer(prompt: str, provider: str, *, max_output_tokens: int = MAX_MODEL_OUTPUT_TOKENS) -> str:
+def infer(prompt: str, provider: str, *, max_output_tokens: int = MAX_MODEL_OUTPUT_TOKENS,
+          response_schema: dict | None = None) -> str:
     if type(max_output_tokens) is not int or not 1 <= max_output_tokens <= MAX_MODEL_OUTPUT_TOKENS:
         raise ProposalError("invalid_model_output_budget")
+    if response_schema is not None:
+        # A strict JSON format is opt-in and only available for trusted, local
+        # Ollama calls. Never send this setting to a paid cloud provider.
+        if provider != "ollama" or not isinstance(response_schema, dict):
+            raise ProposalError("structured_output_provider_invalid")
+        try:
+            schema_text = json.dumps(response_schema, ensure_ascii=False)
+        except (TypeError, ValueError) as exc:
+            raise ProposalError("invalid_structured_output_schema") from None
+        if len(schema_text) > 4_000 or response_schema.get("type") != "object":
+            raise ProposalError("invalid_structured_output_schema")
     if provider == "gemini":
         key = os.getenv("GOLGE_AUTODEV_GEMINI_API_KEY", "")
         model = os.getenv("GOLGE_AUTODEV_MODEL", "gemini-2.5-flash")
@@ -419,7 +431,7 @@ def infer(prompt: str, provider: str, *, max_output_tokens: int = MAX_MODEL_OUTP
         if not re.fullmatch(r"[\w.:/-]{2,80}", model):
             raise ProposalError("invalid_local_model")
         request_body = {"model": model, "prompt": prompt, "stream": False,
-                        "format": "json",
+                        "format": response_schema if response_schema is not None else "json",
                         "options": {"temperature": 0.1, "num_predict": max_output_tokens}}
         # Qwen3 can spend the entire bounded response on hidden thinking,
         # leaving no parseable JSON patch. This is a provider-side request

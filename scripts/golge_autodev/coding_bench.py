@@ -9,6 +9,8 @@ as simulated.
 from __future__ import annotations
 
 import argparse
+import ast
+import difflib
 import json
 import os
 import re
@@ -37,6 +39,31 @@ SECRET = re.compile(r"(?:AIza[A-Za-z0-9_-]{24,}|gh[pousr]_[A-Za-z0-9_]{20,}|gith
 CATEGORIES = {
     "python_bugfix", "react_typescript", "multi_file_debugging", "behavior_preserving_refactor",
     "api_integration", "feature_development", "secure_code_change", "performance_improvement",
+}
+
+# A provider-side format hint, not a substitute for validate_patch:
+# path allowlisting, duplicate detection, secret filtering, and byte limits
+# remain mandatory after JSON is returned. This schema is task-independent
+# and contains no hidden acceptance tests, source paths, or expected values.
+LOCAL_PATCH_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "files": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["path", "content"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["files"],
+    "additionalProperties": False,
 }
 
 TASKS = (
@@ -106,8 +133,33 @@ class BenchmarkError(ValueError):
     pass
 
 
+def _public_candidate_delta(task: dict, current_files: dict[str, str]) -> str:
+    """Bounded starter-to-candidate diff; never inspect acceptance-oracle fields."""
+    original_files = task["starter_files"]
+    sections: list[str] = []
+    remaining = 2_800
+    for path, candidate in sorted(current_files.items()):
+        original = original_files.get(path)
+        if original is None or original == candidate:
+            continue
+        delta = difflib.unified_diff(
+            original.splitlines(), candidate.splitlines(),
+            fromfile=f"starter/{path}", tofile=f"candidate/{path}", lineterm=""
+        )
+        for line in delta:
+            if remaining <= 0:
+                break
+            sections.append(line[:remaining])
+            remaining -= len(line) + 1
+        if remaining <= 0:
+            break
+    if not sections:
+        return "Candidate has no source changes relative to the original starter."
+    return "\n".join(sections)[:2_800]
+
+
 def build_prompt(task: dict, *, current_files: dict[str, str] | None = None,
-                 diagnostics: str = "") -> str:
+                 diagnostics: str = "", repair_mode: bool = False) -> str:
     """Render only task statement and working files, never the oracle fields."""
     files = current_files or task["starter_files"]
     payload = {"task": task["prompt"],
@@ -124,7 +176,20 @@ def build_prompt(task: dict, *, current_files: dict[str, str] | None = None,
     ]
     if diagnostics:
         safe = _sanitize(diagnostics)
-        payload["untrusted_test_diagnostics"] = safe
+        payload["public_repair_feedback"] = safe
+    if repair_mode:
+        # This context uses only the published starter and previous generated
+        # source. No private test assertion, expected value, or stdout is read.
+        payload["public_candidate_vs_starter_diff"] = _public_candidate_delta(task, files)
+        payload["repair_rules"] = [
+            "The previous candidate failed behavioral verification. Re-examine "
+            "each requirement in task against the current working_files.",
+            "Find a plausible semantic gap using only task and working_files; "
+            "do not assume private test inputs or expected outputs.",
+            "Produce a genuine behavior-changing correction, not identical "
+            "code, formatting, or comments. Preserve the required public API.",
+            "Return complete source for all paths as the specified JSON object.",
+        ]
     prompt = json.dumps(payload, ensure_ascii=False)
     if len(prompt) > MAX_PROMPT_CHARS:
         raise BenchmarkError("prompt_too_large")
@@ -167,6 +232,60 @@ def _sanitize(value: str) -> str:
     value = SECRET.sub("[REDACTED]", str(value or ""))
     value = re.sub(r"(?i)(authorization\s*[:=]\s*bearer\s+)\S+", r"\1[REDACTED]", value)
     return value[-4_000:]
+
+
+def _public_signatures(source: str) -> dict[str, str]:
+    """Public callable contracts extracted solely from the supplied source."""
+    tree = ast.parse(source)
+    return {
+        node.name: ast.dump(node.args, include_attributes=False)
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_")
+    }
+
+
+def _public_repair_feedback(task: dict, current_files: dict[str, str]) -> str:
+    """Give source-grounded hints, never raw withheld acceptance output."""
+    messages = [
+        "The candidate failed independent behavioral verification; exact private assertions are withheld.",
+        "Recheck each requirement in the public task against your implementation, including",
+        "data representation, boundary inputs, error paths, and return contracts.",
+    ]
+    for path, content in sorted(current_files.items()):
+        if not path.endswith(".py"):
+            continue
+        try:
+            ast.parse(content, filename=path)
+        except SyntaxError as exc:
+            messages.append(
+                f"Candidate syntax error in {path}, line {exc.lineno}, column {exc.offset or 0}."
+            )
+            continue
+        baseline = task["starter_files"].get(path, "")
+        try:
+            old = _public_signatures(baseline)
+            new = _public_signatures(content)
+        except SyntaxError:
+            continue
+        for name, signature in sorted(old.items()):
+            if new.get(name) != signature:
+                messages.append(f"Candidate changes the original public signature: {path}:{name}.")
+    return _sanitize("\n".join(messages))[:4000]
+
+
+def _same_python_structure(current_files: dict[str, str],
+                           changed: list[tuple[str, str]]) -> bool:
+    """Skip an oracle rerun after edits that change only Python trivia."""
+    if not changed or any(not path.endswith(".py") for path, _ in changed):
+        return False
+    try:
+        return all(
+            ast.dump(ast.parse(current_files[path]), include_attributes=False)
+            == ast.dump(ast.parse(content), include_attributes=False)
+            for path, content in changed
+        )
+    except (KeyError, SyntaxError, ValueError):
+        return False
 
 
 def _decode_patch(response: str) -> dict:
@@ -250,10 +369,22 @@ def _provider_guard(provider: str, *, cloud_budget_confirmed: bool) -> str | Non
     return None
 
 
+def _local_patch_format() -> str:
+    """Conservative default; strict schema is an explicit comparison mode."""
+    option = os.getenv("GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT", "json").strip().lower()
+    if option not in {"json", "schema"}:
+        raise BenchmarkError("invalid_local_patch_format")
+    return option
+
+
 def infer_with_budget(prompt: str, provider: str) -> str:
-    # Reuse the repository's Gemini/Ollama transport and cap each benchmark
-    # response separately from the autonomous repair pipeline's larger limit.
+    # Use exactly the same public coding prompt, oracle protection, limits,
+    # and model for both modes. The provider-side JSON Schema is experimental:
+    # a valid-shaped response is not evidence of correct program behavior.
     import engine
+    if provider == "ollama" and _local_patch_format() == "schema":
+        return engine.infer(prompt, provider, max_output_tokens=MAX_OUTPUT_TOKENS,
+                            response_schema=LOCAL_PATCH_RESPONSE_SCHEMA)
     return engine.infer(prompt, provider, max_output_tokens=MAX_OUTPUT_TOKENS)
 
 
@@ -288,7 +419,8 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
         last_diagnostics = ""
         previous_test_failed = False
         for attempt in range(1, max_attempts + 1):
-            prompt = build_prompt(task, current_files=current, diagnostics=last_diagnostics)
+            prompt = build_prompt(task, current_files=current, diagnostics=last_diagnostics,
+                                  repair_mode=previous_test_failed)
             model_started = time.perf_counter()
             calls += 1
             try:
@@ -306,12 +438,18 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
                 changed = validate_patch(task, patch)
                 # A repeated failed patch cannot fix an observed test failure.
                 # Stop rather than spending another sandbox run on identical code.
-                if previous_test_failed and all(current[path] == content for path, content in changed):
+                unchanged_reason = None
+                if previous_test_failed:
+                    if all(current[path] == content for path, content in changed):
+                        unchanged_reason = "unchanged_patch_after_repair"
+                    elif _same_python_structure(current, changed):
+                        unchanged_reason = "structurally_unchanged_patch_after_repair"
+                if unchanged_reason:
                     return {"id": task["id"], "category": task["category"], "status": "FAIL",
                             "attempts": attempt, "provider_calls": calls,
                             "elapsed_ms": int((time.perf_counter()-start)*1000),
                             "model_ms": model_ms, "test_ms": test_ms,
-                            "reason": "unchanged_patch_after_repair"}
+                            "reason": unchanged_reason}
                 current = dict(current)
                 for path, content in changed:
                     current[path] = content
@@ -343,14 +481,17 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
                         "attempts": attempt, "provider_calls": calls,
                         "elapsed_ms": int((time.perf_counter()-start)*1000),
                         "model_ms": model_ms, "test_ms": test_ms}
-            last_diagnostics = diagnostics
+            # The withheld oracle's stdout/stderr can contain assertion source,
+            # expected values and private fixtures. It must not reach a model
+            # or the benchmark report, even after regex secret redaction.
+            last_diagnostics = _public_repair_feedback(task, current)
             previous_test_failed = True
         return {"id": task["id"], "category": task["category"], "status": "FAIL",
                 "attempts": max_attempts, "provider_calls": calls,
                 "elapsed_ms": int((time.perf_counter()-start)*1000),
                 "model_ms": model_ms, "test_ms": test_ms,
                 "reason": "independent_oracle_failed_after_bounded_repair",
-                "oracle_diagnostics": _sanitize(last_diagnostics)}
+                "repair_feedback": _sanitize(last_diagnostics)}
 
 
 def run_benchmark(*, provider: str | None, max_cases: int = MAX_TASKS,
@@ -361,6 +502,12 @@ def run_benchmark(*, provider: str | None, max_cases: int = MAX_TASKS,
         raise BenchmarkError("invalid_case_limit")
     selected = list(TASKS[:max_cases])
     guard = _provider_guard(provider, cloud_budget_confirmed=cloud_budget_confirmed) if provider else "provider_not_requested"
+    local_patch_format = None
+    if provider == "ollama":
+        try:
+            local_patch_format = _local_patch_format()
+        except BenchmarkError:
+            guard = "invalid_local_patch_format"
     if provider and (type(max_calls) is not int or not 1 <= max_calls <= min(MAX_PROVIDER_CALLS, max_cases * MAX_ATTEMPTS)):
         guard = "explicit_provider_call_limit_required"
     if guard:
@@ -406,7 +553,15 @@ def run_benchmark(*, provider: str | None, max_cases: int = MAX_TASKS,
             "provider": provider or None,
             "model_status": ("NOT_RUN" if provider is None else
                              "BLOCKED" if guard or not provider_call_total else "ATTEMPTED"),
-            "simulated": infer_fn is not None, "score": counts["pass"] / scored if scored else None,
+            "simulated": infer_fn is not None,
+            "ollama_patch_format": local_patch_format,
+            # Keep the historical pass/(PASS+FAIL) score for compatibility, but
+            # report full-suite success separately so BLOCKED cases cannot
+            # make an eight-task run appear better than six successes out of eight.
+            "score": counts["pass"] / scored if scored else None,
+            "score_denominator": scored,
+            "suite_pass_rate": counts["pass"] / len(selected) if provider_call_total else None,
+            "suite_denominator": len(selected),
             "summary": counts, "tasks": tasks,
             "limits": {"max_tasks": max_cases, "max_attempts_per_task": MAX_ATTEMPTS,
                        "max_provider_calls": max_calls, "max_output_tokens_per_call": MAX_OUTPUT_TOKENS}}

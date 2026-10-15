@@ -61,6 +61,35 @@ class AutonomousPatchContracts(unittest.TestCase):
         self.assertNotIn("think", requests[1][1])
         self.assertEqual(requests[1][1]["format"], "json")
 
+    def test_v7_local_structured_json_schema_is_optional_and_never_used_for_cloud(self):
+        schema = {
+            "type": "object", "properties": {"files": {"type": "array"}},
+            "required": ["files"],
+        }
+        requests = []
+
+        def fake_request(url, body, headers):
+            requests.append((url, body))
+            return {"response": '{"files": []}'}
+
+        with patch.object(engine, "_json_request", side_effect=fake_request):
+            with patch.dict("os.environ", {"GOLGE_AUTODEV_OLLAMA_MODEL": "qwen3:8b"}):
+                response = engine.infer("source-only prompt", "ollama", max_output_tokens=1400,
+                                        response_schema=schema)
+        self.assertEqual(response, '{"files": []}')
+        self.assertEqual(requests[0][0], "http://127.0.0.1:11434/api/generate")
+        self.assertEqual(requests[0][1]["format"], schema)
+        self.assertIs(requests[0][1]["think"], False)
+        self.assertEqual(requests[0][1]["options"]["num_predict"], 1400)
+        with self.assertRaisesRegex(engine.ProposalError, "structured_output_provider_invalid"):
+            engine.infer("prompt", "gemini", response_schema=schema)
+        with self.assertRaisesRegex(engine.ProposalError, "structured_output_provider_invalid"):
+            engine.infer("prompt", "ollama", response_schema=["not an object"])
+        with self.assertRaisesRegex(engine.ProposalError, "invalid_structured_output_schema"):
+            engine.infer("prompt", "ollama", response_schema={"type": "object", "note": "z" * 4100})
+        self.assertEqual(len(requests), 1)
+
+
     def test_goal_registry_is_valid(self):
         goals = engine.load_goals()
         self.assertGreaterEqual(len(goals), 2)

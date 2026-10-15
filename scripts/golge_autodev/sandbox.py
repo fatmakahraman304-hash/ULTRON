@@ -57,8 +57,11 @@ def run_sandboxed(command: list[str], *, cwd: Path, env: dict[str, str] | None =
         raise SandboxUnavailable("pinned_docker_sandbox_unavailable")
     work = cwd.resolve(strict=True)
     runtime = Path(sys.prefix).resolve(strict=True)
+    base_runtime = Path(sys.base_prefix).resolve(strict=True)
     if not work.is_dir() or work == Path("/"):
         raise SandboxUnavailable("sandbox_workdir_invalid")
+    if not runtime.is_dir() or not base_runtime.is_dir() or base_runtime == Path("/"):
+        raise SandboxUnavailable("sandbox_python_runtime_invalid")
 
     args = [docker, "run", "--rm", "--network=none", "--read-only",
             "--security-opt=no-new-privileges", "--cap-drop=ALL", "--pids-limit=64",
@@ -69,6 +72,13 @@ def run_sandboxed(command: list[str], *, cwd: Path, env: dict[str, str] | None =
     work_mode = "rw" if writable_cwd else "ro"
     args.extend(("--volume", f"{work}:/tmp/golge/work:{work_mode}",
                  "--volume", f"{runtime}:{runtime}:ro"))
+    # A Python venv has sys.prefix at the venv, but its interpreter is often
+    # a symlink into sys.base_prefix (e.g. /usr/bin/python3.12). The pinned
+    # bare Ubuntu image does not guarantee that base interpreter is present.
+    # Mount both *trusted host interpreter roots* read-only; never mount an
+    # arbitrary path supplied by generated code, the model, or an env var.
+    if base_runtime != runtime:
+        args.extend(("--volume", f"{base_runtime}:{base_runtime}:ro"))
     multiarch = sysconfig.get_config_var("MULTIARCH")
     if isinstance(multiarch, str) and multiarch:
         for library_dir in (Path("/usr/lib") / multiarch, Path("/lib") / multiarch):
@@ -114,8 +124,17 @@ def run_sandboxed(command: list[str], *, cwd: Path, env: dict[str, str] | None =
     mapped_command = [_map_path(str(arg), path_maps) for arg in command]
     args.extend(("--workdir", "/tmp/golge/work", SANDBOX_IMAGE, *mapped_command))
     try:
-        return subprocess.run(args, cwd="/", env=os.environ.copy(), capture_output=True,
-                              text=True, timeout=timeout, check=False)
+        result = subprocess.run(args, cwd="/", env=os.environ.copy(), capture_output=True,
+                                text=True, timeout=timeout, check=False)
+        # Docker startup/runtime failure is infrastructure, never a model
+        # correctness failure or a reason to spend repair tokens.
+        if result.returncode and (
+            result.stderr.startswith("docker: Error response from daemon:")
+            or ("OCI runtime create failed" in result.stderr
+                and "runc create failed" in result.stderr)
+        ):
+            raise SandboxUnavailable("sandbox_container_start_failed")
+        return result
     except subprocess.TimeoutExpired:
         subprocess.run([docker, "rm", "-f", container_name], cwd="/", env=os.environ.copy(),
                        capture_output=True, text=True, timeout=10, check=False)

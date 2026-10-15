@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -13,6 +14,91 @@ import coding_bench
 
 
 class CodingBenchmarkContracts(unittest.TestCase):
+    def test_v7_local_benchmark_requests_structured_json_without_oracle_data(self):
+        prompt = coding_bench.build_prompt(coding_bench.TASKS[0])
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "schema"}), \
+             patch("engine.infer", return_value='{"files": []}') as local:
+            result = coding_bench.infer_with_budget(prompt, "ollama")
+        self.assertEqual(result, '{"files": []}')
+        self.assertEqual(local.call_args.kwargs["max_output_tokens"], coding_bench.MAX_OUTPUT_TOKENS)
+        schema = local.call_args.kwargs["response_schema"]
+        self.assertEqual(schema["type"], "object")
+        self.assertIn("files", schema["required"])
+        self.assertEqual(schema["properties"]["files"]["type"], "array")
+        self.assertNotIn(coding_bench.TASKS[0]["oracle_script"], json.dumps(schema))
+        with patch("engine.infer", return_value="{}") as cloud:
+            coding_bench.infer_with_budget(prompt, "gemini")
+        self.assertNotIn("response_schema", cloud.call_args.kwargs)
+
+    def test_v7_default_local_json_and_explicit_schema_opt_in(self):
+        prompt = coding_bench.build_prompt(coding_bench.TASKS[0])
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "json"}), \
+             patch("engine.infer", return_value='{"files": []}') as mock:
+            coding_bench.infer_with_budget(prompt, "ollama")
+        self.assertNotIn("response_schema", mock.call_args.kwargs)
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "schema"}), \
+             patch("engine.infer", return_value='{"files": []}') as mock:
+            coding_bench.infer_with_budget(prompt, "ollama")
+        self.assertEqual(
+            mock.call_args.kwargs["response_schema"], coding_bench.LOCAL_PATCH_RESPONSE_SCHEMA
+        )
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "invalid"}), \
+             patch("engine.infer") as mock:
+            report = coding_bench.run_benchmark(
+                provider="ollama", max_cases=1, max_calls=1)
+        self.assertEqual(report["model_status"], "BLOCKED")
+        self.assertEqual(report["tasks"][0]["reason"], "invalid_local_patch_format")
+        self.assertIsNone(report["ollama_patch_format"])
+        mock.assert_not_called()
+
+    def test_v7_benchmark_reports_requested_output_format_for_comparison(self):
+        fake = lambda prompt, provider: "unused"
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "json"}):
+            dry = coding_bench.run_benchmark(provider=None)
+            self.assertIsNone(dry["ollama_patch_format"])
+            blocked = coding_bench.run_benchmark(
+                provider="ollama", max_cases=1, max_calls=0, infer_fn=fake)
+            self.assertEqual(blocked["ollama_patch_format"], "json")
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "schema"}):
+            blocked_schema = coding_bench.run_benchmark(
+                provider="ollama", max_cases=1, max_calls=0, infer_fn=fake)
+        self.assertEqual(blocked_schema["ollama_patch_format"], "schema")
+
+
+    def test_v7_local_schema_does_not_replace_allowlist_or_secret_gates(self):
+        task = coding_bench.TASKS[0]
+        schema = coding_bench.LOCAL_PATCH_RESPONSE_SCHEMA
+        self.assertTrue(schema["properties"]["files"]["items"]["additionalProperties"] is False)
+        with self.assertRaisesRegex(coding_bench.BenchmarkError, "model_path_outside_task"):
+            coding_bench.validate_patch(task, {"files": [
+                {"path": "../private.py", "content": "pass"}
+            ]})
+        with self.assertRaisesRegex(coding_bench.BenchmarkError, "model_patch_incomplete"):
+            coding_bench.validate_patch(task, {"files": []})
+
+
+    def test_v7_full_suite_pass_rate_counts_blocked_without_rewriting_legacy_score(self):
+        synthetic_tasks = (
+            {"id": "synthetic-pass", "language": "python"},
+            {"id": "synthetic-blocked", "language": "python"},
+        )
+        results = [
+            {"id": "synthetic-pass", "status": "PASS", "provider_calls": 1},
+            {"id": "synthetic-blocked", "status": "BLOCKED", "provider_calls": 1,
+             "reason": "model_response_invalid"},
+        ]
+        with patch.object(coding_bench, "TASKS", synthetic_tasks), \
+             patch.object(coding_bench, "run_task", side_effect=results):
+            report = coding_bench.run_benchmark(
+                provider="ollama", max_cases=2, max_calls=2,
+                infer_fn=lambda prompt, provider: "unused",
+            )
+        self.assertEqual(report["score"], 1.0)  # legacy PASS/(PASS+FAIL)
+        self.assertEqual(report["score_denominator"], 1)
+        self.assertEqual(report["suite_pass_rate"], 0.5)  # PASS/all selected
+        self.assertEqual(report["suite_denominator"], 2)
+        self.assertEqual(report["summary"]["blocked"], 1)
+
     def test_registry_covers_eight_distinct_coding_tasks(self):
         self.assertEqual(len(coding_bench.TASKS), 8)
         self.assertEqual({task["category"] for task in coding_bench.TASKS}, coding_bench.CATEGORIES)
@@ -211,7 +297,131 @@ class CodingBenchmarkContracts(unittest.TestCase):
         self.assertEqual(result["provider_calls"], 2)
         self.assertEqual(model.call_count, 2)
         self.assertEqual(oracle.call_count, 2)
-        self.assertIn("observed test failure", model.call_args_list[1].args[0])
+        self.assertIn("public_repair_feedback", model.call_args_list[1].args[0])
+        self.assertNotIn("observed test failure", model.call_args_list[1].args[0])
+
+
+    def test_v7_hidden_oracle_output_never_reaches_model_or_report(self):
+        task = coding_bench.TASKS[0]
+        secret = "PRIVATE_ACCEPTANCE_EXPECTED_8392"
+        first = json.dumps({"files": [{"path": "solution.py",
+                           "content": "def normalize_key(value): return value.strip()\n"}]})
+        second = json.dumps({"files": [{"path": "solution.py",
+                            "content": "def normalize_key(value): return value.lower()\n"}]})
+        with patch.object(coding_bench, "_run_oracle",
+                          side_effect=[(False, "baseline", 1),
+                                       (False, f"AssertionError: {secret}", 1),
+                                       (False, f"AssertionError: {secret}", 1)]) as oracle, \
+             patch.object(coding_bench, "infer_with_budget",
+                          side_effect=[first, second]) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "FAIL", result)
+        self.assertEqual(oracle.call_count, 3)
+        self.assertIn("public_repair_feedback", model.call_args_list[1].args[0])
+        self.assertNotIn(secret, model.call_args_list[1].args[0])
+        self.assertNotIn(secret, json.dumps(result))
+        self.assertIn("repair_feedback", result)
+
+    def test_v7_python_cosmetic_repair_does_not_rerun_hidden_checks(self):
+        task = coding_bench.TASKS[0]
+        first = json.dumps({"files": [{"path": "solution.py",
+                           "content": "def normalize_key(value): return value.strip()\n"}]})
+        second = json.dumps({"files": [{"path": "solution.py",
+                            "content": "# no behavioral change\ndef normalize_key(value):\n    return value.strip()\n"}]})
+        with patch.object(coding_bench, "_run_oracle",
+                          side_effect=[(False, "baseline", 1),
+                                       (False, "hidden check failed", 1)]) as oracle, \
+             patch.object(coding_bench, "infer_with_budget",
+                          side_effect=[first, second]) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "FAIL", result)
+        self.assertEqual(result["reason"], "structurally_unchanged_patch_after_repair")
+        self.assertEqual(model.call_count, 2)
+        self.assertEqual(oracle.call_count, 2)
+
+    def test_v7_public_source_feedback_detects_signature_and_syntax(self):
+        task = {"starter_files": {"solution.py": "def f(x):\n    return x\n"}}
+        changed_signature = coding_bench._public_repair_feedback(
+            task, {"solution.py": "def f(y):\n    return y\n"})
+        self.assertIn("original public signature", changed_signature)
+        syntax_error = coding_bench._public_repair_feedback(
+            task, {"solution.py": "def f(:\n    return x\n"})
+        self.assertIn("Candidate syntax error", syntax_error)
+        self.assertNotIn("AssertionError", syntax_error)
+
+    def test_v7_ast_unchanged_guard_keeps_meaningful_changes_and_ts(self):
+        self.assertFalse(coding_bench._same_python_structure(
+            {"solution.py": "def f(x): return x\n"},
+            [("solution.py", "def f(x): return x + 1\n")]))
+        self.assertFalse(coding_bench._same_python_structure(
+            {"file.ts": "const value = 1;"},
+            [("file.ts", "const value = 1;")]))
+
+
+    def test_v7_repair_prompt_explains_source_delta_without_private_oracles(self):
+        task = {
+            "prompt": "Make transform preserve valid IDs, reject empty values, and trim input.",
+            "starter_files": {"module.py": "def transform(value):\n    return value\n"},
+            "oracle_script": "TOP_PRIVATE_ASSERTION_4125",
+        }
+        current = {"module.py": "def transform(value):\n    return value.strip()\n"}
+        initial = json.loads(coding_bench.build_prompt(task, current_files=current))
+        self.assertNotIn("repair_rules", initial)
+        repaired = json.loads(coding_bench.build_prompt(
+            task, current_files=current, diagnostics="Independent behavior failed",
+            repair_mode=True,
+        ))
+        self.assertIn("return value.strip()", repaired["working_files"][0]["content"])
+        delta = repaired["public_candidate_vs_starter_diff"]
+        self.assertIn("starter/module.py", delta)
+        self.assertIn("candidate/module.py", delta)
+        self.assertIn("-    return value", delta)
+        self.assertIn("+    return value.strip()", delta)
+        self.assertTrue(any("behavior-changing" in rule for rule in repaired["repair_rules"]))
+        self.assertNotIn("TOP_PRIVATE_ASSERTION_4125", json.dumps(repaired))
+
+    def test_v7_second_model_attempt_uses_only_public_source_for_repair(self):
+        task = {
+            "id": "synthetic-repair",
+            "category": "python_bugfix",
+            "prompt": "Implement compute so the result is transformed as specified.",
+            "language": "python",
+            "starter_files": {"compute.py": "def compute(value):\n    return value\n"},
+        }
+        candidate = "def compute(value):\n    return value + 1\n"
+        repair = "def compute(value):\n    return value + 2\n"
+        responses = [
+            json.dumps({"files": [{"path": "compute.py", "content": candidate}]}),
+            json.dumps({"files": [{"path": "compute.py", "content": repair}]}),
+        ]
+        private = "WITHHELD_RESULT_7831"
+        with patch.object(coding_bench, "_run_oracle", side_effect=[
+            (False, "baseline failure", 1),
+            (False, private, 1),
+            (True, "pass", 1),
+        ]) as oracle, patch.object(coding_bench, "infer_with_budget", side_effect=responses) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["provider_calls"], 2)
+        self.assertEqual(oracle.call_count, 3)
+        prompts = [json.loads(call.args[0]) for call in model.call_args_list]
+        self.assertNotIn("repair_rules", prompts[0])
+        self.assertIn("repair_rules", prompts[1])
+        self.assertIn("+    return value + 1", prompts[1]["public_candidate_vs_starter_diff"])
+        self.assertNotIn(private, json.dumps(prompts))
+        self.assertNotIn(private, json.dumps(result))
+
+    def test_v7_public_source_diff_is_bounded_for_large_changes(self):
+        task = {
+            "starter_files": {"large.py": "def f():\n    return 0\n"},
+            "oracle_script": "FORBIDDEN_PRIVATE_TEST_9901",
+        }
+        candidate = {"large.py": "def f():\n    return 1\n" + ("# long unrelated comment\n" * 20_000)}
+        delta = coding_bench._public_candidate_delta(task, candidate)
+        self.assertLessEqual(len(delta), 2_800)
+        self.assertNotIn(task["oracle_script"], delta)
+
+
 
 
 if __name__ == "__main__":
