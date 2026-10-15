@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -37,6 +38,36 @@ class QualityGateV5Contracts(unittest.TestCase):
     def test_missing_required_gate_is_not_silently_accepted(self):
         self.assertFalse(quality_gates.gates_approved({"syntax": {"status": "PASS"}}))
 
+
+    def test_v7_type_check_uses_disposable_sandbox_cache(self):
+        with patch.object(quality_gates.importlib.util, "find_spec", return_value=object()), \
+             patch.object(quality_gates, "_run", return_value=("PASS", "")) as runner:
+            gate = quality_gates._check_python_types(["ultron/backend/app/cognitive/communication.py"],
+                                                    root=Path("/tmp/checked-source"))
+        self.assertEqual(gate["status"], "PASS")
+        command = runner.call_args.args[0]
+        self.assertIn("--no-incremental", command)
+        self.assertIn("--cache-dir=/tmp/mypy", command)
+        self.assertIn("ultron/backend/app/cognitive/communication.py", command)
+        self.assertEqual(runner.call_args.kwargs["cwd"], Path("/tmp/checked-source"))
+
+    def test_v7_mypy_crash_and_absent_checker_never_approve(self):
+        with patch.object(quality_gates.importlib.util, "find_spec", return_value=object()), \
+             patch.object(quality_gates, "_run", return_value=("FAIL", "INTERNAL ERROR")):
+            gate = quality_gates._check_python_types(["sample.py"], root=Path("/tmp"))
+        self.assertEqual(gate, {"status": "FAIL", "reason": "INTERNAL ERROR"})
+        gates = {name: {"status": "PASS"} for name in quality_gates.REQUIRED_GATES}
+        gates["type_check"] = gate
+        self.assertFalse(quality_gates.gates_approved(gates))
+        with patch.object(quality_gates.importlib.util, "find_spec", return_value=None):
+            missing = quality_gates._check_python_types(["sample.py"], root=Path("/tmp"))
+        self.assertEqual(missing["status"], "NOT_RUN")
+        gates["type_check"] = missing
+        self.assertFalse(quality_gates.gates_approved(gates))
+        self.assertEqual(
+            quality_gates._check_python_types(["notes.txt"], root=Path("/tmp"))["status"],
+            "NOT_APPLICABLE",
+        )
 
 if __name__ == "__main__":
     unittest.main()
