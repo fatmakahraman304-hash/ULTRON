@@ -40,6 +40,28 @@ class CodingBenchmarkContracts(unittest.TestCase):
             coding_bench.validate_patch(task, {"files": []})
 
 
+    def test_v7_full_suite_pass_rate_counts_blocked_without_rewriting_legacy_score(self):
+        synthetic_tasks = (
+            {"id": "synthetic-pass", "language": "python"},
+            {"id": "synthetic-blocked", "language": "python"},
+        )
+        results = [
+            {"id": "synthetic-pass", "status": "PASS", "provider_calls": 1},
+            {"id": "synthetic-blocked", "status": "BLOCKED", "provider_calls": 1,
+             "reason": "model_response_invalid"},
+        ]
+        with patch.object(coding_bench, "TASKS", synthetic_tasks), \
+             patch.object(coding_bench, "run_task", side_effect=results):
+            report = coding_bench.run_benchmark(
+                provider="ollama", max_cases=2, max_calls=2,
+                infer_fn=lambda prompt, provider: "unused",
+            )
+        self.assertEqual(report["score"], 1.0)  # legacy PASS/(PASS+FAIL)
+        self.assertEqual(report["score_denominator"], 1)
+        self.assertEqual(report["suite_pass_rate"], 0.5)  # PASS/all selected
+        self.assertEqual(report["suite_denominator"], 2)
+        self.assertEqual(report["summary"]["blocked"], 1)
+
     def test_registry_covers_eight_distinct_coding_tasks(self):
         self.assertEqual(len(coding_bench.TASKS), 8)
         self.assertEqual({task["category"] for task in coding_bench.TASKS}, coding_bench.CATEGORIES)
