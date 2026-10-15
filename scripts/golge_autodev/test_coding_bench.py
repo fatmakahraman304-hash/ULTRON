@@ -275,10 +275,10 @@ class CodingBenchmarkContracts(unittest.TestCase):
     def test_v7_repair_prompt_explains_source_delta_without_private_oracles(self):
         task = {
             "prompt": "Make transform preserve valid IDs, reject empty values, and trim input.",
-            "starter_files": {"module.py": "def transform(value):\\n    return value\\n"},
+            "starter_files": {"module.py": "def transform(value):\n    return value\n"},
             "oracle_script": "TOP_PRIVATE_ASSERTION_4125",
         }
-        current = {"module.py": "def transform(value):\\n    return value.strip()\\n"}
+        current = {"module.py": "def transform(value):\n    return value.strip()\n"}
         initial = json.loads(coding_bench.build_prompt(task, current_files=current))
         self.assertNotIn("repair_rules", initial)
         repaired = json.loads(coding_bench.build_prompt(
@@ -300,10 +300,10 @@ class CodingBenchmarkContracts(unittest.TestCase):
             "category": "python_bugfix",
             "prompt": "Implement compute so the result is transformed as specified.",
             "language": "python",
-            "starter_files": {"compute.py": "def compute(value):\\n    return value\\n"},
+            "starter_files": {"compute.py": "def compute(value):\n    return value\n"},
         }
-        candidate = "def compute(value):\\n    return value + 1\\n"
-        repair = "def compute(value):\\n    return value + 2\\n"
+        candidate = "def compute(value):\n    return value + 1\n"
+        repair = "def compute(value):\n    return value + 2\n"
         responses = [
             json.dumps({"files": [{"path": "compute.py", "content": candidate}]}),
             json.dumps({"files": [{"path": "compute.py", "content": repair}]}),
@@ -327,10 +327,10 @@ class CodingBenchmarkContracts(unittest.TestCase):
 
     def test_v7_public_source_diff_is_bounded_for_large_changes(self):
         task = {
-            "starter_files": {"large.py": "def f():\\n    return 0\\n"},
+            "starter_files": {"large.py": "def f():\n    return 0\n"},
             "oracle_script": "FORBIDDEN_PRIVATE_TEST_9901",
         }
-        candidate = {"large.py": "def f():\\n    return 1\\n" + ("# long unrelated comment\\n" * 20_000)}
+        candidate = {"large.py": "def f():\n    return 1\n" + ("# long unrelated comment\n" * 20_000)}
         delta = coding_bench._public_candidate_delta(task, candidate)
         self.assertLessEqual(len(delta), 2_800)
         self.assertNotIn(task["oracle_script"], delta)
