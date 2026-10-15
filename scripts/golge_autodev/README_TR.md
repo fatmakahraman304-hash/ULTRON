@@ -158,3 +158,30 @@ yapılmaz.
 - Bu deterministic sözleşmeler Gemini/Qwen doğruluğu, gerçek Windows/iPhone,
   mikrofon/TTS davranışı, fiziksel model iptali veya üretim kalitesi ölçümü
   değildir.
+
+
+## V6 taslak: gerçek Qwen3 bulgularından çıkarılan sınırlandırılmış onarım
+
+V6, V5'in bağımsız testlerini, Docker yalıtımını, model çağrı ve çıktı bütçelerini,
+GitHub/Render üretim sınırlarını değiştirmez. Temel farklar:
+
+- Yerel `qwen3*` Ollama modellerinde `think: false` istenir. Bu seçenek,
+  düşünme tokenlarının kısa JSON kod yaması bütçesini tüketmesini engellemeye
+  yardımcı olur. Qwen2.5 ve Gemini istekleri aynı kalır.
+- Benchmark modeli yanıtının JSON/şema veya gerekli dosya listesi eksikliği
+  nedeniyle reddedilmesi halinde en fazla **bir** ek biçim düzeltmesi ister.
+  Gizli kabul testleri modele açıklanmaz. İzin dışı yol, tekrar eden yol,
+  büyük dosya veya sır benzeri içerik yine **ilk denemede engellenir**.
+- Başarısız bağımsız testten sonraki üretim, değişen dosya içeriklerini
+  hiç değiştirmediyse ikinci test koşusu yapılmaz; açık
+  `unchanged_patch_after_repair` hatası raporlanır.
+- Genel kodlama talimatları tam JSON, tam dosya içeriği, kamuya açık API
+  uyumluluğu ve ham girdi / türetilmiş değer ayrımı ister. Hazır benchmark
+  çözümleri, gizli testler ve sabit görev yanıtları eklenmez.
+- Regresyon testleri format düzeltme, ikinci biçim hatası, tehlikeli dosya yolu
+  engeli, değişmeyen yamalar ve Qwen3 / Qwen2.5 taşıma davranışını kapsar.
+
+**Kanıt sınırı:** V5'in yerel kullanıcının Qwen3 8B ile paylaştığı önceki tam
+koşularında 8 görevden 6'sı geçmiştir. V6 için gerçek-model benchmark sonucu
+henüz bulunmamaktadır. CI sözleşme testleri yerel model başarısı anlamına
+gelmez. Render veya mevcut üretim dalı otomatik güncellenmez.
