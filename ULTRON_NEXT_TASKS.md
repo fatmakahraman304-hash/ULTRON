@@ -798,3 +798,10 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 - Current fix branch: `fix/windows-start-sync-frontend-deps` from production SHA `bab1b760`. Wait for Windows PowerShell syntax check and Scene Build CI, then merge only after those checks pass (prior blanket release authorization applies to this fix).
 - Immediate laptop workaround: `cd /d "%USERPROFILE%\ULTRON-3a6f489\ultron\frontend"`, run `npm ci`, return to repo root, then `START.bat`.
 - After the fix is merged, pull the production branch with a clean working tree and rerun `START.bat`; capture exact output. Then resume physical Windows Qwen/mic/TTS and iPhone Safari tests. Never call those device tests passed based on CI.
+## Current task — Windows backend import startup failure (2026-10-15)
+
+- Owner log root cause: `ModuleNotFoundError: No module named 'ultron'` from `merged_api.py` at backend startup. Reproduction: from `ultron/backend`, setting `PYTHONPATH` only to that same backend directory makes `from ultron.cloud_service.conversation_persona import classify_intent` fail.
+- Fix branch: `fix/windows-backend-pythonpath`, based on production after PR #50. New subprocess regression fails before the fix and must pass after it; wait for Scene Build CI before merge.
+- After merge, on the owner's PC run `git pull --ff-only origin feat/ultron-cloud-shared-memory` from a clean production branch and `START.bat`. Confirm it prints `ULTRON hazır` without degraded-mode warning. Then test a short local Qwen chat, microphone input and Piper playback.
+- Do not interpret `[WinError 10054]` during a closed health-check connection or malformed-PDF fixture messages as the fatal startup cause; use the final `Traceback` when diagnosing.
+- Follow-up log on the owner laptop: backend reports ready; desktop then exits at `mark_app.py:52` because `memory` resolved to a non-package module. PR #51 has been extended with import-order fix and Python safe-path subprocess regression. Re-run `START.bat` after merging/pulling the reviewed fix; check for `ULTRON hazır` and a still-running desktop before microphone/TTS testing.

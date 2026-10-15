@@ -13,6 +13,28 @@ from .paths import ROOT, BACKEND, DATA, LOGS
 from .bridge import Bridge
 
 
+def _ensure_runtime_import_paths(env):
+    """Make the repository packages importable from the backend working dir.
+
+    ``python ultron/backend/server.py`` puts the backend directory, rather than
+    the repository root, at ``sys.path[0]``. The merged API imports
+    ``ultron.cloud_service`` at startup, so preserve any caller paths while
+    explicitly exposing both project packages to the child process.
+    """
+    configured = [str(ROOT), str(BACKEND)]
+    configured.extend(part for part in env.get('PYTHONPATH', '').split(os.pathsep) if part)
+    unique = []
+    seen = set()
+    for entry in configured:
+        normalized = os.path.normcase(os.path.normpath(entry))
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(entry)
+    env['PYTHONPATH'] = os.pathsep.join(unique)
+    return env
+
+
 def stop_process(process):
     if process is None or process.poll() is not None:
         return
@@ -63,6 +85,7 @@ class Services:
                    MARK_ULTRON_TOKEN=secrets.token_urlsafe(32), MARK_AUDIO_OWNER='mark',
                    MARK_ULTRON_URL=f'http://127.0.0.1:{port}', PYTHONUTF8='1',
                    PATH=str(ROOT / '.venv' / 'Scripts') + os.pathsep + env.get('PATH', ''))
+        env = _ensure_runtime_import_paths(env)
         self.env = env
         self.bridge = Bridge(env['MARK_ULTRON_URL'], env['MARK_ULTRON_TOKEN'])
         self.backend = self.spawn([sys.executable, '-u', str(BACKEND / 'server.py')], BACKEND, 'backend.log')
