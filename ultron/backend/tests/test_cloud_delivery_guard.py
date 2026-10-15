@@ -3,6 +3,7 @@ import asyncio
 import io
 import json
 import sys
+import threading
 import time
 import unittest
 import urllib.error
@@ -64,9 +65,12 @@ class LeaseGuardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_dedicated_lease_fences_rejected_attempt(self):
         client = SyncLeaseClient([CloudDeliveryRejected(409, "stale_delivery_attempt")])
-        guard = RemoteLeaseGuard(client, 161, 1, interval=.01)
+        interrupted = threading.Event()
+        guard = RemoteLeaseGuard(client, 161, 1, interval=.01,
+                                 interrupt_on_lost=interrupted.set)
         await asyncio.wait_for(guard.run(), .5)
         self.assertTrue(guard.lost.is_set())
+        self.assertTrue(interrupted.is_set())
         self.assertIn("stale_delivery_attempt", guard.reason)
         self.assertEqual(client.calls[0][:2], (161, 1))
 

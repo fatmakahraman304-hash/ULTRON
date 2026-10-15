@@ -5,6 +5,7 @@ on:
     branches:
       - feat/ultron-cloud-shared-memory
       - feat/golge-qwen-goal-routing-20261013
+      - feat/golge-natural-conversation-voice-20261014
     paths:
       - "ultron/cloud_service/**"
       - ".github/workflows/cloud-queue-postgres.yml"
@@ -130,7 +131,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install disposable DB driver
-        run: python -m pip install "asyncpg>=0.29,<1" "aiohttp>=3.9,<4"
+        run: python -m pip install "asyncpg>=0.29,<1" "aiohttp>=3.9,<4" "google-genai>=1,<2"
       - name: ULTRON personality and memory boundary tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_persona.py' -v
       - name: Real PostgreSQL delivery fencing integration

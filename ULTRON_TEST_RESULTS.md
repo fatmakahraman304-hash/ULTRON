@@ -794,3 +794,8 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 - Scene Build and Windows PowerShell workflow results are pending until the PR runs on its exact head.
 - Owner's separate live Qwen test is **PASS** (`qwen2.5-coder:7b`, real synthetic analysis, 6.3 s); Render `/health` **PASS** HTTP 200. DOCTOR confirms local Ollama/Piper configured; actual desktop bridge startup and physical mic/TTS playback remain pending until the new fix is pulled and tested.
 - Follow-up owner log: backend starts after the temporary repository-root `PYTHONPATH`, but `mark_app.py:52` fails with `No module named 'memory.memory_manager'; 'memory' is not a package`. Moved desktop `memory.memory_manager` import before UI import and added safe-path (`python -P`) subprocess and import-order regressions. Focused startup suite: **8 passed**; physical Windows relaunch remains NOT RUN.
+
+## 2026-10-15 — PR #36 dependency synchronization
+
+- Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
+- PR #37 cancellation contracts are present via dependency commit 61f3e02; rerun the combined exact-head Actions before merging.

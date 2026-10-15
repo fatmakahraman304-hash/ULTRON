@@ -175,7 +175,7 @@ class VoiceRuntime:
     """
 
     def __init__(self, *, mic_frames=None, stt_stream=None, brain_stream=None,
-                 tts_speak_chunks=None, on_event=None, vad=None,
+                 tts_speak_chunks=None, tts_interrupt=None, on_event=None, vad=None,
                  fsm: VoiceStateMachine | None = None,
                  latency: LatencyTracker | None = None,
                  config: VoiceRuntimeConfig | None = None):
@@ -186,9 +186,13 @@ class VoiceRuntime:
         self.stt_stream = stt_stream
         self.brain_stream = brain_stream
         self.tts_speak_chunks = tts_speak_chunks
+        self.tts_interrupt = tts_interrupt
         self.on_event = on_event or (lambda ev: None)
         self.vad = vad
         self._cancel: asyncio.Event | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._brain_task: asyncio.Task | None = None
+        self._tts_task: asyncio.Task | None = None
 
     # ------------------------------------------------------------ capability
     def capability(self) -> dict:
@@ -214,16 +218,31 @@ class VoiceRuntime:
         """Kullanıcı araya girdi: TTS DURUR, mikrofon öncelik alır."""
         if self.fsm.state == SPEAKING:
             self.fsm.transition(INTERRUPTED, reason="barge-in")
-            if self._cancel is not None:
-                self._cancel.set()
+            self._signal_cancel()
             return self._emit("voice.interrupted")
         if self.fsm.state in (THINKING, PROCESSING):
             # henüz ses yok: düşünme iptali de geçerli
-            if self._cancel is not None:
-                self._cancel.set()
+            self._signal_cancel()
             self.fsm.transition(IDLE, reason="cancelled before speech")
             return self._emit("voice.cancelled")
         return {"type": "ignored", "state": self.fsm.state}
+
+    def _signal_cancel(self) -> None:
+        if callable(self.tts_interrupt):
+            try:
+                self.tts_interrupt()
+            except Exception:
+                pass
+        loop = self._loop
+        cancel = self._cancel
+        if loop and loop.is_running():
+            if cancel is not None:
+                loop.call_soon_threadsafe(cancel.set)
+            for task in (self._brain_task, self._tts_task):
+                if task is not None and not task.done():
+                    loop.call_soon_threadsafe(task.cancel)
+        elif cancel is not None:
+            cancel.set()
 
     # ------------------------------------------------------------ ana akış
     async def run_turn(self) -> dict:
@@ -238,6 +257,7 @@ class VoiceRuntime:
             raise RuntimeError("voice runtime degraded: mic/stt unavailable "
                                "(düruşt durum: capability() bkz.)")
         self._cancel = asyncio.Event()
+        self._loop = asyncio.get_running_loop()
         cancel = self._cancel
         self.latency.begin()
         self.fsm.transition(LISTENING, reason="turn start")
@@ -328,7 +348,18 @@ class VoiceRuntime:
                     chunks.append(chunk)
                     await tts_in.put(chunk)
             finally:
-                await tts_in.put(None)          # EOS işareti
+                if cancel.is_set():
+                    while not tts_in.empty():
+                        try:
+                            tts_in.get_nowait()
+                        except asyncio.QueueEmpty:
+                            break
+                    try:
+                        tts_in.put_nowait(None)
+                    except asyncio.QueueFull:
+                        pass
+                else:
+                    await tts_in.put(None)      # EOS işareti
 
         async def tts_side():
             if self.tts_speak_chunks is None:
@@ -347,6 +378,8 @@ class VoiceRuntime:
                     return
                 first = spoken == 0
                 await self.tts_speak_chunks(iter([c]))
+                if cancel.is_set():
+                    return
                 if first:
                     self.latency.mark("first_audio")
                     self.fsm.transition(SPEAKING, reason="first audio")
@@ -355,6 +388,7 @@ class VoiceRuntime:
 
         brain_task = asyncio.ensure_future(brain_side())
         tts_task = asyncio.ensure_future(tts_side())
+        self._brain_task, self._tts_task = brain_task, tts_task
         done, pending = await asyncio.wait(
             [brain_task, tts_task],
             return_when=asyncio.ALL_COMPLETED,
@@ -365,6 +399,8 @@ class VoiceRuntime:
             result["status"] = "timeout"
         # arka plan hatası YUTULMAZ — dürüst rapor (F-eksiği düzeltmesi)
         for t in done:
+            if t.cancelled():
+                continue
             exc = t.exception()
             if exc is not None:
                 result["status"] = "error"
@@ -375,6 +411,8 @@ class VoiceRuntime:
         if cancel.is_set():
             result["interrupted"] = True
             result["status"] = "interrupted"
+            result["text"] = None
+            result["chunks"] = []
             # INTERRUPTED zaten set edildi (barge-in); IDLE'a dön
             if self.fsm.state == INTERRUPTED:
                 self.fsm.transition(LISTENING, reason="barge-in: mic "
@@ -382,11 +420,13 @@ class VoiceRuntime:
         # normal bitiş
         if self.fsm.state in (SPEAKING, THINKING, PROCESSING):
             self.fsm.transition(IDLE, reason="turn complete")
-        result["text"] = final_text
-        result["chunks"] = chunks
+        if not result["interrupted"]:
+            result["text"] = final_text
+            result["chunks"] = chunks
         self.latency.finish({
             "wake_ms": "wake", "vad_ms": "vad_start",
             "first_partial_ms": "first_partial", "final_stt_ms": "final_stt",
             "brain_start_ms": "brain_start", "first_token_ms": "first_token",
             "first_audio_ms": "first_audio", "tts_complete_ms": "tts_complete"})
+        self._brain_task = self._tts_task = None
         return result

@@ -1,7 +1,9 @@
 """Model abstraction, capability routing, local multi-model evaluation and health."""
+import asyncio
 import json
 import time
 import urllib.error
+from app.core.request_cancellation import ProviderRequestCancelled
 from dataclasses import dataclass, field
 from app.core.fast_brain import FastBrainPolicy, classify_text, last_user_intent
 
@@ -187,6 +189,38 @@ class ModelRouter:
                 last_exc = exc
                 self._record(model, False, (time.time() - started) * 1000, str(exc))
         raise last_exc
+
+    async def ask_cancellable(self, task, prompt, system="", *, cancel_event):
+        """Use the normal model selection with a cancellable streaming adapter.
+
+        The optional multi-model judge is deliberately not started on this
+        interactive path: it is an additional provider operation that cannot be
+        represented as one cancellable Ollama request.
+        """
+        task = self._interactive_task(task, prompt=prompt)
+        models = list(self.get_models() or [])
+        last_exc = None
+        for index, model in enumerate(self._attempts(task, models)):
+            if cancel_event.is_set():
+                raise ProviderRequestCancelled("request cancelled before model start")
+            if index:
+                await asyncio.sleep(self.backoff_s)
+                if cancel_event.is_set():
+                    raise ProviderRequestCancelled("request cancelled before fallback model")
+            started = time.time()
+            try:
+                answer = await self.brain.ask_cancellable(
+                    prompt, system=system, model=model, cancel_event=cancel_event)
+                self._record(model, True, (time.time() - started) * 1000)
+                return answer
+            except ProviderRequestCancelled:
+                raise
+            except Exception as exc:
+                last_exc = exc
+                self._record(model, False, (time.time() - started) * 1000, str(exc))
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("No local model is available")
 
     def ask_json(self, task, prompt, system=""):
         content = self.ask(task, prompt, system=system)

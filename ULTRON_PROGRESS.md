@@ -699,3 +699,8 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - `integration/launcher.py` now prepends both repository root and backend to the child runtime's `PYTHONPATH`, preserving and deduplicating existing entries. Added a regression that imports the exact `ultron.cloud_service.conversation_persona` module from the backend working directory.
 - Baseline reproduction failed with `ModuleNotFoundError`; post-fix subprocess regressions **2 passed**, prior startup-import regressions **4 passed**, Python compile and diff checks passed. Owner's Qwen/Render doctor passed 3/3; physical desktop startup must still be repeated after pulling the fix.
 - Follow-up Windows log after the temporary root `PYTHONPATH` confirms backend health succeeds, then `mark_app.py:52` fails with `No module named 'memory.memory_manager'; 'memory' is not a package`. Root cause is desktop Python resolving backend `memory.py` before the desktop `memory/` package. The memory package import is now moved before UI imports; safe-path subprocess and source-order regressions bring the focused suite to **8 passed**.
+
+## 2026-10-15 — PR #36 dependency synchronization
+
+- Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
+- PR #37 true interruption changes merged into this dependency branch at 61f3e02; synchronize and validate before production merge.
