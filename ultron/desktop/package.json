@@ -2,7 +2,7 @@
   "name": "ultron-desktop",
   "version": "1.0.2",
   "private": true,
-  "description": "ULTRON native Windows desktop shell",
+  "description": "GÖLGE native Windows desktop shell",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "com.ultron.assistant",
-    "productName": "ULTRON",
+    "productName": "GÖLGE",
     "directories": {
       "output": "dist"
     },
@@ -46,7 +46,7 @@
           "arch": ["x64"]
         }
       ],
-      "artifactName": "ULTRON-Setup-${version}.${ext}"
+      "artifactName": "GOLGE-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -54,7 +54,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "ULTRON"
+      "shortcutName": "GÖLGE"
     }
   }
 }

@@ -100,6 +100,11 @@ class LocalFirstBridgeTests(unittest.TestCase):
         self.assertNotIn("genai.Client",CLOUD)
         self.assertNotIn("_gemini_reply(",CLOUD)
         self.assertIn("register_local_brain_routes(app,_memory_context,_recent_context)",APP)
+
+    def test_local_qwen_receives_shared_system_prompt_through_bounded_composer(self):
+        self.assertIn('base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT")', CLOUD)
+        self.assertIn("max_chars=4500", CLOUD)
+        self.assertIn("read_only=True", CLOUD)
     def test_owner_does_not_receive_dangerous_remote_tools(self):
         self.assertIn('"mode":"local_brain"',CLOUD)
         self.assertIn('if payload.get("mode") == "local_brain":',MARK)

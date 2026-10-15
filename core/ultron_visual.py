@@ -120,7 +120,7 @@ class MetalPanel(QWidget):
 
 
 def paint_environment(p, w, h, phase):
-    """Procedural ULTRON chamber. No external bitmap assets."""
+    """Procedural GÖLGE chamber. No external bitmap assets."""
     if w <= 2 or h <= 2:
         return
 
@@ -489,7 +489,7 @@ class ParticleCore:
         self.key=None
         self.texture=None
 
-    def paint(self,p,cx,cy,r,phase,amplitude,name='ULTRON'):
+    def paint(self,p,cx,cy,r,phase,amplitude,name='GÖLGE'):
         dpr=p.device().devicePixelRatioF()
         key=(round(r),round(dpr,2))
         if self.key!=key:

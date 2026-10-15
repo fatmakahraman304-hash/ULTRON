@@ -52,8 +52,9 @@ def is_configured() -> bool:
 
 
 def get_assistant_name() -> str:
-    """Return the configured assistant name, or 'ULTRON' if not set."""
-    return load_api_keys().get("assistant_name", "ULTRON") or "ULTRON"
+    """Return the configured assistant name, or 'GÖLGE' if not set."""
+    current = str(load_api_keys().get("assistant_name", "GÖLGE") or "GÖLGE").strip()
+    return "GÖLGE" if current.casefold() == "ultron" else current
 
 
 def get_user_name() -> str:
@@ -70,7 +71,8 @@ def save_assistant_config(assistant_name: str, user_name: str) -> None:
             data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
         except Exception:
             data = {}
-    data["assistant_name"] = assistant_name.strip() or "ULTRON"
+    name = assistant_name.strip() or "GÖLGE"
+    data["assistant_name"] = "GÖLGE" if name.casefold() == "ultron" else name
     data["user_name"] = user_name.strip()
     CONFIG_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
 

@@ -48,12 +48,12 @@ import sounddevice as sd
 import numpy as np
 from google import genai
 from google.genai import types
-from ui import UltronUI
 from memory.memory_manager import (
     load_memory, update_memory, format_memory_for_prompt,
     save_session_summary, pop_last_session,
     search_memory, set_trim_notifier,
 )
+from ui import UltronUI
 from integration.cloud_memory_sync import (
     upsert_cloud_memory,
     sync as sync_cloud_memory,
@@ -308,7 +308,7 @@ def _load_system_prompt() -> str:
         return PROMPT_PATH.read_text(encoding="utf-8")
     except Exception:
         return (
-            "You are ULTRON, the user's AI assistant. "
+            "You are GÖLGE, the user's AI assistant. "
             "Be concise, direct, and always use the provided tools to complete tasks. "
             "Never simulate or guess results — always call the appropriate tool."
         )
@@ -387,7 +387,7 @@ TOOL_DECLARATIONS = [
         "name": "manage_monitor",
         "description": (
             "Add, remove, or list background monitoring topics. "
-            "ULTRON checks these topics once a day and alerts the user when there is a new development. "
+            "GÖLGE checks these topics once a day and alerts the user when there is a new development. "
             "Use 'add' when the user says 'monitor X', 'track X', 'follow X'. "
             "Use 'remove' when the user says 'stop monitoring X'. "
             "Use 'list' when the user asks what is being monitored. "
@@ -413,7 +413,7 @@ TOOL_DECLARATIONS = [
         "description": (
             "Shuts down the assistant completely. "
             "Call this when the user expresses intent to end the conversation, "
-            "close the assistant, say goodbye, or stop Ultron. "
+            "close the assistant, say goodbye, or stop GÖLGE. "
             "The user can say this in ANY language."
         ),
         "parameters": {
@@ -673,7 +673,7 @@ class UltronLive:
             try:
                 self.set_push_to_talk(True)
             except Exception as e:
-                print(f"[ULTRON] ⚠ Push-to-talk unavailable: {e}")
+                print(f"[GÖLGE] ⚠ Push-to-talk unavailable: {e}")
         # UI control surface for the Wake Word settings section.
         self.ui.wake_is_ready    = wake_is_ready          # () -> bool
         self.ui.wake_get_state   = self._wake_state       # () -> dict
@@ -702,7 +702,7 @@ class UltronLive:
         return True
 
     def _on_wake_detected(self) -> None:
-        """Called from the detector thread when 'Ultron' is heard."""
+        """Called when the configured legacy acoustic trigger is recognized."""
         self.wake(reason="wake word")
 
     def wake(self, reason: str = "wake word") -> None:
@@ -720,7 +720,7 @@ class UltronLive:
         self._awake = False
         self.set_speaking(False)
         self.ui.set_state("SLEEPING")
-        self.ui.write_log(f"SYS: Sleeping — {reason}. Say 'Ultron' to wake me.")
+        self.ui.write_log(f"SYS: Sleeping — {reason}. GÖLGE sesli uyandırma modeli hazır değil; WAKE NOW kullan.")
 
     async def _run_sleep_watch(self) -> None:
         """Auto-sleep after the configured silence window (wake-word mode only)."""
@@ -804,7 +804,7 @@ class UltronLive:
 
     def plugin_say(self, instruction: str) -> None:
         """
-        Thread-safe speech channel for plugins: lets a plugin ask ULTRON to
+        Thread-safe speech channel for plugins: lets a plugin ask GÖLGE to
         say something short WHILE its run() is still executing (plugins block
         their executor thread, so they can't speak through the tool response
         until they finish). The instruction is injected into the Live session
@@ -896,7 +896,7 @@ class UltronLive:
         # asleep either (the sleep gate is not just for the mic). Wake first with
         # "Ultron" or the WAKE NOW button.
         if self._wake_enabled and not self._awake:
-            self.ui.write_log("SYS: I'm asleep — say 'Ultron' or tap WAKE NOW first.")
+            self.ui.write_log("SYS: GÖLGE uyandırma ses modeli henüz eğitilmedi; WAKE NOW düğmesini kullan.")
             return
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
@@ -973,7 +973,7 @@ class UltronLive:
             pass
 
     def interrupt(self) -> None:
-        """Stop ULTRON mid-speech: drain queued audio and open mic immediately."""
+        """Stop GÖLGE mid-speech: drain queued audio and open mic immediately."""
         self._interrupted = True
         q = self.audio_in_queue
         if q:
@@ -985,7 +985,7 @@ class UltronLive:
                 except Exception:
                     break
             if drained:
-                print(f"[ULTRON] ✋ Interrupted — {drained} audio chunks discarded")
+                print(f"[GÖLGE] ✋ Interrupted — {drained} audio chunks discarded")
         self.set_speaking(False)
         # The words we were about to mouth are never going to be spoken now.
         self._visemes.reset()
@@ -1016,10 +1016,12 @@ class UltronLive:
         # Load customization from config
         try:
             _cfg = json.loads(open(API_CONFIG_PATH, encoding="utf-8").read())
-            self._asst_name = (_cfg.get("assistant_name") or "ULTRON").strip()
+            self._asst_name = (_cfg.get("assistant_name") or "GÖLGE").strip()
+            if self._asst_name.casefold() == "ultron":
+                self._asst_name = "GÖLGE"
             _user_name = (_cfg.get("user_name") or "").strip()
         except Exception:
-            self._asst_name = "ULTRON"
+            self._asst_name = "GÖLGE"
             _user_name = ""
 
         memory     = load_memory()
@@ -1066,7 +1068,7 @@ class UltronLive:
         _all_decls = list(_all_decls) + [{
             "name": "request_ultron_development",
             "description": (
-                "The owner asks ULTRON to change its own program, fix a bug, "
+                "The owner asks GÖLGE to change its own program, fix a bug, "
                 "add features to phone or laptop, or update its own source. "
                 "Create an authenticated Cloud development request. The user "
                 "must explicitly copy the generated task into their ChatGPT "
@@ -1074,7 +1076,7 @@ class UltronLive:
                 "GitHub CI, Render and the installed desktop version must be "
                 "checked before reporting completion. Never claim to have "
                 "updated source merely because a request was saved. "
-                "Do not launch VS Code or directly invoke dev_agent for ULTRON's own code."
+                "Do not launch VS Code or directly invoke dev_agent for GÖLGE's own code."
             ),
             "parameters": {
                 "type": "OBJECT",
@@ -1121,7 +1123,7 @@ class UltronLive:
                 handle=self._resume_handle
             ),
             # Sliding-window compression: session never dies from a full context
-            # window — ULTRON can stay in one conversation for hours
+            # window — GÖLGE can stay in one conversation for hours
             context_window_compression=types.ContextWindowCompressionConfig(
                 sliding_window=types.SlidingWindow(),
             ),
@@ -1134,7 +1136,7 @@ class UltronLive:
             ),
         )
         if self._enhanced_live:
-            # Proactive audio: ULTRON stays silent when speech isn't addressed
+            # Proactive audio: GÖLGE stays silent when speech isn't addressed
             # to it (background chatter, talking to someone else in the room).
             # (Affective dialog was dropped: gemini-3.1-flash-live does not
             #  support it, and it never reliably detected tone in practice.
@@ -1205,7 +1207,7 @@ class UltronLive:
         name = fc.name
         args = dict(fc.args or {})
 
-        print(f"[ULTRON] 🔧 {name}  {args}")
+        print(f"[GÖLGE] 🔧 {name}  {args}")
         self.ui.set_state("THINKING")
 
 
@@ -1241,9 +1243,9 @@ class UltronLive:
                 target = str(args.get("target") or "both").strip().lower()
                 item = await asyncio.to_thread(submit, request_text, target)
                 result = (
-                    "Geliştirme isteği Cloud'da kaydedildi: ULTRON-DEV-"
+                    "Geliştirme isteği Cloud'da kaydedildi: GÖLGE-DEV-"
                     + str(item["id"]) + ". Henüz programı değiştirmedim. "
-                    "ULTRON GELİŞTİR ekranını açıp bu isteği ChatGPT'ye "
+                    "GÖLGE GELİŞTİR ekranını açıp bu isteği ChatGPT'ye "
                     "göndermeniz gerekiyor. Kod, GitHub CI, Render ve Windows "
                     "sürümü doğrulanınca tamamlandığını bildirebilirim."
                 )
@@ -1374,7 +1376,7 @@ class UltronLive:
         if not self.ui.muted:
             self.ui.set_state("LISTENING")
 
-        print(f"[ULTRON] 📤 {name} → {str(result)[:80]}")
+        print(f"[GÖLGE] 📤 {name} → {str(result)[:80]}")
 
         # A tool that declared itself NON_BLOCKING also says when its answer may
         # re-enter the conversation. Without this the model finishes whatever it
@@ -1407,13 +1409,13 @@ class UltronLive:
             )
 
     async def _listen_audio(self):
-        print("[ULTRON] 🎤 Mic started")
+        print("[GÖLGE] 🎤 Mic started")
         loop = asyncio.get_event_loop()
 
         def callback(indata, frames, time_info, status):
             # ── Wake-word gate ───────────────────────────────────────────────
             # While asleep, the mic audio NEVER goes to Gemini (nothing is
-            # streamed, so ULTRON can't respond to speech not addressed to it and
+            # streamed, so GÖLGE can't respond to speech not addressed to it and
             # nothing leaves the machine). Frames are instead handed to the local
             # detector, which runs its model in ITS OWN thread — the cost here is
             # only a queue push, so the audio path is never slowed. When wake word
@@ -1427,16 +1429,16 @@ class UltronLive:
                 ultron_speaking = self._is_speaking
 
             # ── Barge-in ─────────────────────────────────────────────────────
-            # While ULTRON talks the mic is not streamed, but it is still worth
+            # While GÖLGE talks the mic is not streamed, but it is still worth
             # listening to locally: if the user starts speaking, cut the answer
             # short the way a person would stop when interrupted.
             #
-            # The whole difficulty is echo — on speakers the mic hears ULTRON.
+            # The whole difficulty is echo — on speakers the mic hears GÖLGE.
             # So the test is not "is the mic loud" but "is the mic louder than
             # the echo of what we are playing right now", sustained long enough
             # that a cough or a keystroke cannot trigger it.
             if ultron_speaking:
-                # Nothing is streamed while ULTRON talks.
+                # Nothing is streamed while GÖLGE talks.
                 #
                 # Interrupting by voice used to live here: `EchoGuard` can pick a
                 # user out from under our own echo, and `core/echo.py` still does
@@ -1502,7 +1504,7 @@ class UltronLive:
             _mic_name = get_input_device()
             _mic_dev  = audio_devices.resolve(_mic_name, "input")
             if _mic_dev is not None:
-                print(f"[ULTRON] 🎤 Input device: {_mic_name}")
+                print(f"[GÖLGE] 🎤 Input device: {_mic_name}")
             try:
                 _mic_stream = _open_mic(_mic_dev)
             except Exception as _e:
@@ -1512,18 +1514,18 @@ class UltronLive:
                 # mean the assistant cannot hear at all.
                 if _mic_dev is None:
                     raise
-                print(f"[ULTRON] ⚠️  Mic '{_mic_name}' failed: {_e} — using default")
+                print(f"[GÖLGE] ⚠️  Mic '{_mic_name}' failed: {_e} — using default")
                 self.ui.write_log(
                     f"SYS: Microphone '{_mic_name}' unavailable — using system default."
                 )
                 _mic_stream = _open_mic(None)
 
             with _mic_stream:
-                print("[ULTRON] 🎤 Mic stream open")
+                print("[GÖLGE] 🎤 Mic stream open")
                 while True:
                     await asyncio.sleep(0.1)
         except Exception as e:
-            print(f"[ULTRON] ❌ Mic: {e}")
+            print(f"[GÖLGE] ❌ Mic: {e}")
             raise
 
     async def _flush_pending_vision(self) -> bool:
@@ -1561,7 +1563,7 @@ class UltronLive:
         )
 
         if self._vision_cam_active:
-            # Camera: stay busy until ULTRON has finished speaking the answer,
+            # Camera: stay busy until GÖLGE has finished speaking the answer,
             # then close the preview.
             self._vision_cam_active    = False
             self._vision_close_pending = True
@@ -1570,7 +1572,7 @@ class UltronLive:
         return True
 
     async def _receive_audio(self):
-        print("[ULTRON] 👂 Recv started")
+        print("[GÖLGE] 👂 Recv started")
         out_buf, in_buf = [], []
 
         try:
@@ -1587,7 +1589,7 @@ class UltronLive:
                     if _sru is not None:
                         if getattr(_sru, "resumable", False) and getattr(_sru, "new_handle", None):
                             if self._resume_handle is None:
-                                print("[ULTRON] 🔗 Session resumption armed")
+                                print("[GÖLGE] 🔗 Session resumption armed")
                             self._resume_handle = _sru.new_handle
 
                     if response.data:
@@ -1700,7 +1702,7 @@ class UltronLive:
                         fn_responses = []
                         try:
                             for fc in response.tool_call.function_calls:
-                                print(f"[ULTRON] 📞 {fc.name}")
+                                print(f"[GÖLGE] 📞 {fc.name}")
                                 fr = await self._execute_tool(fc)
                                 fn_responses.append(fr)
                             await self.session.send_tool_response(
@@ -1713,17 +1715,17 @@ class UltronLive:
                                 self._cloud_remote_last_tool_done = time.monotonic()
                                 self._cloud_remote_last_activity = self._cloud_remote_last_tool_done
         except Exception as e:
-            print(f"[ULTRON] ❌ Recv: {e}")
+            print(f"[GÖLGE] ❌ Recv: {e}")
             traceback.print_exc()
             raise
 
     async def _play_audio(self):
-        print("[ULTRON] 🔊 Play started")
+        print("[GÖLGE] 🔊 Play started")
 
         _spk_name = get_output_device()
         _spk_dev  = audio_devices.resolve(_spk_name, "output")
         if _spk_dev is not None:
-            print(f"[ULTRON] 🔊 Output device: {_spk_name}")
+            print(f"[GÖLGE] 🔊 Output device: {_spk_name}")
 
         def _open_spk(dev):
             st = sd.RawOutputStream(
@@ -1744,7 +1746,7 @@ class UltronLive:
             # cost the user their voice. Fall back to the default and say so.
             if _spk_dev is None:
                 raise
-            print(f"[ULTRON] ⚠️  Output device '{_spk_name}' failed: {_e} — using default")
+            print(f"[GÖLGE] ⚠️  Output device '{_spk_name}' failed: {_e} — using default")
             self.ui.write_log(f"SYS: Speaker '{_spk_name}' unavailable — using system default.")
             stream = _open_spk(None)
 
@@ -1756,7 +1758,7 @@ class UltronLive:
             lat = float(getattr(stream, "latency", 0.0) or 0.0)
             if 0.0 < lat < 1.0:
                 self._out_latency = lat
-            print(f"[ULTRON] 🔊 Output latency {self._out_latency*1000:.0f} ms "
+            print(f"[GÖLGE] 🔊 Output latency {self._out_latency*1000:.0f} ms "
                   f"→ echo tail {(self._out_latency + _TAIL_MARGIN)*1000:.0f} ms")
         except Exception:
             pass
@@ -1802,7 +1804,7 @@ class UltronLive:
                     except asyncio.QueueEmpty:
                         break
 
-                # Drive the HUD waveform and the avatar's mouth from ULTRON's
+                # Drive the HUD waveform and the avatar's mouth from GÖLGE's
                 # own voice. The batch is up to 200 ms long, so we hand over a
                 # *schedule* of 20 ms viseme frames instead of a single averaged
                 # level and let the HUD play it out in step with the audio.
@@ -1857,7 +1859,7 @@ class UltronLive:
                 except (RuntimeError, asyncio.CancelledError):
                     break   # executor shutting down — exit cleanly
         except Exception as e:
-            print(f"[ULTRON] ❌ Play: {e}")
+            print(f"[GÖLGE] ❌ Play: {e}")
             raise
         finally:
             self.set_speaking(False)
@@ -1929,7 +1931,7 @@ class UltronLive:
             turns={"role": "user", "parts": [{"text": p1}]},
             turn_complete=True,
         )
-        print("[ULTRON] Briefing phase 1 (greeting) sent.")
+        print("[GÖLGE] Briefing phase 1 (greeting) sent.")
 
         # ── Phase 2: fire as soon as Phase 1 audio is done ───────────────────
         async def _deliver_news():
@@ -1992,10 +1994,10 @@ class UltronLive:
                     turns={"role": "user", "parts": [{"text": p2}]},
                     turn_complete=True,
                 )
-                print("[ULTRON] Briefing phase 2 (news) sent.")
+                print("[GÖLGE] Briefing phase 2 (news) sent.")
             except Exception as e:
                 print(f"[Briefing] Phase 2 error: {e}")
-                print(f"[ULTRON] Briefing phase 2 failed: {e}")
+                print(f"[GÖLGE] Briefing phase 2 failed: {e}")
                 self.ui.write_log("SYS: Could not fetch the news for the briefing.")
 
         asyncio.create_task(_deliver_news())
@@ -2059,7 +2061,7 @@ class UltronLive:
         await asyncio.sleep(300)          # wait 5 min after startup before first check
         while True:
             if self.session and self._awake:
-                # Don't interrupt if user spoke recently or ULTRON is mid-sentence
+                # Don't interrupt if user spoke recently or GÖLGE is mid-sentence
                 with self._speaking_lock:
                     speaking = self._is_speaking
                 recent_speech = (time.monotonic() - self._last_user_speech) < 30
@@ -2079,7 +2081,7 @@ class UltronLive:
                                 turns={"role": "user", "parts": [{"text": msg}]},
                                 turn_complete=True,
                             )
-                            print("[ULTRON] Monitor alert sent.")
+                            print("[GÖLGE] Monitor alert sent.")
                             await asyncio.sleep(6)   # gap between consecutive alerts
                     except Exception as e:
                         print(f"[Monitor] ⚠️ Background check error: {e}")
@@ -2122,7 +2124,7 @@ class UltronLive:
                     turns={"role": "user", "parts": [{"text": prompt}]},
                     turn_complete=True,
                 )
-                print("[ULTRON] Proactive check-in.")
+                print("[GÖLGE] Proactive check-in.")
             except Exception as e:
                 print(f"[Proactive] ⚠️ {e}")
 
@@ -2166,7 +2168,7 @@ class UltronLive:
         try:
             if command == "wake":
                 self.wake(reason="phone remote command")
-                await finish(True, "Laptop ULTRON uyandırıldı.")
+                await finish(True, "Laptop GÖLGE uyandırıldı.")
                 return
 
             if command == "mute":
@@ -2181,7 +2183,7 @@ class UltronLive:
 
             if command == "interrupt":
                 self.interrupt()
-                await finish(True, "Laptop ULTRON konuşması durduruldu.")
+                await finish(True, "Laptop GÖLGE konuşması durduruldu.")
                 return
 
             if command == "sync_memory":
@@ -2196,6 +2198,40 @@ class UltronLive:
             task_text = str(payload.get("text") or "").strip()
             if not task_text:
                 await finish(False, "Laptop görevi boş geldi.")
+                return
+
+            # Only this explicit no-tools mode is accepted for hour-long
+            # listening analysis; older agents must never interpret it as
+            # a general-purpose desktop command.
+            if payload.get("mode") == "local_listening_analysis":
+                stage = str(payload.get("stage") or "")
+                analysis_prompt = str(payload.get("text") or "")
+                system = str(payload.get("system") or "")
+                if stage not in ("map", "reduce", "final") or not (1 <= len(analysis_prompt) <= 14500) or not (1 <= len(system) <= 2100):
+                    await finish(False, "Geçersiz salt-okunur Qwen analiz isteği.")
+                    return
+                lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt, log=log_lease)
+                lease_task = asyncio.create_task(lease_guard.run())
+                await client.report_task_progress(
+                    command_id, delivery_attempt=delivery_attempt,
+                    stage="executing",
+                    message="Laptop yerel Qwen konuşma analizini yürütüyor.",
+                    percent=20,
+                )
+                if lease_guard.lost.is_set():
+                    return
+                local = await client.local_listening_analysis(analysis_prompt, system, stage)
+                if lease_guard.lost.is_set():
+                    return
+                await finish(
+                    True, "Yerel konuşma analizi tamamlandı.",
+                    extra={"analysis": local["analysis"], "model": local["model"],
+                           "provider": local["provider"], "stage": stage},
+                )
+                return
+
+            if payload.get("mode") not in (None, "", "local_brain"):
+                await finish(False, "Desteklenmeyen agent_task modu; güvenli olarak reddedildi.")
                 return
 
             # No-tools local brain: iPhone's free default chat uses installed
@@ -2274,7 +2310,7 @@ class UltronLive:
                 command_id,
                 delivery_attempt=delivery_attempt,
                 stage="received",
-                message="Telefon görevi laptop ULTRON tarafından alındı.",
+                message="Telefon görevi laptop GÖLGE tarafından alındı.",
                 percent=10,
             )
             if lease_guard.lost.is_set():
@@ -2298,7 +2334,7 @@ class UltronLive:
                 f"{task_text}{plan_text}\n\n"
                 "Execute this task on THIS Windows laptop now using every local "
                 "tool/action/plugin available to you exactly as if the owner had "
-                "spoken directly to the desktop ULTRON. Return a concise factual "
+                "spoken directly to the desktop GÖLGE. Return a concise factual "
                 "final result after the tools finish. Do not claim completion "
                 "unless the tool action actually succeeds."
             )
@@ -2382,7 +2418,7 @@ class UltronLive:
                 part.strip() for part in self._cloud_remote_output_parts if part.strip()
             ).strip()
             if not result_text:
-                result_text = "Görev laptop ULTRON tarafından tamamlandı."
+                result_text = "Görev laptop GÖLGE tarafından tamamlandı."
 
             await client.report_task_progress(
                 command_id,
@@ -2418,7 +2454,7 @@ class UltronLive:
                 self._cloud_remote_tool_busy = False
 
     async def _cloud_remote_loop(self) -> None:
-        """Poll ULTRON Cloud for phone-originated laptop commands."""
+        """Poll GÖLGE Cloud for phone-originated laptop commands."""
         client = CloudClient()
         self._cloud_client = client
         if not client.enabled:
@@ -2510,6 +2546,7 @@ class UltronLive:
                         probe_executor, local_chat_ready)
                     state = {
                         "local_chat_ready": ready,
+                        "local_listening_analysis_ready": ready,
                         "ui_state": "CONNECTED" if self.session is not None else "CONNECTING",
                         "muted": bool(self.ui.muted),
                         "voice_active": voice_active,
@@ -2577,7 +2614,7 @@ class UltronLive:
                     await asyncio.sleep(0.1)
                 if self.session:
                     # A remote command is deliberate control and the phone user
-                    # has no desktop WAKE button — so it wakes ULTRON if asleep.
+                    # has no desktop WAKE button — so it wakes GÖLGE if asleep.
                     if self._wake_enabled and not self._awake:
                         self.wake(reason="remote command")
                     await self.session.send_client_content(
@@ -2639,7 +2676,7 @@ class UltronLive:
 
         while True:
             try:
-                print("[ULTRON] Connecting...")
+                print("[GÖLGE] Connecting...")
                 self.ui.set_state("THINKING")
                 # Pick the rung to open the conversation on. A model resting
                 # off a quota limit is skipped; the name is published back to
@@ -2647,7 +2684,7 @@ class UltronLive:
                 global LIVE_MODEL
                 LIVE_MODEL = _gemini.live_model()
                 live_model = LIVE_MODEL
-                print(f"[ULTRON] Live model: {live_model}")
+                print(f"[GÖLGE] Live model: {live_model}")
 
                 _resumed_with = self._resume_handle is not None
                 config = self._build_config()
@@ -2677,7 +2714,7 @@ class UltronLive:
                     self._vision_last_time     = 0.0
                     self._interrupted          = False
 
-                    print("[ULTRON] Connected.")
+                    print("[GÖLGE] Connected.")
                     if _resumed_with:
                         # Say it plainly: the difference between "it reconnected"
                         # and "it reconnected and still knows what we were doing"
@@ -2690,11 +2727,11 @@ class UltronLive:
                         self._ensure_wake_detector()
                         self._awake = False
                         self.ui.set_state("SLEEPING")
-                        self.ui.write_log("SYS: ULTRON online — sleeping. Say 'Ultron' to wake me.")
+                        self.ui.write_log("SYS: GÖLGE online — sleeping. Say 'Ultron' to wake me.")
                     else:
                         self._awake = True
                         self.ui.set_state("LISTENING")
-                        self.ui.write_log("SYS: ULTRON online.")
+                        self.ui.write_log("SYS: GÖLGE online.")
 
                     if self._dashboard:
                         await self._dashboard.broadcast({"type": "status", "state": "active"})
@@ -2733,7 +2770,7 @@ class UltronLive:
                 # Voluntary reconnect (voice change) — not an error. Rebuild the
                 # session immediately with no backoff and no scary logs.
                 if _is_reconnect_signal(e):
-                    print("[ULTRON] Voluntary reconnect requested.")
+                    print("[GÖLGE] Voluntary reconnect requested.")
                     if not _keep_context_of(e):
                         # A deliberate clean slate (voice change) — drop the
                         # handle so the next connect really does start empty.
@@ -2753,19 +2790,19 @@ class UltronLive:
                     or "INVALID_ARGUMENT" in str(e)
                     or "NOT_FOUND" in str(e)
                 ):
-                    print("[ULTRON] 🔗 Resumption handle rejected — starting a fresh session")
+                    print("[GÖLGE] 🔗 Resumption handle rejected — starting a fresh session")
                     self.ui.write_log("SYS: Could not restore the conversation — starting fresh.")
                     self._resume_handle = None
                     self._conn_backoff = 0
                     continue
 
                 err_str = str(e)
-                print(f"[ULTRON] Error ({type(e).__name__}): {e}")
+                print(f"[GÖLGE] Error ({type(e).__name__}): {e}")
                 traceback.print_exc()
 
                 # Out of quota, or this model is not available to this key —
                 # step down the ladder and reconnect straight away. This is the
-                # difference between "ULTRON is quieter today" and "ULTRON does
+                # difference between "GÖLGE is quieter today" and "GÖLGE does
                 # not start today": one model means one daily limit, and the
                 # limit always arrives mid-conversation.
                 if _gemini.note_live_failure(live_model, err_str):
@@ -2793,7 +2830,7 @@ class UltronLive:
                     or "thinking" in err_str.lower()
                 ):
                     self._tuned_live = False
-                    print("[ULTRON] Live tuning rejected — reconnecting without it.")
+                    print("[GÖLGE] Live tuning rejected — reconnecting without it.")
                     continue
 
                 # Proactive audio rejected by the server (preview API drift) —
@@ -2817,7 +2854,7 @@ class UltronLive:
                     self.ui.prompt_reconfig()
                     while not self.ui._win._ready:
                         await asyncio.sleep(1)
-                    print("[ULTRON] New API key saved — reconnecting...")
+                    print("[GÖLGE] New API key saved — reconnecting...")
                     _conn_backoff = 3
                     continue
 
@@ -2848,7 +2885,7 @@ class UltronLive:
                 await self._dashboard.broadcast({"type": "status", "state": "sleeping"})
 
             delay = getattr(self, "_conn_backoff", 3)
-            print(f"[ULTRON] Reconnecting in {delay}s...")
+            print(f"[GÖLGE] Reconnecting in {delay}s...")
             await asyncio.sleep(delay)
 
 def main():

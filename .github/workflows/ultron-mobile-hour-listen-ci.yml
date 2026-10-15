@@ -1,0 +1,38 @@
+name: ULTRON Mobile Hour Listening
+
+on:
+  push:
+    branches:
+      - feat/mobile-hour-listen-consent-20261012
+      - feat/mobile-long-listen-delivery-recovery-20261012
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+      - feat/mobile-hour-listen-consent-20261012
+    paths:
+      - 'ultron/cloud_service/static/index.html'
+      - 'ultron/cloud_service/static/long-listen.js'
+      - 'ultron/cloud_service/test_long_listen.cjs'
+      - 'ultron/cloud_service/test_long_listen_delivery_ui.cjs'
+      - '.github/workflows/ultron-mobile-hour-listen-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-listen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate script and integrated UI syntax
+        run: |
+          node --check ultron/cloud_service/static/long-listen.js
+          node --check ultron/cloud_service/test_long_listen.cjs
+          node --check ultron/cloud_service/test_long_listen_delivery_ui.cjs
+          node -e "const fs=require('node:fs'),vm=require('node:vm');const h=fs.readFileSync('ultron/cloud_service/static/index.html','utf8');const s=h.match(/<script>([\\s\\S]*?)<\\/script>/);if(!s)throw Error('inline UI script missing');new vm.Script(s[1]);for(const id of ['longListenPanel','longListenBegin','longListenPause','longListenResume','longListenExport','longListenAnswer','longListenCancel'])if(!h.includes('id=\"'+id+'\"'))throw Error(id+' missing');"
+      - name: Run consent and hour-long session logic tests
+        run: node --test ultron/cloud_service/test_long_listen.cjs ultron/cloud_service/test_long_listen_delivery_ui.cjs

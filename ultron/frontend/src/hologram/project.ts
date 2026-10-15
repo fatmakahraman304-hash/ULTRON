@@ -1,5 +1,5 @@
 export type V3=[number,number,number];
-export type ViewState={explosion:number;selected:number;isolated:boolean;wire:boolean;cut:number|null;camera:V3;target:V3;offsets:V3[];notes:string[]};
+export type ViewState={explosion:number;selected:number;isolated:boolean;wire:boolean;cut:number|null;camera:V3;target:V3;offsets:V3[];notes:string[];rotations?:V3[];scales?:V3[];removed?:boolean[]};
 export type Project={schema:'ultron-project-v1';name:string;view:ViewState;parts:{name:string;description:string;positions:number[];indices:number[]|null;base:V3;rotation:V3}[]};
 const fail=():never=>{throw Error('Proje dosyası geçersiz veya desteklenen sınırları aşıyor.');};
 const finite=(v:unknown,limit=10000):v is number=>typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=limit;
@@ -16,6 +16,10 @@ export function validateProject(input:unknown):Project{
  }
  if(triangles>750000||vertices>2250000)fail();
  const v=p.view;if(!v||!finite(v.explosion,1)||v.explosion<0||!Number.isInteger(v.selected)||v.selected< -1||v.selected>=p.parts.length||typeof v.isolated!=='boolean'||(v.isolated&&v.selected<0)||typeof v.wire!=='boolean'||!(v.cut===null||finite(v.cut,6))||!vector(v.camera)||!vector(v.target)||!Array.isArray(v.offsets)||v.offsets.length!==p.parts.length||!v.offsets.every(vector)||!Array.isArray(v.notes)||v.notes.length!==p.parts.length||!v.notes.every(n=>typeof n==='string'&&n.length<=2000))fail();
+ for(const key of ['rotations','scales'] as const){const items=v[key];if(items!==undefined&&(!Array.isArray(items)||items.length!==p.parts.length||!items.every(vector)))fail();}
+ if(v.scales?.some(s=>s.some(n=>n<.1||n>5)))fail();
+ if(v.removed!==undefined&&(!Array.isArray(v.removed)||v.removed.length!==p.parts.length||!v.removed.every(x=>typeof x==='boolean')))fail();
+ if(v.removed?.[v.selected])fail();
  if(Math.hypot(...v.camera.map((n,i)=>n-v.target[i]))<.1)fail();
  return p;
 }

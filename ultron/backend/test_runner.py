@@ -43,6 +43,7 @@ async def run_all(emit, quick: bool = False) -> list:
     results.append(await _run("TypeScript", ["npx", "tsc", "--noEmit"], FRONTEND, 240, emit))
     if not quick:
         results.append(await _run("Build", ["npm", "run", "build"], FRONTEND, 420, emit))
+        results.append(await _run("BackendUnit", [sys.executable, "-m", "pytest", "-q", str(BACKEND / "tests")], BACKEND, 300, emit))
     results.append(await _run("PythonSyntax", [sys.executable, "-m", "compileall", "-q", "."], BACKEND, 120, emit))
 
     def _http(url: str, expect):

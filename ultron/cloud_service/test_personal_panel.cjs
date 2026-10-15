@@ -35,7 +35,7 @@ test("briefing entries retain only explicitly provided saved records", () => {
             {key: " ", value: "empty"}],
   });
   assert.equal(values.length, 1);
-  assert.equal(values[0].source, "ULTRON hafızası");
+  assert.equal(values[0].source, "GÖLGE hafızası");
 });
 test("user-created dated plans appear in brief without claiming external sync", () => {
   const entries = personal.briefingEntries({
@@ -45,8 +45,8 @@ test("user-created dated plans appear in brief without claiming external sync", 
   assert.equal(entries.length,2);
   assert.equal(entries[0].category,"PLAN");
   assert.equal(entries[0].detail,"2026-10-11 15:30");
-  assert.equal(entries[0].source,"ULTRON kişisel planı");
-  assert.equal(entries[1].source,"ULTRON hafızası");
+  assert.equal(entries[0].source,"GÖLGE kişisel planı");
+  assert.equal(entries[1].source,"GÖLGE hafızası");
 });
 test("capabilities are not all presented as available", () => {
   const values = personal.capabilityEntries({capabilities: [

@@ -34,6 +34,31 @@ class ContextualRecallUnitTests(unittest.TestCase):
         self.assertLessEqual(len(result),14)
         self.assertEqual(result[0]["role"],"user")
 
+    def test_recalled_exchange_keeps_following_owner_correction(self):
+        for correction in ("Hayır, 2016 dizel olanı kastettim.",
+                           "No, I meant the 2016 diesel version."):
+            messages = self.history()
+            messages.insert(2, {"role": "user", "content": correction})
+            result = select_contextual_turns(
+                messages, "Mercedes C180", max_chars=2600, max_turns=12)
+            self.assertIn(correction, [row["content"] for row in result])
+            self.assertEqual(result[2], {"role": "user", "content": correction})
+            self.assertIn("Genel sohbet 25", str(result))
+            self.assertLessEqual(len(result), 12)
+            self.assertLessEqual(sum(len(row["content"]) for row in result), 2600)
+
+    def test_tight_turn_budget_does_not_recall_uncorrected_answer(self):
+        messages = self.history()
+        correction = "Hayır, 2016 dizel olanı kastettim."
+        messages.insert(2, {"role": "user", "content": correction})
+        # Four total turns leave only two slots for old evidence; omit the
+        # whole corrected exchange instead of presenting its superseded answer.
+        result = select_contextual_turns(
+            messages, "Mercedes C180", max_chars=900, max_turns=4)
+        self.assertNotIn("C180 motor", str(result))
+        self.assertIn("Genel sohbet 25", str(result))
+        self.assertLessEqual(len(result), 4)
+
     def test_pronouns_do_not_guess_random_old_topic(self):
         original=self.history()
         for question in ("Peki?", "Devam et", "Onun fiyatı ne?", "Peki ya o?"):
@@ -41,6 +66,29 @@ class ContextualRecallUnitTests(unittest.TestCase):
             self.assertNotIn("Mercedes C180",str(result),question)
             self.assertIn("Genel sohbet 25",str(result))
         self.assertEqual(_topic_terms("Peki onun fiyatı nasıl?"),set())
+
+    def test_just_said_recall_uses_recent_thread_not_old_keyword_search(self):
+        self.assertEqual(_topic_terms("Az önce ben ne demiştim?"), set())
+        self.assertEqual(_topic_terms("What did I just say?"), set())
+        import asyncio
+        class DB:
+            def __init__(self):
+                self.calls=[]
+                self.latest=[{"id":i,"role":"user" if i%2 else "assistant",
+                              "content":f"Recent turn {i}"} for i in range(100,180)]
+            async def fetch(self,sql,*args):
+                self.calls.append((sql,args))
+                if "ILIKE ANY" in sql:
+                    return []
+                return list(reversed(self.latest))
+        async def run():
+            db=DB()
+            turns=await load_contextual_thread_turns(
+                db,"owner-a","thread-a",question="Az önce ne demiştim?",
+                before_id=200,max_chars=1800,limit=12)
+            self.assertIn("Recent turn 178",str(turns))
+            self.assertFalse(any("ILIKE ANY" in sql for sql,_ in db.calls))
+        asyncio.run(run())
 
     def test_untrusted_system_and_malformed_records_rejected(self):
         original=self.history()
@@ -71,6 +119,13 @@ class ContextualRecallUnitTests(unittest.TestCase):
         self.assertEqual(_topic_terms("Peki onun fiyatı nasıl?"), set())
         long_message = "Normal giriş " + "a" * 1300 + " DAÜ mimarlık"
         self.assertIn("daü", _topic_terms(long_message))
+
+    def test_unaccented_turkish_topic_switch_and_correction_are_understood(self):
+        self.assertTrue(is_topic_switch_request("Konuyu degistirelim, mimarlik konusalim"))
+        self.assertTrue(is_explicit_turn_correction("Hayir, 2016 dizel olanini kastettim"))
+        self.assertIn("mercedes", _topic_terms("Mercedes C180 hakkinda ne demistik?"))
+        self.assertTrue(is_future_reminder_request("Yarin saat 9'da sinavi hatirlat"))
+        self.assertTrue(is_named_recall_request("DAU hakkinda ne demistik?"))
 
     def test_explicit_older_named_recall_queries_only_owner_thread(self):
         class DB:

@@ -2,7 +2,7 @@
 import unittest
 
 from ultron.cloud_service.conversation_turns import (
-    is_bare_continuation,
+    is_bare_continuation_request,
     select_continuation_turns,
     load_contextual_thread_turns,
 )
@@ -16,11 +16,12 @@ class FakePool:
 
     async def fetch(self, sql, *args):
         self.calls.append((sql, args))
-        owner, conversation, before_id, limit = args
+        owner, conversation, before_id, limit, *cursor = args
         rows = [r for r in self.records
                 if r.get("user_id") == owner
                 and r.get("conversation_id") == conversation
                 and (before_id is None or r["id"] < before_id)
+                and (not cursor or r["id"] < cursor[0])
                 and r["role"] in ("user", "assistant")]
         return list(reversed(sorted(rows, key=lambda r: r["id"])))[:limit]
 
@@ -34,10 +35,10 @@ class ContinuationPolicyTests(unittest.TestCase):
     def test_only_bare_continuation_gets_extended_recall(self):
         for text in ("devam et", "Devam et!", "kaldığın yerden devam et",
                      "aynı şekilde devam et", "continue", "keep going please"):
-            self.assertTrue(is_bare_continuation(text), text)
+            self.assertTrue(is_bare_continuation_request(text), text)
         for text in ("devam et ve dosyayı sil", "devam et sonra gönder",
                      "yeni konuya geçelim", "devam et, ama farklı modele geç"):
-            self.assertFalse(is_bare_continuation(text), text)
+            self.assertFalse(is_bare_continuation_request(text), text)
 
     def test_recovers_latest_real_user_goal_after_many_continuations(self):
         history = [
@@ -60,7 +61,7 @@ class ContinuationPolicyTests(unittest.TestCase):
         self.assertLessEqual(len(selected), 12)
         self.assertLessEqual(sum(len(item["content"]) for item in selected), 2600)
 
-    def test_latest_correction_overrides_old_goal(self):
+    def test_latest_correction_is_preserved_after_original_goal(self):
         history = [
             {"role": "user", "content": "Eski arayüzü yenile"},
             {"role": "assistant", "content": "Tamam"},
@@ -73,8 +74,9 @@ class ContinuationPolicyTests(unittest.TestCase):
                 {"role": "assistant", "content": "İlerliyorum"},
             ])
         selected = select_continuation_turns(history, max_chars=1000, max_turns=12)
-        self.assertIn("önce doğal sohbeti geliştir", selected[0]["content"])
-        self.assertNotIn("Eski arayüzü yenile", str(selected))
+        self.assertIn("Eski arayüzü yenile", str(selected))
+        self.assertTrue(any("önce doğal sohbeti geliştir" in row["content"]
+                            for row in selected))
         self.assertEqual(_last_substantive_owner_request("devam", selected),
                          "Hayır, önce doğal sohbeti geliştir")
 
@@ -125,12 +127,13 @@ class ContinuationDatabaseTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("BAŞKA SOHBET", str(result))
         self.assertEqual(_last_substantive_owner_request("devam et", result),
                          "FARC101 projemi tasarla")
-        self.assertEqual(len(pool.calls), 1)
-        sql, args = pool.calls[0]
-        self.assertIn("user_id=$1 AND conversation_id=$2", sql)
-        self.assertIn("id < $3", sql)
-        self.assertEqual(args[:3], ("owner-one", "thread-a", 130))
-        self.assertLessEqual(args[-1], 200)
+        self.assertGreaterEqual(len(pool.calls), 1)
+        self.assertLessEqual(len(pool.calls), 6)
+        for sql, args in pool.calls:
+            self.assertIn("user_id=$1 AND conversation_id=$2", sql)
+            self.assertIn("id < $3", sql)
+            self.assertEqual(args[:3], ("owner-one", "thread-a", 130))
+            self.assertLessEqual(args[3], 200)
 
     async def test_new_instruction_avoids_extra_continuation_lookup(self):
         records = [msg(1, "user", "önceki konu"),
@@ -141,7 +144,7 @@ class ContinuationDatabaseTests(unittest.IsolatedAsyncioTestCase):
             question="devam et ve bu dosyayı sil", before_id=3,
             limit=12, max_chars=2600,
         )
-        self.assertFalse(is_bare_continuation("devam et ve bu dosyayı sil"))
+        self.assertFalse(is_bare_continuation_request("devam et ve bu dosyayı sil"))
 
 
 if __name__ == "__main__":

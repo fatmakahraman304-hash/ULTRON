@@ -89,6 +89,7 @@ def test_dangerous_shell_requires_approval():
     assert asked, "approval must be requested for non-allowlisted shell"
     assert tools.calls == [], "shell must NOT execute before approval"
     assert "WAITING_APPROVAL" in rec.states
+    assert "onay gerektiriyor" in agent.message
     assert out.get("result") == "waiting-approval"
 
 

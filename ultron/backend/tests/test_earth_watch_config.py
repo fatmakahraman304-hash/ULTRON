@@ -77,6 +77,14 @@ class EarthWatchConfigTests(unittest.TestCase):
         self.assertEqual(result["focus_label"], "GLOBAL")
         self.assertTrue(math.isfinite(result["rotation_speed"]))
 
+    def test_coarse_globe_cannot_zoom_to_fake_street_detail(self):
+        result = normalize_earth_state({"camera_distance": .1, "map_zoom": 200, "layer": "MAP", "focus_revision": "nan"})
+        self.assertEqual(result["camera_distance"], 6)
+        self.assertEqual(result["map_zoom"], 19)
+        self.assertEqual(result["layer"], "MAP")
+        self.assertEqual(result["focus_revision"], 0)
+        self.assertEqual(normalize_earth_state({"layer": "fake_satellite"})["layer"], "GLOBAL")
+
 
 if __name__ == "__main__":
     unittest.main()

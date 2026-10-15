@@ -1,3 +1,194 @@
+## 2026-10-16 — Güncel kapsam ve devam
+
+1. PR #44'te üç eski özelliğin kaldırılmasını incele: GÖLGE intro render, Dünya hologramı, enerji hologramı. Ana CORE ve ayrı harita kullanıcı talimatıyla kalır.
+2. Yeni kaldırma commit'inin GitHub Actions kontrollerini tamamla; başarısız job varsa düzelt. Test: `python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v`, frontend build, `python scripts/tests/test_frontend_stage_loading.py`.
+3. Üretime merge veya Render deploy için ayrıca açık onay gerekir; bu görev yayın yetkisi vermez.
+4. Fiziksel Windows/iPhone ve gerçek Qwen/Gemini/mikrofon/TTS testleri hâlâ yapılmadı. Önceki raporların bu sınırlarını koru.
+
+Aşağıdaki eski görevler tarihsel kayıttır; kaldırılan üç preset yeniden eklenmemelidir.
+
+## PR #44 — CORE/Dünya son doğrulama ve fiziksel kabul
+
+1. docs/GOLGE_EARTH_V7.md ve docs/ui-v7/ gerçek ekran/kayıtlarını incele. Etiketli sentetik ses testi mikrofon/TTS başarısı değildir; yeni sohbet ekranlarında gerçek sahne cevapları ve model UNAVAILABLE sonucu vardır.
+2. Yetkili Windows laptopta mevcut bridge/Ollama/Qwen ve Cloud eşleşmesini doğrula. Bu yürütücüde VPN/model kimliği yok; internete Ollama açma veya model indirme. Native PCM/TTS RMS, kesme ve ses transkriptinden Dünya/CORE komutlarını ölç.
+3. RTX'te gerçek FPS/VRAM, gizli sekme, düşük kalite ve 20+ geçiş; iPhone'da gerçek klavye/mic/PWA/uzun dinleme. SwiftShader kayıt ölçümü p50 178,2 ms/p95 198,0 ms; bu ortamda 60 FPS yok. Fiziksel donanım NOT RUN.
+4. Uydu/terrain ancak gerçek veri lisansı ve güvenli kaynak ile etkinleşebilir. Varsayılan uydu BLOCKED; MAP gerçek OSM sokak haritasıdır. Ücretli sağlayıcı otomatik açılmaz.
+5. PR #44 taslak kalsın; mevcut diğer PR bağımlılıklarına dokunma. Kullanıcının ayrı açık onayı olmadan production merge veya Render deploy yapma.
+
+## PR #44 — Tasarım incelemesi ve gerçek cihaz/model engelleri
+
+1. `docs/GOLGE_V5_VISUAL_REVIEW.md` ve `docs/ui-v5/` altındaki yeni gerçek uygulama kayıtlarını incele. Dolu sohbet örnekleri görünür SENTETİK SOHBET etiketi taşır; tasarım kabulünü teknik test sonucundan çıkarma.
+2. Yetkili Windows laptopta mevcut Ollama/Qwen kurulumunu ve Qt köprüsünü doğrula. Bu yürütücüde laptop/VPN veya hazır model yok; ağırlık indirme veya internete Ollama açma.
+3. Mevcut Cloud cihaz eşleşmesi ve kullanılabilir model yetkisi sağlanırsa aynı gerçek sohbet kabulünü tekrar çalıştır. API anahtarlarını arayüze/loglara koyma; UNAVAILABLE sonucunu başarı sayma.
+4. Fiziksel iPhone Safari'de sabit fotoğraf, gerçek klavye, uzun sohbet, dosya/mikrofon ve PWA yeniden bağlantısını; Windows'ta gerçek RMS/TTS senkronunu ve RTX yeniden boyutlandırmayı ölç. Headless CPU-kompozitörü kaydı cihaz testi değildir.
+5. PR #44 taslak kalsın. Kullanıcının açık üretim onayı olmadan production merge veya Render deploy yapma. Diğer açık PR bağımlılıklarına dokunma.
+
+## Next tasks — GÖLGE V5 interface release verification
+
+1. Review draft [PR #44](https://github.com/fatmakahraman304-hash/ULTRON/pull/44); validated code/test commit `41c907056130536b6ec7abb482a4a02bf33e1437` passed exact-head Responsive, Scene, Cloud/PostgreSQL and Local Qwen Listening Actions. Do not merge or deploy without the user's release authorization.
+2. On the Windows laptop, confirm the real native bridge reports CPU/RAM/GPU and audio amplitude, verify local Ollama/Qwen and Gemini fallback, test 3D CORE state transitions and view switching, and measure actual GPU frame time. Keep missing sensors visibly unavailable.
+3. On physical iPhone Safari, verify authenticated chat history, fixed wallpaper while scrolling, keyboard/safe-area composer, image/file attach, mic permission, voice turn and network recovery. Background microphone behavior remains subject to iOS restrictions.
+4. Validate one authenticated local/cloud chat exchange and same-owner phone/laptop history without changing stored user data. Confirm the control-center action tools continue through existing approval/audit flows.
+5. Recheck Render `/health` and deployment SHA after network is available. No live deployment has been started; this desktop code branch is unmerged.
+6. Investigate the existing OrbitControls 575.89 kB chunk warning using measured bundle evidence before changing chunk boundaries.
+
+## Next tasks — cognitive router v2 follow-up
+
+1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.
+2. Research is now correctly exposed as search-result discovery only (`adapter`): no page contents are read, so claim confidence stays zero and there is no corroboration/contradiction assertion. Next research code slice: implement a bounded source reader with public-IP/redirect validation, evidence extraction, prompt-injection isolation and claim-to-excerpt checks; validate with a local HTTP fixture and adversarial URL cases before routing research intent to it. Keep Approval Gate, audit and owner/thread boundaries.
+3. When a real Gemini credential or the paired laptop's Ollama service is available, run the frozen 100-case real-model suite with recorded model identities, transcripts and latencies, then obtain independent review. Keep quality, first-token and total response latency **NOT_RUN** until that evidence exists.
+4. On the Windows laptop, verify actual task dispatch, approval UI, agent result visibility and Qwen/Gemini routing. Measure Qwen3:4B/Qwen3:8B/coder latency on the stated RTX 2050/24 GB hardware; do not download models or alter Windows during this branch task.
+5. On physical iPhone Safari, preserve PR #30 checks: foreground mic, long listening, explicit “Cevap ver”, reconnect/resume. Background/locked-screen listening remains unsupported unless real device behavior proves otherwise.
+
+## Archived next tasks — first-run setup verification
+
+The first-run setup focus/persistence fix is on the owner’s Windows handoff path. The owner reported `INSTALL.bat` completed at `4648d70`; opening `START.bat`, checking first-run typing, and confirming the setup stays closed after persistence still require the physical laptop. Do not paste API keys into chat, logs or bug reports.
+
+## Completed checkpoint — provider error privacy hardening
+
+Code commit `1ad5f288d1f4084d0561c8027dbee51f5ad75b6c` replaces raw provider errors in owner logs and live error responses with stable safe categories, preserving transient-error handling. Focused privacy tests 3/3 and full Cloud Python 323 passed / 60 skipped. Cloud/PostgreSQL #38458215679 ran the new privacy test; Scene #38457949652 and WORLD smoke #38457949491 passed. Render deploy `dep-db78mn5bedkc738a0fu0` is LIVE at the code SHA. Workflow commit `e83b0d5929d1fee256a5165754b66b16b6844766` adds the regression to GitHub CI.
+
+## Completed checkpoint — frozen bilingual evaluation integrity
+
+Commit `5677dca638909d23d96aab2dedab2597dbd196c1` closes a dataset-validator gap: only `tr` and `en` are accepted, and every category must contain five of each. Evaluation tests: 11/11; full Cloud Python: 320 passed, 60 skipped. Cloud/PostgreSQL #38456643001 and Scene #38456642956 succeeded. Render deploy `dep-db78i45bedkc7389oi50` is LIVE at the same SHA; `/health` returned HTTP 200 with the exact commit. This is dataset validation, not answer-quality scoring.
+
+## Completed checkpoint — typed live turns preserve consent and history
+
+Commit `f932b184eda215585a01d8d5d933b9f682611de1` ensures typed `/api/live` turns reach the current-turn memory consent guard and conversation history, with a 16,000-character input cap. Cloud Python: 319 passed, 60 skipped; browser tests: 153/153. Scene #38455888286, Cloud/PostgreSQL #38455888395 and WORLD smoke #38455888333 passed. Render deploy `dep-db78feajnfac73d01fo0` is LIVE at the same SHA; `/health` returned HTTP 200 and the exact commit.
+
+## Next tasks — real model and device validation after privacy hardening
+
+1. On the paired laptop, test local Qwen failures/recovery, Gemini fallback, agent chat errors, and image uploads; confirm only useful safe status reaches the user and no image text enters diagnostic logs.
+2. Run the frozen 100-case Turkish/English conversation suite against real Gemini and local Qwen, retaining actual transcripts/model identity/latency and independent review. Keep unavailable providers/devices **NOT_RUN**; never infer 100/100 from CI.
+3. Measure Qwen token occupancy and Turkish p50/p95 latency on the target laptop before changing interactive context or model defaults.
+4. Keep Windows installation deferred until the final combined update and preserve the approval, privacy, and device-permission gates.
+
+## Completed checkpoint — live voice consent release
+
+The live-voice memory guard and grounded tool instructions are pushed at `166ae52e4f47421329e60d1d5c474d47e8ef2a9b`. Scene #38449688028 and Cloud/PostgreSQL #38449688070 passed; Render deploy `dep-db77pougekts73dhtjpg` is LIVE at the same SHA, and public `/health` returns HTTP 200.
+
+## Next tasks — real model and device quality
+
+1. On the phone, confirm an unprompted personal disclosure is not persisted, an explicit “bunu hatırla” is persisted, and password/API-key-like content is refused. Record the actual Gemini Live transcript and device/provider versions.
+2. Verify paired-laptop delegation reports queued/completed/failed truthfully and preserves the existing approval before code edits; test on real devices instead of inferring behavior from mocks.
+3. Run the frozen 100-scenario Turkish/English evaluation against real Gemini and reachable local Qwen, followed by independent review. This workspace has no Gemini key or Ollama endpoint, so model quality and 100/100 remain unverified.
+4. Keep Windows installation deferred until the single consolidated update already requested. Preserve owner approval, privacy isolation, and explicit device permissions.
+
+## Next tasks — real conversation quality and device verification
+
+1. On the owner’s phone and paired Windows laptop, verify accented and unaccented Turkish style/topic commands, Qwen-first routing when Ollama is actually ready, Gemini fallback, voice turn cancellation, image upload/recovery, and 3D scene edits. Record device/model versions and actual failures; do not infer hardware operation from browser mocks.
+2. Run the frozen 100-scenario evaluation against real Gemini and reachable Qwen, then obtain independent review. Keep provider transcripts, latency, and factual/style scores separate; missing credentials or unavailable devices must stay `not_run`, never pass.
+3. Measure the Vite 821.74 kB raw / 222.42 kB gzip Three.js chunk on a cold dashboard. `Dashboard.tsx` statically loads `CenterStage`, whose default `GolgeOrb` uses WebGL; the separate Hologram Lab is lazy. Add a browser timing/resource contract before considering a deferred orb or CSS fallback, and preserve the initial visual behavior unless the measured gain justifies a change.
+4. Keep Windows installation/model downloads deferred until the final consolidated owner update; preserve Approval Gate, privacy, and device permissions.
+
+## Completed checkpoint — Turkish matching release
+
+The diacritic-tolerant code and package-import correction are pushed and verified: Scene `38440168682` and Cloud Queue/PostgreSQL `38440168681` passed, Render is LIVE at `c805e1e`, and served files match the release. The remaining owner phone/laptop and real Gemini/Qwen evaluation steps are listed at the top of this file.
+
+## Next tasks — verify latest Qwen routing recovery
+
+1. `52b776a` is pushed; Scene Build `38438751167` and Cloud Queue PostgreSQL `38438751172` both passed, and Render is LIVE at the exact SHA. Continue with actual phone and desktop provider verification.
+2. On the phone, test with laptop/Qwen available, unavailable, and with the presence endpoint temporarily unavailable; verify fallback reply provenance on the server without resending accepted local tasks.
+3. Run actual Gemini + reachable local Qwen 100-case TR/EN conversation evaluation with independent review. This workspace has no Gemini key or Ollama endpoint, so deterministic tests cannot substitute.
+4. Continue the context-budget audit for verbose recent replies and recalled old-topic evidence.
+
+## Next tasks — activate GÖLGE self-development on the laptop
+
+1. Verify Cloud/Scene Actions and Render for the current self-development release.
+2. During the already requested one-time Windows update, install this repository version and ensure GitHub CLI is installed and `gh auth status` succeeds for `fatmakahraman304-hash/ULTRON`. Never paste a token into GÖLGE chat.
+3. On the laptop, test a specific request such as “Gölgeye 3D sahne düzenleme özelliği ekle”: inspect diff, approve, verify local suite, draft PR, Actions, manual merge, then Render deployed SHA. Also verify dirty checkout and missing GitHub login stop before editing.
+4. Keep PR merge and Render rollout owner-controlled; no automatic deployment is claimed before device verification.
+5. Run the real Gemini/Qwen 100-scenario conversation evaluation and independent review when provider/device access is available.
+
+## Next tasks — verify device and provider quality
+
+1. Owner-grounded briefing suggestions are verified live at `a0352a5` (Cloud/PostgreSQL and Scene/UI Actions passed; Render SHA matched).
+2. Run the frozen 100-case TR/EN evaluation with actual Gemini and reachable local Qwen, then independent human review. Dataset validation alone does not score model quality.
+3. On Windows and phone, verify actual voice continuity, live laptop presence, approval-gated tools, memory correction/deletion, and cloud-to-device task completion. Do not install on Windows until the previously requested final consolidated update.
+4. Continue context-budget audit for verbose recent replies and recalled old-topic evidence.
+
+## Next tasks — conversation, memory and reasoning
+
+1. Correction-aware recall release `202e4f9` is verified: both Actions workflows passed, Render LIVE and health SHA matched. Continue with the context-budget audit below.
+2. Investigate whether provider-side context recapping drops selected old evidence under verbose recent turns; reproduce before changing.
+3. Run the frozen 100-scenario conversation evaluation with real Gemini and reachable Qwen, then independent review. Provider-free tests are not model-quality scores.
+4. Validate actual laptop/phone voice and task completion when devices are available; preserve Approval Gate. No Windows installation now.
+
+## Next tasks — 2026-10-13 public model retrieval
+
+1. Functional bca7e94 is Render LIVE. Fixed workflow 72f5e91 passed Scene #38388140843 and Cloud #38388141206; full logs read. Documentation-only final HEAD receives a manual Scene check. Preserve remote GÖLGE identity and protocol compatibility.
+2. Public model search is now implemented via Poly Haven CC0. Sources: `scene_assets.py`, `spatial/assets.ts`; opt-in external smoke: `python scripts/tests/scene_public_asset_smoke.py`. Normal CI uses bounded offline fixtures. Source may be unavailable or lack the desired asset; keep explicit no-match/failure behavior. Expand Turkish search synonyms/semantic translation only with tests that reject unrelated matches.
+3. Remaining: real provider recognizability/latency evaluation for free-form generation, plus deferred Windows/iPhone voice/geometry smoke. Synthetic Gemini/Qwen outputs in unit/browser suites do not establish model quality or 100/100 conversational score. No Windows installation done.
+4. Browser checks: “daire”, “kare çiz”, “bir masa modeli oluştur”, “internetten sandalye modeli bul getir”, then move/rotate/remove/undo; source attribution should stay in saved projects. Test larger catalogue assets against 30MB/200-part/750k-triangle limits before increasing limits.
+
+## 2026-10-13 — Verified public-model release
+
+- Functional code `bca7e945b689f38bd1c6a6a4cbfac8e997e50b62` is pushed. Cloud/PostgreSQL #38387946739, Frontend #38387946743 and WORLD smoke #38387946860 passed. Scene #38387946750 initially failed because the new HTTP asset test ran before aiohttp installation; no runtime failure was implicated.
+- Workflow correction `72f5e91c947efc7df824d166e0641bcc85c450ec` moves that test after dependency installation. Exact-SHA Scene #38388140843 and Cloud/PostgreSQL #38388141206 **SUCCESS**; complete logs read, including five asset contracts, two desktop routing cases, nine actual WebGL cases, scene queue privacy/idempotency and six Qwen synthetic-provider browser cases. No test removed or weakened to conceal the failure.
+- Render deployment `dep-db711em7bikc73fnlip0` **LIVE at functional bca7e94**, finished 2026-10-13T11:07:39Z. `/health` HTTP200/ok and scene-control.js, scene-intents.js, sw.js HTTP200 and byte-for-byte match. Shell v66. Later workflow/docs-only commits do not change the deployed runtime. Authenticated production provider/asset sessions were not exercised here.
+- Real public-source smoke previously downloaded and displayed Poly Haven ArmChair_01 (CC0, 154,988-byte geometry-only GLB), with movement/removal/undo verified and screenshot inspected. This validates real public asset retrieval; real Gemini/Qwen creative output quality and physical devices remain unverified. Disposable local test database removed. No Windows installation.
+
+## 2026-10-13 — Live-source model search and import
+
+- “İnternetten sandalye modeli bul getir” now searches the dynamic Poly Haven CC0 catalogue (521 public models observed), selects the highest matching result and loads its actual geometry. Common Turkish object terms and English names/tags are supported; the asset ID list is not hardcoded. Unknown queries preserve the scene and report no match. Basic shapes remain instant; “bir masa modeli oluştur” remains the separate conceptual generation path.
+- **Real public-source smoke passed:** fetched `ArmChair_01`, converted its declared buffers to an embedded geometry-only GLB (**154,988 bytes**), displayed it in actual Chromium WebGL, moved it, removed it and restored it. Screenshot inspected. Source: https://polyhaven.com/a/ArmChair_01 ; CC0, author Kirill Sannikov. This is real downloaded geometry, not a synthetic provider output. Source/license/author are shown and retained in exported part descriptions. Textures are intentionally omitted for the existing hologram material and modest GPU budget.
+- Authenticated same-origin search/download routes share Cloud/desktop implementation. Only fixed HTTPS Poly Haven API/download hosts and model paths; redirects rejected, declared buffers only, 30MB total, max16 buffers, deadline and two-download concurrency cap. External textures/extensions removed before GLB import; existing 200-part/750k-triangle/nonfinite-geometry checks stay. No arbitrary URL fetcher, filesystem deletion, generated code, weight download or extra main-screen panel.
+- Preserved remote listening improvements and GÖLGE rebrand through `f53f3e4`. Upstream Cloud CI #38381976427 had stale ULTRON identity assertions; full local tests also exposed an old development-ticket label assertion. Updated those display expectations to the actual GÖLGE behavior while retaining protocol/legacy compatibility tests; PWA shell/cache tests synchronized at v66.
+- Local **263/263 Python tests**, including real disposable PostgreSQL with no skips; **147/147 JS**, **9/9 WebGL UI tests**, **6/6 Qwen queue/browser tests**, two desktop routing tests, parser/schema/project validation, npm ci/build, Earth 6 JS/5 Python and py_compile pass. Explicit public-source smoke additionally passes. Gemini/Qwen creative geometry quality and physical Windows/iPhone still NOT VERIFIED; no universal model availability/engineering-accuracy claim. Windows installation deferred. Exact new CI/Render results pending push.
+
+## Next tasks — 2026-10-13 free-form scene synthesis
+
+1. Check exact new Scene/Cloud CI logs and Render LIVE commit after push; functional changes touch Cloud app, static bundles and desktop endpoint. Local full checks pass as recorded below.
+2. Remaining user requirement: licensed online model search/download. No asset provider/download credentials or validated source is connected; do not claim internet retrieval. Select and integrate a source with licence metadata, bounded embedded GLB downloads and attribution; keep external references blocked.
+3. Run real Qwen/Gemini creative geometry checks (chair, table, house, unusual assemblies, impossible request), validate recognizability, latency and failure wording. Synthetic pipeline tests are not evidence that all arbitrary models can be generated. Original 100-case conversation quality goal remains unmeasured.
+4. Deferred final Windows/iPhone smoke: “daire”, “kare çiz”, “bir masa modeli oluştur”, “onu sağa taşı”, “onu yok et”, “geri al”; verify local availability routing and voice on actual hardware. No Windows installation/download performed.
+5. Source: spatial/design.ts, spatial/intents.ts, HologramScene.ts, scene_design.py, scene_queue.py, scene_design_api.py. Rebuild generated bundles via node scripts/build_scene_browser.mjs after npm ci; run scene browser/schema tests and disposable PostgreSQL queue tests.
+
+## 2026-10-13 — Shapes and free-form conceptual scene synthesis
+
+- Added direct “daire”, “kare”, “üçgen”, “silindir”, “koni” and “halka” geometry. “Bir masa modeli oluştur” or, inside the scene, “sandalye oluştur” now requests a data-only assembly rather than rejecting every object outside the built-in demo list. Generated assemblies reuse movement, rotation, part selection, removal, reset and project persistence.
+- New bounded geometry schema: up to 24 parts, eight primitive kinds, validated dimensions/positions/rotations; provider instruction requests 1–8 meaningful parts for small-model budgets. No generated code, tool call or URL is executed. Invalid output preserves the current scene; closing the workspace prevents late replacement. Generated models are explicitly labelled conceptual, never engineering CAD or downloaded assets.
+- Mobile prioritizes actually ready local Qwen, via owner-scoped idempotent scene queue using the existing fenced no-tools worker and shared three-task capacity; only confirmed pre-submission offline rejection allows Cloud fallback. Desktop uses installed Qwen first, configured Cloud otherwise. Scene prompts/results do not enter chat conversations, learning or personal memory. New authenticated Cloud endpoint uses the existing Gemini configuration, no new provider/account/model downloads.
+- **Limits:** actual Gemini/Qwen geometry quality and physical Windows/iPhone not tested here. Internet asset search/download is NOT implemented: explicit web-search requests receive an honest explanation. A licensed asset source/download integration remains necessary for that part of the user's request. No claim that every arbitrary object can be reconstructed accurately. Windows installation remains deferred.
+- Local checks: **251/251 Cloud Python** with actual disposable PostgreSQL and zero skips (includes three new queue ownership/idempotency/capacity cases); **134/134 JS**, **8/8 Chromium WebGL scene cases**, **6/6 Qwen queue/browser cases with synthetic providers**, two desktop routing tests, schema/parser validation, 18 project checks, npm ci/build, Earth 6 JS/5 Python, py_compile and workflow YAML all pass. Provider outputs in generation tests are synthetic; no actual creativity score measured. PWA shell v63. New CI/Render evidence pending push.
+
+## Next tasks — 2026-10-13 reset follow-up
+
+1. Runtime 60403db is LIVE; Scene/Cloud/Frontend passed. Workflow repair 52ebff6 passed Scene #38353910646, Cloud #38353913024, Listening #38353907640; logs read. Final docs-only HEAD will receive a manual Scene check; preserve remote listening additions at cc2ab74.
+2. Physical Windows/iPhone smoke remains deferred to final device update: create engine, move, rotate, select Piston 1, remove, undo, reset and undo reset. No real Qwen/Gemini quality score is available.
+3. Baseline orientation now survives project exports. Older files retain only the orientation saved by the old exporter; original pre-edit orientation cannot be reconstructed. Test with `python scripts/tests/test_scene_browser.py` after frontend build and `node scripts/build_scene_browser.mjs`.
+4. Next coherent scene improvement: named-part command coverage and rejection of ambiguous targets; ensure rejected out-of-bounds commands do not add undo history. Keep parser limited to explicit local scene edits.
+
+## 2026-10-13 — Verified reset release
+
+- Runtime commit `60403db496d9021668afa15d68763b48df5cbd7a`: Scene #38353845104, Cloud/PostgreSQL #38353845427 and Frontend #38353845172 **SUCCESS**. Read full Scene/Cloud logs; five actual WebGL cases and six synthetic-provider Qwen Chromium/queue cases pass.
+- Repaired inherited listening workflow YAML (unquoted colon in step title at line 101); its initial run #38353843296 failed before jobs could start. Fix `52ebff6831dcf2388ed1a196f073e9c7b7276db0` quotes the title and enables manual verification. Exact fix SHA: Scene #38353910646, Cloud #38353913024 and Local Qwen Listening #38353907640 **SUCCESS**, logs read. Listening includes 17 queue/worker tests, five real disposable PostgreSQL privacy cases, three synthetic-mic browser cases and five actual WebGL cases. No failed check remains for this verified code/workflow SHA.
+- Render deployment `dep-db6sf9vavr4c73bpbgq0` is **LIVE** at runtime `60403db`, finished 2026-10-13T05:55:46Z. Public health HTTP200/ok; scene-control.js, scene-intents.js and sw.js HTTP200 and byte-for-byte match, PWA shell v62. Later workflow/document-only commits do not change the deployed runtime.
+- Physical Windows/iPhone, microphones and actual Qwen/Gemini generation remain unverified. No Windows installation or model download. Conceptual models/owner GLB only; no fabricated 100/100 model-quality result.
+
+## 2026-10-13 — Undoable scene reset and project orientation
+
+- Reproduced a real WebGL regression: reset retained edited rotations, scale and removed parts, including after project reload. Store initial part orientation separately from current view; reset now restores position, orientation, unit scale and visibility, stops active gestures, and remains undoable/redoable. New exports preserve baseline orientation; old project files remain accepted and use their stored part orientation as their baseline (the older exporter did not retain pre-edit orientation).
+- Added mobile/desktop “sahneyi sıfırla” / “modeli sıfırla” commands, scoped to an active scene; no file/system actions. Existing scene library and owner GLB limits unchanged. Preserved remote listening additions through `cc2ab74` by fast-forward; PWA shell v62 and Qwen stale-cache test synchronized.
+- Local verification: regression failed before fix (rotations); **5/5 actual Chromium WebGL cases passed** after fix, including project reload/reset/undo/redo and mobile reset. Frontend npm ci/build, scene grammar, 18 project checks, Earth 6 JS/5 Python, py_compile passed. These are UI/code tests, not Gemini/Qwen model-quality or physical device evidence.
+- CI and Render for this new patch pending push at this checkpoint. Windows installation remains deferred.
+
+## 2026-10-12 — Verified 3D release
+
+- Functional SHA `51e5f52a6fb205e1b805f895f2289287f3cc6e73` is pushed to `feat/ultron-cloud-shared-memory`. The remote Qwen commits through `a03d122` (bounded confirmed-length retry and thought-channel sanitization) were preserved by rebasing the unpushed scene commit, then retested.
+- Exact-SHA **SUCCESS**: [Scene + actual WebGL #38305686409](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38305686409), [Cloud/PostgreSQL + Qwen browser #38305686424](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38305686424), [Frontend Build #38305686410](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38305686410). Logs read; generated bundle reproducibility check passed.
+- Render `dep-db6kb76q1p3s73akvt70` is **LIVE at that exact functional SHA**, finished `2026-10-12T20:41:02Z`. Production `/`, `/static/scene-intents.js`, `/static/scene-control.js`, `/static/sw.js` all HTTP200 and byte-for-byte match to this commit; health HTTP200/ok. JS cache is no-store, PWA shell v57. Later documentation-only commits do not change this deployed runtime.
+- Final merged local tests: **220/220 Cloud Python** including 45 disposable PostgreSQL cases, **93/93 JavaScript**, **6/6 Qwen Chromium/queue**, **4/4 real WebGL Chromium scene tests**, 18 project validation checks and scene grammar suite; 17 client/lease, six local runtime, frontend build, Earth 6 JS/5 Python also passed. No outstanding test failure.
+- The engine is a conceptual 21-part procedural model; a brand-specific engineering model must be supplied as GLB. No general text-to-any-3D generator is claimed. Windows install remains deferred. WebGL was tested with Chromium/SwiftShader, not physical iPhone Safari, Windows Qt, real microphones or RTX GPU. Qwen/Gemini browser test providers remain synthetic; physical phone-to-real-Qwen inference still awaits the single device smoke check.
+
+## Next tasks — 2026-10-12 natural 3D controls
+
+1. Functional code, all three CI workflows and exact Render LIVE SHA are verified above. Check the documentation-only final HEAD with manual Scene/Cloud workflow dispatch, then physical device verification is the remaining dependency. Sources: `ultron/frontend/src/spatial/`, `hologram/HologramScene.ts`, `HologramLab.tsx`, `dashboard/Dashboard.tsx`, mobile `static/index.html`; generated JS rebuilt by `node scripts/build_scene_browser.mjs` after frontend npm ci.
+2. Remaining physical check, after the final Windows update: ask “Bir motorun 3D modelini göster”, then “onu sağa taşı”, “onu döndür”, “Piston 1 seç”, “onu yok et”, “geri al”. This creates a conceptual model; arbitrary manufacturer models require the owner's GLB file. No Windows install/download was performed here.
+3. Qwen production runtime fix `72ffb35` was LIVE and both workflows at final Qwen documentation SHA `aff9ee4` passed: Cloud #38132832978, Scene #38132830817; logs read. New scene work re-ran all six Qwen browser/queue tests successfully. Real physical phone → Render → Windows Qwen and real Gemini inference are still not verified; no credentials/VPN available here. Keep that validation separate from WebGL tests.
+4. Test scene updates with `node scripts/test_scene_intents.mjs`, `node scripts/test_hologram_project.mjs`, frontend build and `python scripts/tests/test_scene_browser.py` (Playwright Chromium + aiohttp). Run `scripts/tests/test_qwen_browser.py` only with a disposable `ULTRON_QUEUE_TEST_DATABASE_URL`. Do not turn synthetic provider replies into real-model quality claims.
+5. Keep UI command scope explicit: no file deletion, tool/OS actions, automatic model downloads or default camera access. Ambiguous lift/remove requests need clarification. Future expansion beyond the bounded built-in library requires actual assets or measured generation integration, not invented success.
+
 ## 2026-10-11 — Verified release evidence, Qwen connection repair
 
 - Functional commit: `72ffb35744465626718df83010e73ad36d20c0c7` pushed to `feat/ultron-cloud-shared-memory`; no `main` update.
@@ -7,7 +198,7 @@
 - This evidence verifies code, synthetic HTTP/queue/model-boundary behavior and deployed assets. It does **not** verify physical iPhone → Render → Windows → real Qwen, real Gemini inference, real model latency/quality, or the historical Windows socket/Live1008 incident cause. Desktop installation/download intentionally not performed. Required next step remains the single physical smoke check described below.
 - This documentation-only follow-up preserves the exact tested runtime; its own CI/Render state will be checked separately and reported in the final response.
 
-## Next tasks — 2026-10-11 Qwen connection repair
+## Archived next tasks — 2026-10-11 Qwen connection repair
 
 1. Code push, both CI checks and Render LIVE are verified above. Check the documentation-only final HEAD with manual workflow dispatch; then physical verification is the remaining dependency. Browser CI is in `cloud-queue-postgres.yml`.
 2. Physical validation remains required after the final desktop update (not installed here): with laptop ULTRON + Ollama running, reload the phone conversation and send “2009 C180 hakkında konuşalım”; verify the new command is completed with `result.provider=local-ollama` and Qwen model. Do not infer real inference from synthetic browser/DB tests. No real cloud/device credentials available here; don't request or log raw secrets/history.
@@ -169,11 +360,10 @@
 
 ## Next tasks
 
-1. Latest functional SHA 78930a44f40835917337b3d7f494435a500cd94e passed Cloud/PostgreSQL CI 38070103017 and Scene CI 38070103005. Local evidence: 155 Cloud Python (28 real PG), 86 Node, 6 local-brain tests passed. Render dep-db56v7vmphoc739fq12g is LIVE at that exact functional SHA (17:03:37 UTC). Read the final verification record before new work.
-2. Real quality remains NOT MEASURED. Run `python evals/conversation/run.py --provider gemini --output /tmp/gemini-eval.json` where an authorized Gemini credential is configured, and Qwen equivalent only on an available Ollama host. Independently review all 100 transcripts per provider against README criteria; report model identity limitations and latency. No Windows setup before final handoff.
-3. Important compatibility: old Windows versions without `local_chat_ready` now use Gemini. Final single Windows update must include mark_app.py and integration/local_cloud_brain.py, then test Ollama reachable/unreachable transitions and no duplicate queued request fallback.
-4. Remaining quality work: general semantic factual contradictions are not automatically resolved; only explicit reply language/length preferences are. Common secret patterns are not exhaustive classification. Measure long multi-turn dialogue and inference truncation before increasing context/model budgets. Current additional response checks are presentation-only, not semantic fact verification.
-5. Preserve all approval/privacy controls and minimal UI. A CI pass is never a live-model 100/100 score. No further JARVIS features or Windows downloads until conversational acceptance.
+1. Code commits `b327c3d` and `675ea67` are pushed; Scene and Cloud/PostgreSQL workflows passed at both exact SHAs. Render remains healthy at Cloud SHA `1ad5f28` because its root directory is `ultron/cloud_service/`.
+2. On the paired laptop, verify Qwen fallback, model/vision error handling and real uploaded-image analysis; confirm diagnostics do not contain provider strings or image-derived text.
+3. Run the frozen 100-case Turkish/English evaluation with actual Gemini and local Qwen, independent transcript review, and latency records. No live provider quality score exists yet; keep unavailable runs NOT_RUN.
+4. Measure target-laptop Qwen token occupancy and latency before changing interactive context. Windows installation remains deferred; preserve approval/privacy/device permissions.
 
 ---
 Historical task records below; the priorities above supersede older Windows-install or non-conversation tasks.
@@ -552,3 +742,66 @@ Scope and boundary: feature requests are accepted as a roadmap, NOT a claim that
 3. When owner requests final Windows installation, test actual Qwen4B FAST vs Qwen8B complex request inference latency and real answer quality on RTX2050 4GB/24GB RAM; 8B likely CPU offload and must not degrade everyday latency. Consider transparent opt-in detailed reasoning if too slow, without showing provider picker in normal UI.
 4. Strengthen automatic contradictions / correction prioritization within the SAME conversation without treating old assistant guesses as confirmed owner facts. All untrusted chat/memory remains data, never tool instructions or elevated system role. No new sensitive auto-learning.
 5. Avoid claiming JARVIS-level 100% or raising numerical readiness without measured provider/hardware quality. Keep user-requested focus on conversation intelligence; no hologram or UI changes and no Windows local download until final delivery.
+
+
+Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL, Scene/UI and WORLD Actions passed. Remaining device work: install at the authorized final Windows update, confirm laptop `gh auth status` for this repository, then create a real draft PR from GÖLGE, inspect Actions, manually merge, and verify Render deployed SHA. No GitHub credential was placed in Cloud or chat.
+## Next — verify image creation with the configured provider
+
+1. On Render, test upload → “fotoğrafta ne var?” → “daha iyi yap” and a new prompt such as “mavi bir daire oluştur”; verify same conversation IDs, actual inline image output, and provider error reporting. Gemini API credentials remain server-side.
+2. If image output fails, inspect only the safe API error category and check Gemini account/model access; set `GEMINI_IMAGE_MODEL` in Render only to a model available to that account. Never request or paste the API key into chat.
+3. Confirm image bytes remain transient in browser memory and are absent from messages/events; test ownership isolation and reattach behavior after reload.
+4. Continue deferring Windows installation until the user's final combined update.
+## Next — live image quality check
+
+1. In Render UI, try one Turkish and one English image request, download the result on iPhone and laptop, then upload a photo and ask for an edit. Confirm the generated file opens and the original is not available after page reload.
+2. Confirm Gemini account access to the configured image model in a real session; offline and fake-provider tests do not establish provider availability or image quality.
+3. If editing a HEIC/HEIF photo is rejected by Gemini despite API acceptance, add a server-side safe image conversion path with explicit format and pixel limits; preserve the raw upload only in memory.
+
+## Next — complete end-to-end GÖLGE code-change verification
+
+1. After CI passes for the exact commit, confirm Render deploy health/SHA.
+2. On the owner’s Windows laptop at the final combined update, check GÖLGE’s existing GitHub authentication, create an owner-approved draft PR, and verify that no merge/deploy occurs automatically.
+3. Add an async bridge-level test for two pending patches if the codegen bridge can be instantiated without hardware; current tests cover the command resolver and publisher contract.
+4. Continue provider-backed image generation/edit checks separately; live Gemini credentials/model availability and real phone/laptop image handling have not been established by offline tests.
+
+## Next — real phone and laptop validation
+
+1. On phone, try a new image prompt and edit an uploaded photo; confirm inline output and download/save. A 200 health endpoint does not prove Gemini image-model access.
+2. At the already-requested final Windows update, test GÖLGE's approved code proposal against a dirty checkout, missing `gh` login, and outside-root patch; verify all stop safely, then create an owner-approved draft PR without automatic merge.
+3. If the phone reports provider access failure, inspect only its safe error category and confirm the account's `GEMINI_IMAGE_MODEL` access without exposing API keys.
+4. Do not install Windows or download local models before the requested combined final update.
+
+## Next — verify bounded GÖLGE patch generation and Jarvis-like use
+
+1. Proposal-limit code SHA `4112b3c` is pushed and Scene Action `38437781712` passed. Render remains LIVE at Cloud SHA `54f91bb`, containing the image ownership/failure fix; the new codegen limits are desktop-only.
+2. On the owner laptop during the requested final combined update, ask GÖLGE to add a concrete feature; inspect the bounded diff and test plan, approve by ID, then confirm local tests and draft-only PR. Also verify oversized/protected proposals are rejected before approval.
+3. Run real Turkish and English multimodal/voice dialogues and score the existing frozen 100-case suite using actual Gemini and installed Qwen transcripts; keep quality unscored until independent review.
+4. Continue to defer Windows installation/model downloads until the owner requests the combined final update.
+
+## Next tasks — Memory and Verified Research V3
+
+1. Draft [PR #33](https://github.com/fatmakahraman304-hash/ULTRON/pull/33) remains unmerged; Cloud/PostgreSQL #38555225630, Scene #38555225647 and Local Qwen Listening #38555225690 passed at `698190a94ac8f8a471cc91dc481cac59d0f71ea5`. Continue only with the next memory/research scope below; do not merge or deploy without explicit release approval.
+2. Add time-aware episodic/project recall using authenticated owner and current-thread data. Support “dün”, “bir hafta önce”, “son projeye dön” and user corrections with source/time metadata; never use unrelated history as fallback. Add 200–500-turn cross-thread and stale-decision regressions.
+3. Extend research evaluation from excerpt overlap to typed claim extraction, contradiction checks, source-domain independence, and quote/claim provenance. Keep any model-based verifier optional and measure its extra latency; deterministic fixtures must not be reported as semantic verification.
+4. Test real Gemini and Qwen only when providers are reachable and credentials are available; report model/version, first-token/total latency, and all 100 scenarios with NOT_RUN for missing cases. Do not install/download models or modify the owner’s Windows laptop in this branch task.
+5. Add bounded PDF parsing only if a safe dependency and decompression/page limits are justified; retain HTML/text-only truthful behavior until then.
+6. After owner approval, release separately; verify production commit, Render deploy SHA and health. Physical iPhone/Windows acceptance remains a separate NOT_RUN item.
+## Next: finish Windows startup recovery
+
+1. Review/pull the startup dependency-sync fix from PR once its CI passes.
+2. On the laptop, run `cd /d "%USERPROFILE%\ULTRON-3a6f489\ultron\frontend" && npm ci`, return to the repository root, then run `START.bat` once as immediate recovery.
+3. On the fixed startup path, run `git pull --ff-only origin feat/ultron-cloud-shared-memory` after confirming the local branch/worktree are clean, then run `START.bat`; verify the frontend build completes and `leaflet` resolves.
+4. Continue the previously pending real Windows Ollama/microphone/TTS checks and physical iPhone Safari voice checks. Do not treat CI or Chromium emulation as device validation.
+## Current task — recover Windows frontend dependencies (2026-10-15)
+
+- PR #44 is already merged/deployed at `bab1b760fcb97164d42d76b0ca67909a0591538a`. The owner then reported `START.bat` TypeScript TS2307 for `leaflet` because its old `node_modules` was not refreshed after the lockfile changed.
+- Current fix branch: `fix/windows-start-sync-frontend-deps` from production SHA `bab1b760`. Wait for Windows PowerShell syntax check and Scene Build CI, then merge only after those checks pass (prior blanket release authorization applies to this fix).
+- Immediate laptop workaround: `cd /d "%USERPROFILE%\ULTRON-3a6f489\ultron\frontend"`, run `npm ci`, return to repo root, then `START.bat`.
+- After the fix is merged, pull the production branch with a clean working tree and rerun `START.bat`; capture exact output. Then resume physical Windows Qwen/mic/TTS and iPhone Safari tests. Never call those device tests passed based on CI.
+## Current task — Windows backend import startup failure (2026-10-15)
+
+- Owner log root cause: `ModuleNotFoundError: No module named 'ultron'` from `merged_api.py` at backend startup. Reproduction: from `ultron/backend`, setting `PYTHONPATH` only to that same backend directory makes `from ultron.cloud_service.conversation_persona import classify_intent` fail.
+- Fix branch: `fix/windows-backend-pythonpath`, based on production after PR #50. New subprocess regression fails before the fix and must pass after it; wait for Scene Build CI before merge.
+- After merge, on the owner's PC run `git pull --ff-only origin feat/ultron-cloud-shared-memory` from a clean production branch and `START.bat`. Confirm it prints `ULTRON hazır` without degraded-mode warning. Then test a short local Qwen chat, microphone input and Piper playback.
+- Do not interpret `[WinError 10054]` during a closed health-check connection or malformed-PDF fixture messages as the fatal startup cause; use the final `Traceback` when diagnosing.
+- Follow-up log on the owner laptop: backend reports ready; desktop then exits at `mark_app.py:52` because `memory` resolved to a non-package module. PR #51 has been extended with import-order fix and Python safe-path subprocess regression. Re-run `START.bat` after merging/pulling the reviewed fix; check for `ULTRON hazır` and a still-running desktop before microphone/TTS testing.

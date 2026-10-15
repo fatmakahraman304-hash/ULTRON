@@ -28,3 +28,5 @@ jobs:
         run: npm ci
       - name: TypeScript and Vite build
         run: npm run build
+      - name: Keep WebGL center stage out of initial dashboard bundle
+        run: npm run test:bundle

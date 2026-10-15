@@ -16,6 +16,9 @@ import time
 import uuid
 
 import test_runner
+from github_pr_publisher import (GitHubPRPublisher, is_self_development_request,
+                                is_vague_self_development_request,
+                                resolve_pending_approval)
 from app.agent.orchestrator import parse_plan, risk_report, should_retry, ALTERNATIVES
 from app.core.intent import vision_pattern, VISION_PROMPT
 from app.core.runtime import UltronRuntime
@@ -330,14 +333,26 @@ class UltronBridge:
         t = text.lower()
         pending = hub.codegen.pending()
 
-        # approval control from chat
-        if pending and any(k in t for k in ("onaylıyorum", "onayliyorum", "approve", "uygula")):
-            await self._apply(pending[0]["id"])
-            return True
-        if pending and any(k in t for k in ("reddet", "reject", "vazgeç")):
-            hub.codegen.reject(pending[0]["id"])
-            await agent.set_state("IDLE", "Patch rejected.")
-            await hub.broadcast({"type": "patch", "data": None})
+        # Mutation approval is a complete, explicit command; conversational
+        # phrases containing "uygula" or "approve" can never approve a patch.
+        decision = resolve_pending_approval(text, pending)
+        if decision:
+            if decision["status"] == "ambiguous":
+                ids = ", ".join(decision["proposal_ids"])
+                await agent.set_state("WAITING_APPROVAL", f"Birden fazla kod taslağı bekliyor ({ids}). Onaylamak için 'onaylıyorum <ID>' yaz.")
+                return True
+            if decision["status"] == "not_found":
+                await agent.set_state("ERROR", "Bu ID ile bekleyen bir kod taslağı yok; değişiklik uygulanmadı.")
+                await agent._schedule_idle()
+                return True
+            if decision["action"] == "approve":
+                await self._apply(decision["proposal_id"])
+                return True
+            hub.codegen.reject(decision["proposal_id"])
+            remaining = hub.codegen.pending()
+            await agent.set_state("WAITING_APPROVAL" if remaining else "IDLE",
+                                  "Kod taslağı reddedildi." if not remaining else "Taslak reddedildi; diğer onay bekleyenler korunuyor.")
+            await hub.broadcast({"type": "patch", "data": remaining[0] if remaining else None})
             await agent._schedule_idle()
             return True
         if pending and any(k in t for k in ("değişiklikleri göster", "değişiklikleri bana göster", "diff")):
@@ -387,6 +402,33 @@ class UltronBridge:
             await agent._schedule_idle()
             return True
 
+        # Requests to change GÖLGE itself enter the bounded patch workflow.
+        # Nothing is written until the existing explicit approval step.
+        if is_self_development_request(text):
+            if is_vague_self_development_request(text):
+                await agent.set_state("IDLE", "Hangi özelliği veya hatayı değiştirmemi istediğini biraz açar mısın?")
+                await agent._schedule_idle()
+                return True
+            brain = self.runtime.brain if hub.bridge_available_llm() else None
+            if brain is None:
+                await agent.set_state("ERROR", "Kod taslağı için laptopta yerel Qwen/Ollama bağlantısı gerekli.")
+                await agent._schedule_idle()
+                return True
+            await agent.set_state("PLANNING", "GÖLGE için kod taslağı hazırlanıyor; henüz dosya değişmedi…")
+            result = await hub.codegen.propose(text, brain=brain, publish_github_pr=True)
+            if result.get("ok"):
+                proposal = result["proposal"]
+                await agent.set_state(
+                    "WAITING_APPROVAL",
+                    f"Kod taslağı {proposal['id']} hazır. Önce diff'i incele; 'onaylıyorum' dersen test edilir ve GitHub'da taslak PR açılır.",
+                )
+                await hub.broadcast({"type": "patch", "data": proposal})
+                hub.notifier.notify("approval", f"GÖLGE kod taslağı için onay bekleniyor: {proposal['id']}", "warn", force=True)
+            else:
+                await agent.set_state("ERROR", str(result.get("error", "Kod taslağı üretilemedi."))[:240])
+                await agent._schedule_idle()
+            return True
+
         if any(k in t for k in ("hatayı düzelt", "bu hatayı", "fix the bug")):
             await agent.set_state("THINKING", "Root-cause scan…")
             rep = await asyncio.to_thread(hub.code_intel.analyze, "all")
@@ -431,13 +473,50 @@ class UltronBridge:
     async def _apply(self, pid: str) -> None:
         hub = self.hub
         agent = hub.agent
+        proposal = next((item for item in hub.codegen.pending() if item.get("id") == pid), None)
+        publisher = None
+        prepared = None
+        if proposal and proposal.get("publish_github_pr"):
+            publisher = GitHubPRPublisher(hub.codegen.root.parent)
+            try:
+                prepared = publisher.prepare(pid)
+            except Exception as exc:
+                await agent.set_state("ERROR", f"GitHub dalı açılamadı; kod değişmedi ({type(exc).__name__}).")
+                await agent._schedule_idle()
+                return
         await agent.set_state("EXECUTING", f"Applying patch {pid} (approved) + auto tests…")
-        res = await hub.codegen.apply(pid, run_tests=lambda quick=True: test_runner.run_all(self._emit_tests, quick=quick))
+        try:
+            res = await hub.codegen.apply(pid, run_tests=lambda quick=True: test_runner.run_all(self._emit_tests, quick=False))
+        except Exception as exc:
+            hub.codegen.reject(pid)
+            res = {"ok": False, "error": f"Patch güvenlik kontrolünü geçemedi ({type(exc).__name__})."}
+        pr_result = None
+        if publisher and prepared:
+            if res.get("ok"):
+                try:
+                    pr_result = publisher.publish(
+                        proposal_id=pid, branch=prepared["branch"],
+                        paths=[item["path"] for item in proposal.get("files", [])],
+                        goal=proposal.get("goal", "GÖLGE update"),
+                    )
+                    try:
+                        publisher.restore_base()
+                    except Exception:
+                        pr_result["workspace_branch_not_restored"] = True
+                except Exception as exc:
+                    res = {"ok": False, "error": f"GitHub PR açma başarısız ({type(exc).__name__}); yerel dal korunuyor."}
+            else:
+                try:
+                    publisher.restore_base()
+                except Exception:
+                    pass
         if res.get("ok"):
-            await agent.set_state("DONE", f"Patch {pid} applied — tests passed.")
+            note = " Çalışma dalı otomatik geri alınamadı; Git durumu korunuyor." if pr_result.get("workspace_branch_not_restored") else ""
+            await agent.set_state("DONE", f"Patch {pid} test edildi; taslak PR açıldı: {pr_result['pull_request']} (birleştirme ve Render yayını ayrı onay bekler).{note}")
         else:
             await agent.set_state("ERROR", f"Patch {pid} failed → rolled back: {res.get('error')}")
-        await hub.broadcast({"type": "patch", "data": None})
+        remaining = hub.codegen.pending()
+        await hub.broadcast({"type": "patch", "data": remaining[0] if remaining else None})
         await agent._schedule_idle()
 
     # ------------------------------------------------------------ tier-2 run

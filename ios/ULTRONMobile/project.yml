@@ -13,8 +13,8 @@ targets:
     info:
       path: Sources/Info.plist
       properties:
-        CFBundleDisplayName: ULTRON
-        NSMicrophoneUsageDescription: ULTRON, sürekli sesli komutları dinlemek ve seninle konuşmak için mikrofona erişir.
+        CFBundleDisplayName: GÖLGE
+        NSMicrophoneUsageDescription: GÖLGE, sürekli sesli komutları dinlemek ve seninle konuşmak için mikrofona erişir.
         UIBackgroundModes:
           - audio
         UIApplicationSupportsIndirectInputEvents: true

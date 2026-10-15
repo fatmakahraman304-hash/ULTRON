@@ -1,0 +1,117 @@
+/* GÖLGE mobile - a calm, compact conversation surface.
+   Only presentation changes: preserve chat, authentication, listening and menus. */
+:root{--bg:#060b11;--panel:#0c161e;--panel2:#0e1b24;--line:#20313b;--red:#83ded6;--red2:#245e67;--text:#edf4f7;--muted:#8ca5b0;--ok:#7de6b6;color-scheme:dark}
+html{background:#060b11}
+body,body[style]{background:radial-gradient(circle at 52% 0%,#102029 0%,#070d14 42%,#05080d 100%)!important;background-size:auto!important}
+body:before,body:after{background:none!important;filter:none!important}
+.shell{max-width:760px;padding-bottom:calc(94px + env(safe-area-inset-bottom))!important}
+.topbar{position:sticky!important;top:0!important;z-index:12!important;min-height:68px!important;margin:0 0 10px!important;padding:8px 0 12px!important;background:#070d14ee!important;border-bottom:1px solid #192a33;display:flex;gap:9px;align-items:center;backdrop-filter:blur(16px)}
+.brand{display:flex!important;flex:0 1 auto!important;margin:0 auto 0 0!important;transform:none!important;text-align:left!important;gap:9px}
+.brand-mark{width:25px;height:25px;display:grid!important;border:1px solid #8edbd45a;box-shadow:0 0 16px #72cfc31c}
+.brand-mark:before{width:9px;height:9px;background:#8ce4da;box-shadow:0 0 12px #7ee3d6}
+.brand b{font-size:19px!important;letter-spacing:.18em!important;background:none!important;-webkit-background-clip:initial!important;color:#f0f7f9!important;text-shadow:none!important}
+.brand small{display:none!important}
+.online{position:static!important;transform:none!important;display:flex!important;margin:0!important;max-width:35vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;font-size:10px;flex:0 1 auto}
+.online .dot{flex:0 0 7px;width:7px;height:7px}
+.top-actions{position:static!important;display:flex;flex:0 0 auto;gap:6px;margin-left:0!important}
+.round-action{height:39px;width:39px;border:1px solid #29434c;border-radius:13px;background:#0b1921;font-size:18px;box-shadow:none}
+.top-actions #panelMenuToggle{border-color:#29434c}
+.background-status{display:none!important}
+#chatView{min-height:calc(100dvh - 176px)}
+.golge-welcome{display:flex;min-height:clamp(220px,45dvh,410px);padding:30px 12px 10px;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:12px;pointer-events:none}
+.golge-welcome-orb{width:clamp(126px,42vw,194px);aspect-ratio:1;position:relative;display:grid;place-items:center;filter:drop-shadow(0 0 35px #3baba43a)}
+.golge-welcome-orb:before,.golge-welcome-orb:after{content:'';position:absolute;border-radius:50%;inset:2px;border:1px solid #70dbd35f;transform:rotateX(65deg) rotate(-15deg)}
+.golge-welcome-orb:after{inset:18px;border-color:#9de5e25a;transform:rotateY(62deg) rotate(25deg)}
+.golge-welcome-orb i{display:block;width:48%;height:48%;border-radius:50%;background:radial-gradient(circle at 39% 30%,#c4f7f2 0%,#79bcb7 19%,#1d5964 43%,#07131b 78%);border:1px solid #92ddd36e;box-shadow:0 0 28px #66d6cb44,inset 0 0 20px #020d17}
+.golge-welcome h1{font-size:clamp(21px,6vw,28px);font-weight:600;letter-spacing:.12em;margin:0;color:#eef9fa}
+.golge-welcome p{margin:0;max-width:270px;color:#829ba7;font-size:13px;line-height:1.6}
+#chatView:has(#messages .msg) .golge-welcome{display:none}
+#messages{min-height:0!important;padding:12px 2px 142px!important;gap:12px!important}
+.msg{max-width:92%;background:#101c24;border:1px solid #213640;border-radius:19px;box-shadow:none;font-size:14px;line-height:1.6}
+.msg.assistant{background:#101a23;border-color:#21343d;margin-left:34px}
+.msg.assistant:before{content:'G';left:-35px;background:#0c2228;border-color:#347b79;color:#a9e7df;box-shadow:none;font-weight:700;width:28px;height:28px}
+.msg.user{background:#18343e;border-color:#2a505c}
+.msg-time{color:#8297a0}
+.composer{position:fixed!important;bottom:calc(10px + env(safe-area-inset-bottom))!important;left:50%;width:min(730px,calc(100% - 20px))!important;transform:translateX(-50%);background:#0b1720f7;border:1px solid #2b454d;border-radius:21px;box-shadow:0 14px 55px #000a;backdrop-filter:blur(16px);padding:8px!important}
+.composer .row{align-items:center;gap:7px}
+.composer:has(#longListenPanel:not(.hidden)){max-height:calc(100dvh - 100px);overflow-y:auto;overscroll-behavior:contain}
+.composer textarea{min-height:46px;max-height:120px;background:#0e1b23;border:1px solid #243941;border-radius:14px;color:#f0f6f7;font-size:16px;padding:12px;box-shadow:none}
+.composer textarea:focus{border-color:#72bfb9;box-shadow:0 0 0 2px #6ac6bd1d}
+.composer #sendBtn{width:46px;height:46px;background:#91e2d9;color:#092127;border:0;box-shadow:none;flex:0 0 46px;border-radius:14px}
+.composer #sendBtn:after{color:#0b2f34;font-size:20px}
+.voice-btn{width:46px;height:46px;flex:0 0 46px;border:1px solid #387e80;background:#102d35;color:#b4efe8;box-shadow:none;font-size:20px}
+.voice-btn.listening{background:#184747;border-color:#85ece0;box-shadow:0 0 0 4px #4bc4b026}
+.plus-btn{width:44px;height:44px;border-radius:13px;background:#101e27;border-color:#2b414c}
+.plus-btn svg{stroke:#c6e4e6}
+.attach-menu{background:#0a1720;border:1px solid #2c4852}
+.attach-menu button{background:#11212a;border-color:#213b43}
+button{border-color:#2a4650;background:#17323b;color:#eaf4f4}
+button.secondary{background:#0f1c25;border-color:#283c48;color:#dcebef}
+button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid #90e4dc;outline-offset:2px}
+.panel{background:#0d1720;border-color:#263943;box-shadow:none}
+.tabs.panel-nav-open{bottom:calc(84px + env(safe-area-inset-bottom))!important;display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;background:#091822fa;border:1px solid #31515a;box-shadow:0 16px 50px #000a}
+.tabs.panel-nav-open button{background:#10232d;color:#d1e4e6;border:1px solid #263a42;border-radius:12px}
+.tabs.panel-nav-open button.active{border-color:#74c6bd;color:#effafa}
+.tabs:not(.panel-nav-open){opacity:0!important;pointer-events:none!important}
+.tab-badge{background:#427e7c;color:#fff}
+.splash{background:#060c12f8}.splash-line i{background:#7adad1;box-shadow:0 0 15px #6bc8c0}
+.mobile-holo-space{background:radial-gradient(circle,#14343b 0%,#0b1721 54%,#050b12 90%);border-color:#294e55}
+.mobile-holo-ring{border-color:#8be2d9;box-shadow:0 0 16px #7bc9c744,inset 0 0 22px #7bc9c722}
+.mobile-holo-core{background:radial-gradient(circle at 42% 35%,#a3e7de,#2e6972 22%,#112530 58%,#060d14);box-shadow:0 0 40px #5fc9bf48}
+.long-listen-panel{background:#102730;border-color:#4eaaa1}
+#login{margin-top:12vh}
+@media(max-width:430px){
+  .shell{padding-left:max(12px,env(safe-area-inset-left))!important;padding-right:max(12px,env(safe-area-inset-right))!important}
+  .topbar{min-height:62px!important;margin-bottom:2px!important}
+  .online{font-size:9px;max-width:31vw}
+  .brand b{font-size:17px!important}
+  .round-action{width:36px;height:36px;border-radius:11px}
+  .golge-welcome{padding-top:20px;min-height:38dvh}
+  .msg{font-size:13px;padding:10px 12px}
+  .composer{width:calc(100% - 18px)!important}
+  .composer .row{gap:5px}
+  .composer textarea{padding:11px 9px}
+}
+@media(prefers-reduced-motion:reduce){.golge-welcome-orb,.golge-welcome-orb:before,.golge-welcome-orb:after{animation:none!important}}
+
+/* Keep the recognizable luminous core visible above the conversation, as in the approved concept. */
+.golge-welcome{min-height:clamp(250px,42dvh,430px);gap:10px}
+.golge-welcome-orb{
+  width:clamp(180px,51vw,260px);
+  background:radial-gradient(circle at 50% 63%,rgba(50,202,208,.16) 0%,transparent 53%);
+  isolation:isolate;
+  animation:golge-float 5.5s ease-in-out infinite alternate;
+}
+.golge-welcome-orb:before{
+  inset:18% -12%;border:1px solid rgba(99,222,231,.37);
+  border-radius:50%;transform:rotate(-18deg) scaleY(.44);
+  box-shadow:0 0 14px rgba(90,222,235,.14);
+}
+.golge-welcome-orb:after{
+  inset:10% -5%;border:1px solid rgba(123,234,240,.38);
+  border-radius:50%;transform:rotate(25deg) scaleY(.65);
+  box-shadow:0 0 20px rgba(70,187,207,.09);
+}
+.golge-welcome-orb i{
+  position:relative;z-index:1;width:73%;height:73%;overflow:hidden;
+  border:1px solid rgba(194,249,253,.65);
+  background:
+    radial-gradient(ellipse at 36% 13%,rgba(210,252,255,.45),transparent 19%),
+    radial-gradient(ellipse at 47% 82%,rgba(55,242,236,.85),transparent 28%),
+    radial-gradient(circle at 53% 47%,rgba(7,23,35,.3),rgba(2,12,24,.94) 67%),
+    conic-gradient(from 50deg,#123749,#071d2c,#31d4d7,#0a1b2c,#accbdb,#153746);
+  box-shadow:0 0 22px rgba(104,231,238,.36),0 0 62px rgba(29,192,209,.14),inset 0 0 35px rgba(92,230,234,.27),inset -22px -14px 25px #04121ebf;
+}
+.golge-welcome-orb i:before,.golge-welcome-orb i:after{
+ content:'';position:absolute;inset:8% -32%;border:1px solid rgba(181,248,255,.65);
+ border-radius:50%;transform:rotate(-29deg) scaleY(.28);box-shadow:0 0 12px rgba(121,241,251,.52);
+}
+.golge-welcome-orb i:after{inset:16% -35%;transform:rotate(48deg) scaleY(.43);opacity:.74}
+#chatView:has(#messages .msg) .golge-welcome{
+ display:flex;min-height:clamp(160px,29dvh,290px);padding:10px 4px 8px;gap:4px;
+}
+#chatView:has(#messages .msg) .golge-welcome-orb{width:clamp(108px,31vw,170px)}
+#chatView:has(#messages .msg) .golge-welcome h1{display:none}
+#chatView:has(#messages .msg) .golge-welcome p{font-size:11px;max-width:230px}
+@keyframes golge-float{from{translate:0 4px}to{translate:0 -5px}}
+@media(prefers-reduced-motion:reduce){.golge-welcome-orb{animation:none}}

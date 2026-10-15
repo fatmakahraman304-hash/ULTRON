@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 from aiohttp import web
+from live_voice_policy import safe_manual_memory_value
 
 _ALLOWED = frozenset(("PREFERENCE", "PROJECT", "GOAL", "FACT", "DEVICE"))
 _ID = re.compile(r"[1-9][0-9]{0,17}\Z")
@@ -23,7 +24,10 @@ def validate_suggestion(body: object) -> tuple[str, str, str]:
         raise ValueError("invalid_key")
     if not isinstance(value, str) or not (1 <= len(value.strip()) <= 1000) or "\x00" in value:
         raise ValueError("invalid_value")
-    return category, key.strip(), value.strip()
+    key, value = key.strip(), value.strip()
+    if not safe_manual_memory_value(key + " " + value):
+        raise ValueError("sensitive_memory_rejected")
+    return category, key, value
 
 
 def require_owner_browser(request):

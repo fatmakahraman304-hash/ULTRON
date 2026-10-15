@@ -79,7 +79,7 @@ class DevRequestPostgresTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(item["status"],"awaiting_chatgpt")
         self.assertFalse(item["verified_cloud"])
         self.assertFalse(item["verified_tests"])
-        self.assertIn("ULTRON-DEV-"+str(item["id"]),item["handoff"])
+        self.assertIn("GÖLGE-DEV-"+str(item["id"]),item["handoff"])
         own=await self.h["list_requests"](FakeRequest(self.pool))
         self.assertTrue(any(x["id"]==item["id"] for x in own["requests"]))
         others=await self.h["list_requests"](FakeRequest(self.pool,owner="ci-other"))

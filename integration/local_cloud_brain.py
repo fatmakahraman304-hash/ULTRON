@@ -15,7 +15,10 @@ import urllib.request
 from pathlib import Path
 
 from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
-from ultron.cloud_service.conversation_turns import ollama_messages, bounded_user_request
+from ultron.cloud_service.conversation_turns import (
+    ollama_messages, bounded_user_request,
+    is_bare_continuation_request, is_topic_switch_request,
+)
 from ultron.cloud_service.response_quality import finalize_response, strip_qwen_thinking
 from ultron.cloud_service.reply_policy import classify_reply_mode
 from ultron.cloud_service.model_identity import is_qwen_model
@@ -101,22 +104,32 @@ _CONTINUE_ONLY = re.compile(
 )
 
 
+def _is_local_continuation(text: str) -> bool:
+    """Use shared Cloud phrasing plus backward-compatible local variations."""
+    return bool(_CONTINUE_ONLY.fullmatch(text.strip())
+                or is_bare_continuation_request(text))
+
+
 def _last_substantive_owner_request(text: str, turns) -> str:
     """Only for a bare continuation; never interpret assistant/system as user.
 
-    Already-scoped, recent history only. No additional DB/model call.
+    Cloud may put an old verified goal at the beginning of 12 selected turns.
+    Read all bounded turns rather than silently dropping the anchor.
+    No extra DB/model call, memory write or promotion of assistant text.
     """
-    if not _CONTINUE_ONLY.fullmatch(text.strip()) or not isinstance(turns, list):
+    if not _is_local_continuation(text) or not isinstance(turns, list):
         return ""
-    for turn in reversed(turns[-10:]):
+    for turn in reversed(turns[-20:]):
         if not hasattr(turn, "get") or turn.get("role") != "user":
             continue
         prior = turn.get("content")
         if not isinstance(prior, str):
             continue
         prior = prior.strip()
-        if prior and not _CONTINUE_ONLY.fullmatch(prior):
-            return prior
+        if is_topic_switch_request(prior):
+            return ""
+        if prior and not _is_local_continuation(prior):
+            return bounded_user_request(prior, 3000)
     return ""
 
 
@@ -317,3 +330,51 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
             "Yerel model yalnızca tamamlanmamış düşünme metni döndürdü."
         )
     return {"reply":finalize_response(answer[:12000], prompt=text),"model":choice.model,"provider":"local-ollama"}
+
+def local_listening_analysis(prompt: str, system: str, stage: str) -> dict:
+    """Read-only Qwen summarization on the paired Windows computer.
+
+    Caller-supplied speech is only untrusted text. This method cannot run
+    tools, call cloud APIs, write files, or update memory.
+    """
+    if stage not in ("map", "reduce", "final"):
+        raise ValueError("invalid_local_analysis_stage")
+    if not isinstance(prompt, str) or not 1 <= len(prompt) <= 14500:
+        raise ValueError("invalid_local_analysis_length")
+    if not isinstance(system, str) or not 1 <= len(system) <= 2100:
+        raise ValueError("invalid_local_analysis_system")
+    installed = [name for name in installed_models() if is_qwen_model(name)]
+    if not installed:
+        raise LocalBrainUnavailable("Yerel analiz için kurulu Qwen modeli yok.")
+    settings = json.loads(_SETTINGS.read_text(encoding="utf-8"))["llm"]
+    preferred = str(settings.get("model") or "qwen3:4b")
+    selected = preferred if preferred in installed else (
+        next((m for m in installed if m.startswith("qwen3:8b")), installed[0])
+    )
+    # Larger context than casual chat: 12k chars can be ~5k tokens.
+    # This is bounded for consumer laptops, not a guarantee of speed.
+    budgets = {"map": 700, "reduce": 750, "final": 1200}
+    request = {
+        "model": selected,
+        "stream": False,
+        "think": False,
+        "messages": [{"role": "system", "content": system},
+                     {"role": "user", "content": prompt}],
+        "options": {"num_ctx": 8192, "num_predict": budgets[stage],
+                    "temperature": 0.25, "top_p": 0.85},
+    }
+    result = _get_json("/api/chat", request, timeout=150)
+    if result.get("model") != selected:
+        raise LocalBrainUnavailable("Yerel analiz beklenmeyen Qwen modeli döndürdü.")
+    if result.get("done") is not True or result.get("done_reason") == "length":
+        raise LocalBrainUnavailable("Qwen analizi tamamlanmadan kesildi.")
+    message = result.get("message")
+    if not isinstance(message, dict) or not isinstance(message.get("content"), str):
+        raise LocalBrainUnavailable("Qwen analiz çıktısı geçersiz.")
+    answer = strip_qwen_thinking(message["content"])
+    if not answer:
+        raise LocalBrainUnavailable("Qwen tamamlanmış analiz metni döndürmedi.")
+    from ultron.cloud_service.listening_analysis import checked_analysis
+    cap = {"map": 1900, "reduce": 2000, "final": 9500}[stage]
+    return {"analysis": checked_analysis(answer, cap), "model": selected,
+            "provider": "local-ollama"}

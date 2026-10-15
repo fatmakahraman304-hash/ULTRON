@@ -1,4 +1,4 @@
-"""Unified ULTRON capability contract for ULTRON.
+"""Unified GÖLGE capability contract for GÖLGE.
 
 This module is intentionally declarative: it describes the complete experience
 we are building while distinguishing capabilities that already have a real
@@ -35,14 +35,14 @@ CAPABILITIES: tuple[Capability, ...] = (
     Capability("pdf", "PDF Workspace", "multimodal", "implemented", ("pdf_open", "pdf_extract", "pdf_ingest", "pdf_search"), description="Sandbox-bound PDF extraction, chunking, lexical indexing and optional scanned-PDF OCR fallback; document content is untrusted data."),
     Capability("shell", "Shell / PowerShell", "automation", "implemented", ("shell_exec",), safety="approval", description="Workspace-bounded shell execution behind server-side approval and deterministic shell policy."),
     Capability("widgets", "HUD Widgets", "ui", "implemented", ("hud_overview", "hud_trends"), description="Dockable status, memory, automation and monitoring panels."),
-    Capability("hud", "ULTRON HUD", "ui", "implemented", ("hud_overview",), description="Cockpit HUD with telemetry, status, activity and operator controls."),
+    Capability("hud", "GÖLGE HUD", "ui", "implemented", ("hud_overview",), description="Cockpit HUD with telemetry, status, activity and operator controls."),
     Capability("three_d", "3D Interface", "ui", "implemented", ("three", "particle_sphere"), description="Three.js cockpit/particle interface and extensible 3D scene layer."),
     Capability("center_stage", "Center Stage / 3D Scene / Animation Studio", "ui", "implemented", ("ultron_stage", "three", "media_recorder"), description="Normal shaded Earth Watch plus professional 3D studio with multi-selection, named groups, batch transforms, arrays, align/distribute, parent-child Scene Graph hierarchy, camera bookmarks, persistent GLB Asset Library, visual physics, live distance measurements, diagnostics and collision-risk overlays, target tracking constraints, waypoint paths, technical render modes, timed Mission Sequences, persistent Snapshot Vault checkpoints, conditional timer/distance/collision Trigger Engine automation, links, HUD cards, motion, eased multi-object timeline/keyframes, cinematic cameras, Scene Director, named projects, screenshots, GLB export and rotatable Earth/coordinate markers/optional live ISS tracking and live Three.js WebM recording."),
     Capability("image_viewer", "Image Viewer / Drop Zone", "ui", "adapter", ("image_view",), description="Visual workspace target for generated and uploaded images."),
     Capability("notifications", "Proactive Notifications", "core", "implemented", ("proactive", "notifications"), description="Proactive monitoring and operator notifications."),
     Capability("security", "Approval / Vault / Audit / Sandbox", "security", "implemented", ("approval_gate", "vault", "audit", "sandbox"), safety="mandatory", description="Dangerous actions require trusted server-side approval; audit and rollback remain enabled."),
     Capability("world_awareness", "World Model / Situational Awareness", "cognitive", "implemented", ("world", "workspace", "presence"), description="Live model of apps, files, system, screen, tasks, devices and events."),
-    Capability("research", "Research / Cross-check / Citations", "cognitive", "implemented", ("research_engine", "web_search"), description="Source-ranked research with corroboration, contradiction checks and citations."),
+    Capability("research", "Bounded Public-Source Research", "cognitive", "implemented", ("research_engine", "source_reader", "web_search"), description="On explicit research requests, reads bounded public HTML/text pages with DNS-pinned SSRF/redirect checks and returns timestamped excerpts. Search metadata alone is not evidence; semantic claim verification and independent corroboration are not performed."),
     Capability("predictive", "Predictive Intelligence", "cognitive", "implemented", ("predictive_engine",), description="Task duration, failure risk, anomalies, resource trends and intent prediction from measured history."),
     Capability("decision_support", "Decision / Risk / Simulation", "cognitive", "implemented", ("decision_engine", "simulation"), description="Scored decisions, reversibility/risk authority and dry-run what-if simulation."),
     Capability("goals", "Goal Intelligence", "cognitive", "implemented", ("goal_engine",), description="Persistent goals, subgoals, dependencies, blockers, deadlines and evidence-based completion."),

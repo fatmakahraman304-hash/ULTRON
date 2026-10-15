@@ -146,6 +146,14 @@ class EvaluationTests(unittest.TestCase):
         cases = json.loads(evaluation.DATA.read_text())
         evaluation.validate(cases)
         self.assertEqual(len({tuple(x['turns']) for x in cases}), 100)
+
+    def test_frozen_dataset_rejects_non_english_language_labels(self):
+        cases = json.loads(evaluation.DATA.read_text())
+        english_case = next(case for case in cases if case['language'] == 'en')
+        english_case['language'] = 'fr'
+        with self.assertRaises(ValueError):
+            evaluation.validate(cases)
+
     def test_missing_model_runs_cannot_score(self):
         report = {'suite_sha256':hashlib.sha256(evaluation.DATA.read_bytes()).hexdigest(), 'results': [{'id':'daily-01','category':'daily','status':'not_run'}]}
         result = evaluation.score(report, [])

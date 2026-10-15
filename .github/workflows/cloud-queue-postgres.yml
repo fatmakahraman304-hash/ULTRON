@@ -1,9 +1,18 @@
 name: Cloud Queue PostgreSQL Integration
 
 on:
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+      - feat/golge-qwen-goal-routing-20261013
+    paths:
+      - "ultron/cloud_service/**"
+      - ".github/workflows/cloud-queue-postgres.yml"
   push:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-temporal-memory-20261013
+      - feat/golge-memory-focus-continuity-20261013
     paths:
       - "ultron/cloud_service/**"
       - "integration/local_cloud_brain.py"
@@ -29,12 +38,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install lightweight HTTP handler dependency
-        run: python -m pip install --disable-pip-version-check "aiohttp>=3.9,<4"
+      - name: Install lightweight HTTP handler and image API test dependencies
+        run: python -m pip install --disable-pip-version-check "aiohttp>=3.9,<4" "asyncpg>=0.30,<1" "google-genai>=1,<2"
       - name: Test consistent personality and memory boundaries
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_persona.py' -v
+      - name: Enforce explicit phone voice memory consent and tool grounding
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_live_voice_policy.py' -v
       - name: Natural conversation threading and realistic persona regression
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_turns.py' -v
+      - name: Bounded owner-goal retrieval through 500 continuation turns
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_continuation_paging.py' -v
+      - name: Versioned memory and research chat route contracts
+        env:
+          PYTHONPATH: ultron/cloud_service
+        run: |
+          python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_verified_research_integration.py' -v
       - name: Local 4GB Qwen natural dialogue request and safe sampling
         run: python -m unittest discover -s ultron/cloud_service -p 'test_local_dialogue_runtime.py' -v
       - name: Context-aware natural dialogue and no-hallucinated-history contracts
@@ -48,14 +67,26 @@ jobs:
           python evals/conversation/run.py --validate
       - name: No unscoped legacy image or document chat history
         run: python -m unittest discover -s ultron/cloud_service -p 'test_recent_context_isolation.py' -v
+      - name: Gemini image generation ownership and failed-request cleanup
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_image_generation.py' -v
+      - name: Redact provider exception details from owner-visible error paths
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_provider_error_privacy.py' -v
       - name: First topic return and bounded paired recall
         run: python -m unittest discover -s ultron/cloud_service -p 'test_reference_return.py' -v
       - name: Long chat contextual recall and no cross-thread contamination
         run: python -m unittest discover -s ultron/cloud_service -p 'test_contextual_recall.py' -v
+      - name: Bilingual single-pass intent routing and context return regressions
+        run: |
+          python -m unittest discover -s ultron/cloud_service -p 'test_conversation_intent_router.py' -v
+          python evals/conversation/intent_eval.py
       - name: Owner-reviewed conversation notes preview and input validation
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_notes.py' -v
       - name: JARVIS-style topic-aware memory and intelligent local Qwen routing
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus.py' -v
+      - name: GÖLGE temporal plan retrieval and stale-memory labeling
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_golge_temporal_memory.py' -v
+      - name: GÖLGE owner-goal memory focus without data cross-contamination
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_golge_memory_focus_continuity.py' -v
       - name: Ten-capability readiness truthfulness tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_capability_readiness.py' -v
       - name: Personal briefing privacy and grounding tests
@@ -122,6 +153,18 @@ jobs:
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
         run: python -m unittest discover -s ultron/cloud_service -p 'test_personal_context_focus_postgres.py' -v
+      - name: Real PostgreSQL owner memory versioning, isolation and purge
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
+      - name: Private generated images on real PostgreSQL, quota and tenant isolation
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_generated_images_postgres.py' -v
+      - name: Real PostgreSQL 36-turn goal to saved-memory recall and account isolation
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_golge_memory_focus_postgres.py' -v
       - name: Real PostgreSQL natural conversation tenant/thread isolation
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
@@ -142,6 +185,14 @@ jobs:
         run: |
           python -m pip install -r ultron/cloud_service/requirements.txt playwright
           python -m playwright install --with-deps chromium
+      - name: Isolated scene queue privacy and idempotency
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_queue_postgres.py -v
+      - name: Authenticated data-only scene synthesis
+        run: PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_design.py ultron/cloud_service/test_scene_design_api.py -v
+      - name: Generated image authenticated HTTP download and no-false-success API
+        run: PYTHONPATH=ultron/cloud_service python -m unittest discover -s ultron/cloud_service -p 'test_image_generation.py' -v
       - name: Chromium mobile chat with real queue and explicit fake providers
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test

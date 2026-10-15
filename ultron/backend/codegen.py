@@ -11,6 +11,10 @@ import time
 import uuid
 from pathlib import Path
 
+MAX_PATCH_FILES = 12
+MAX_PATCH_FILE_BYTES = 128 * 1024
+MAX_PATCH_TOTAL_BYTES = 512 * 1024
+
 
 class CodeGen:
     def __init__(self, root: Path, audit, notify, sandbox=None):
@@ -56,7 +60,7 @@ class CodeGen:
         )
 
     # --------------------------------------------------------------- propose
-    async def propose(self, goal: str, brain=None) -> dict:
+    async def propose(self, goal: str, brain=None, *, publish_github_pr: bool = False) -> dict:
         self.audit.write("CODEGEN_REQUEST", goal)
         files = []
         source = "template"
@@ -81,14 +85,45 @@ class CodeGen:
             return {"ok": False, "error": "Bu istek için şablon yok; Ollama bağlı değil → LLM üretimi kullanılamıyor."}
         if not files:
             return {"ok": False, "error": "Üretilecek dosya belirlenemedi."}
+        if len(files) > MAX_PATCH_FILES:
+            return {"ok": False, "error": f"Patch exceeds the {MAX_PATCH_FILES}-file review limit."}
+
+        from app.security.risk import SelfCodeBoundary
+
+        validated = []
+        seen_paths = set()
+        total_bytes = 0
         for f in files:
+            if not isinstance(f, dict) or not isinstance(f.get("path"), str) or not isinstance(f.get("content"), str):
+                return {"ok": False, "error": "Patch files must include a text path and text content."}
             p = (self.root / f["path"]).resolve()
-            if not str(p).startswith(str(self.root)):
+            if self.root not in p.parents:
                 return {"ok": False, "error": f"Proje dışına yazım reddedildi: {f['path']}"}
-            f["diff"] = self._diff_for(f["path"], f["content"])
+            rel = p.relative_to(self.root).as_posix()
+            if rel in seen_paths:
+                return {"ok": False, "error": "Patch contains duplicate file paths."}
+            seen_paths.add(rel)
+            try:
+                SelfCodeBoundary.check(p)
+            except PermissionError as exc:
+                return {"ok": False, "error": str(exc)}
+            try:
+                size = len(f["content"].encode("utf-8"))
+            except UnicodeEncodeError:
+                return {"ok": False, "error": "Patch contains invalid text encoding."}
+            if size > MAX_PATCH_FILE_BYTES:
+                return {"ok": False, "error": "A generated file exceeds the 128 KiB review limit."}
+            total_bytes += size
+            if total_bytes > MAX_PATCH_TOTAL_BYTES:
+                return {"ok": False, "error": "Patch exceeds the 512 KiB total review limit."}
+            validated.append((f, rel))
+        for f, rel in validated:
+            f["path"] = rel
+            f["diff"] = self._diff_for(rel, f["content"])
         pid = uuid.uuid4().hex[:10]
         proposal = {"id": pid, "goal": goal, "source": source, "files": files, "created": time.time(),
                     "status": "WAITING_APPROVAL",
+                    "publish_github_pr": bool(publish_github_pr),
                     "test_plan": ["tsc --noEmit", "compileall", "REST/WS checks", "rollback on failure"]}
         self.proposals[pid] = proposal
         self.audit.write("CODEGEN_PROPOSED", f"{pid} files={len(files)} source={source}")

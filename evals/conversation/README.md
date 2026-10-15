@@ -5,6 +5,15 @@ five English. `scenarios.json` contains the turn sequence and a specific observa
 acceptance criterion for each. Do not change a failed criterion to match an answer.
 Changes to the suite require a new version and an explanation. Report its SHA256.
 
+The separate `intent_scenarios.json` suite freezes 100 one-turn routing cases in
+ten intent categories (50 Turkish, 50 English; SHA256
+`e640562e2011e9189471182f570511b5e9181c7e553e59914170db23cb8c8ef4`). Run
+`python evals/conversation/intent_eval.py` to check deterministic intent/context/tool
+labels and local lexical-route latency. This is a code-routing contract only;
+its score is never a Gemini/Qwen response-quality score. Model transcripts,
+hallucination review and first-token/total inference latency remain exclusively
+in `scenarios.json`'s real-provider harness below.
+
 ## Scoring
 
 Each scenario earns **one point only if all five criteria pass across every turn**:

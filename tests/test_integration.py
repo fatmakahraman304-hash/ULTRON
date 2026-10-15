@@ -199,7 +199,7 @@ def test_hologram_is_available_without_alternate_desktop(service):
     from urllib.request import Request, urlopen
     headers = {'X-MARK-Token': service.bridge.token}
     with urlopen(Request(service.bridge.url+'/hologram/hologram.html',headers=headers)) as response:
-        assert b'<title>ULTRON Hologram</title>' in response.read()
+        assert '<title>GÖLGE Hologram</title>' in response.read().decode('utf-8')
     with pytest.raises(urllib.error.HTTPError) as disabled:
         urlopen(Request(service.bridge.url+'/hologram/index.html',headers=headers))
     assert disabled.value.code == 404

@@ -39,7 +39,7 @@ from PyQt6.QtGui import (
 # Video playback for the HUD. Part of PyQt6, so it costs no new dependency —
 # but the multimedia plugins are a separate piece of the Qt install and can be
 # absent on a stripped-down system, so a failure here disables one feature
-# rather than stopping ULTRON from starting.
+# rather than stopping GÖLGE from starting.
 try:
     from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
     from PyQt6.QtMultimediaWidgets import QGraphicsVideoItem
@@ -82,9 +82,28 @@ def _read_full_config() -> dict:
         return {}
 
 
+def _setup_is_complete() -> bool:
+    """A completed first-run setup is stored in the user's ignored config."""
+    if not API_FILE.exists():
+        return False
+    try:
+        config = json.loads(API_FILE.read_text(encoding="utf-8"))
+        return bool(config.get("gemini_api_key")) and bool(config.get("os_system"))
+    except Exception:
+        return False
+
+
+def _save_setup_config(key: str, os_name: str) -> None:
+    """Save first-run values without discarding other user settings."""
+    config = _read_full_config()
+    config.update({"gemini_api_key": key, "os_system": os_name})
+    API_FILE.parent.mkdir(parents=True, exist_ok=True)
+    API_FILE.write_text(json.dumps(config, indent=4), encoding="utf-8")
+
+
 # Single source of truth for the release name — the window title, the header
 # badge and the readme must never disagree again.
-APP_VERSION  = "ULTRON"
+APP_VERSION  = "GÖLGE"
 APP_PROTOCOL = "V22"
 
 _DEFAULT_W, _DEFAULT_H = 1280, 820
@@ -405,7 +424,7 @@ class _SysMetrics:
 _metrics = _SysMetrics()
 
 class HudCanvas(QWidget):
-    def __init__(self, face_path: str, assistant_name: str = "ULTRON", parent=None):
+    def __init__(self, face_path: str, assistant_name: str = "GÖLGE", parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.setMinimumSize(300, 300)
@@ -604,7 +623,7 @@ class HudCanvas(QWidget):
         dt = now - self._step_t
         self._step_t = now
         # Integrated, not derived from absolute time: multiplying wall-clock by
-        # a rate that changes with state jumps the rings the instant ULTRON
+        # a rate that changes with state jumps the rings the instant GÖLGE
         # starts talking. Same lesson the head's sway taught.
         self._core_phase += min(0.10, max(0.0, dt))
 
@@ -826,7 +845,7 @@ class HudCanvas(QWidget):
         p.drawEllipse(QRectF(cx - inner, cy - inner, inner * 2, inner * 2))
 
         # 9. The name, sized from the string rather than from the radius alone:
-        #    "ULTRON" and a name someone renamed to "MAX" are very
+        #    "GÖLGE" and a name someone renamed to "MAX" are very
         #    different widths, and a fixed fraction of r spills one of them past
         #    the ring it is supposed to sit inside.
         name = self._assistant_name or ""
@@ -922,7 +941,7 @@ class HudCanvas(QWidget):
         p.drawText(QRectF(0, sy, W, 26), Qt.AlignmentFlag.AlignCenter, txt)
 
         # waveform — reacts to the real audio level (mic while listening,
-        # ULTRON's own voice while speaking). Falls back to a gentle idle
+        # GÖLGE's own voice while speaking). Falls back to a gentle idle
         # ripple when there's no sound. _amp_disp is the smoothed 0–1 level.
         wy = sy + 30
         N, bw = 36, 8
@@ -1050,7 +1069,7 @@ class LogWidget(QTextEdit):
         self._text    = ""
         self._pos     = 0
         self._tag     = "sys"
-        self._ai_name_lc = "ultron"   # updated when assistant name changes
+        self._ai_name_lc = "gölge"   # updated when assistant name changes
         self._tmr = QTimer(self)
         self._tmr.timeout.connect(self._step)
         self._sig.connect(self._enqueue)
@@ -1073,7 +1092,7 @@ class LogWidget(QTextEdit):
         tl = self._text.lower()
         _ai_pfx = f"{self._ai_name_lc}:"
         if   tl.startswith("you:"):                              self._tag = "you"
-        elif tl.startswith(_ai_pfx) or tl.startswith("ultron:"): self._tag = "ai"
+        elif tl.startswith(_ai_pfx) or tl.startswith("ultron:") or tl.startswith("gölge:"): self._tag = "ai"
         elif tl.startswith("file:"):                             self._tag = "file"
         elif "err" in tl:                                        self._tag = "err"
         else:                                                    self._tag = "sys"
@@ -1210,7 +1229,7 @@ class FileDropZone(QWidget):
 
     def _browse(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "Select a file for ULTRON", str(Path.home()),
+            self, "Select a file for GÖLGE", str(Path.home()),
             "All Files (*.*);;"
             "Images (*.jpg *.jpeg *.png *.gif *.webp *.bmp *.svg);;"
             "Documents (*.pdf *.docx *.txt *.md *.pptx);;"
@@ -1436,7 +1455,7 @@ class SetupOverlay(QWidget):
             return w
 
         layout.addWidget(_lbl("◈  INITIALISATION REQUIRED", 13, True))
-        layout.addWidget(_lbl("Configure ULTRON before first boot.", 9, color=C.PRI_DIM))
+        layout.addWidget(_lbl("Configure GÖLGE before first boot.", 9, color=C.PRI_DIM))
         layout.addSpacing(6)
 
         sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
@@ -1446,18 +1465,38 @@ class SetupOverlay(QWidget):
         layout.addWidget(_lbl("GEMINI API KEY", 8, color=C.TEXT_DIM,
                                align=Qt.AlignmentFlag.AlignLeft))
         self._key_input = QLineEdit()
+        self._key_input.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self._key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self._key_input.setPlaceholderText("AIza…")
         self._key_input.setFont(QFont("Courier New", 10))
         self._key_input.setFixedHeight(32)
-        self._key_input.setStyleSheet(f"""
+        self._key_style = f"""
             QLineEdit {{
                 background: #000d12; color: {C.TEXT};
                 border: 1px solid {C.BORDER}; border-radius: 3px; padding: 4px 8px;
             }}
             QLineEdit:focus {{ border: 1px solid {C.PRI}; }}
+        """
+        self._key_input.setStyleSheet(self._key_style)
+        key_row = QHBoxLayout()
+        key_row.setSpacing(6)
+        key_row.addWidget(self._key_input, stretch=1)
+        self._key_visibility_btn = QPushButton("SHOW")
+        self._key_visibility_btn.setFont(QFont("Courier New", 8, QFont.Weight.Bold))
+        self._key_visibility_btn.setFixedSize(58, 32)
+        self._key_visibility_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._key_visibility_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: #000d12; color: {C.TEXT_DIM};
+                border: 1px solid {C.BORDER}; border-radius: 3px;
+            }}
+            QPushButton:hover {{ color: {C.TEXT}; border: 1px solid {C.BORDER_B}; }}
         """)
-        layout.addWidget(self._key_input)
+        self._key_visibility_btn.clicked.connect(self._toggle_key_visibility)
+        key_row.addWidget(self._key_visibility_btn)
+        layout.addLayout(key_row)
+        self._key_input.returnPressed.connect(self._submit)
+        self._key_input.textEdited.connect(self._clear_key_error)
         layout.addSpacing(12)
 
         sep2 = QFrame(); sep2.setFrameShape(QFrame.Shape.HLine)
@@ -1500,6 +1539,31 @@ class SetupOverlay(QWidget):
         init_btn.clicked.connect(self._submit)
         layout.addWidget(init_btn)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # A child overlay can be shown before its top-level window. Defer focus
+        # until Qt has completed showing it so keyboard input cannot stay in
+        # the chat composer underneath.
+        if self.parentWidget() and self.parentWidget().isVisible():
+            QTimer.singleShot(0, self.focus_key_input)
+
+    def focus_key_input(self):
+        if self.isVisible():
+            self.raise_()
+            self._key_input.setFocus(Qt.FocusReason.ActiveWindowFocusReason)
+
+    def _toggle_key_visibility(self):
+        visible = self._key_input.echoMode() == QLineEdit.EchoMode.Password
+        self._key_input.setEchoMode(
+            QLineEdit.EchoMode.Normal if visible else QLineEdit.EchoMode.Password
+        )
+        self._key_visibility_btn.setText("HIDE" if visible else "SHOW")
+        self._key_input.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def _clear_key_error(self, _text: str = ""):
+        self._key_input.setStyleSheet(self._key_style)
+        self._key_input.setToolTip("")
+
     def _sel(self, key: str):
         self._sel_os = key
         pal = {"windows":(C.PRI,"#001a22"),"mac":(C.ACC2,"#1a1400"),"linux":(C.GREEN,"#001a0d")}
@@ -1525,9 +1589,10 @@ class SetupOverlay(QWidget):
         key = self._key_input.text().strip()
         if not key:
             self._key_input.setStyleSheet(
-                self._key_input.styleSheet() +
-                f" QLineEdit {{ border: 1px solid {C.RED}; }}"
+                self._key_style + f" QLineEdit {{ border: 1px solid {C.RED}; }}"
             )
+            self._key_input.setToolTip("A Gemini API key is required for first-time setup.")
+            self.focus_key_input()
             return
         self.done.emit(key, self._sel_os)
 
@@ -1632,7 +1697,7 @@ class CustomizeOverlay(QWidget):
     saved = pyqtSignal(str, str, str, str)   # assistant_name, user_name, ui_color, voice
     _OW, _OH = 400, 588
 
-    def __init__(self, assistant_name="ULTRON", user_name="",
+    def __init__(self, assistant_name="GÖLGE", user_name="",
                  ui_color=DEFAULT_UI_COLOR, voice="", parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -1838,7 +1903,7 @@ class CustomizeOverlay(QWidget):
         self.hide()
 
     def _save(self):
-        name = self._name_input.text().strip() or "ULTRON"
+        name = self._name_input.text().strip() or "GÖLGE"
         user = self._user_input.text().strip()
         self.saved.emit(name, user, self._sel_color or DEFAULT_UI_COLOR, self._sel_voice)
         self.hide()
@@ -2058,11 +2123,11 @@ class ConfirmBanner(_HudOverlay):
 
 
 class AudioDeviceOverlay(_HudOverlay):
-    """Choose which microphone ULTRON listens to and which speakers it uses.
+    """Choose which microphone GÖLGE listens to and which speakers it uses.
 
     Both audio streams used to open with no `device=` at all, so they always
     took the OS default — which on Windows moves by itself the moment a headset
-    is plugged in. 'ULTRON can't hear me' is usually 'ULTRON is listening to the
+    is plugged in. 'GÖLGE can't hear me' is usually 'GÖLGE is listening to the
     webcam'."""
 
     picked = pyqtSignal()      # emitted after Apply, when something changed
@@ -2130,10 +2195,10 @@ class AudioDeviceOverlay(_HudOverlay):
             lay.addWidget(box)
             return box
 
-        self._in_box  = _row("MICROPHONE — what ULTRON hears you with",
+        self._in_box  = _row("MICROPHONE — what GÖLGE hears you with",
                              "input", get_input_device())
         lay.addSpacing(4)
-        self._out_box = _row("SPEAKERS — what ULTRON talks through",
+        self._out_box = _row("SPEAKERS — what GÖLGE talks through",
                              "output", get_output_device())
 
         note = QLabel("Applying reconnects the session. Your conversation is kept.")
@@ -2187,7 +2252,7 @@ class AudioDeviceOverlay(_HudOverlay):
 
 
 class MemoryOverlay(_HudOverlay):
-    """Everything ULTRON has stored about you, and when it learned it.
+    """Everything GÖLGE has stored about you, and when it learned it.
 
     Memory used to be a 2200-character store that deleted its oldest entries
     when full and mentioned it only on stdout. The cap is gone; this panel is
@@ -2281,7 +2346,7 @@ class MemoryOverlay(_HudOverlay):
 
         from memory.memory_manager import all_entries_for_ui
 
-        hdr = QLabel("🧠  WHAT ULTRON REMEMBERS")
+        hdr = QLabel("🧠  WHAT GÖLGE REMEMBERS")
         hdr.setFont(QFont("Courier New", 12, QFont.Weight.Bold))
         hdr.setStyleSheet(f"color: {C.PRI}; background: transparent;")
         self._lay.addWidget(hdr)
@@ -2915,7 +2980,7 @@ class RemoteKeyOverlay(QWidget):
         self._qr_label.setStyleSheet(
             "color: #00ff88; background: #001a0d; border-radius: 10px;"
         )
-        self._timer_lbl.setText("Phone connected — ULTRON ready")
+        self._timer_lbl.setText("Phone connected — GÖLGE ready")
         self._timer_lbl.setStyleSheet(f"color: {C.GREEN}; background: transparent;")
 
     def _refresh_key(self):
@@ -2980,7 +3045,9 @@ class MainWindow(QMainWindow):
 
         # Load customization from config
         _cfg = _read_full_config()
-        self._assistant_name: str = (_cfg.get("assistant_name") or "ULTRON").strip()
+        self._assistant_name: str = (_cfg.get("assistant_name") or "GÖLGE").strip()
+        if self._assistant_name.casefold() == "ultron":
+            self._assistant_name = "GÖLGE"
         _display = self._assistant_name.upper()
 
         # Apply the saved UI colour BEFORE panels/stylesheets are built
@@ -3000,7 +3067,7 @@ class MainWindow(QMainWindow):
 
         self.on_text_command   = None
         self.on_remote_clicked = None   # callable: () -> (url, key) | None
-        self.on_interrupt      = None   # callable: () -> None — stop ULTRON mid-speech
+        self.on_interrupt      = None   # callable: () -> None — stop GÖLGE mid-speech
         self.on_voice_change   = None   # callable: () -> None — rebuild session with new voice
         self.on_audio_device_change = None  # callable: () -> None — reopen audio streams
         self._confirm_overlay  = None   # live ConfirmBanner, if one is on screen
@@ -3079,7 +3146,7 @@ class MainWindow(QMainWindow):
         # inventing a second mechanism means the avatar, the camera and a video
         # can never be on screen at once.
         self._video_split = False        # is the sound a separate stream?
-        self._video_auto_muted = False   # did ULTRON close the mic, or the user?
+        self._video_auto_muted = False   # did GÖLGE close the mic, or the user?
         # A plain flag rather than reading the widget. video_is_playing() is
         # called from plugin threads, and reading a widget's state from one is
         # not something to rely on; an attribute is.
@@ -3112,7 +3179,7 @@ class MainWindow(QMainWindow):
             return b
 
         # Muted is the default and the button says so, because a soundtrack
-        # talking over ULTRON is the one way this feature could make the
+        # talking over GÖLGE is the one way this feature could make the
         # assistant worse rather than better.
         self._video_mute_btn = _vid_btn("🔇  SOUND OFF")
         self._video_mute_btn.clicked.connect(self._toggle_video_mute)
@@ -3286,6 +3353,17 @@ class MainWindow(QMainWindow):
         sc_intr = QShortcut(QKeySequence("Escape"), self)
         sc_intr.activated.connect(self._do_interrupt)
 
+    def showEvent(self, event):
+        super().showEvent(event)
+        # During first boot the setup child is created before this window is
+        # shown. Reapply focus after the top-level window becomes visible.
+        if self._overlay is not None:
+            QTimer.singleShot(0, self._focus_setup_input)
+
+    def _focus_setup_input(self):
+        if self._overlay is not None:
+            self._overlay.focus_key_input()
+
     def _show_camera_frame(self, img_bytes: bytes):
         """Slot — display camera preview overlay (main thread)."""
         self._cam_preview.show_frame(img_bytes)
@@ -3369,7 +3447,7 @@ class MainWindow(QMainWindow):
     def _select_video_file(self) -> None:
         """Choose a clip on the GUI thread for a source-less voice request."""
         selected, _ = QFileDialog.getOpenFileName(
-            self, 'ULTRON / Video veya animasyon seç', '',
+            self, 'GÖLGE / Video veya animasyon seç', '',
             'Video (*.mp4 *.webm *.mov *.mkv *.avi *.m4v);;Tüm dosyalar (*)'
         )
         if selected:
@@ -3393,7 +3471,7 @@ class MainWindow(QMainWindow):
         self._video_player.setSource(url)
         if self._video_split:
             self._video_sound.setSource(QUrl(audio_source))
-        # MARK: stack index 2. ULTRON: same widget reparented into WebEngine.
+        # MARK: stack index 2. GÖLGE: same widget reparented into WebEngine.
         if self._hud_cam_stack.indexOf(self._video_cont) >= 0:
             self._hud_cam_stack.setCurrentWidget(self._video_cont)
         self._video_on = True
@@ -3471,7 +3549,7 @@ class MainWindow(QMainWindow):
     def _sync_mic_for_video(self) -> None:
         """Close the microphone while the video is making sound.
 
-        ULTRON subtracts its OWN output from the microphone — that is what
+        GÖLGE subtracts its OWN output from the microphone — that is what
         core/echo.py does — but a video plays through a different output
         entirely, so the guard has never heard of it and the assistant answers
         the film. There is no arrangement in which an open microphone and a
@@ -3479,7 +3557,7 @@ class MainWindow(QMainWindow):
 
         So the microphone closes for exactly as long as the sound is on, and
         opens again by itself the moment it goes off or the video is closed.
-        Only if ULTRON closed it: a microphone the user muted themselves stays
+        Only if GÖLGE closed it: a microphone the user muted themselves stays
         muted, and pressing the mute key during a video hands the decision back
         to them for good.
         """
@@ -3551,7 +3629,7 @@ class MainWindow(QMainWindow):
     @staticmethod
     def _build_ultron_icon(out_path: Path) -> bool:
         """
-        Render a ULTRON arc-reactor icon at 4× resolution and downsample
+        Render a GÖLGE arc-reactor icon at 4× resolution and downsample
         for crisp results at all sizes. Saves a multi-res .ico to out_path.
         Returns True on success.
         """
@@ -3664,7 +3742,7 @@ class MainWindow(QMainWindow):
             sc.TargetPath       = target
             sc.Arguments        = f'"{args}"'
             sc.WorkingDirectory = work_dir
-            sc.Description      = "ULTRON AI Assistant"
+            sc.Description      = "GÖLGE AI Assistant"
             sc.IconLocation     = icon_loc
             sc.save()
             return
@@ -3679,7 +3757,7 @@ class MainWindow(QMainWindow):
             f'sc.TargetPath = "{target}"',
             f'sc.Arguments = Chr(34) & "{args}" & Chr(34)',
             f'sc.WorkingDirectory = "{work_dir}"',
-            'sc.Description = "ULTRON AI Assistant"',
+            'sc.Description = "GÖLGE AI Assistant"',
             f'sc.IconLocation = "{icon_loc}"',
             'sc.Save',
         ])
@@ -3802,14 +3880,14 @@ class MainWindow(QMainWindow):
             if _os == "Windows":
                 pythonw  = python.parent / "pythonw.exe"
                 target   = str(pythonw if pythonw.exists() else python)
-                lnk      = str(desktop / "ULTRONlnk")
+                lnk      = str(desktop / "GÖLGE.lnk")
                 icon_loc = str(ico_path) if ico_path.exists() else f"{target},0"
                 self._create_lnk_windows(lnk, target, str(script),
                                          str(script.parent), icon_loc)
 
             # ── macOS — proper .app bundle (no Terminal window) ───────────────
             elif _os == "Darwin":
-                app     = desktop / "ULTRONapp"
+                app     = desktop / "GÖLGE.app"
                 mac_dir = app / "Contents" / "MacOS"
                 res_dir = app / "Contents" / "Resources"
                 mac_dir.mkdir(parents=True, exist_ok=True)
@@ -3817,7 +3895,7 @@ class MainWindow(QMainWindow):
 
                 # Launcher executable (bash — runs as background process,
                 # macOS does NOT open Terminal for executables inside .app bundles)
-                launcher = mac_dir / "ULTRON"
+                launcher = mac_dir / "GÖLGE"
                 launcher.write_text(
                     "#!/usr/bin/env bash\n"
                     f'cd "{script.parent}"\n'
@@ -3832,10 +3910,10 @@ class MainWindow(QMainWindow):
                     '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
                     '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
                     '<plist version="1.0"><dict>\n'
-                    '  <key>CFBundleExecutable</key><string>ULTRON</string>\n'
+                    '  <key>CFBundleExecutable</key><string>GÖLGE</string>\n'
                     '  <key>CFBundleIdentifier</key>'
                     '<string>com.ultron.assistant</string>\n'
-                    '  <key>CFBundleName</key><string>ULTRON</string>\n'
+                    '  <key>CFBundleName</key><string>GÖLGE</string>\n'
                     '  <key>CFBundlePackageType</key><string>APPL</string>\n'
                     '  <key>CFBundleVersion</key><string>1.0</string>\n'
                     '</dict></plist>\n'
@@ -3873,10 +3951,10 @@ class MainWindow(QMainWindow):
                         png_path = ico_path  # fallback to .ico
 
                 icon_line = f"Icon={png_path}\n" if png_path.exists() else ""
-                desk = desktop / "ULTRONdesktop"
+                desk = desktop / "GÖLGE.desktop"
                 desk.write_text(
                     "[Desktop Entry]\n"
-                    "Name=ULTRON\n"
+                    "Name=GÖLGE\n"
                     f"Exec={python} {script}\n"
                     f"Path={script.parent}\n"
                     "Type=Application\n"
@@ -4069,7 +4147,7 @@ class MainWindow(QMainWindow):
         self._hologram_btn.setFixedSize(200, 38)
         self._hologram_btn.setFont(QFont("Segoe UI", 9))
         self._hologram_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._hologram_btn.setToolTip('ULTRON hologram çalışma alanını aç')
+        self._hologram_btn.setToolTip('GÖLGE hologram çalışma alanını aç')
         self._hologram_btn.setStyleSheet(self._drawer_btn.styleSheet())
         self._hologram_btn.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
         self._hologram_btn.setEnabled(False)
@@ -4086,7 +4164,7 @@ class MainWindow(QMainWindow):
         self._title_lbl.setStyleSheet(f"color: {C.WHITE}; background: transparent;")
         mid.addWidget(self._title_lbl)
         _sub_text = ("K İ Ş İ S E L   Y A P A Y   Z E K Â"
-                     if _disp in ("ULTRON", "ULTRON")
+                     if _disp in ("GÖLGE", "GÖLGE")
                      else "Personal AI Assistant")
         self._sub_lbl = QLabel(_sub_text)
         self._sub_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -4649,7 +4727,7 @@ class MainWindow(QMainWindow):
     # while translating the tag would mean a table per language, which is worse.
     # A shape carries it in every language, and shape plus colour still reads
     # for someone who cannot separate red from amber. What the marks mean
-    # arrives the way everything else does: ULTRON says it out loud.
+    # arrives the way everything else does: GÖLGE says it out loud.
     _REVIEW_MARKS = {"serious": ("RED", "▲"), "caution": ("ACC2", "●"), "note": ("PRI_DIM", "·")}
 
     @staticmethod
@@ -4724,7 +4802,7 @@ class MainWindow(QMainWindow):
     # An interactive twin of the content panel. The plugin only ever hands over
     # questions; everything about asking, marking and reporting happens here,
     # and the finished result is pushed back into the conversation the same way
-    # a dropped file is — as a message ULTRON reads and responds to. That keeps
+    # a dropped file is — as a message GÖLGE reads and responds to. That keeps
     # the tool call short (it returns the moment the board is up) and leaves the
     # talking to the assistant, in the user's own language.
 
@@ -4931,7 +5009,7 @@ class MainWindow(QMainWindow):
         elif verdict is False:
             mark, colour = "✕  " + str(q.get("answer", "")), C.RED
         else:
-            # Open answers and near-miss gap-fills are ULTRON's to judge. Saying
+            # Open answers and near-miss gap-fills are GÖLGE's to judge. Saying
             # so is honest; marking it wrong here would be a guess.
             mark, colour = "…  noted — I'll go over this one with you", C.ACC2
         note = q.get("note") or ""
@@ -4966,7 +5044,7 @@ class MainWindow(QMainWindow):
 
         self._log.append_log(f"QUIZ: {topic or 'quiz'} — {right}/{total} correct")
 
-        # Hand it back to ULTRON as a message, not as a tool return: the tool
+        # Hand it back to GÖLGE as a message, not as a tool return: the tool
         # call ended minutes ago. This is the same channel a dropped file uses.
         lines = [f"[QUIZ_DONE] topic={topic or 'general'} | "
                  f"auto-marked {right}/{total} correct"
@@ -5260,7 +5338,7 @@ class MainWindow(QMainWindow):
                               else "◉  HUD: PARÇACIK HALKASI")
         self._hud_btn.setStyleSheet(style)
         self._hud_btn.setToolTip(
-            "An animated head that speaks your words and shows what ULTRON is "
+            "An animated head that speaks your words and shows what GÖLGE is "
             "doing. Tap to switch to the reactor core."
             if face else
             "A reactor core that turns with the state and moves with your voice. "
@@ -5346,7 +5424,7 @@ class MainWindow(QMainWindow):
         st = self._wake_state()
         if not st["ready"]:
             # First time: download openwakeword + model in a worker thread.
-            self._wake_btn.setText("CHECKING ULTRON MODEL…")
+            self._wake_btn.setText("CHECKING GÖLGE MODEL…")
             self._wake_btn.setEnabled(False)
             def _work():
                 try:
@@ -5415,7 +5493,7 @@ class MainWindow(QMainWindow):
             self._customize_overlay.hide()
         cw = self.centralWidget()
         ov = CustomizeOverlay(
-            cfg.get("assistant_name", "ULTRON") or "ULTRON",
+            cfg.get("assistant_name", "GÖLGE") or "GÖLGE",
             cfg.get("user_name", ""),
             cfg.get("ui_color", "") or DEFAULT_UI_COLOR,
             cfg.get("voice_name", ""),
@@ -5442,11 +5520,11 @@ class MainWindow(QMainWindow):
     def _apply_name_update(self, name: str, user_name: str, ui_color: str = "",
                            voice: str = ""):
         """Update all name/theme-dependent UI elements and persist to config."""
-        self._assistant_name = name.strip() or "ULTRON"
+        self._assistant_name = name.strip() or "GÖLGE"
         display = self._assistant_name.upper()
         self.setWindowTitle(display)
         self._title_lbl.setText(display)
-        if display in ("ULTRON", "ULTRON"):
+        if display in ("GÖLGE", "GÖLGE"):
             self._sub_lbl.setText("Just A Rather Very Intelligent System")
         else:
             self._sub_lbl.setText("Personal AI Assistant")
@@ -5661,12 +5739,7 @@ class MainWindow(QMainWindow):
         self.hud.speaking = (state == "SPEAKING")
 
     def _check_config(self) -> bool:
-        if not API_FILE.exists(): return False
-        try:
-            d = json.loads(API_FILE.read_text(encoding="utf-8"))
-            return bool(d.get("gemini_api_key")) and bool(d.get("os_system"))
-        except Exception:
-            return False
+        return _setup_is_complete()
 
     def _show_setup(self):
         ov = SetupOverlay(self.centralWidget())
@@ -5680,19 +5753,23 @@ class MainWindow(QMainWindow):
         ov.done.connect(self._on_setup_done)
         ov.show()
         self._overlay = ov
+        QTimer.singleShot(0, self._focus_setup_input)
 
     def _on_setup_done(self, key: str, os_name: str):
-        os.makedirs(CONFIG_DIR, exist_ok=True)
-        API_FILE.write_text(
-            json.dumps({"gemini_api_key": key, "os_system": os_name}, indent=4),
-            encoding="utf-8",
-        )
+        try:
+            _save_setup_config(key, os_name)
+        except OSError:
+            self._log.append_log(
+                "ERR: Setup could not be saved. Check that the ULTRON config folder is writable."
+            )
+            self._focus_setup_input()
+            return
         self._ready = True
         if self._overlay:
             self._overlay.hide()
             self._overlay = None
         self._apply_state("LISTENING")
-        self._assistant_name = _read_full_config().get("assistant_name", "ULTRON") or "ULTRON"
+        self._assistant_name = _read_full_config().get("assistant_name", "GÖLGE") or "GÖLGE"
         self._log.append_log(f"SYS: Initialised. OS={os_name.upper()}. {self._assistant_name} online.")
 
 
@@ -5850,7 +5927,7 @@ class UltronUI:
 
     def push_visemes(self, frames, hop: float, at: float) -> None:
         """Thread-safe: post a schedule of (level, openness, width) mouth frames
-        for ULTRON's own speech. `at` is the wall-clock time the batch begins to
+        for GÖLGE's own speech. `at` is the wall-clock time the batch begins to
         sound, not the time of the call. See HudCanvas.push_visemes()."""
         try:
             self._win.hud.push_visemes(frames, hop, at)
@@ -5879,7 +5956,7 @@ class UltronUI:
 
         `grade(question, given)` decides each answer — the plugin supplies it so
         the marking rules live with the questions rather than being duplicated
-        here. Returning None from it means "ULTRON should judge this one", which
+        here. Returning None from it means "GÖLGE should judge this one", which
         is how open answers and near-miss gap-fills are handled.
 
         Returns immediately: the user answers at their own pace and the finished
@@ -5920,7 +5997,7 @@ class UltronUI:
         together and kept in step.
 
         Muted by default, and that is a decision rather than a default: a
-        soundtrack talking over ULTRON is the one way this could make the
+        soundtrack talking over GÖLGE is the one way this could make the
         assistant worse. The user turns sound on from the header button or by
         asking, and closes it the same two ways.
         """

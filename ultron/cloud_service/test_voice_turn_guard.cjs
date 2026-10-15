@@ -45,7 +45,7 @@ test("PWA voice microphone click interrupts browser TTS before starting local ST
 test("stale Qwen reply stays in chat but never speaks after cancelled voice turn",()=>{
  assert.match(html,/const voiceToken=voiceTurnGuard\.begin\(\)/);
  assert.match(html,/await send\(true,voiceToken\)/);
- assert.match(html,/async function send\(fromVoice=false,voiceToken=null\)/);
+ assert.match(html,/async function send\(fromVoice=false,voiceToken=null(?:,options=\{\})?\)/);
  assert.match(html,/rememberPendingVoice\('assistant',d\.reply\);addMessage\('assistant',d\.reply,\{id:d\.assistant_message_id\}\);/);
  assert.match(html,/voiceTurnGuard\.current\(voiceToken\)/);
  assert.match(html,/!fromVoice\|\|!document\.hidden/);
@@ -54,7 +54,8 @@ test("stale Qwen reply stays in chat but never speaks after cancelled voice turn
 });
 
 test("background, pagehide and mute invalidate turns without background mic access",()=>{
- assert.match(html,/pagehide',\(\)=>\{voiceTurnGuard\.cancel\(\)/);
+ assert.match(html,/pagehide',\(\)=>\{[^}]*voiceTurnGuard\.cancel\(\)/);
+  assert.match(html,/pagehide',\(\)=>\{longListenController\.interrupt\(/);
  assert.match(html,/if\(document\.hidden\)\{voiceTurnGuard\.cancel\(\)/);
  assert.match(sw,/ultron-shell-v[0-9]+/);
  assert.ok(sw.includes("'/static/voice-turn-guard.js'"));
