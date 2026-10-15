@@ -37,7 +37,7 @@ body:before,body:after{content:none!important;background:none!important}
  scrollbar-width:thin;scrollbar-color:#234e5c transparent}
 #chatView .msg{font:14px/1.62 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;
  max-width:89%;margin-bottom:8px;background:#101a23!important;border:1px solid #243944!important;
- box-shadow:0 5px 20px #0003!important;border-radius:15px!important;
+ box-shadow:0 5px 20px #0003!important;border-radius:15px!important;content-visibility:auto;contain-intrinsic-size:auto 84px;
  padding:12px 14px!important;color:#e8f3f6!important}
 #chatView .msg.user{background:#14232d!important;border-color:#2b4c58!important;color:#eef5f7!important}
 #chatView .msg.assistant{margin-left:32px!important}
@@ -93,4 +93,27 @@ body:before,body:after{content:none!important;background:none!important}
  #chatView .composer .row{gap:5px}
  #chatView .composer textarea{padding:9px!important}
  #chatView .msg{font-size:13px!important}
+}
+/* Fixed scenery lives behind the independent message scroller, like a chat wallpaper.
+   Generated photographic scenery; it is not a camera feed or a photograph of a verified location. */
+@media(max-width:760px){
+ html,body{height:100%;min-height:100dvh;overflow:hidden!important;background:#04080e!important}
+ body,body[style]{background:#04080e!important;background-image:none!important}
+ body:before{content:''!important;display:block!important;position:fixed!important;inset:0!important;z-index:0!important;
+  background:#03080d url('/static/golge-night-lake.webp') center center/cover no-repeat!important;pointer-events:none!important}
+ body:after{content:''!important;display:block!important;position:fixed!important;inset:0!important;z-index:0!important;
+  background:linear-gradient(180deg,#02060b55,#02060b20 33%,#02060b66 100%)!important;pointer-events:none!important}
+ .shell:has(#chatView.active){position:relative;z-index:1;isolation:isolate;background:transparent!important;
+  height:100dvh;min-height:100dvh;padding-top:env(safe-area-inset-top)!important}
+ .shell:has(#chatView.active)>.topbar{background:#030a10a8!important;backdrop-filter:blur(10px)}
+ #app:not(.hidden):has(#chatView.active),#chatView.active{background:transparent!important}
+ #chatView #messages{scrollbar-gutter:stable;scroll-padding-block:12px}
+ #chatView .composer{bottom:calc(7px + env(safe-area-inset-bottom))!important}
+}
+
+/* Photorealistic wallpaper; these remain real, independently scrollable chat bubbles. */
+@media(max-width:760px){
+ #chatView .msg.assistant{background:linear-gradient(145deg,#071d30df,#061424df)!important;border:1px solid #23628199!important;backdrop-filter:blur(8px)}
+ #chatView .msg.user{background:linear-gradient(140deg,#09578bdc,#063759e6)!important;border:1px solid #2399c6aa!important}
+ #chatView .composer{background:#061524ed!important;border-color:#246e90!important;backdrop-filter:blur(14px)}
 }

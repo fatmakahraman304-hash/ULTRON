@@ -14,7 +14,7 @@ export class CoreScene {
  constructor(private host:HTMLDivElement){
   this.renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
   this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.15;this.renderer.setClearColor(0x05070b);host.appendChild(this.renderer.domElement);
-  this.renderer.domElement.setAttribute('aria-label','Gerçek zamanlı 3D ULTRON Core');this.scene.fog=new T.FogExp2(0x08090e,.035);
+  this.renderer.domElement.setAttribute('aria-label','Gerçek zamanlı 3D GÖLGE Core');this.scene.fog=new T.FogExp2(0x08090e,.035);
   this.camera.position.set(0,1.05,11.7);this.camera.lookAt(0,-.15,0);this.scene.add(this.assembly,this.platform);
   const metal=new T.MeshStandardMaterial({color:0x202731,metalness:.78,roughness:.36});
   const silver=new T.MeshStandardMaterial({color:0x83909f,metalness:.85,roughness:.28});

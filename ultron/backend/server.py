@@ -61,6 +61,11 @@ OLLAMA_HOST = os.environ.get("ULTRON_OLLAMA_HOST", "http://127.0.0.1:11434")
 PERSISTENT = os.environ.get("ULTRON_PERSISTENT_MEMORY", "1") != "0"
 VERSION = "15.0.0"
 
+_HOLOGRAM_KINDS = {"network", "drone", "vehicle", "logo", "sphere"}
+_SCENE_KINDS = _HOLOGRAM_KINDS | {"ring", "tower", "robot", "arm", "satellite", "aircraft",
+                                   "building", "ship", "radar", "portal", "cube", "custom"}
+_VIDEO_TEMPLATES = {"logo_reveal", "system_activation", "task_complete", "hologram_capture"}
+
 
 class Hub:
     def __init__(self) -> None:
@@ -94,7 +99,7 @@ class Hub:
             "record_duration": 8.0,
             "animation": {"kind": "bird", "title": "GÖLGE MINI ANIMATION"},
             "hologram": {
-                "kind": "energy", "color": "#ff3047", "glow": 1.0,
+                "kind": "network", "color": "#ff3047", "glow": 1.0,
                 "speed": 1.0, "rings": 4, "particles": 900, "scale": 1.0,
                 "opacity": 0.92, "wireframe": False, "pulse": True,
                 "label": "GÖLGE",
@@ -134,7 +139,7 @@ class Hub:
                 },
             },
             "video": {
-                "template": "ultron_intro", "duration": 6.0,
+                "template": "logo_reveal", "duration": 6.0,
                 "title": "GÖLGE", "ready": False, "mime": "", "bytes": 0,
             },
         }
@@ -142,12 +147,15 @@ class Hub:
             _stage_saved = json.loads((Path(DATA_DIR) / "center_stage.json").read_text(encoding="utf-8"))
             if isinstance(_stage_saved, dict):
                 if isinstance(_stage_saved.get("hologram"), dict):
-                    self.stage_state["hologram"].update(_stage_saved["hologram"])
+                    if _stage_saved["hologram"].get("kind") in _HOLOGRAM_KINDS:
+                        self.stage_state["hologram"].update(_stage_saved["hologram"])
                 if isinstance(_stage_saved.get("earth"), dict):
                     self.stage_state["earth"] = normalize_earth_state(_stage_saved["earth"])
                 if isinstance(_stage_saved.get("scene"), dict):
                     self.stage_state["scene"].update(_stage_saved["scene"])
                     _restored_scene = self.stage_state["scene"]
+                    _restored_scene["objects"] = [obj for obj in _restored_scene.get("objects", [])
+                        if isinstance(obj, dict) and obj.get("kind") in _SCENE_KINDS]
                     _seq = dict(_restored_scene.get("sequence") or {})
                     _seq["playing"] = False
                     _seq["started_at"] = None
@@ -171,6 +179,8 @@ class Hub:
                         _path["started_at"] = None
                         _obj["path"] = _path
                 _saved_mode = str(_stage_saved.get("mode") or "")
+                if _saved_mode == "hologram_lab" and (_stage_saved.get("hologram") or {}).get("kind") not in _HOLOGRAM_KINDS:
+                    _saved_mode = ""
                 if _saved_mode in {"core_idle", "hologram_lab", "scene_lab", "earth_watch"}:
                     self.stage_state["mode"] = _saved_mode
                     self.stage_state["title"] = str(_stage_saved.get("title") or self.stage_state["title"])[:100]
@@ -853,7 +863,7 @@ async def _stage_publish() -> None:
         elif persistent_mode == "hologram_lab":
             _holo = hub.stage_state.get("hologram") or {}
             persistent_title = str(_holo.get("label") or "HOLOGRAM")[:100]
-            persistent_subtitle = f"{str(_holo.get('kind') or 'energy').upper()} / LIVE"
+            persistent_subtitle = f"{str(_holo.get('kind') or 'network').upper()} / LIVE"
         elif persistent_mode == "earth_watch":
             persistent_title = "EARTH WATCH"
             persistent_subtitle = "3D GLOBAL MONITOR"
@@ -913,6 +923,8 @@ def _scene_ensure(scene: dict) -> dict:
         if key not in scene:
             scene[key] = copy.deepcopy(value)
     if not isinstance(scene.get("objects"), list): scene["objects"] = []
+    scene["objects"] = [obj for obj in scene["objects"]
+                        if isinstance(obj, dict) and obj.get("kind") in _SCENE_KINDS]
     if not isinstance(scene.get("links"), list): scene["links"] = []
     if not isinstance(scene.get("hud"), list): scene["hud"] = []
     if not isinstance(scene.get("groups"), list): scene["groups"] = []
@@ -1021,6 +1033,9 @@ def _scene_ensure(scene: dict) -> dict:
     selected = str(scene.get("selected_id") or "")
     if selected and selected in ids and selected not in scene["selected_ids"]:
         scene["selected_ids"].insert(0, selected)
+    if selected not in ids:
+        scene["selected_id"] = None
+        selected = ""
     if not selected and scene["selected_ids"]:
         scene["selected_id"] = scene["selected_ids"][0]
     # Keep only valid group memberships/bookmarks.
@@ -1135,6 +1150,22 @@ async def api_stage_command(req: web.Request) -> web.Response:
     except Exception:
         body = {}
     op = str(body.get("operation", "")).strip().lower()
+    if op in {"hologram_create", "hologram", "hologram_show", "hologram_update", "hologram_control",
+              "scene_add", "scene_update"} and body.get("kind"):
+        allowed = _SCENE_KINDS if op.startswith("scene_") else _HOLOGRAM_KINDS
+        if str(body["kind"]).strip().lower() not in allowed:
+            return web.json_response({"ok": False, "error": "unsupported_stage_kind"}, status=400)
+    if op in {"scene_load", "scene_batch"}:
+        raw = body.get("scene") if op == "scene_load" else body.get("objects")
+        if raw is None:
+            try:
+                raw = json.loads(str(body.get("scene_json" if op == "scene_load" else "objects_json") or "null"))
+            except (TypeError, ValueError):
+                raw = None
+        objects = raw.get("objects") if isinstance(raw, dict) else raw
+        if isinstance(objects, list) and any(isinstance(obj, dict) and
+                str(obj.get("kind") or "network").strip().lower() not in _SCENE_KINDS for obj in objects):
+            return web.json_response({"ok": False, "error": "unsupported_stage_kind"}, status=400)
     state = hub.stage_state
     if isinstance(state.get("scene"), dict):
         state["scene"] = _scene_ensure(state["scene"])
@@ -1157,6 +1188,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         earth = normalize_earth_state(state.get("earth"))
         if "lat" in body: earth["focus_lat"] = earth_number(body.get("lat"), earth["focus_lat"], -85, 85)
         if "lon" in body: earth["focus_lon"] = earth_longitude(body.get("lon"), earth["focus_lon"])
+        earth["layer"] = "MAP"
         state["earth"] = earth
         state.update({"mode":"world_map","title":"GÖLGE WORLD","subtitle":"2D MAP / LIVE GEO","progress":100})
     elif op in {"earth_open", "earth_watch", "world_watch"}:
@@ -1170,6 +1202,11 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 earth[key] = earth_boolean(body[key], earth[key])
         if "rotation_speed" in body:
             earth["rotation_speed"] = earth_number(body["rotation_speed"], earth["rotation_speed"], 0, 1.5)
+        for key, low, high in (("camera_distance", 6, 15), ("map_zoom", 1, 19)):
+            if key in body:
+                earth[key] = earth_number(body[key], earth[key], low, high)
+        if body.get("layer") in {"GLOBAL", "MAP", "SATELLITE", "WEATHER", "FLIGHTS", "LOCATIONS"}:
+            earth["layer"] = body["layer"]
         state["earth"] = earth
         state["mode"] = "earth_watch"
     elif op == "earth_focus":
@@ -1177,8 +1214,16 @@ async def api_stage_command(req: web.Request) -> web.Response:
         earth["focus_lat"] = earth_number(body.get("lat"), earth["focus_lat"], -90, 90)
         earth["focus_lon"] = earth_longitude(body.get("lon"), earth["focus_lon"])
         earth["focus_label"] = earth_text(body.get("place") or body.get("label"), "TARGET")
+        earth["focus_revision"] = (earth["focus_revision"] + 1) % 1_000_000_000
+        earth["camera_distance"] = earth_number(body.get("camera_distance"), 6.8 if earth["focus_label"] != "GLOBAL" else 7.4, 6, 15)
+        earth["map_zoom"] = earth_number(body.get("map_zoom"), earth["map_zoom"], 1, 19)
+        if body.get("layer") in {"GLOBAL", "MAP", "SATELLITE"}:
+            earth["layer"] = body["layer"]
         # Holding a selected region in view takes priority over automatic rotation.
         earth["auto_rotate"] = earth["focus_label"].upper() == "GLOBAL"
+        if earth["auto_rotate"]:
+            earth["night"] = False
+            earth["layer"] = "GLOBAL"
         state["earth"] = earth
         state.update({"mode": "earth_watch", "title": "EARTH WATCH",
                       "subtitle": f"{earth['focus_label']} / TARGET"})
@@ -1200,10 +1245,10 @@ async def api_stage_command(req: web.Request) -> web.Response:
         state["mode"] = "earth_watch"
     elif op in {"hologram_create", "hologram", "hologram_show"}:
         holo = dict(state.get("hologram") or {})
-        kind = str(body.get("kind") or holo.get("kind") or "energy").strip().lower()
-        allowed = {"energy", "globe", "network", "drone", "vehicle", "logo", "sphere"}
+        kind = str(body.get("kind") or holo.get("kind") or "network").strip().lower()
+        allowed = _HOLOGRAM_KINDS
         if kind not in allowed:
-            kind = "energy"
+            kind = "network"
         holo.update({
             "kind": kind,
             "color": str(body.get("color") or holo.get("color") or "#ff3047")[:24],
@@ -1224,7 +1269,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         holo = dict(state.get("hologram") or {})
         if "kind" in body:
             kind = str(body.get("kind") or "").strip().lower()
-            if kind in {"energy", "globe", "network", "drone", "vehicle", "logo", "sphere"}:
+            if kind in _HOLOGRAM_KINDS:
                 holo["kind"] = kind
         if "color" in body: holo["color"] = str(body.get("color"))[:24]
         if "glow" in body: holo["glow"] = _stage_number(body.get("glow"), holo.get("glow", 1.0), 0.0, 3.0)
@@ -1238,7 +1283,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         if "label" in body: holo["label"] = str(body.get("label"))[:80]
         state["hologram"] = holo
         state.update({"mode": "hologram_lab", "title": holo.get("label") or "HOLOGRAM",
-                      "subtitle": f"{str(holo.get('kind','energy')).upper()} / LIVE"})
+                      "subtitle": f"{str(holo.get('kind','network')).upper()} / LIVE"})
     elif op == "scene_load":
         raw = body.get("scene")
         if raw is None and body.get("scene_json"):
@@ -1248,15 +1293,15 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 raw = None
         if not isinstance(raw, dict) or not isinstance(raw.get("objects"), list):
             return web.json_response({"ok": False, "error":"scene_invalid"}, status=400)
-        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube","custom"}
+        allowed = _SCENE_KINDS
         loaded = _scene_defaults()
         objects = []
         used = set()
         for index,spec in enumerate(raw.get("objects")[:16]):
             if not isinstance(spec, dict):
                 continue
-            kind = str(spec.get("kind") or "energy").lower()
-            if kind not in allowed: kind="energy"
+            kind = str(spec.get("kind") or "network").lower()
+            if kind not in allowed: kind="network"
             oid = re.sub(r"[^A-Za-z0-9_-]","",str(spec.get("id") or ""))[:24] or uuid.uuid4().hex[:8]
             if oid in used: oid=uuid.uuid4().hex[:8]
             used.add(oid)
@@ -1437,13 +1482,13 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 raw = None
         if not isinstance(raw, list) or not raw:
             return web.json_response({"ok": False, "error": "scene_objects_required"}, status=400)
-        allowed = {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube","custom"}
+        allowed = _SCENE_KINDS
         objects = []
         for index, spec in enumerate(raw[:16]):
             if not isinstance(spec, dict):
                 continue
-            kind = str(spec.get("kind") or "energy").lower()
-            if kind not in allowed: kind = "energy"
+            kind = str(spec.get("kind") or "network").lower()
+            if kind not in allowed: kind = "network"
             pos = spec.get("position") if isinstance(spec.get("position"), list) else [spec.get("x",0),spec.get("y",0),spec.get("z",0)]
             while len(pos)<3: pos.append(0)
             objects.append({
@@ -1493,11 +1538,10 @@ async def api_stage_command(req: web.Request) -> web.Response:
         else:
             if len(objects) >= 16:
                 return web.json_response({"ok": False, "error": "scene_object_limit"}, status=409)
-            allowed = {"energy", "globe", "network", "drone", "vehicle", "logo", "sphere", "ring", "tower",
-                       "robot", "arm", "satellite", "aircraft", "building", "ship", "radar", "portal", "cube", "custom"}
-            kind = str(body.get("kind") or "energy").strip().lower()
+            allowed = _SCENE_KINDS
+            kind = str(body.get("kind") or "network").strip().lower()
             if kind not in allowed:
-                kind = "energy"
+                kind = "network"
             oid = uuid.uuid4().hex[:8]
             pos = body.get("position") if isinstance(body.get("position"), list) else [
                 _stage_number(body.get("x", 0), 0, -6, 6),
@@ -1549,7 +1593,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
             if str(item.get("id")) != target:
                 continue
             obj = dict(item)
-            if "kind" in body and str(body["kind"]).lower() in {"energy","globe","network","drone","vehicle","logo","sphere","ring","tower","robot","arm","satellite","aircraft","building","ship","radar","portal","cube","custom"}:
+            if "kind" in body and str(body["kind"]).lower() in _SCENE_KINDS:
                 obj["kind"] = str(body["kind"]).lower()
             if "label" in body: obj["label"] = str(body["label"])[:60]
             if "model_id" in body: obj["model_id"] = re.sub(r"[^A-Za-z0-9_-]","",str(body["model_id"]))[:48] or None
@@ -1893,9 +1937,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         preset = str(body.get("preset") or "operations").lower()
         presets = {
             "operations": [
-                ("globe","EARTH","#35ffe4",0,0,0,1.15),
                 ("network","NETWORK","#ff3047",-2.7,.2,0,.75),
-                ("energy","CORE","#ff3047",2.7,.2,0,.75),
             ],
             "vehicle_scan": [
                 ("vehicle","VEHICLE","#ff3047",0,0,0,1.25),
@@ -1907,13 +1949,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 ("drone","DRONE 02","#35ffe4",0,0,0,.8),
                 ("drone","DRONE 03","#ff3047",2,0,0,.8),
             ],
-            "planetary": [
-                ("globe","EARTH","#35ffe4",0,0,0,1.1),
-                ("sphere","MOON","#dbe6ff",2.7,.4,0,.35),
-                ("ring","ORBIT","#ff3047",0,0,0,1.7),
-            ],
             "command_center": [
-                ("energy","CORE","#ff3047",0,0,0,1.0),
                 ("network","NETWORK","#35ffe4",-2.5,.3,0,.75),
                 ("radar","RADAR","#ff3047",2.5,.1,0,.75),
                 ("drone","DRONE A","#35ffe4",-1.7,.7,-2,.55),
@@ -1927,7 +1963,6 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 ("drone","SCAN DRONE","#35ffe4",0,1.5,0,.5),
             ],
             "space_ops": [
-                ("globe","PLANET","#35ffe4",0,0,0,1.1),
                 ("satellite","SAT-01","#ff3047",-2.8,.8,0,.55),
                 ("ship","SHIP","#dbe6ff",2.8,.2,0,.7),
                 ("ring","ORBIT","#ff3047",0,0,0,1.9),
@@ -2591,7 +2626,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 pp,ps=_world_transform(parent,seen)
                 return ([pp[0]+float(pos[0])*ps,pp[1]+float(pos[1])*ps,pp[2]+float(pos[2])*ps],scale*ps)
             return ([float(pos[0]),float(pos[1]),float(pos[2])],scale)
-        radii={"vehicle":1.45,"drone":1.35,"globe":1.2,"robot":1.05,"arm":1.0,"aircraft":1.5,"ship":1.45,
+        radii={"vehicle":1.45,"drone":1.35,"robot":1.05,"arm":1.0,"aircraft":1.5,"ship":1.45,
                "building":1.1,"satellite":1.2,"network":1.1,"tower":1.15,"ring":1.25,"portal":1.25,"custom":1.0}
         collisions=[]
         visible=[o for o in objects if o.get("visible",True) is not False]
@@ -2904,10 +2939,9 @@ async def api_stage_command(req: web.Request) -> web.Response:
         source_hologram = op == "video_from_stage"
         source_scene = source_hologram and state.get("mode") == "scene_lab"
         duration = _stage_number(body.get("duration", 6), 6, 2, 15)
-        template = str(body.get("template") or ("hologram_capture" if source_hologram else "ultron_intro")).strip().lower()
-        if template not in {"ultron_intro", "logo_reveal", "energy_core",
-                            "system_activation", "task_complete", "hologram_capture"}:
-            template = "ultron_intro"
+        template = str(body.get("template") or ("hologram_capture" if source_hologram else "logo_reveal")).strip().lower()
+        if template not in _VIDEO_TEMPLATES:
+            return web.json_response({"ok": False, "error": "unsupported_video_template"}, status=400)
         job_id = uuid.uuid4().hex[:10]
         state["video"] = {
             "template": template, "duration": duration,
@@ -3968,6 +4002,8 @@ def main() -> None:
     app.router.add_post("/api/tasks/{id}/approve", api_tasks_approve)
     app.router.add_get("/api/models/health", api_models_health)
     app.router.add_get("/api/world", api_world)
+    from ultron.cloud_service.world_api import add_world_routes
+    add_world_routes(app)
     app.router.add_get("/api/vault", api_vault_list)
     app.router.add_get("/api/skills", api_skills)
     app.router.add_get("/api/voice/wake", api_wake_status)
