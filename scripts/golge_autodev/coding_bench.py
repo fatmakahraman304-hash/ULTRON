@@ -538,7 +538,14 @@ def run_benchmark(*, provider: str | None, max_cases: int = MAX_TASKS,
             "provider": provider or None,
             "model_status": ("NOT_RUN" if provider is None else
                              "BLOCKED" if guard or not provider_call_total else "ATTEMPTED"),
-            "simulated": infer_fn is not None, "score": counts["pass"] / scored if scored else None,
+            "simulated": infer_fn is not None,
+            # Keep the historical pass/(PASS+FAIL) score for compatibility, but
+            # report full-suite success separately so BLOCKED cases cannot
+            # make an eight-task run appear better than six successes out of eight.
+            "score": counts["pass"] / scored if scored else None,
+            "score_denominator": scored,
+            "suite_pass_rate": counts["pass"] / len(selected) if provider_call_total else None,
+            "suite_denominator": len(selected),
             "summary": counts, "tasks": tasks,
             "limits": {"max_tasks": max_cases, "max_attempts_per_task": MAX_ATTEMPTS,
                        "max_provider_calls": max_calls, "max_output_tokens_per_call": MAX_OUTPUT_TOKENS}}
