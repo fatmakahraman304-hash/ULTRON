@@ -45,7 +45,9 @@ class EpisodicValidationTests(unittest.TestCase):
             "Geçen hafta ne konuşmuştuk?",
             "Dün hangi görevi tamamlamıştık?",
             "Geçen sefer verdiğim son kararı hatırla.",
+            "Son 14 gün ne yaptık?",
             "What did we work on last week?",
+            "What did we work on in the past 30 days?",
             "What was my last project decision?",
         )
         for text in cases:
@@ -53,6 +55,8 @@ class EpisodicValidationTests(unittest.TestCase):
                 self.assertTrue(is_episode_recall_request(text))
                 self.assertEqual(classify_intent(text).kind, "episode_recall")
         self.assertFalse(is_episode_recall_request("Geçen hafta hava nasıldı?"))
+        self.assertFalse(is_episode_recall_request("Son 0 gün ne yaptık?"))
+        self.assertFalse(is_episode_recall_request("Son 366 gün ne yaptık?"))
         self.assertIn("gorev", episode_search_terms("Dün hangi görevi tamamlamıştık?"))
         self.assertTrue({"project", "decision"}.issubset(
             episode_search_terms("What was my last project decision?")))
@@ -69,6 +73,20 @@ class EpisodicValidationTests(unittest.TestCase):
         start, end = episode_recall_window("What did we work on in the past 7 days?", now=now)
         self.assertEqual(start.isoformat(), "2026-10-07T12:00:00+00:00")
         self.assertEqual(end.isoformat(), "2026-10-14T12:00:00+00:00")
+        start, end = episode_recall_window("Son 14 gün ne yaptık?", now=now)
+        self.assertEqual(start.isoformat(), "2026-09-30T12:00:00+00:00")
+        self.assertEqual(end.isoformat(), "2026-10-14T12:00:00+00:00")
+        start, end = episode_recall_window("What did we work on in the past 30 days?", now=now)
+        self.assertEqual(start.isoformat(), "2026-09-14T12:00:00+00:00")
+        self.assertEqual(end.isoformat(), "2026-10-14T12:00:00+00:00")
+        english_terms = episode_search_terms(
+            "What did we decide for Project Atlas last week?")
+        self.assertTrue({"project", "atlas"}.issubset(english_terms))
+        self.assertNotIn("for", english_terms)
+        turkish_terms = episode_search_terms(
+            "Proje Atlas hakkında geçen hafta hangi kararı verdik?")
+        self.assertIn("atlas", turkish_terms)
+        self.assertNotIn("hakkinda", turkish_terms)
 
     def test_episode_context_marks_provenance_and_limits_untrusted_text(self):
         text = format_episode_context([{

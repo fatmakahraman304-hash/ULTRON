@@ -705,3 +705,9 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - User authorized merging outstanding PRs. PR #35's Evidence V4 changes were first merged into its dependency branch; Memory V4 + Evidence V4 are now being synchronized against current production to resolve tracking-workflow conflicts before production merge.
 - Reconciliation keeps the current production UI/startup workflow and adds its Earth, removed-preset, frontend-lock, and Python-launcher CI checks alongside Evidence V4 tests. User-facing app/API code conflicts are not being discarded.
 - Hosted tests must rerun on the synchronized head before production merge. Real iPhone/Windows usage and live provider research remain separate device/provider verification.
+
+## 2026-10-15 — PR #34 review findings addressed
+
+- Added bounded, explicit 1–365 day recall windows so accepted retrospective phrases always apply their requested time bounds; unsupported ranges remain ordinary chat.
+- Excluded English `for` and Turkish `hakkında` from mandatory lexical groups; added regression tests for both languages and date limits.
+- Real disposable-PostgreSQL episodic API/security suite: **13 passed**. Evidence engine and 100-case evaluation: **105 passed**. Python compilation passed.

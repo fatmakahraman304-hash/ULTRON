@@ -800,3 +800,7 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 - PR #51 production fix merged: squash SHA `c66b5dae03a007e3b7674e1f627aaf3569911b4c`; its exact-head 3 GitHub checks passed before merge. Render was not yet updated at the first post-merge check (still reported `bab1b760`), so live deployment SHA requires recheck.
 - PR #35 Evidence V4 was merged into the PR #34 dependency branch; PR #37 interruption code was merged into the PR #36 dependency branch. Neither parent feature PR is yet in production.
 - PR #34 branch synchronization with current production is in progress; preserve both current production CI and V4 research/memory checks. Run the exact new head's complete Actions before merging.
+
+## 2026-10-15 — PR #34 review regressions
+
+- Episodic PostgreSQL/API/security tests: **13 passed**; Evidence V4 deterministic/evaluation tests: **105 passed**. Day-window bounds and connector-word search have explicit regressions. Device/provider tests remain **NOT RUN**.

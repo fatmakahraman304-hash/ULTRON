@@ -29,7 +29,7 @@ _EPISODE_STOP = frozenset((
     "ne", "neler", "neyi", "neleri", "hangi", "biz", "ben", "benim", "hatirla", "hatirliy", "konus",
     "konusmustuk", "yaptik", "yapmistik", "gelistirdik", "gelistirmistik",
     "calistik", "kararlastirdik", "oldu", "verdigim", "verdigi", "tamamlamistik",
-    "what", "did", "were", "we", "my",
+    "what", "did", "were", "we", "my", "for", "days", "day", "hakkinda",
     "last", "previous", "week", "month", "year", "yesterday", "ago", "past",
     "remember", "recall", "talk", "talked", "discuss", "discussed", "work",
     "worked", "build", "built", "decide", "decided", "happened", "which",
@@ -57,6 +57,12 @@ def episode_recall_window(question: str, *, now: datetime | None = None):
     if re.search(r"\b(?:bir\s+hafta\s+once|a\s+week\s+ago|son\s+7\s+gun|"
                  r"last\s+7\s+days|past\s+(?:7|seven)\s+days)\b", text):
         return clock - timedelta(days=7), clock
+    match = re.search(
+        r"\b(?:son|past|last)\s+([1-9]\d?|[12]\d{2}|3[0-5]\d|36[0-5])\s+(?:gun|days)\b",
+        text,
+    )
+    if match:
+        return clock - timedelta(days=int(match.group(1))), clock
     if re.search(r"\b(?:gecen\s+ay|last\s+month)\b", text):
         this_month = today.replace(day=1)
         last_month_end = this_month
