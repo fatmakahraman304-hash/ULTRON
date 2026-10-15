@@ -7,7 +7,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from integration.launcher import Services, child_pythonpath
+from integration.launcher import Services, child_pythonpath, desktop_pythonpath
 from integration.paths import BACKEND, ROOT
 
 
@@ -37,6 +37,10 @@ class LauncherPythonPathTests(unittest.TestCase):
         exported_paths = service.env["PYTHONPATH"].split(os.pathsep)
         self.assertEqual(exported_paths[:2], [str(BACKEND), str(ROOT)])
         self.assertEqual(exported_paths[-1], "inherited-addon")
+        self.assertEqual(
+            desktop_pythonpath(service.env["PYTHONPATH"]).split(os.pathsep)[:2],
+            [str(ROOT), str(BACKEND)],
+        )
 
     def test_subprocess_from_backend_directory_finds_cloud_package(self):
         env = os.environ.copy()
@@ -56,6 +60,44 @@ class LauncherPythonPathTests(unittest.TestCase):
             timeout=20,
         )
         self.assertEqual(outcome.returncode, 0, outcome.stderr)
+
+    def test_desktop_roots_reverse_backend_priority(self):
+        inherited = os.pathsep.join(
+            [str(BACKEND), str(ROOT), "legacy-addon", str(BACKEND)]
+        )
+        paths = desktop_pythonpath(inherited).split(os.pathsep)
+        self.assertEqual(paths, [str(ROOT), str(BACKEND), "legacy-addon"])
+
+    def test_backend_and_desktop_memory_modules_are_distinct(self):
+        for label, cwd, pythonpath, snippet in (
+            (
+                "backend", BACKEND, child_pythonpath(""),
+                "from memory import MemorySystem; "
+                "import memory; assert memory.__file__.endswith('memory.py')"
+            ),
+            (
+                "desktop", ROOT, desktop_pythonpath(
+                    os.pathsep.join([str(BACKEND), str(ROOT)])
+                ),
+                "import memory; from memory.memory_manager import load_memory; "
+                "assert memory.__file__.endswith('__init__.py')"
+            ),
+        ):
+            with self.subTest(role=label):
+                env = os.environ.copy()
+                env["PYTHONPATH"] = pythonpath
+                result = subprocess.run(
+                    [sys.executable, "-c", snippet], cwd=cwd, env=env,
+                    capture_output=True, text=True, check=False, timeout=20,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_desktop_imports_own_memory_before_ui(self):
+        script = (ROOT / "mark_app.py").read_text(encoding="utf-8")
+        self.assertLess(
+            script.index("from memory.memory_manager import ("),
+            script.index("from ui import UltronUI"),
+        )
 
     def test_powershell_bootstrap_sets_both_import_paths(self):
         script = (ROOT / "scripts" / "bootstrap.ps1").read_text(encoding="utf-8")

@@ -24,6 +24,22 @@ def stop_process(process):
         process.wait(timeout=5)
 
 
+def desktop_pythonpath(existing=""):
+    """Prefer the original MARK memory package over backend/memory.py.
+
+    The backend needs its own memory.py module while the native desktop needs
+    ROOT/memory/ (a package). Run each child with the correct path priority.
+    """
+    roots = [str(ROOT), str(BACKEND)]
+    normalized = {
+        os.path.normcase(os.path.normpath(path)) for path in roots
+    }
+    for path in existing.split(os.pathsep):
+        if path and os.path.normcase(os.path.normpath(path)) not in normalized:
+            roots.append(path)
+    return os.pathsep.join(roots)
+
+
 def child_pythonpath(existing=""):
     """Make ultron.* and legacy backend imports available to subprocesses.
 
@@ -152,6 +168,11 @@ def main(argv=None):
                 cmd = [sys.executable, '-u', str(ROOT / 'mark_app.py')]
                 if args.smoke:
                     services.env['MARK_SMOKE_SECONDS'] = '8'
+                # The native app imports ROOT/memory/ while backend imports
+                # ultron/backend/memory.py. Prioritize each import namespace.
+                services.env['PYTHONPATH'] = desktop_pythonpath(
+                    services.env.get('PYTHONPATH', '')
+                )
                 services.ui = services.spawn(cmd, ROOT, 'mark.log')
             if args.smoke:
                 if services.ui:
