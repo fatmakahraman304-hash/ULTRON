@@ -5,6 +5,7 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-natural-conversation-voice-20261014
       - feat/golge-reference-orb-ui-20261013
       - feat/golge-deep-dialog-continuity-20261013
       - feat/golge-qwen-goal-routing-20261013
@@ -12,6 +13,7 @@ on:
       - "ultron/cloud_service/**"
       - "ultron/frontend/src/dashboard/**"
       - "ultron/frontend/tests/conversationRequestFailure.test.mjs"
+      - "ultron/frontend/tests/conversationRequestIdentity.test.mjs"
       - "mark_app.py"
       - "integration/**"
       - "scripts/tests/test_listening_browser.py"
@@ -109,11 +111,13 @@ jobs:
       - name: ULTRON Fast Brain single-pass and Ollama wire regression tests
         env:
           PYTHONPATH: ultron/backend
-        run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
+        run: |
+          python -m pip install --disable-pip-version-check 'aiohttp>=3.9,<4'
+          python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
       - name: Desktop model, agent, vision and merged API privacy regressions
         run: |
           python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'aiohttp>=3.9,<4' 'Pillow>=10' 'psutil>=5'
-          python -m pytest -q ultron/backend/tests/test_model_router.py
+          python -m pytest -q ultron/backend/tests/test_model_router.py ultron/backend/tests/test_request_cancellation.py
       - name: SSRF-bounded source reading and 100-case memory research evaluation
         env:
           PYTHONPATH: ultron/backend:ultron/cloud_service
@@ -234,7 +238,7 @@ jobs:
         run: npm ci
       - name: Conversation interruption state contracts
         working-directory: ultron/frontend
-        run: node --experimental-strip-types --test tests/conversationRequestFailure.test.mjs
+        run: node --experimental-strip-types --test tests/conversationRequestFailure.test.mjs tests/conversationRequestIdentity.test.mjs
       - name: TypeScript and Vite build
         working-directory: ultron/frontend
         run: npm run build

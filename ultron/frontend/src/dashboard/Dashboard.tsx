@@ -5,6 +5,7 @@ import {useUltron,request,type CoreState} from './runtime';
 import {Panel,ModelPanel,ToolPanel} from './Panels';
 import {resolvePanelIntent} from './panelIntent';
 import {conversationRequestFailure,visibleConversationState} from './conversationRequestFailure';
+import {createConversationRequestIdentity,isCurrentConversationResponse} from './conversationRequestIdentity';
 import {SystemRail,FileDrop} from './ReferencePanels';
 import './dashboard.css';
 import './golge-minimal.css';
@@ -15,9 +16,9 @@ export default function Dashboard(){
  const [sceneRequest,setSceneRequest]=useState<{id:number;text:string}>();
  const [stageBundleReady,setStageBundleReady]=useState(false);
  const u=useUltron(),[devDraft,setDevDraft]=useState(''),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[suppressServerThinking,setSuppressServerThinking]=useState(false),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general');
- const messages=useRef<HTMLDivElement>(null),abort=useRef<AbortController|null>(null),errorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
+ const messages=useRef<HTMLDivElement>(null),abort=useRef<AbortController|null>(null),activeRequest=useRef<{id:string;key:string;controller:AbortController}|null>(null),errorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined);
  const voiceRouteSeen=useRef<string|null>(''),typedRouteSeen=useRef('');
- useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),1000);return()=>{clearInterval(timer);clearTimeout(errorTimer.current);abort.current?.abort();};},[]);
+ useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),1000);return()=>{clearInterval(timer);clearTimeout(errorTimer.current);const active=activeRequest.current;if(active){void request('/api/merged/cancel',{request_id:active.id,request_key:active.key},AbortSignal.timeout(1800)).catch(()=>{});active.controller.abort();activeRequest.current=null;}abort.current?.abort();};},[]);
  useEffect(()=>{const timer=window.setTimeout(()=>setStageBundleReady(true),250);return()=>window.clearTimeout(timer);},[]);
  useEffect(()=>{messages.current?.scrollTo({top:messages.current.scrollHeight});},[u.messages]);
  const notify=(message:string)=>{u.setNotice(message);setLocalState('ERROR');clearTimeout(errorTimer.current);errorTimer.current=setTimeout(()=>setLocalState('IDLE'),1800);};
@@ -371,10 +372,12 @@ export default function Dashboard(){
   u.add('user',text);
   try{const stageReply=await stageIntent(text);if(stageReply){u.add('assistant',stageReply);return;}}catch(e){notify((e as Error).message);return;}
   setBusy(true);setLocalState('THINKING');setSuppressServerThinking(false);const ctl=new AbortController();abort.current=ctl;
-  try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{})},ctl.signal);u.add('assistant',r.text||JSON.stringify(r));setLocalState('IDLE');}catch(e){const failure=conversationRequestFailure(e);setLocalState(failure.state);setSuppressServerThinking(failure.suppressServerThinking);if(failure.notification)notify(failure.notification);}finally{setBusy(false);abort.current=null;}};
+  const identity=createConversationRequestIdentity(),requestId=identity.request_id;
+  const active={id:requestId,key:identity.request_key,controller:ctl};activeRequest.current=active;
+  try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{}),...identity},ctl.signal);if(!isCurrentConversationResponse(activeRequest.current?.id,requestId,r.request_id))return;u.add('assistant',r.text||JSON.stringify(r));setLocalState('IDLE');}catch(e){if(activeRequest.current?.id!==requestId)return;const failure=conversationRequestFailure(e);setLocalState(failure.state);setSuppressServerThinking(failure.suppressServerThinking);if(failure.notification)notify(failure.notification);}finally{if(activeRequest.current?.id===requestId){activeRequest.current=null;setBusy(false);if(abort.current===ctl)abort.current=null;}}};
  useEffect(()=>{if(u.state!=='THINKING')setSuppressServerThinking(false);},[u.state]);
  const state:CoreState=visibleConversationState(localState,u.state,u.taskState,u.nativeState,suppressServerThinking) as CoreState;
- const stop=()=>{if(abort.current){abort.current.abort();setLocalState('IDLE');setSuppressServerThinking(true);}u.native?.action('interrupt');};
+ const stop=()=>{const active=activeRequest.current;if(active){void request('/api/merged/cancel',{request_id:active.id,request_key:active.key},AbortSignal.timeout(1800)).then(result=>{if(activeRequest.current&&activeRequest.current.id!==active.id)return;u.setNotice(result.provider_stopped?'Yerel Ollama isteği durduruldu.':result.operation_continues?'Yanıt kesildi; onaylı bilgisayar görevi kendi durumunda sürüyor.':'Yanıt kesildi; model durumu doğrulanmadı.');}).catch(()=>{if(!activeRequest.current)u.setNotice('Yanıt yerel arayüzde kesildi; sunucu iptali doğrulanamadı.');});activeRequest.current=null;if(abort.current===active.controller)abort.current=null;active.controller.abort();setBusy(false);setLocalState('IDLE');setSuppressServerThinking(true);}u.native?.action('interrupt');};
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){stop();setModal('');}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[u.native]);
  const review=async(path:string,id:string)=>{try{await request(path,{id});u.setPending(null);u.setPatch(null);}catch(e){notify((e as Error).message);}};
  const run=async(path:string,body?:unknown)=>{try{setExtra(JSON.stringify(await request(path,body),null,2));}catch(e){notify((e as Error).message);}};

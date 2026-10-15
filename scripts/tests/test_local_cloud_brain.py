@@ -1,5 +1,7 @@
 """No paid provider and no automatic model pull in paired-iPhone Ollama brain."""
 import unittest
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from integration import local_cloud_brain as local
@@ -68,6 +70,32 @@ class LocalBrainTests(unittest.TestCase):
             local._get_json("https://api.gemini.com")
         with self.assertRaises(ValueError):
             local._get_json("/api/pull",{"model":"qwen3:4b"})
+
+    def test_interrupt_closes_active_ollama_stream_and_discards_partial_text(self):
+        class FakeResponse:
+            def __init__(self):
+                self.started=threading.Event()
+                self.closed=threading.Event()
+            def readline(self):
+                self.started.set()
+                if self.closed.wait(2):
+                    raise ValueError("closed response")
+                return b'{"message":{"content":"partial"}}\n'
+            def close(self):
+                self.closed.set()
+
+        response=FakeResponse()
+        cancel=local.LocalChatCancellation()
+        payload={"model":"qwen3:4b","messages":[],"options":{}}
+        with patch.object(local.urllib.request,"urlopen",return_value=response):
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future=executor.submit(local._stream_ollama_chat,payload,
+                                       timeout=3,cancellation=cancel)
+                self.assertTrue(response.started.wait(1))
+                cancel.cancel()
+                with self.assertRaises(local.LocalChatCancelled):
+                    future.result(timeout=1)
+        self.assertTrue(response.closed.is_set())
 
 
 if __name__=="__main__":

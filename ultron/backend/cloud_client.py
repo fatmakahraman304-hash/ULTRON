@@ -167,11 +167,12 @@ class CloudClient:
             timeout=max(0.1, float(timeout)),
         )
 
-    async def local_chat(self, prompt: str, system: str, turns=None) -> dict:
+    async def local_chat(self, prompt: str, system: str, turns=None, *, cancellation=None) -> dict:
         """Qwen lifetime is independent of Gemini Live/default executor teardown."""
         from integration.local_cloud_brain import local_chat
+        kwargs = {"cancellation": cancellation} if cancellation is not None else {}
         return await asyncio.get_running_loop().run_in_executor(
-            self._local_executor, partial(local_chat, prompt, system, turns),
+            self._local_executor, partial(local_chat, prompt, system, turns, **kwargs),
         )
 
     async def local_listening_analysis(self, prompt: str, system: str, stage: str) -> dict:
@@ -191,12 +192,31 @@ class CloudClient:
         except Exception as exc:
             return {"ok": False, "enabled": True, "error": safe_cloud_error(exc)}
 
-    async def chat(self, message: str) -> dict[str, Any]:
+    async def chat(self, message: str, *, request_id: str | None = None,
+                   request_key: str | None = None) -> dict[str, Any]:
         body: dict[str, Any] = {"message": message}
         if self.conversation_id:
             body["conversation_id"] = self.conversation_id
+        if request_id and request_key:
+            body.update({"request_id": request_id, "request_key": request_key})
         data = await self._request("POST", "/api/chat", json_body=body)
-        self.conversation_id = str(data.get("conversation_id", "") or self.conversation_id)
+        if data.get("conversation_id"):
+            self.conversation_id = str(data["conversation_id"])
+        return data
+
+    async def cancel_chat(self, request_id: str, request_key: str) -> dict[str, Any]:
+        """Ask Cloud to suppress this chat's eventual persisted/output reply.
+
+        The current synchronous Gemini `generate_content` call has no confirmed
+        provider cancellation API, so this does not claim to stop Gemini.
+        """
+        data = await self._request(
+            "POST", "/api/chat/cancel",
+            json_body={"request_id": request_id, "request_key": request_key},
+            timeout=8.0,
+        )
+        if data.get("conversation_id"):
+            self.conversation_id = str(data["conversation_id"])
         return data
 
     async def memories(self) -> list[dict[str, Any]]:

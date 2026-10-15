@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -178,6 +179,115 @@ class LocalBrainUnavailable(RuntimeError):
     pass
 
 
+class LocalChatCancelled(RuntimeError):
+    """The owner interrupted this turn and its Ollama transport was closed."""
+
+
+class LocalChatCancellation:
+    """Thread-safe handle that closes an active local Ollama HTTP response."""
+    def __init__(self):
+        self._event = threading.Event()
+        self._lock = threading.Lock()
+        self._response = None
+        self._transport_closed = threading.Event()
+
+    def is_set(self) -> bool:
+        return self._event.is_set()
+
+    @property
+    def transport_closed(self) -> bool:
+        return self._transport_closed.is_set()
+
+    def attach(self, response) -> None:
+        with self._lock:
+            if self._event.is_set():
+                close_now = True
+            else:
+                self._response = response
+                close_now = False
+        if close_now:
+            response.close()
+            self._transport_closed.set()
+            raise LocalChatCancelled("Local Qwen request cancelled before streaming.")
+
+    def detach(self, response) -> None:
+        with self._lock:
+            if self._response is response:
+                self._response = None
+
+    def cancel(self) -> None:
+        self._event.set()
+        with self._lock:
+            response = self._response
+        if response is not None:
+            try:
+                response.close()
+                self._transport_closed.set()
+            except Exception:
+                pass
+
+
+def _stream_ollama_chat(payload: dict, *, timeout: float,
+                        cancellation: LocalChatCancellation) -> dict:
+    """Read one Ollama NDJSON response; interruption closes the HTTP stream."""
+    if cancellation.is_set():
+        raise LocalChatCancelled("Local Qwen request cancelled before provider start.")
+    body = {**payload, "stream": True}
+    req = urllib.request.Request(
+        _OLLAMA + "/api/chat",
+        data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+        method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    response = None
+    pieces: list[str] = []
+    result = {"model": payload.get("model"), "done": False}
+    try:
+        response = urllib.request.urlopen(req, timeout=timeout)
+        cancellation.attach(response)
+        while True:
+            if cancellation.is_set():
+                raise LocalChatCancelled("Local Qwen stream interrupted.")
+            raw = response.readline()
+            if not raw:
+                break
+            try:
+                chunk = json.loads(raw)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                continue
+            if not isinstance(chunk, dict):
+                continue
+            if chunk.get("error"):
+                raise LocalBrainUnavailable("Yerel Ollama yanıtı tamamlanamadı.")
+            message = chunk.get("message")
+            if isinstance(message, dict) and isinstance(message.get("content"), str):
+                pieces.append(message["content"])
+            result["model"] = chunk.get("model") or result["model"]
+            if chunk.get("done") is True:
+                result["done"] = True
+                result["done_reason"] = chunk.get("done_reason")
+                break
+        if cancellation.is_set():
+            raise LocalChatCancelled("Local Qwen stream interrupted.")
+        if not result["done"]:
+            raise LocalBrainUnavailable("Ollama tamamlanmamış yanıt döndürdü.")
+        result["message"] = {"content": "".join(pieces)}
+        return result
+    except LocalChatCancelled:
+        raise
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        if cancellation.is_set():
+            raise LocalChatCancelled("Local Qwen stream interrupted.") from exc
+        raise LocalBrainUnavailable("Yerel Ollama yanıt vermiyor veya model çalıştırılamadı.") from exc
+    finally:
+        if response is not None:
+            cancellation.detach(response)
+            try:
+                response.close()
+            except Exception:
+                pass
+
+
 def _get_json(path:str,payload:dict|None=None,*,timeout:float=8)->dict:
     if path not in ("/api/chat","/api/tags"):
         raise ValueError("non_local_ollama_path")
@@ -233,7 +343,9 @@ def local_chat_ready() -> bool:
         return False
 
 
-def local_chat(prompt:str,system:str,turns=None)->dict:
+def local_chat(prompt:str,system:str,turns=None,*,cancellation:LocalChatCancellation|None=None)->dict:
+    if cancellation is not None and cancellation.is_set():
+        raise LocalChatCancelled("Local Qwen request cancelled before provider start.")
     text=bounded_user_request(prompt,3000)
     if not text:
         raise ValueError("empty_local_prompt")
@@ -297,7 +409,12 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
         "messages":ollama_messages(effective_system, turns or [], text),
         **config,
     }
-    result=_get_json("/api/chat",request,timeout=70)
+    get_result = (lambda payload: _stream_ollama_chat(
+        payload, timeout=70, cancellation=cancellation
+    )) if cancellation is not None else (
+        lambda payload: _get_json("/api/chat",payload,timeout=70)
+    )
+    result=get_result(request)
     for attempt in range(2):
         # A malformed or interrupted Ollama response is not a successful answer.
         # Do not stringify arbitrary JSON as model-generated prose or trust
@@ -320,7 +437,7 @@ def local_chat(prompt:str,system:str,turns=None)->dict:
             )
         expanded=min(768,max(512,int(runtime["num_predict"])*2))
         retry={**request,"options":{**runtime,"num_predict":expanded}}
-        result=_get_json("/api/chat",retry,timeout=70)
+        result=get_result(retry)
     message=result.get("message")
     if not isinstance(message,dict) or not isinstance(message.get("content"),str):
         raise LocalBrainUnavailable("Ollama yanıtının metin biçimi geçersiz.")

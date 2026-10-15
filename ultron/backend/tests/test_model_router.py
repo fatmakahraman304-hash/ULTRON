@@ -208,7 +208,7 @@ def test_merged_invoke_routes_explicit_actions_to_agent_and_returns_verified_res
         def __init__(self):
             self.calls = []
 
-        async def chat(self, text):
+        async def chat(self, text, **_identity):
             self.calls.append(text)
             return {"reply": "cloud chat path"}
 

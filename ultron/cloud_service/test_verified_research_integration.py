@@ -138,6 +138,115 @@ class VerifiedResearchIntegrationTests(unittest.TestCase):
             self.assertIn("https://example.org/report", payload["reply"])
             self.assertNotIn("Fake result", payload["reply"])
 
+    def test_cloud_chat_cancel_suppresses_late_gemini_reply_without_persisting_it(self):
+        import threading
+        import app as cloud
+
+        class Pool:
+            def __init__(self):
+                self.message_id = 0
+                self.messages = []
+            async def fetchval(self, sql, *args):
+                if "INSERT INTO conversations" in sql:
+                    return args[0]
+                if "INSERT INTO messages" in sql:
+                    self.message_id += 1
+                    self.messages.append(("assistant" if "'assistant'" in sql else "user", args[2]))
+                    return self.message_id
+                raise AssertionError(sql)
+            async def execute(self, *_args):
+                return "UPDATE 1"
+
+        app_state = {"db": Pool()}
+        request_id = "81b4f437-f792-43fc-910e-1a58e977a93d"
+        request_key = "f" * 64
+
+        class Request(dict):
+            def __init__(self, body, user="cancel-owner", device="cancel-phone"):
+                super().__init__(user_id=user, device_id=device)
+                self.app = app_state
+                self.query = {}
+                self.match_info = {}
+                self._body = body
+            async def json(self):
+                return self._body
+
+        started, release = threading.Event(), threading.Event()
+        def delayed_gemini(*_args):
+            started.set()
+            release.wait(2)
+            return "late answer must not be stored or spoken"
+
+        async def exercise():
+            with patch.object(cloud, "load_contextual_thread_turns", new=AsyncMock(return_value=[])), \
+                 patch.object(cloud, "_memory_context", new=AsyncMock(return_value="")), \
+                 patch.object(cloud, "_gemini_reply", new=delayed_gemini), \
+                 patch.object(cloud, "research_for_chat", new=AsyncMock(return_value=None)):
+                body = {"message": "hello", "request_id": request_id, "request_key": request_key}
+                active = asyncio.create_task(cloud.chat(Request(body)))
+                self.assertTrue(await asyncio.to_thread(started.wait, 1))
+                cancelled = await cloud.cancel_chat(Request({
+                    "request_id": request_id, "request_key": request_key,
+                }))
+                self.assertEqual(json.loads(cancelled.text)["status"], "output_suppressed")
+                self.assertFalse(json.loads(cancelled.text)["provider_stopped"])
+                release.set()
+                result = json.loads((await active).text)
+                self.assertEqual(result["status"], "output_suppressed")
+                self.assertFalse(any(role == "assistant" for role, _ in app_state["db"].messages))
+
+        try:
+            asyncio.run(exercise())
+        finally:
+            release.set()
+
+    def test_cancel_after_success_reports_completed_without_relabelling_it(self):
+        import app as cloud
+
+        class Pool:
+            def __init__(self):
+                self.message_id = 0
+                self.messages = []
+            async def fetchval(self, sql, *args):
+                if "INSERT INTO conversations" in sql:
+                    return args[0]
+                if "INSERT INTO messages" in sql:
+                    self.message_id += 1
+                    self.messages.append(args[2])
+                    return self.message_id
+                raise AssertionError(sql)
+            async def execute(self, *_args):
+                return "UPDATE 1"
+
+        app_state = {"db": Pool()}
+        request_id, request_key = "d36cb343-1e99-4c5d-8f6a-c7079b997c41", "a" * 64
+        class Request(dict):
+            def __init__(self, body):
+                super().__init__(user_id="completed-owner", device_id="phone")
+                self.app, self.query, self.match_info = app_state, {}, {}
+                self._body = body
+            async def json(self):
+                return self._body
+
+        async def exercise():
+            with patch.object(cloud, "load_contextual_thread_turns", new=AsyncMock(return_value=[])), \
+                 patch.object(cloud, "_memory_context", new=AsyncMock(return_value="")), \
+                 patch.object(cloud, "_gemini_reply", Mock(return_value="done")), \
+                 patch.object(cloud, "research_for_chat", new=AsyncMock(return_value=None)):
+                response = await cloud.chat(Request({
+                    "message": "hello", "request_id": request_id,
+                    "request_key": request_key,
+                }))
+                self.assertEqual(json.loads(response.text)["reply"], "done")
+                stopped = await cloud.cancel_chat(Request({
+                    "request_id": request_id, "request_key": request_key,
+                }))
+                self.assertEqual(json.loads(stopped.text)["status"], "already_completed")
+                self.assertFalse(json.loads(stopped.text)["provider_stopped"])
+                self.assertEqual(app_state["db"].messages, ["hello", "done"])
+
+        asyncio.run(exercise())
+
 
 if __name__ == "__main__":
     unittest.main()
