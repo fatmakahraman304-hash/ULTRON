@@ -135,5 +135,84 @@ class CodingBenchmarkContracts(unittest.TestCase):
         self.assertEqual(sum(row["provider_calls"] for row in report["tasks"]), 1)
 
 
+    def test_v6_generic_coding_rules_do_not_reveal_hidden_oracle(self):
+        task = coding_bench.TASKS[0]
+        rendered = coding_bench.build_prompt(task)
+        payload = json.loads(rendered)
+        self.assertTrue(payload["coding_rules"])
+        self.assertIn("raw inputs", rendered)
+        self.assertNotIn(task["oracle_script"], rendered)
+        self.assertNotIn("oracle", rendered.lower())
+
+    def test_v6_malformed_json_can_recover_once_without_changing_oracle(self):
+        task = coding_bench.TASKS[0]
+        valid = json.dumps({"files": [{"path": "solution.py",
+                           "content": "def normalize_key(value): return value.strip().casefold()\n"}]})
+        with patch.object(coding_bench, "_run_oracle",
+                          side_effect=[(False, "baseline failed", 1), (True, "PASS", 1)]) as oracle, \
+             patch.object(coding_bench, "infer_with_budget", side_effect=["invalid JSON", valid]) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertEqual(result["provider_calls"], 2)
+        self.assertEqual(oracle.call_count, 2)
+        prompt = model.call_args_list[1].args[0]
+        self.assertIn("model_json_invalid", prompt)
+        self.assertNotIn(task["oracle_script"], prompt)
+
+    def test_v6_incomplete_file_list_retries_then_passes(self):
+        task = coding_bench.TASKS[0]
+        valid = json.dumps({"files": [{"path": "solution.py",
+                           "content": "def normalize_key(value): return value.strip().casefold()\n"}]})
+        with patch.object(coding_bench, "_run_oracle",
+                          side_effect=[(False, "baseline failed", 1), (True, "PASS", 1)]), \
+             patch.object(coding_bench, "infer_with_budget",
+                          side_effect=[json.dumps({"files": []}), valid]) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "PASS", result)
+        self.assertEqual(model.call_count, 2)
+        self.assertIn("model_patch_incomplete", model.call_args_list[1].args[0])
+
+    def test_v6_malformed_json_still_blocks_after_two_attempts(self):
+        task = coding_bench.TASKS[0]
+        with patch.object(coding_bench, "_run_oracle",
+                          return_value=(False, "baseline failed", 1)) as oracle, \
+             patch.object(coding_bench, "infer_with_budget",
+                          side_effect=["not json", "still not json"]) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "BLOCKED", result)
+        self.assertEqual(result["reason"], "model_json_invalid")
+        self.assertEqual(model.call_count, 2)
+        self.assertEqual(oracle.call_count, 1)
+
+    def test_v6_unsafe_paths_fail_closed_without_retry(self):
+        task = coding_bench.TASKS[0]
+        unsafe = json.dumps({"files": [{"path": "../escape.py", "content": "pass"}]})
+        with patch.object(coding_bench, "_run_oracle",
+                          return_value=(False, "baseline failed", 1)) as oracle, \
+             patch.object(coding_bench, "infer_with_budget", return_value=unsafe) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "BLOCKED", result)
+        self.assertEqual(result["reason"], "model_path_outside_task")
+        self.assertEqual(model.call_count, 1)
+        self.assertEqual(oracle.call_count, 1)
+
+    def test_v6_unchanged_repair_cannot_retest_identical_failed_code(self):
+        task = coding_bench.TASKS[0]
+        repeated = json.dumps({"files": [{"path": "solution.py",
+                              "content": "def normalize_key(value): return value.strip()\n"}]})
+        with patch.object(coding_bench, "_run_oracle",
+                          side_effect=[(False, "baseline failed", 1),
+                                       (False, "observed test failure", 1)]) as oracle, \
+             patch.object(coding_bench, "infer_with_budget",
+                          side_effect=[repeated, repeated]) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "FAIL", result)
+        self.assertEqual(result["reason"], "unchanged_patch_after_repair")
+        self.assertEqual(result["provider_calls"], 2)
+        self.assertEqual(model.call_count, 2)
+        self.assertEqual(oracle.call_count, 2)
+        self.assertIn("observed test failure", model.call_args_list[1].args[0])
+
+
 if __name__ == "__main__":
     unittest.main()
