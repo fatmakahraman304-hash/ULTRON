@@ -1,4 +1,4 @@
-/* Owner-approved ULTRON learning inbox. Never fetch or save without a tap.
+/* Owner-approved GÖLGE learning inbox. Never fetch or save without a tap.
  * Untrusted proposed text is always rendered with textContent.
  */
 (function (global, factory) {
@@ -29,7 +29,7 @@
           autoLoaded=true;
         } else {
           const next=!autoEnabled;
-          if(next && !ask("ULTRON yalnızca senin açıkça yazdığın 'Tercihim:', 'Hedefim:' ve 'Projem:' ifadelerini sohbet sırasında otomatik hafızaya kaydetsin mi? Bu ayarı istediğin zaman kapatabilirsin.")) {
+          if(next && !ask("GÖLGE yalnızca senin açıkça yazdığın 'Tercihim:', 'Hedefim:' ve 'Projem:' ifadelerini sohbet sırasında otomatik hafızaya kaydetsin mi? Bu ayarı istediğin zaman kapatabilirsin.")) {
             return;
           }
           const result=await api("/api/auto-learning",{method:"PUT",body:JSON.stringify({enabled:next})});

@@ -5,8 +5,8 @@ import {RotateCcw,X} from 'lucide-react';
 export default function CoreAnimation({kind,title,onClose}:{kind:string;title:string;onClose:()=>void}){
  const [paused,setPaused]=useState(false);
  const safeKind=['bird','orbit','pulse'].includes(kind)?kind:'bird';
- return <section className={'ultron-inline-animation '+(paused?'paused':'')} aria-label="ULTRON animasyon önizleme">
-  <header><span>ULTRON / CORE ANIMATION</span><div><button onClick={()=>setPaused(x=>!x)}>{paused?'OYNAT':'DURAKLAT'}</button><button aria-label="Animasyonu kapat" onClick={onClose}><X size={16}/></button></div></header>
+ return <section className={'ultron-inline-animation '+(paused?'paused':'')} aria-label="GÖLGE animasyon önizleme">
+  <header><span>GÖLGE / CORE ANİMASYONU</span><div><button onClick={()=>setPaused(x=>!x)}>{paused?'OYNAT':'DURAKLAT'}</button><button aria-label="Animasyonu kapat" onClick={onClose}><X size={16}/></button></div></header>
   <div className={'ultron-inline-animation-canvas theme-'+safeKind}>
    {safeKind==='bird'?<div className="ultron-bird" role="img" aria-label="Kanat çırpan sarı kuş">
     <span className="wing left"/><span className="wing right"/><span className="bird-body"><span className="eye"/><span className="beak"/></span>

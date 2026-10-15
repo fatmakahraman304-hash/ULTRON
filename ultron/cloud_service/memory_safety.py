@@ -3,7 +3,8 @@ import re
 import unicodedata
 
 _SECRET = re.compile(
-    r'(?:\b(?:sk-(?:proj-)?|gh[pousr]_|github_pat_|AIza)[A-Za-z0-9_-]{12,}'
+    r'(?:\bBearer\s+[A-Za-z0-9._~+/=-]{12,}'
+    r'|\b(?:sk-(?:proj-)?|gh[pousr]_|github_pat_|AIza)[A-Za-z0-9_-]{12,}'
     r'|-----BEGIN [A-Z ]*PRIVATE KEY-----'
     r'|\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}'
     r'|\bAKIA[A-Z0-9]{16}\b)', re.I)

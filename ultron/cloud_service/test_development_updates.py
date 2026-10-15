@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SRC = (ROOT / "development_updates.py").read_text(encoding="utf-8")
 APP = (ROOT / "app.py").read_text(encoding="utf-8")
+LIVE_POLICY = (ROOT / "live_voice_policy.py").read_text(encoding="utf-8")
 SCHEMA = (ROOT / "schema.sql").read_text(encoding="utf-8")
 
 
@@ -41,9 +42,13 @@ class DevelopmentWorkflowTests(unittest.TestCase):
 
     def test_recognizes_explicit_self_development_but_not_weather(self):
         for sample in (
+            "GÖLGE, kendini güncelle ve yeni özellik ekle",
+            "Gölge arayüzünü geliştir",
             "ULTRON, kendini güncelle ve yeni özellik ekle",
             "ULTRON arayüzünü geliştir",
             "Ultron'daki eksik kodu düzelt",
+            "Gölgeye bir şeyini değiştir",
+            "Gölgeye bişeyi değiştir",
             "Kendini geliştir",
         ):
             self.assertTrue(self.dev.dev_intent(sample), sample)
@@ -55,7 +60,7 @@ class DevelopmentWorkflowTests(unittest.TestCase):
         job = {"id": "123e4567-e89b-12d3-a456-426614174000",
                "prompt": "ULTRON, telefona yeni özelliği ekle", "target": "phone"}
         text = self.dev.handoff_text(job)
-        self.assertIn("ULTRON-DEV-123e4567-e89b-12d3-a456-426614174000", text)
+        self.assertIn("GÖLGE-DEV-123e4567-e89b-12d3-a456-426614174000", text)
         self.assertIn("feat/ultron-cloud-shared-memory", text)
         self.assertIn(job["prompt"], text)
         self.assertIn("test", text.lower())
@@ -83,7 +88,9 @@ class DevelopmentWorkflowTests(unittest.TestCase):
         self.assertIn("register_development_routes(app)", APP)
         self.assertIn("request_ultron_development", APP)
         self.assertIn("development_request_saved", APP)
-        self.assertIn("ULTRON_self_development_must_use_ChatGPT_handoff", APP)
+        self.assertNotIn("ULTRON_self_development_must_use_ChatGPT_handoff", APP)
+        self.assertIn("send_laptop_task immediately", LIVE_POLICY)
+        self.assertIn("user must approve before files change", LIVE_POLICY)
         self.assertIn("CREATE TABLE IF NOT EXISTS dev_requests", SCHEMA)
         self.assertIn("CREATE INDEX IF NOT EXISTS idx_dev_requests_owner_time", SCHEMA)
         self.assertIn("WHERE id=$1 AND user_id=$2", SRC)

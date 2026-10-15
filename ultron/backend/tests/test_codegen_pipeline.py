@@ -41,6 +41,14 @@ def test_pipeline_backup_apply_verify(tmp_path):
     assert any("diff" in f for f in cg.proposals[pid]["files"])
 
 
+def test_self_development_proposal_marks_draft_pr_publication_only_when_requested(tmp_path):
+    cg = make_codegen(tmp_path)
+    ordinary = asyncio.run(cg.propose("yeni panel oluştur", publish_github_pr=False))
+    assert ordinary["ok"] and ordinary["proposal"]["publish_github_pr"] is False
+    self_dev = asyncio.run(cg.propose("GÖLGE için yeni panel oluştur", publish_github_pr=True))
+    assert self_dev["ok"] and self_dev["proposal"]["publish_github_pr"] is True
+
+
 def test_pipeline_rollback_on_regression(tmp_path):
     cg = make_codegen(tmp_path)
     target = tmp_path / "backend/app/tools/existing_tool.py"

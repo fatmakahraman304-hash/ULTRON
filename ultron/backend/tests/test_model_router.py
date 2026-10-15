@@ -89,6 +89,297 @@ def test_router_chat_raises_when_all_models_fail():
         pass
 
 
+def test_router_health_never_exposes_provider_exception_text():
+    class LeakyBrain(FakeBrain):
+        def chat(self, messages, tools=None, model=None):
+            raise RuntimeError("api_key=private-provider-key user prompt fragment")
+
+    brain = LeakyBrain("a:1b")
+    r = ModelRouter(brain, {}, lambda: ["a:1b"])
+    try:
+        r.chat(TaskType.GENERAL, [{"role": "user", "content": "hi"}])
+        raise AssertionError("must raise")
+    except RuntimeError:
+        pass
+
+    health = r.health()["a:1b"]
+    assert health["last_error"] == "provider_request_failed"
+    assert "private-provider-key" not in str(health)
+    assert "user prompt fragment" not in str(health)
+
+
+def test_safe_provider_error_classifies_transient_causes_without_echoing_text():
+    from app.core.model_router import safe_provider_error
+    import urllib.error
+
+    wrapped_timeout = RuntimeError("sensitive request details")
+    wrapped_timeout.__cause__ = TimeoutError("credential=private")
+    assert safe_provider_error(wrapped_timeout) == "provider_temporarily_unavailable"
+    assert safe_provider_error(RuntimeError("api_key=private")) == "provider_request_failed"
+    assert safe_provider_error(urllib.error.HTTPError("https://host", 503, "private", {}, None)) == \
+        "provider_temporarily_unavailable"
+    assert safe_provider_error(urllib.error.HTTPError("https://host", 404, "private", {}, None)) == \
+        "provider_request_failed"
+
+
+def test_merged_local_model_failure_does_not_echo_provider_details(monkeypatch):
+    import asyncio
+    import base64
+    import io
+    from types import SimpleNamespace
+    from aiohttp import web
+    from aiohttp.test_utils import TestClient, TestServer
+    from PIL import Image
+    from merged_api import install
+
+    monkeypatch.setenv("MARK_ULTRON_TOKEN", "")
+    monkeypatch.setenv("ULTRON_CLOUD_URL", "")
+    monkeypatch.setenv("ULTRON_DEVICE_TOKEN", "")
+
+    class LeakyBrain(FakeBrain):
+        def ask(self, prompt, system="", model=None):
+            raise RuntimeError("api_key=private-provider-key prompt=private-user-text")
+
+    class LeakyVision:
+        def analyze(self, *_args, **_kwargs):
+            raise RuntimeError("api_key=private-vision-key image=private-user-image")
+
+    async def run():
+        runtime = SimpleNamespace(brain=LeakyBrain("a:1b"), settings={"llm": {}},
+                                  vision_llm=LeakyVision())
+        hub = SimpleNamespace(
+            bridge=SimpleNamespace(runtime=runtime, available=True),
+            ai_status={},
+            agent=SimpleNamespace(state="IDLE"),
+            async_check=None,
+        )
+
+        async def check_ollama():
+            return {"status": {"models": ["a:1b"]}}
+
+        async def broadcast(_event):
+            return None
+
+        hub.check_ollama = check_ollama
+        hub.broadcast = broadcast
+        app = web.Application()
+        install(app, hub)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            response = await client.post("/api/merged/invoke", json={"text": "ping", "mode": "coding"})
+            payload = await response.json()
+            assert response.status == 503
+            assert payload["error_code"] == "provider_request_failed"
+            assert "private-provider-key" not in str(payload)
+            assert "private-user-text" not in str(payload)
+
+            image = Image.new("RGB", (2, 2), color="red")
+            image_buffer = io.BytesIO()
+            image.save(image_buffer, format="PNG")
+            response = await client.post("/api/merged/image", json={
+                "data": base64.b64encode(image_buffer.getvalue()).decode("ascii"),
+                "mode": "analyze",
+            })
+            payload = await response.json()
+            assert response.status == 502
+            assert payload["error_code"] == "provider_request_failed"
+            assert "private-vision-key" not in str(payload)
+            assert "private-user-image" not in str(payload)
+        finally:
+            await client.close()
+
+    asyncio.run(run())
+
+
+def test_merged_invoke_routes_explicit_actions_to_agent_and_returns_verified_result(monkeypatch):
+    """Natural action wording must bypass chat and show the actual gated agent result."""
+    import asyncio
+    from types import SimpleNamespace
+    from aiohttp import web
+    from aiohttp.test_utils import TestClient, TestServer
+    import merged_api
+
+    monkeypatch.setenv("MARK_ULTRON_TOKEN", "")
+
+    class FakeCloud:
+        enabled = True
+
+        def __init__(self):
+            self.calls = []
+
+        async def chat(self, text):
+            self.calls.append(text)
+            return {"reply": "cloud chat path"}
+
+    cloud_instances = []
+    def make_cloud():
+        instance = FakeCloud()
+        cloud_instances.append(instance)
+        return instance
+
+    monkeypatch.setattr(merged_api, "CloudClient", make_cloud)
+
+    class Agent:
+        def __init__(self):
+            self.state = "IDLE"
+            self.message = ""
+            self.calls = []
+
+        async def run(self, text, approved=False):
+            assert approved is False
+            self.calls.append((text, approved))
+            if text == "Run the tests":
+                self.state = "DONE"
+                self.message = "Test result: 3 passed, 0 failed."
+                return {"ok": True, "result": "test-run-verified"}
+            if text == "Edit this project":
+                self.state = "DONE"
+                self.message = "No matching intent. Try a supported action."
+                return {"ok": True, "result": "no-intent"}
+            self.state = "WAITING_APPROVAL"
+            self.message = "File edit requires approval."
+            return {"ok": True, "result": "waiting-approval", "task_id": "approval-42"}
+
+    async def run():
+        hub = SimpleNamespace(
+            bridge=SimpleNamespace(runtime=object(), available=True),
+            agent=Agent(), pending_task=None,
+            memory=SimpleNamespace(add_session=lambda *_args: None),
+        )
+
+        async def on_activity(*_args):
+            return None
+
+        async def broadcast(*_args):
+            return None
+
+        hub.on_activity = on_activity
+        hub.broadcast = broadcast
+        app = web.Application()
+        merged_api.install(app, hub)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            response = await client.post("/api/merged/invoke", json={
+                "text": "Run the tests", "mode": "general",
+            })
+            payload = await response.json()
+            assert response.status == 200
+            assert payload["state"] == "DONE"
+            assert payload["text"] == "Test result: 3 passed, 0 failed."
+            assert payload["result"] == {"ok": True, "result": "test-run-verified"}
+            assert hub.agent.calls == [("Run the tests", False)]
+            assert cloud_instances[0].calls == []
+
+            response = await client.post("/api/merged/invoke", json={
+                "text": "What is a test runner?", "mode": "general",
+            })
+            payload = await response.json()
+            assert payload["source"] == "cloud"
+            assert payload["text"] == "cloud chat path"
+            assert hub.agent.calls == [("Run the tests", False)]
+            assert cloud_instances[0].calls == ["What is a test runner?"]
+
+            response = await client.post("/api/merged/invoke", json={
+                "text": "Edit this project", "mode": "general",
+            })
+            payload = await response.json()
+            assert payload["intent"] == "computer_task"
+            assert payload["completed"] is False
+            assert payload["ok"] is False
+            assert "No matching intent" in payload["text"]
+            assert cloud_instances[0].calls == ["What is a test runner?"]
+
+            response = await client.post("/api/merged/invoke", json={
+                "text": "Edit the file", "mode": "general", "approved": True,
+            })
+            payload = await response.json()
+            assert payload["state"] == "WAITING_APPROVAL"
+            assert payload["pending_approval"] is True
+            assert payload["completed"] is False
+            assert "onayı bekliyor" in payload["text"]
+            assert hub.agent.calls[-1] == ("Edit the file", False)
+        finally:
+            await client.close()
+
+    asyncio.run(run())
+
+
+def test_desktop_agent_does_not_echo_model_or_vision_provider_errors(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from app.agent.agent import Agent
+
+    class Memory:
+        def __init__(self):
+            self.rows = []
+        def add(self, kind, content):
+            self.rows.append((kind, content, 0))
+        def recent(self, limit):
+            return list(reversed(self.rows[-limit:]))
+
+    class Audit:
+        def write(self, *_args):
+            return None
+
+    class Registry:
+        def ollama_tools(self, **_kwargs):
+            return []
+
+    class Executor:
+        def execute(self, *_args, **_kwargs):
+            return []
+
+    class LeakyRouter:
+        fast_policy = SimpleNamespace(enabled=False)
+        def chat(self, *_args, **_kwargs):
+            raise RuntimeError("api_key=private-chat-key prompt=private-user-prompt")
+
+    class LeakyVision:
+        def resolve_model(self, _models):
+            return "llava:7b"
+        def analyze(self, *_args, **_kwargs):
+            raise RuntimeError("token=private-vision-token image=private-user-image")
+
+    class Brain:
+        model = "qwen3:4b"
+        base_url = "http://127.0.0.1:11434"
+
+    memory = Memory()
+    agent = Agent(Brain(), Executor(), memory, Registry(), {}, Audit(), None,
+                  max_steps=1, router=LeakyRouter(), vision_llm=LeakyVision())
+
+    answer = agent.handle("Bana kısa bir masal anlat.")
+    assert "private-chat-key" not in answer
+    assert "private-user-prompt" not in answer
+    assert "İsteğini tamamlayamadım" in answer
+
+    image_path = tmp_path / "screen.png"
+    image_path.write_bytes(b"synthetic image")
+    monkeypatch.setattr("app.tools.ollama_tools.ollama_status",
+                        lambda *_args: {"models": ["llava:7b"]})
+    vision_answer = agent._vision_pipeline(f"Ekranımda ne var? {image_path}")
+    assert "private-vision-token" not in vision_answer
+    assert "private-user-image" not in vision_answer
+    assert "Görsel analizi tamamlanamadı" in vision_answer
+
+
+def test_vision_debug_does_not_log_analyzed_user_text(monkeypatch, tmp_path, capsys):
+    import app.vision.vision_llm as vision_module
+    monkeypatch.setattr(vision_module, "DEBUG", True)
+
+    class Brain:
+        base_url = "http://127.0.0.1:11434"
+        def _post(self, *_args, **_kwargs):
+            return {"model": "llava:7b", "message": {"content": "private screenshot contents"}}
+
+    image_path = tmp_path / "screen.png"
+    image_path.write_bytes(b"synthetic image")
+    vision_module.VisionLLM(Brain(), {"vision": {"enabled": True, "model": "llava:7b"}}).analyze(
+        image_path, available_models=["llava:7b"])
+    assert "private screenshot contents" not in capsys.readouterr().out
+
+
 def test_router_ask_json_extracts_object():
     r = make_router(["a:1b"], primary="a:1b")
     out = r.ask_json(TaskType.GENERAL, "plan", system="s")

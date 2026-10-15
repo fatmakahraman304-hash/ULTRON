@@ -9,7 +9,7 @@ class Bridge:
 
     def request(self, path, data=None, timeout=30):
         if not self.url:
-            raise RuntimeError('ULTRON servisi hazır değil; START.bat ile başlatın.')
+            raise RuntimeError('GÖLGE servisi hazır değil; START.bat ile başlatın.')
         req = Request(self.url + path,
                       data=json.dumps(data).encode() if data is not None else None,
                       headers={'Content-Type': 'application/json', 'X-MARK-Token': self.token})

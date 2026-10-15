@@ -1,11 +1,13 @@
+import {validateDesign,type Design} from '../spatial/design';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Gesture } from './gestures';
+import {normalize,type SceneIntent} from '../spatial/intents';
 import {validateProject,type Project,type ViewState,type V3} from './project';
 
 export type PartInfo={id:number;name:string;description:string;vertices:number;triangles:number;dimensions:V3;note:string};
-type Part=PartInfo & {mesh:THREE.Mesh;base:THREE.Vector3;direction:THREE.Vector3;offset:THREE.Vector3};
+type Part=PartInfo & {mesh:THREE.Mesh;initialRotation:THREE.Euler;base:THREE.Vector3;direction:THREE.Vector3;offset:THREE.Vector3;removed:boolean};
 export class HologramScene {
   private scene=new THREE.Scene();private group=new THREE.Group();
   private camera=new THREE.PerspectiveCamera(42,1,.05,100);
@@ -17,15 +19,15 @@ export class HologramScene {
   private past:ViewState[]=[];private future:ViewState[]=[];private applying=false;private lastEdit='';private lastTime=0;
   private cut:number|null=null;private cutPlane=new THREE.Plane(new THREE.Vector3(-1,0,0),0);
   onView:(view:ViewState,undo:boolean,redo:boolean)=>void=()=>{};
-  private view():ViewState{return {explosion:this.explosion,selected:this.selected,isolated:this.isolated,wire:this.wire,cut:this.cut,camera:this.camera.position.toArray() as V3,target:this.controls.target.toArray() as V3,offsets:this.parts.map(p=>p.offset.toArray() as V3),notes:this.parts.map(p=>p.note)};}
+  private view():ViewState{return {explosion:this.explosion,selected:this.selected,isolated:this.isolated,wire:this.wire,cut:this.cut,camera:this.camera.position.toArray() as V3,target:this.controls.target.toArray() as V3,offsets:this.parts.map(p=>p.offset.toArray() as V3),notes:this.parts.map(p=>p.note),rotations:this.parts.map(p=>[p.mesh.rotation.x,p.mesh.rotation.y,p.mesh.rotation.z]),scales:this.parts.map(p=>p.mesh.scale.toArray() as V3),removed:this.parts.map(p=>p.removed)};}
   private notify(){this.onView(this.view(),!!this.past.length,!!this.future.length);}
   private checkpoint(key:string){if(this.applying)return;const now=performance.now();if(key!==this.lastEdit||now-this.lastTime>450){this.past.push(this.view());if(this.past.length>60)this.past.shift();}this.lastEdit=key;this.lastTime=now;this.future=[];this.notify();}
-  private restore(v:ViewState){this.applying=true;this.stopGesture();this.explosion=v.explosion;this.isolated=v.isolated;this.wireframe(v.wire);this.section(v.cut);this.parts.forEach((p,i)=>{p.offset.fromArray(v.offsets[i]);p.note=v.notes[i];});this.camera.position.fromArray(v.camera);this.controls.target.fromArray(v.target);this.select(v.selected);this.controls.update();this.applying=false;this.onExplosion(this.explosion);this.notify();}
+  private restore(v:ViewState){this.applying=true;this.stopGesture();this.explosion=v.explosion;this.isolated=v.isolated;this.wireframe(v.wire);this.section(v.cut);this.parts.forEach((p,i)=>{p.offset.fromArray(v.offsets[i]);p.note=v.notes[i];if(v.rotations)p.mesh.rotation.set(...v.rotations[i]);p.mesh.scale.fromArray(v.scales?.[i]??[1,1,1]);p.removed=v.removed?.[i]??false;});this.camera.position.fromArray(v.camera);this.controls.target.fromArray(v.target);this.select(v.selected);this.controls.update();this.applying=false;this.onExplosion(this.explosion);this.notify();}
   undo(){const v=this.past.pop();if(!v)return;this.future.push(this.view());this.restore(v);this.lastEdit='';}
   redo(){const v=this.future.pop();if(!v)return;this.past.push(this.view());this.restore(v);this.lastEdit='';}
   section(value:number|null){this.checkpoint('section');this.cut=value;this.cutPlane.constant=value??0;this.parts.forEach(p=>p.mesh.traverse(o=>{const m=(o as THREE.Mesh).material;if(m)for(const mat of Array.isArray(m)?m:[m]){mat.clippingPlanes=value===null?[]:[this.cutPlane];mat.needsUpdate=true;}}));this.notify();}
   annotate(text:string){if(this.selected<0)return;this.checkpoint('note:'+this.selected);this.parts[this.selected].note=text.slice(0,2000);this.onSelect(this.parts[this.selected]);this.notify();}
-  project(name:string):Project{return {schema:'ultron-project-v1',name:name.slice(0,200),view:this.view(),parts:this.parts.map(p=>({name:p.name,description:p.description,positions:Array.from(p.mesh.geometry.attributes.position.array),indices:p.mesh.geometry.index?Array.from(p.mesh.geometry.index.array):null,base:p.base.toArray() as V3,rotation:[p.mesh.rotation.x,p.mesh.rotation.y,p.mesh.rotation.z]}))};}
+  project(name:string):Project{return {schema:'ultron-project-v1',name:name.slice(0,200),view:this.view(),parts:this.parts.map(p=>({name:p.name,description:p.description,positions:Array.from(p.mesh.geometry.attributes.position.array),indices:p.mesh.geometry.index?Array.from(p.mesh.geometry.index.array):null,base:p.base.toArray() as V3,rotation:[p.initialRotation.x,p.initialRotation.y,p.initialRotation.z]}))};}
   loadProject(raw:unknown){const project=validateProject(raw);const prepared=project.parts.map(p=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(p.positions,3));if(p.indices)g.setIndex(p.indices);g.computeVertexNormals();return {p,g};});this.clear();prepared.forEach(({p,g})=>this.add(p.name,p.description,g,new THREE.Vector3(...p.base),new THREE.Euler(...p.rotation)));this.restore(project.view);this.past=[];this.future=[];this.notify();return {name:project.name,parts:this.list()};}
   private resources:THREE.Object3D[]=[];
   onSelect:(part:PartInfo|null)=>void=()=>{};onExplosion:(n:number)=>void=()=>{};
@@ -47,7 +49,7 @@ export class HologramScene {
     this.demo('reactor');this.animate();
   }
   private resize(){const {width,height}=this.host.getBoundingClientRect();this.camera.aspect=width/Math.max(1,height);this.camera.updateProjectionMatrix();this.renderer.setSize(width,height);}
-  private animate=()=>{if(this.dead)return;this.frame=requestAnimationFrame(this.animate);if(document.hidden)return;this.controls.update();for(const p of this.parts){const goal=p.base.clone().addScaledVector(p.direction,this.explosion*2.5).add(p.offset);p.mesh.position.lerp(goal,.16);}this.renderer.render(this.scene,this.camera);};
+  private animate=()=>{if(this.dead)return;this.frame=requestAnimationFrame(this.animate);if(document.hidden||!this.host.getClientRects().length||this.host.getBoundingClientRect().width===0)return;this.controls.update();for(const p of this.parts){const goal=p.base.clone().addScaledVector(p.direction,this.explosion*2.5).add(p.offset);p.mesh.position.lerp(goal,.16);}this.renderer.render(this.scene,this.camera);};
   private add(name:string,description:string,geometry:THREE.BufferGeometry,position:THREE.Vector3,rotation?:THREE.Euler){
     name=name.slice(0,200);description=description.slice(0,4000);
     const material=new THREE.MeshStandardMaterial({color:0x214957,emissive:0x12667b,emissiveIntensity:.3,metalness:.65,roughness:.28,transparent:true,opacity:.85,side:THREE.DoubleSide});
@@ -56,13 +58,31 @@ export class HologramScene {
     this.group.add(mesh);const id=this.parts.length;
     const direction=position.length()>.1?position.clone().normalize():new THREE.Vector3();
     const bounds=geometry.clone().applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(mesh.rotation));bounds.computeBoundingBox();const dimensions=bounds.boundingBox!.getSize(new THREE.Vector3()).toArray() as V3;bounds.dispose();
-    this.parts.push({id,name,description,dimensions,note:'',mesh,base:position.clone(),direction,offset:new THREE.Vector3(),vertices:geometry.attributes.position.count,triangles:(geometry.index?.count??geometry.attributes.position.count)/3});mesh.userData.part=id;
+    this.parts.push({id,name,description,dimensions,note:'',mesh,initialRotation:mesh.rotation.clone(),base:position.clone(),direction,offset:new THREE.Vector3(),removed:false,vertices:geometry.attributes.position.count,triangles:(geometry.index?.count??geometry.attributes.position.count)/3});mesh.userData.part=id;
   }
   private disposeObject(obj:THREE.Object3D){obj.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();if(m.material){for(const mat of Array.isArray(m.material)?m.material:[m.material]){for(const value of Object.values(mat))if(value instanceof THREE.Texture)value.dispose();mat.dispose();}}});}
   private clear(){this.stopGesture();this.resources.forEach(o=>this.disposeObject(o));this.resources=[];this.disposeObject(this.group);this.group.clear();this.parts=[];this.past=[];this.future=[];this.lastEdit="";this.cut=null;this.renderer.clippingPlanes=[];this.wire=false;this.selected=-1;this.explosion=0;this.isolated=false;this.onSelect(null);this.onExplosion(0);}
-  demo(kind:'reactor'|'arm'){
+  demo(kind:'reactor'|'arm'|'engine'|'cube'|'sphere'|'circle'|'square'|'triangle'|'cylinder'|'cone'|'torus'){
+    const primitives={circle:'circle',square:'plane',triangle:'triangle',cylinder:'cylinder',cone:'cone',torus:'torus'} as const;
+    if(kind in primitives){const shape=primitives[kind as keyof typeof primitives];this.design({name:kind,parts:[{name:({circle:'Daire',square:'Kare',triangle:'Üçgen',cylinder:'Silindir',cone:'Koni',torus:'Halka'})[kind as keyof typeof primitives],shape,size:[2,2,2],position:[0,0,0],rotation:[0,0,0]}]});return this.list();}
     this.clear();
-    if(kind==='reactor'){
+    if(kind==='engine'){
+      const note='Kavramsal dört silindirli motor geometrisi; ölçülü bir üretici CAD modeli değildir.';
+      this.add('Karter',note,new THREE.BoxGeometry(2.9,.55,1.35),new THREE.Vector3(0,-.8,0));
+      this.add('Motor bloğu',note,new THREE.BoxGeometry(2.8,.35,1.2),new THREE.Vector3(0,-.3,0));
+      this.add('Silindir kapağı',note,new THREE.BoxGeometry(3,.2,1.3),new THREE.Vector3(0,1.25,0));
+      this.add('Krank mili',note,new THREE.CylinderGeometry(.13,.13,3.4,16),new THREE.Vector3(0,-.6,0),new THREE.Euler(0,0,Math.PI/2));
+      for(let i=0;i<4;i++){
+        const x=(i-1.5)*.68;
+        this.add(`Silindir ${i+1}`,note,new THREE.CylinderGeometry(.29,.29,.75,24,1,true),new THREE.Vector3(x,.45,0));
+        this.add(`Piston ${i+1}`,note,new THREE.CylinderGeometry(.25,.25,.22,24),new THREE.Vector3(x,.9,0));
+        this.add(`Biyel ${i+1}`,note,new THREE.BoxGeometry(.1,.65,.13),new THREE.Vector3(x,0,0));
+        this.add(`Emme borusu ${i+1}`,note,new THREE.CylinderGeometry(.1,.1,.65,12),new THREE.Vector3(x,.7,.65),new THREE.Euler(Math.PI/2,0,0));
+      }
+      this.add('Volan',note,new THREE.CylinderGeometry(.68,.68,.18,40),new THREE.Vector3(1.7,-.6,0),new THREE.Euler(0,0,Math.PI/2));
+    }else if(kind==='cube'||kind==='sphere'){
+      this.add(kind==='cube'?'Küp':'Küre','Kavramsal 3D model.',kind==='cube'?new THREE.BoxGeometry(1.8,1.8,1.8):new THREE.SphereGeometry(1.2,32,20),new THREE.Vector3());
+    }else if(kind==='reactor'){
       this.add('Enerji çekirdeği','Kavramsal modelin merkez küresi. Gerçek bir reaktör veya çalışan enerji sistemi değildir.',new THREE.IcosahedronGeometry(.65,2),new THREE.Vector3());
       for(let i=0;i<3;i++)this.add(['İç alan halkası','Orta stabilizasyon halkası','Dış koruma halkası'][i],'Ayrı bir geometrik parça. Çekirdeği çevreleyen örnek halka.',new THREE.TorusGeometry(1+i*.32,.11,12,64),new THREE.Vector3(0,(i-1)*.6,0),new THREE.Euler(Math.PI/2,0,0));
       for(let i=0;i<8;i++){const a=i*Math.PI/4;this.add(`Soğutucu segment ${i+1}`,'Halka çevresinde konumlandırılmış kavramsal soğutucu modülü.',new THREE.BoxGeometry(.3,1.05,.4),new THREE.Vector3(Math.cos(a)*1.6,0,Math.sin(a)*1.6),new THREE.Euler(0,-a,0));}
@@ -76,25 +96,103 @@ export class HologramScene {
     }
     this.home();this.notify();return this.list();
   }
-  list(){return this.parts.map(({id,name,description,vertices,triangles,dimensions,note})=>({id,name,description,vertices,triangles,dimensions,note}));}
-  async importGLB(buffer:ArrayBuffer){
+  list(){return this.parts.filter(p=>!p.removed).map(({id,name,description,vertices,triangles,dimensions,note})=>({id,name,description,vertices,triangles,dimensions,note}));}
+  async importGLB(buffer:ArrayBuffer,provenance='',isCurrent:()=>boolean=()=>true){
+    if(buffer.byteLength>30*1024*1024)throw Error('Model boyut sınırını aşıyor.');
     const manager=new THREE.LoadingManager();manager.setURLModifier(url=>{if(url.startsWith('blob:')||url.startsWith('data:'))return url;throw Error('Model dış dosyalar içeriyor. Dokuları gömülü tek bir GLB kullanın.');});
     const gltf=await new GLTFLoader(manager).parseAsync(buffer,'');
     if(this.dead){this.disposeObject(gltf.scene);return [];}
     const meshes:THREE.Mesh[]=[];let triangles=0;
     gltf.scene.updateMatrixWorld(true);gltf.scene.traverse(o=>{if((o as THREE.Mesh).isMesh){const m=o as THREE.Mesh;meshes.push(m);triangles+=(m.geometry.index?.count??m.geometry.attributes.position.count)/3;}});
     if(!meshes.length||meshes.length>200||triangles>750000||meshes.some(m=>(m as THREE.SkinnedMesh).isSkinnedMesh)){this.disposeObject(gltf.scene);throw Error('En fazla 200 statik parça ve 750.000 üçgen içeren bir GLB seçin.');}
+    if(meshes.some(m=>!m.matrixWorld.elements.every(Number.isFinite)||!Array.from(m.geometry.attributes.position.array).every(v=>Number.isFinite(v)&&Math.abs(v)<=10000))){this.disposeObject(gltf.scene);throw Error('Model geçersiz koordinatlar içeriyor.');}
     const box=new THREE.Box3().setFromObject(gltf.scene),center=box.getCenter(new THREE.Vector3()),size=box.getSize(new THREE.Vector3());const scale=3.8/Math.max(size.x,size.y,size.z,.001);
+    if(!isCurrent()){this.disposeObject(gltf.scene);throw Error('cancelled');}
     this.clear();
-    for(const mesh of meshes){const geometry=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);geometry.translate(-center.x,-center.y,-center.z);geometry.scale(scale,scale,scale);geometry.computeBoundingBox();const local=geometry.boundingBox!.getCenter(new THREE.Vector3());geometry.translate(-local.x,-local.y,-local.z);this.add(mesh.name||`Parça ${this.parts.length+1}`,'İçe aktarılan model geometrisi. İşlev ve malzeme bilgisi dosyadan doğrulanmadı.',geometry,local);}
+    for(const mesh of meshes){const geometry=mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);geometry.translate(-center.x,-center.y,-center.z);geometry.scale(scale,scale,scale);geometry.computeBoundingBox();const local=geometry.boundingBox!.getCenter(new THREE.Vector3());geometry.translate(-local.x,-local.y,-local.z);this.add(mesh.name||`Parça ${this.parts.length+1}`,provenance||'İçe aktarılan model geometrisi. İşlev ve malzeme bilgisi dosyadan doğrulanmadı.',geometry,local);}
     this.disposeObject(gltf.scene);this.home();this.notify();return this.list();
   }
+  design(raw:unknown){
+    const d:Design=validateDesign(raw);
+    // Validate the entire description before replacing the existing scene.
+    const prepared=d.parts.map(p=>{
+      let g:THREE.BufferGeometry;
+      switch(p.shape){
+        case 'box':g=new THREE.BoxGeometry(1,1,1);break;
+        case 'sphere':g=new THREE.SphereGeometry(.5,24,16);break;
+        case 'cylinder':g=new THREE.CylinderGeometry(.5,.5,1,24);break;
+        case 'cone':g=new THREE.ConeGeometry(.5,1,24);break;
+        case 'torus':g=new THREE.TorusGeometry(.38,.12,12,40);break;
+        case 'circle':g=new THREE.CircleGeometry(.5,48);break;
+        case 'plane':g=new THREE.PlaneGeometry(1,1);break;
+        case 'triangle':g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute([-.5,-.5,0,.5,-.5,0,0,.5,0],3));g.computeVertexNormals();break;
+      }
+      g.scale(...p.size);return {p,g};
+    });
+    this.clear();for(const {p,g} of prepared)this.add(p.name,'Tariften oluşturulan kavramsal geometri; üretici CAD modeli değildir.',g,new THREE.Vector3(...p.position),new THREE.Euler(...p.rotation));
+    this.home();this.notify();return d.name;
+  }
+  command(intent:SceneIntent):string {
+    if(intent.kind==='find')return 'Model araması hazırlanmalı.';
+    if(intent.kind==='design')return 'Model taslağı hazırlanmalı.';
+    if(intent.kind==='clarify')return intent.reply;
+    if(intent.kind==='create'){this.demo(intent.model);return intent.model==='engine'?'Kavramsal motor modelini sahnede oluşturdum.':'3D modeli sahnede oluşturdum.';}
+    if(intent.kind==='undo'){if(!this.past.length)return 'Geri alınacak sahne değişikliği yok.';this.undo();return 'Son sahne değişikliği geri alındı.';}
+    if(intent.kind==='redo'){if(!this.future.length)return 'Yeniden uygulanacak sahne değişikliği yok.';this.redo();return 'Sahne değişikliği yeniden uygulandı.';}
+    if(intent.kind==='reset'){this.reset();return 'Sahne başlangıç durumuna döndü. Geri al diyerek değişikliklerini getirebilirsin.';}
+    if(intent.kind==='home'){this.home();return 'Sahne görünümü ortalandı.';}
+    if(intent.kind==='upload')return 'Yüklemek için bir GLB dosyası seç.';
+    let targets=this.parts.filter(p=>!p.removed);
+    if(!targets.length)return 'Sahnede düzenlenecek bir model yok. Önce bir model göster veya yükle.';
+    const q=normalize('target' in intent?intent.target:'');
+    if(q&& !/^(onu|bunu|sunu|modeli|motoru|nesneyi|tamamini|hepsini|secili parcayi)$/.test(q)){
+      const names=targets.filter(p=>normalize(p.name)===q||normalize(p.name)===q.replace(/(?:u|i|ni)$/,''));
+      if(names.length!==1)return 'Hangi parçayı kastettiğini bulamadım. Parçaya dokun veya tam adını söyle; örneğin Piston 1 seç.';
+      targets=names;
+    }else if(intent.kind==='select'){
+      if(/^(modeli|motoru|tamamini|hepsini)$/.test(q)){this.select(-1);return 'Modelin tamamı seçildi.';}
+      return 'Seçmek istediğin parçanın adını söyle.';
+    }else if(!/^(modeli|motoru|nesneyi|tamamini|hepsini)$/.test(q)&&this.selected>=0){
+      targets=targets.filter(p=>p.id===this.selected);
+    }else if(q==='secili parcayi')return 'Önce sahnede bir parça seç.';
+    if(intent.kind==='select'){this.select(targets[0].id);return targets[0].name+' seçildi.';}
+    this.checkpoint('command:'+intent.kind);this.lastEdit='';
+    const center=new THREE.Vector3();
+    const position=(p:Part)=>p.base.clone().addScaledVector(p.direction,this.explosion*2.5).add(p.offset);
+    targets.forEach(p=>center.add(position(p)));center.multiplyScalar(1/targets.length);
+    if(intent.kind==='move'){
+      if(targets.some(p=>Math.abs(position(p)[intent.axis]+intent.amount)>8))return 'Model sahne sınırına ulaştı; önce ortaya taşı.';
+      targets.forEach(p=>p.offset[intent.axis]+=intent.amount);
+    }
+    if(intent.kind==='rotate'){
+      const axis=new THREE.Vector3();axis[intent.axis]=1;const angle=THREE.MathUtils.degToRad(intent.amount);
+      targets.forEach(p=>{const next=position(p).sub(center).applyAxisAngle(axis,angle).add(center);p.offset.copy(next).sub(p.base).addScaledVector(p.direction,-this.explosion*2.5);p.mesh.rotateOnWorldAxis(axis,angle);});
+    }
+    if(intent.kind==='scale'){
+      if(targets.some(p=>p.mesh.scale.x*intent.factor<.1||p.mesh.scale.x*intent.factor>5))return 'Model boyut sınırına ulaştı.';
+      targets.forEach(p=>{const next=position(p).sub(center).multiplyScalar(intent.factor).add(center);p.offset.copy(next).sub(p.base).addScaledVector(p.direction,-this.explosion*2.5);p.mesh.scale.multiplyScalar(intent.factor);});
+    }
+    if(intent.kind==='remove'){targets.forEach(p=>p.removed=true);this.isolated=false;this.select(-1);}
+    if(intent.kind!=='remove')this.fitVisible();
+    this.notify();
+    return intent.kind==='remove'?'Seçilen nesne sahneden silindi. Geri al diyerek getirebilirsin.':intent.kind==='rotate'?'Döndürdüm.':intent.kind==='scale'?'Boyutunu değiştirdim.':'Taşıdım.';
+  }
+  private syncPositions(){this.parts.forEach(p=>p.mesh.position.copy(p.base).addScaledVector(p.direction,this.explosion*2.5).add(p.offset));this.group.updateMatrixWorld(true);}
+  private fitVisible(){
+    this.syncPositions();const box=new THREE.Box3();this.parts.filter(p=>!p.removed).forEach(p=>box.expandByObject(p.mesh));if(box.isEmpty())return;
+    const sphere=box.getBoundingSphere(new THREE.Sphere());
+    const halfFov=Math.min(THREE.MathUtils.degToRad(this.camera.fov/2),Math.atan(Math.tan(THREE.MathUtils.degToRad(this.camera.fov/2))*this.camera.aspect));
+    const required=(sphere.center.distanceTo(this.controls.target)+sphere.radius)*1.12/Math.sin(halfFov);
+    const offset=this.camera.position.clone().sub(this.controls.target);
+    if(offset.length()<required)this.camera.position.copy(this.controls.target).add(offset.setLength(Math.min(35,required)));
+    this.controls.update();
+  }
   explode(amount:number){this.checkpoint('explode');const next=THREE.MathUtils.clamp(amount,0,1);const ratio=(1+next*.8)/(1+this.explosion*.8);this.camera.position.sub(this.controls.target).multiplyScalar(ratio).clampLength(3,35).add(this.controls.target);this.explosion=next;if(next===0)this.parts.forEach(p=>p.offset.set(0,0,0));this.onExplosion(this.explosion);this.notify();}
-  select(id:number){this.selected=id;for(const p of this.parts){const m=p.mesh.material as THREE.MeshStandardMaterial;m.color.set(p.id===id?this.accent:0x214957);m.emissive.set(p.id===id?this.accent:0x12667b);m.emissiveIntensity=p.id===id?.5:.3;p.mesh.visible=!this.isolated||id===p.id;}this.onSelect(this.parts[id]??null);this.notify();}
+  select(id:number){this.selected=id;for(const p of this.parts){const m=p.mesh.material as THREE.MeshStandardMaterial;m.color.set(p.id===id?this.accent:0x214957);m.emissive.set(p.id===id?this.accent:0x12667b);m.emissiveIntensity=p.id===id?.5:.3;p.mesh.visible=!p.removed&&(!this.isolated||id===p.id);}this.onSelect(this.parts[id]??null);this.notify();}
   isolate(value:boolean){this.checkpoint('isolate');this.isolated=value;this.select(this.selected);}
   wireframe(value:boolean){this.checkpoint('wire');this.wire=value;this.parts.forEach(p=>(p.mesh.material as THREE.MeshStandardMaterial).wireframe=value);this.notify();}
-  home(){this.controls.target.set(0,0,0);this.camera.position.set(6,4,8).multiplyScalar((1+this.explosion*.8)/Math.min(1,this.camera.aspect));this.controls.update();}
-  reset(){this.checkpoint('reset');this.applying=true;this.parts.forEach(p=>p.offset.set(0,0,0));this.explode(0);this.isolated=false;this.select(-1);this.home();this.section(null);this.wireframe(false);this.applying=false;this.notify();}
+  home(){this.syncPositions();const box=new THREE.Box3();this.parts.filter(p=>!p.removed).forEach(p=>box.expandByObject(p.mesh));const center=box.isEmpty()?new THREE.Vector3():box.getCenter(new THREE.Vector3());this.controls.target.copy(center);this.camera.position.set(6,4,8).multiplyScalar((1+this.explosion*.8)/Math.min(1,this.camera.aspect)).add(center);this.fitVisible();this.controls.update();}
+  reset(){this.checkpoint('reset');this.applying=true;this.stopGesture();this.parts.forEach(p=>{p.offset.set(0,0,0);p.mesh.rotation.copy(p.initialRotation);p.mesh.scale.set(1,1,1);p.removed=false;});this.explode(0);this.isolated=false;this.select(-1);this.home();this.section(null);this.wireframe(false);this.applying=false;this.notify();}
   focus(){const p=this.parts[this.selected];if(!p)return;this.controls.target.copy(p.mesh.position);this.camera.position.copy(p.mesh.position).add(new THREE.Vector3(2,1.5,3));this.controls.update();}
   private hit(x:number,y:number){this.ray.setFromCamera(new THREE.Vector2(x*2-1,1-y*2),this.camera);return this.ray.intersectObjects(this.parts.filter(p=>p.mesh.visible).map(p=>p.mesh),false).find(hit=>this.cut===null||this.cutPlane.distanceToPoint(hit.point)>=0);}
   private planePoint(x:number,y:number){this.ray.setFromCamera(new THREE.Vector2(x*2-1,1-y*2),this.camera);const normal=this.camera.getWorldDirection(new THREE.Vector3());const point=this.parts[this.selected]?.mesh.position??new THREE.Vector3();return this.ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(normal,point),new THREE.Vector3());}

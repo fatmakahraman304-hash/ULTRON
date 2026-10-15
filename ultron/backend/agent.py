@@ -36,11 +36,14 @@ class Agent:
         self.composite = None  # bridge.run_orchestrated — Agent 2.0 planner BEFORE tier-1
         self.request_approval = request_approval  # (text, risks) -> task_id | None
         self.state = "IDLE"
+        self.message = ""
         self.busy = False
         self._idle_task: asyncio.Task | None = None
 
     async def set_state(self, state: str, message: str | None = None) -> None:
         self.state = state
+        if message is not None:
+            self.message = str(message)
         await self.broadcast(
             {"type": "agent", "state": state, "message": message, "ts": time.time()}
         )

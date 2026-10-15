@@ -36,7 +36,7 @@ function startBackend() {
         : (process.env.ULTRON_WORKSPACE || projectRoot())
     }
   });
-  backend.on('error', (err) => dialog.showErrorBox('ULTRON Backend', `Backend başlatılamadı.\n\n${err.message}`));
+  backend.on('error', (err) => dialog.showErrorBox('GÖLGE Backend', `Backend başlatılamadı.\n\n${err.message}`));
 }
 
 async function waitForBackend(timeoutMs = 20000) {
@@ -54,16 +54,16 @@ async function waitForBackend(timeoutMs = 20000) {
 async function createWindow() {
   const win = new BrowserWindow({
     width: 1440, height: 900, minWidth: 1100, minHeight: 700,
-    backgroundColor: '#05070b', title: 'ULTRON', autoHideMenuBar: true,
+    backgroundColor: '#05070b', title: 'GÖLGE', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false }
   });
   if (!await waitForBackend()) {
-    dialog.showErrorBox('ULTRON', 'ULTRON backend 20 saniye içinde hazır olmadı. Python veya paketlenmiş backend ortamını kontrol edin.');
+    dialog.showErrorBox('GÖLGE', 'GÖLGE backend 20 saniye içinde hazır olmadı. Python veya paketlenmiş backend ortamını kontrol edin.');
     return win;
   }
   const indexFile = path.join(runtimeRoot(), 'frontend', 'dist', 'index.html');
   if (!fs.existsSync(indexFile)) {
-    dialog.showErrorBox('ULTRON', 'Desktop arayüzü paket içinde bulunamadı. Frontend build adımını tekrar çalıştırın.');
+    dialog.showErrorBox('GÖLGE', 'Desktop arayüzü paket içinde bulunamadı. Frontend build adımını tekrar çalıştırın.');
     return win;
   }
   await win.loadFile(indexFile);
@@ -76,7 +76,7 @@ app.whenReady().then(async () => {
     startBackend();
     await createWindow();
   } catch (err) {
-    dialog.showErrorBox('ULTRON', `ULTRON başlatılamadı.\n\n${err.message}`);
+    dialog.showErrorBox('GÖLGE', `GÖLGE başlatılamadı.\n\n${err.message}`);
     app.quit();
     return;
   }

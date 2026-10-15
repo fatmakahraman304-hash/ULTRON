@@ -30,8 +30,9 @@ class TestConversationPersona(unittest.TestCase):
 
     def test_consistent_identity(self):
         p = build_system_instruction(user_message="Merhaba")
-        self.assertIn("You are ULTRON", p)
-        self.assertIn("only the name ULTRON", p)
+        self.assertIn("You are GÖLGE", p)
+        self.assertNotIn("You are ULTRON", p)
+        self.assertIn("only the name GÖLGE", p)
 
     def test_no_false_feelings(self):
         p = build_system_instruction()
@@ -44,6 +45,31 @@ class TestConversationPersona(unittest.TestCase):
         self.assertIn("<SAVED MEMORY>", p)
         self.assertIn("<RECENT CHAT>", p)
         self.assertIn("READ-ONLY MODE", p)
+
+    def test_oversized_configured_prompt_cannot_evict_runtime_policy(self):
+        p = build_system_instruction(
+            base_prompt="Configured project guidance. " * 1000,
+            memory="verified preference",
+            recent="recent conversation",
+            user_message="Devam et",
+            read_only=True,
+            max_chars=4500,
+            has_prior_turns=True,
+        )
+        self.assertLessEqual(len(p), 4500)
+        self.assertIn("Never invent completed tasks", p)
+        self.assertIn("READ-ONLY MODE", p)
+        self.assertIn("<SAVED MEMORY>", p)
+        self.assertIn("<RECENT CHAT>", p)
+        self.assertNotIn("Configured project guidance.", p)
+
+    def test_tiny_context_budget_never_returns_a_truncated_policy(self):
+        p = build_system_instruction(
+            user_message="Continue", read_only=True, max_chars=64,
+        )
+        self.assertIn("Never invent completed tasks", p)
+        self.assertIn("READ-ONLY MODE", p)
+        self.assertTrue(p.endswith("\n"))
 
     def test_serious_instruction(self):
         p = build_system_instruction(user_message="Acil, hastayım")

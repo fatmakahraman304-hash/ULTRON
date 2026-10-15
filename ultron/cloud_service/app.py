@@ -8,6 +8,7 @@ from conversation_notes import register_conversation_note_routes
 from auto_learning import register_routes as register_auto_learning_routes, learn_from_owner_message
 
 import asyncio
+import contextlib
 import base64
 import hashlib
 import hmac
@@ -23,10 +24,20 @@ import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
-from conversation_persona import build_system_instruction
-from personal_context_focus import load_focused_owner_context
+from local_listening_bridge import register_local_listening_analysis_routes, listening_cleanup_loop
+from conversation_persona import build_system_instruction, classify_intent
+from verified_research import (append_research_sources,
+                               build_research_prompt_block,
+                               research_for_chat)
+from personal_context_focus import load_focused_owner_context, memory_focus_question
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
+from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
 from response_quality import finalize_response
+from live_voice_policy import (build_live_voice_instruction,
+                               explicit_memory_save_requested,
+                               safe_manual_memory_value)
+from memory_history import (delete_owner_memory, list_owner_memory_history,
+                            upsert_owner_memory)
 from development_updates import (register as register_development_routes,
                                  insert_development_request, dev_intent)
 from google import genai
@@ -42,7 +53,7 @@ SESSION_DAYS = int(os.getenv("ULTRON_SESSION_DAYS", "30"))
 
 DEVICE_COMMANDS = {
     # agent_task is deliberately free-form: a paired phone may send the same
-    # natural-language command the owner could type into the desktop ULTRON UI.
+    # natural-language command the owner could type into the desktop GÖLGE UI.
     # Execution still happens inside the desktop's existing tool/permission layer.
     "desktop": {"wake", "mute", "unmute", "interrupt", "sync_memory", "agent_task"},
     "phone": {"ping", "refresh", "open_memory", "focus_chat", "open_remote", "vibrate", "scroll_top"},
@@ -122,9 +133,19 @@ async def init_db(app: web.Application) -> None:
     schema = SCHEMA_FILE.read_text(encoding="utf-8")
     async with app["db"].acquire() as conn:
         await conn.execute(schema)
+    # Independent of user HTTP traffic: abandoned microphone-derived queue
+    # entries must expire even when both phone and laptop are switched off.
+    app["listening_cleanup_task"] = asyncio.create_task(
+        listening_cleanup_loop(app["db"])
+    )
 
 
 async def close_db(app: web.Application) -> None:
+    task = app.get("listening_cleanup_task")
+    if task is not None:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
     await app["db"].close()
 
 
@@ -197,38 +218,40 @@ async def list_memories(request: web.Request) -> web.Response:
     return web.json_response({"memories": [dict(r) for r in rows]}, dumps=_json_dumps)
 
 
+async def list_memory_history(request: web.Request) -> web.Response:
+    key = str(request.match_info.get("key", "")).strip()[:120]
+    if not key:
+        raise web.HTTPBadRequest(text='{"error":"memory_key_required"}',
+                                 content_type="application/json")
+    rows = await list_owner_memory_history(
+        request.app["db"], request["user_id"], key,
+        limit=request.query.get("limit", 20),
+    )
+    return web.json_response({"history": rows}, dumps=_json_dumps)
+
+
 async def upsert_memory(request: web.Request) -> web.Response:
     body = await request.json()
-    key = str(body.get("key", "")).strip()[:120]
-    value = str(body.get("value", "")).strip()[:8000]
-    category = str(body.get("category", "FACT")).strip().upper()[:40] or "FACT"
-    if not key or not value:
-        raise web.HTTPBadRequest(text=json.dumps({"error": "key_and_value_required"}), content_type="application/json")
-
-    row = await request.app["db"].fetchrow(
-        """
-        INSERT INTO memories(user_id, category, key, value, version, updated_by_device)
-        VALUES($1,$2,$3,$4,1,$5)
-        ON CONFLICT(user_id,key) DO UPDATE SET
-          category=EXCLUDED.category,
-          value=EXCLUDED.value,
-          version=memories.version+1,
-          updated_by_device=EXCLUDED.updated_by_device,
-          updated_at=NOW()
-        RETURNING category,key,value,version,updated_by_device,updated_at
-        """,
-        request["user_id"], category, key, value, request["device_id"],
-    )
-    return web.json_response({"memory": dict(row)}, dumps=_json_dumps)
+    try:
+        if not isinstance(body, dict):
+            raise ValueError("invalid_body")
+        category = body.get("category", "FACT")
+        row = await upsert_owner_memory(
+            request.app["db"], request["user_id"], request["device_id"],
+            category, body.get("key"), body.get("value"),
+        )
+    except ValueError as exc:
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": str(exc)[:80]}),
+            content_type="application/json",
+        )
+    return web.json_response({"memory": row}, dumps=_json_dumps)
 
 
 async def delete_memory(request: web.Request) -> web.Response:
     key = request.match_info["key"]
-    result = await request.app["db"].execute(
-        "DELETE FROM memories WHERE user_id=$1 AND key=$2",
-        request["user_id"], key,
-    )
-    return web.json_response({"ok": result.endswith("1")})
+    ok = await delete_owner_memory(request.app["db"], request["user_id"], key)
+    return web.json_response({"ok": ok})
 
 
 async def send_device_command(request: web.Request) -> web.Response:
@@ -247,8 +270,8 @@ async def send_device_command(request: web.Request) -> web.Response:
             content_type="application/json",
         )
 
-    # Phone/web sessions may control only the paired desktop ULTRON surface.
-    # The desktop device token may control only the ULTRON web client on phone.
+    # Phone/web sessions may control only the paired desktop GÖLGE surface.
+    # The desktop device token may control only the GÖLGE web client on phone.
     auth_kind = request.get("auth_kind", "")
     expected_target = "desktop" if auth_kind == "web" else "phone"
     if target != expected_target:
@@ -312,6 +335,22 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 "SELECT pg_advisory_xact_lock(hashtext($1::text || ':' || $2::text))",
                 str(request["user_id"]), target,
             )
+            # Transcript queue is ephemeral: expire unclaimed/unfinished
+            # Qwen listening jobs after 30m and remove the raw text and prompt
+            # before an old device can claim them.
+            await conn.execute(
+                """
+                UPDATE device_commands SET status='expired',
+                    completed_at=NOW(),
+                    result='{"message":"Dinleme analizi oturumu sona erdi."}'::jsonb,
+                    payload=payload - 'text' - 'system'
+                WHERE user_id=$1 AND target=$2
+                  AND command='agent_task'
+                  AND payload->>'mode'='local_listening_analysis'
+                  AND status IN ('queued','delivered')
+                  AND created_at < NOW() - INTERVAL '30 minutes'
+                """, request["user_id"], target,
+            )
             # Never execute a forgotten remote command days later. Old queued
             # work is made visible as expired instead of silently lingering.
             await conn.execute(
@@ -367,6 +406,8 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                 SET status='failed',
                     result='{"message":"Laptop görev lease''i 20 saniye boyunca yenilenmedi; kuyruk otomatik serbest bırakıldı."}'::jsonb,
                     completed_at=NOW(),
+                    payload=CASE WHEN payload->>'mode'='local_listening_analysis'
+                            THEN payload - 'text' - 'system' ELSE payload END,
                     progress = COALESCE(progress, '[]'::jsonb) ||
                       jsonb_build_array(jsonb_build_object(
                         'stage','failed',
@@ -424,7 +465,7 @@ async def claim_device_commands(request: web.Request) -> web.Response:
                       WHEN d.command='agent_task' THEN COALESCE(d.progress, '[]'::jsonb) ||
                         jsonb_build_array(jsonb_build_object(
                           'stage','claimed',
-                          'message','Laptop ULTRON görevi aldı.',
+                          'message','Laptop GÖLGE görevi aldı.',
                           'percent',5,
                           'at',EXTRACT(EPOCH FROM NOW())
                         ))
@@ -492,7 +533,7 @@ async def complete_device_command(request: web.Request) -> web.Response:
             saved_payload = json.loads(saved_payload)
         if isinstance(saved_result, str):
             saved_result = json.loads(saved_result)
-        if (isinstance(saved_payload, dict) and saved_payload.get("mode") == "local_brain"
+        if (isinstance(saved_payload, dict) and saved_payload.get("mode") in ("local_brain","local_listening_analysis")
                 and current["command"] == "agent_task" and delivery_attempt > 0
                 and delivery_attempt == current["delivery_attempt"] and saved_result == result):
             return web.json_response({"ok":True,"replayed":True,
@@ -563,6 +604,22 @@ async def complete_device_command(request: web.Request) -> web.Response:
         # The row existed at the initial lookup, but another worker/HTTP
         # request won the transition. Keep the original result intact.
         raise web.HTTPConflict(text=json.dumps({"error": "command_not_active"}), content_type="application/json")
+    if expected_target == "desktop" and current["command"] == "agent_task":
+        saved_mode = current.get("payload")
+        if isinstance(saved_mode, str):
+            try:
+                saved_mode = json.loads(saved_mode)
+            except ValueError:
+                saved_mode = {}
+        if isinstance(saved_mode, dict) and saved_mode.get("mode") == "local_listening_analysis":
+            # Scrub transient microphone-derived text as soon as worker
+            # acknowledges completion. The reply remains queryable by ID.
+            await request.app["db"].execute(
+                "UPDATE device_commands SET payload=payload - 'text' - 'system' "
+                "WHERE id=$1 AND user_id=$2 AND target='desktop' "
+                "AND status IN ('completed','failed','expired','cancelled')",
+                command_id, request["user_id"],
+            )
     output = dict(row)
     for key in ("result", "progress"):
         if isinstance(output.get(key), str):
@@ -589,7 +646,9 @@ async def cancel_device_command(request: web.Request) -> web.Response:
         UPDATE device_commands
         SET status='cancelled',
             result='{"message":"Görev kullanıcı tarafından iptal edildi."}'::jsonb,
-            completed_at=NOW()
+            completed_at=NOW(),
+            payload=CASE WHEN payload->>'mode'='local_listening_analysis'
+                    THEN payload - 'text' - 'system' ELSE payload END
         WHERE id=$1 AND user_id=$2 AND target=$3 AND status='queued'
         RETURNING id,target,command,status,result,created_at,completed_at
         """,
@@ -802,6 +861,11 @@ async def recent_device_commands(request: web.Request) -> web.Response:
                 item[key] = value if isinstance(value, list) else []
             else:
                 item[key] = value if isinstance(value, dict) else {}
+        # Read-only owner task dashboards never need the raw hourly speech.
+        # Worker claim APIs still carry it only while the job is running.
+        if item.get("payload", {}).get("mode") == "local_listening_analysis":
+            item["payload"] = {key: value for key, value in item["payload"].items()
+                               if key not in ("text", "system")}
         items.append(item)
     return web.json_response({"commands": items}, dumps=_json_dumps)
 
@@ -875,8 +939,13 @@ async def list_messages(request: web.Request) -> web.Response:
     limit = min(max(int(request.query.get("limit", "80")), 1), 200)
     rows = await request.app["db"].fetch(
         """
-        SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at
+        SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at,
+               (gi.message_id IS NOT NULL) AS has_generated_image,
+               (m.device_id='gemini-image' AND gi.message_id IS NULL) AS image_unavailable
         FROM messages m
+        LEFT JOIN generated_images gi
+          ON gi.message_id=m.id AND gi.user_id=$1
+             AND gi.created_at >= NOW() - INTERVAL '30 days'
         WHERE m.user_id=$1
         ORDER BY m.id DESC LIMIT $2
         """,
@@ -918,6 +987,13 @@ def _is_transient_gemini_error(exc: Exception) -> bool:
         "TEMPORAR",
     )
     return any(marker in message for marker in transient_markers)
+
+
+def _safe_provider_error(exc: Exception) -> str:
+    """Return a stable diagnostic category without exposing exception text."""
+    if _is_transient_gemini_error(exc):
+        return "provider_temporarily_unavailable"
+    return "provider_request_failed"
 
 
 def _generate_with_model(client: genai.Client, model: str, prompt: str,
@@ -984,6 +1060,164 @@ def _gemini_image_reply(image_bytes: bytes, mime_type: str, question: str, syste
     return text
 
 
+def _gemini_generate_image(prompt: str, image_bytes: bytes | None = None,
+                           mime_type: str | None = None) -> dict[str, str]:
+    """Generate or edit one image through Gemini; return only actual provider bytes."""
+    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
+    model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image").strip()
+    contents: list[Any] = [prompt]
+    if image_bytes is not None:
+        contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"))
+    response = client.models.generate_content(
+        model=model,
+        contents=contents,
+        config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
+    )
+    for candidate in getattr(response, "candidates", []) or []:
+        for part in getattr(getattr(candidate, "content", None), "parts", []) or []:
+            inline = getattr(part, "inline_data", None)
+            data = getattr(inline, "data", None) if inline else None
+            if data:
+                raw = data if isinstance(data, bytes) else base64.b64decode(data) if isinstance(data, str) else bytes(data)
+                output_mime = getattr(inline, "mime_type", None) or "image/png"
+                if output_mime not in {"image/png", "image/jpeg", "image/webp"} or len(raw) > 8 * 1024 * 1024:
+                    raise RuntimeError("Gemini image response violates output limits")
+                return {"mime_type": output_mime,
+                        "image_b64": base64.b64encode(raw).decode("ascii"), "model": model}
+    raise RuntimeError("Gemini image model returned no image")
+
+
+async def generate_image(request: web.Request) -> web.Response:
+    prompt, image_bytes, mime_type, conversation_id = "", None, None, ""
+    if request.content_type == "application/json":
+        body = await request.json()
+        prompt = str(body.get("prompt", "")).strip()[:4000]
+        conversation_id = str(body.get("conversation_id", "")).strip()
+    else:
+        reader = await request.multipart()
+        while True:
+            field = await reader.next()
+            if field is None:
+                break
+            if field.name == "prompt":
+                prompt = (await field.text()).strip()[:4000]
+            elif field.name == "conversation_id":
+                conversation_id = (await field.text()).strip()
+            elif field.name == "image":
+                mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
+                if mime_type not in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}:
+                    raise web.HTTPBadRequest(text='{"error":"supported_image_required"}', content_type="application/json")
+                chunks, total = [], 0
+                while True:
+                    chunk = await field.read_chunk(size=64 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > 8 * 1024 * 1024:
+                        raise web.HTTPRequestEntityTooLarge(max_size=8 * 1024 * 1024, actual_size=total)
+                    chunks.append(chunk)
+                image_bytes = b"".join(chunks)
+    if not prompt:
+        raise web.HTTPBadRequest(text='{"error":"prompt_required"}', content_type="application/json")
+    try:
+        conv_uuid = uuid.UUID(conversation_id) if conversation_id else uuid.uuid4()
+    except ValueError:
+        raise web.HTTPBadRequest(text='{"error":"invalid_conversation_id"}', content_type="application/json")
+    pool = request.app["db"]
+    # Check an existing thread before spending a provider call. Delay creating
+    # or touching the conversation row until generation succeeds, so provider
+    # failures do not leave empty conversations in chat history.
+    owner_id = await pool.fetchval(
+        "SELECT user_id FROM conversations WHERE id=$1", conv_uuid,
+    )
+    if owner_id is not None and owner_id != request["user_id"]:
+        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
+    try:
+        result = await asyncio.to_thread(_gemini_generate_image, prompt, image_bytes, mime_type)
+    except Exception:
+        # Provider errors may contain request details; never expose them to clients.
+        raise web.HTTPBadGateway(text=json.dumps({"error":"image_generation_failed",
+            "detail":"Görsel üretimi tamamlanamadı. Gemini görsel model erişimini kontrol et."}, ensure_ascii=False),
+            content_type="application/json")
+    # Do not insert the message "Görsel oluşturuldu" unless its actual bytes
+    # are durably attached. Otherwise a phone refresh leaves an empty claim.
+    try:
+        encoded = result["image_b64"]
+        image_data = base64.b64decode(encoded, validate=True)
+        image_mime = result["mime_type"]
+        if image_mime not in {"image/png", "image/jpeg", "image/webp"} or not (0 < len(image_data) <= 8 * 1024 * 1024):
+            raise ValueError("invalid generated image payload")
+    except (ValueError, KeyError, TypeError, base64.binascii.Error):
+        raise web.HTTPBadGateway(
+            text='{"error":"image_generation_invalid_payload"}',
+            content_type="application/json",
+        )
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            # Ownership and conversation creation occur in the same transaction
+            # as the messages and file: a failed save leaves no false thread.
+            claimed = await conn.fetchval(
+                "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
+                "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
+                "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
+                conv_uuid, request["user_id"], prompt[:80],
+            )
+            if claimed is None:
+                raise web.HTTPNotFound(
+                    text='{"error":"conversation_not_found"}',
+                    content_type="application/json",
+                )
+            user_message_id = await conn.fetchval(
+                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                "VALUES($1,$2,'user',$3,$4) RETURNING id",
+                conv_uuid, request["user_id"], prompt, request["device_id"],
+            )
+            assistant_message_id = await conn.fetchval(
+                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                "VALUES($1,$2,'assistant',$3,'gemini-image') RETURNING id",
+                conv_uuid, request["user_id"],
+                "Görsel düzenlendi." if image_bytes is not None else "Görsel oluşturuldu.",
+            )
+            await conn.execute(
+                "INSERT INTO generated_images(message_id,conversation_id,user_id,mime_type,image_data) "
+                "VALUES($1,$2,$3,$4,$5)",
+                assistant_message_id, conv_uuid, request["user_id"], image_mime, image_data,
+            )
+            # Clear only the owner's expired/over-limit blobs. Keep the chat
+            # text, but a missing asset should display an explicit UI error.
+            await conn.execute(
+                "DELETE FROM generated_images WHERE user_id=$1 AND "
+                "(created_at < NOW() - INTERVAL '30 days' OR message_id NOT IN "
+                "(SELECT message_id FROM generated_images WHERE user_id=$1 "
+                "ORDER BY created_at DESC,message_id DESC LIMIT 12))",
+                request["user_id"],
+            )
+    return web.json_response({**result, "conversation_id": str(conv_uuid),
+                              "user_message_id": user_message_id,
+                              "assistant_message_id": assistant_message_id,
+                              "image_url": f"/api/image/generated/{assistant_message_id}"})
+
+
+async def get_generated_image(request: web.Request) -> web.Response:
+    """Serve a generated image only to its authenticated owner, never /static."""
+    raw_id = request.match_info.get("id", "")
+    if not raw_id.isdecimal() or not (0 < len(raw_id) <= 19):
+        raise web.HTTPNotFound()
+    row = await request.app["db"].fetchrow(
+        "SELECT mime_type,image_data FROM generated_images "
+        "WHERE message_id=$1 AND user_id=$2 "
+        "AND created_at >= NOW() - INTERVAL '30 days'",
+        int(raw_id), request["user_id"],
+    )
+    if row is None:
+        raise web.HTTPNotFound()
+    return web.Response(
+        body=bytes(row["image_data"]), content_type=row["mime_type"],
+        headers={"Cache-Control":"private, no-store, max-age=0",
+                 "X-Content-Type-Options":"nosniff"},
+    )
+
+
 async def vision(request: web.Request) -> web.Response:
     reader = await request.multipart()
     image_bytes = b""
@@ -1020,8 +1254,13 @@ async def vision(request: web.Request) -> web.Response:
         )
 
     pool = request.app["db"]
-    memory = await _memory_context(pool, request["user_id"])
-    recent = await _recent_context(pool, request["user_id"], limit=12)
+    try:
+        raw_conversation_id = request.query.get("conversation_id", "")
+        conv_uuid = uuid.UUID(raw_conversation_id) if raw_conversation_id else uuid.uuid4()
+    except ValueError:
+        raise web.HTTPBadRequest(text='{"error":"invalid_conversation_id"}', content_type="application/json")
+    memory = await _memory_context(pool, request["user_id"], query=question)
+    recent = await _recent_context(pool, request["user_id"], limit=12, conversation_id=conv_uuid if raw_conversation_id else None)
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent=recent, user_message=question,
@@ -1032,28 +1271,31 @@ async def vision(request: web.Request) -> web.Response:
             _gemini_image_reply, image_bytes, mime_type, question, system_instruction
         )
     except Exception as exc:
-        raw = str(exc)[:1000]
+        error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_vision_error',$2,$3)",
-            request["user_id"], raw, request["device_id"],
+            request["user_id"], error_code, request["device_id"],
         )
         raise web.HTTPBadGateway(
             text=json.dumps({"error": "vision_failed", "detail": "Görsel analizi tamamlanamadı."}, ensure_ascii=False),
             content_type="application/json",
         )
 
-    conv_uuid = uuid.uuid4()
     user_text = f"[Görsel: {filename}] " + (question or "Bu görseli analiz et.")
-    await pool.execute(
-        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3)",
+    claimed = await pool.fetchval(
+        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
+        "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
+        "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
         conv_uuid, request["user_id"], user_text[:80],
     )
-    await pool.execute(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4)",
+    if claimed is None:
+        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
+    user_message_id = await pool.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4) RETURNING id",
         conv_uuid, request["user_id"], user_text, request["device_id"],
     )
-    await pool.execute(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini-vision')",
+    assistant_message_id = await pool.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini-vision') RETURNING id",
         conv_uuid, request["user_id"], reply,
     )
     await pool.execute(
@@ -1063,6 +1305,8 @@ async def vision(request: web.Request) -> web.Response:
     return web.json_response({
         "conversation_id": str(conv_uuid),
         "reply": reply,
+        "user_message_id": user_message_id,
+        "assistant_message_id": assistant_message_id,
         "filename": filename,
         "mime_type": mime_type,
     })
@@ -1140,10 +1384,10 @@ async def document(request: web.Request) -> web.Response:
             _gemini_pdf_reply, pdf_bytes, question, system_instruction
         )
     except Exception as exc:
-        raw = str(exc)[:1000]
+        error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_document_error',$2,$3)",
-            request["user_id"], raw, request["device_id"],
+            request["user_id"], error_code, request["device_id"],
         )
         raise web.HTTPBadGateway(
             text=json.dumps({"error": "document_failed", "detail": "PDF analizi tamamlanamadı."}, ensure_ascii=False),
@@ -1226,9 +1470,10 @@ async def camera_frame(request: web.Request) -> web.Response:
             _gemini_image_reply, image_bytes, mime_type, camera_prompt, system_instruction
         )
     except Exception as exc:
+        error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_camera_error',$2,$3)",
-            request["user_id"], str(exc)[:1000], request["device_id"],
+            request["user_id"], error_code, request["device_id"],
         )
         raise web.HTTPBadGateway(
             text=json.dumps({"error": "camera_failed", "detail": "Canlı kamera analizi tamamlanamadı."}, ensure_ascii=False),
@@ -1240,6 +1485,61 @@ async def camera_frame(request: web.Request) -> web.Response:
         request["user_id"], reply[:12000], request["device_id"],
     )
     return web.json_response({"ok": True, "reply": reply})
+
+
+async def listening_analysis_api(request: web.Request) -> web.Response:
+    """Authenticated, stateless and read-only chunk analysis.
+
+    Unlike /api/chat, intermediate chunks never enter messages, memories,
+    events, command queues or owner-learning pipelines. No tool execution.
+    The user must explicitly request the final reply from the phone UI.
+    """
+    if request.get("auth_kind") != "web":
+        raise web.HTTPForbidden(text='{"error":"web_session_required"}',
+                                content_type="application/json")
+    try:
+        body = await request.json()
+        stage, prompt, cap = build_request(body)
+    except (ValueError, TypeError, ListeningPayloadError):
+        raise web.HTTPBadRequest(
+            text=json.dumps({"error": "invalid_listening_analysis_input"}),
+            content_type="application/json",
+        )
+    try:
+        response = await asyncio.to_thread(_gemini_reply, prompt, (
+            "Read-only listening analysis only. " + ANALYST_SYSTEM
+        ))
+        answer = checked_analysis(response, cap)
+    except ListeningPayloadError:
+        raise web.HTTPBadGateway(
+            text='{"error":"empty_listening_analysis"}',
+            content_type="application/json",
+        )
+    except Exception:
+        # Never print or persist raw transcript or model error containing
+        # owner speech; use a generic short failure message.
+        raise web.HTTPBadGateway(
+            text=json.dumps({"error": "listening_analysis_unavailable",
+                             "detail": "Analiz şu anda tamamlanamadı. Metin telefonda korunuyor."},
+                            ensure_ascii=False),
+            content_type="application/json",
+        )
+    return web.json_response({"stage": stage, "analysis": answer, "saved": False})
+
+
+async def scene_design(request: web.Request) -> web.Response:
+    from scene_design import description, validate, SYSTEM
+    try:
+        text = description(await request.json())
+    except (ValueError, TypeError):
+        return web.json_response({"error":"invalid_description"}, status=400)
+    try:
+        reply = await asyncio.to_thread(_gemini_reply, text, SYSTEM, [])
+        design = validate(reply)
+    except Exception:
+        # No raw provider output or owner description in errors/logs.
+        return web.json_response({"error":"scene_design_unavailable"}, status=502)
+    return web.json_response({"design":design})
 
 
 async def chat(request: web.Request) -> web.Response:
@@ -1275,31 +1575,44 @@ async def chat(request: web.Request) -> web.Response:
         conv_uuid, request["user_id"], text, request["device_id"],
     )
 
-    memory = await _memory_context(pool, request["user_id"], query=text)
     turns = await load_contextual_thread_turns(
         pool, request["user_id"], conv_uuid, question=text,
         before_id=current_message_id, max_chars=5200, limit=16,
     )
+    # Use the last real owner goal for memory search when the current message
+    # is only "continue". Context remains current-conversation and owner scoped.
+    focus_query = memory_focus_question(text, turns)
+    memory = await _memory_context(pool, request["user_id"], query=focus_query)
+    research_result = None
+    if classify_intent(text).kind == "research":
+        # This outbound read is limited to the user's explicit current research
+        # request. Personal memory/history are deliberately not added to the
+        # query or persisted in the research store.
+        research_result = await research_for_chat(text)
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
         user_message=text, read_only=True, has_prior_turns=bool(turns),
     )
+    if research_result is not None:
+        system_instruction += build_research_prompt_block(research_result)
     prompt = text
 
     try:
         reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
+        if research_result is not None:
+            reply = append_research_sources(reply, research_result)
     except Exception as exc:
-        raw_error = str(exc)[:1000]
+        error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_error',$2,$3)",
-            request["user_id"], raw_error, request["device_id"],
+            request["user_id"], error_code, request["device_id"],
         )
-        if "GEMINI_TEMPORARY_UNAVAILABLE" in raw_error or _is_transient_gemini_error(exc):
+        if error_code == "provider_temporarily_unavailable":
             raise web.HTTPServiceUnavailable(
                 text=json.dumps({
                     "error": "gemini_temporarily_unavailable",
-                    "detail": "Gemini şu anda yoğun. ULTRON iki modeli de otomatik olarak denedi; birkaç saniye sonra yeniden dene.",
+                    "detail": "Gemini şu anda yoğun. GÖLGE iki modeli de otomatik olarak denedi; birkaç saniye sonra yeniden dene.",
                 }, ensure_ascii=False),
                 content_type="application/json",
             )
@@ -1355,42 +1668,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         memory=memory, recent=recent,
         has_prior_turns=not recent.startswith("No previous chat messages."),
     )
-    system_instruction = (
-        base_prompt
-        + "\n\nYou are speaking through the user's phone using Gemini Live native audio. "
-          "Speak naturally in the same language as the user. Keep replies conversational and usually brief. "
-          "Use save_memory whenever the user explicitly asks you to remember something or reveals a stable personal fact worth remembering. "
-          "Use recall_memory when current persistent memory is needed instead of guessing from stale session context. "
-          "Use get_latest_image_context whenever the user refers to the photo/image they just sent. "
-          "Use get_latest_document_context whenever the user refers to the PDF/document they just sent. "
-          "Use control_phone_ui when the user asks to control the current phone surface. Supported actions include ULTRON views plus safe app intents such as browser/search/maps/call composer. "
-          "For iPhone system/app control, never claim unrestricted device access: iOS only allows actions exposed by browser URL/deep-link intents or explicit Shortcuts. "
-          "Use run_ios_shortcut when the user asks for an iPhone action that should be delegated to Apple Shortcuts. Prefer the shortcut name ULTRON Bridge unless the user explicitly names another shortcut. "
-          "For opening apps such as YouTube, Spotify, WhatsApp, Instagram, Chrome, Maps, Messages, Mail, or FaceTime, ALWAYS use control_phone_ui and NEVER use Apple Shortcuts. "
-          "If the user names content to find inside YouTube or Spotify, use youtube_search or spotify_search instead of merely opening the app. "
-          "If the user asks to prepare a WhatsApp message, use whatsapp_message. "
-          "For direct phone/app actions, perform the tool call immediately and do not add a conversational confirmation afterward unless the action fails. "
-          "Use run_ios_action only for iPhone system settings that truly require Apple Shortcuts: set_focus, set_volume, set_brightness, bluetooth, wifi, and compose_message. "
-          "You are ONE ULTRON across the phone and paired Windows laptop, not two separate assistants. "
-          "If the user asks ULTRON to develop or update ITS OWN source code, fix its bugs or add features to ULTRON, ALWAYS call request_ultron_development instead of send_laptop_task. That ONLY saves a Cloud request for deliberate ChatGPT handoff. ChatGPT consumer chats cannot be messaged silently; the user must copy and submit the handoff. Do not launch VS Code, and never claim code is installed before verifications. "
-          "The paired laptop's local agent is an extension of your own capability set. Whenever the user asks for something the desktop ULTRON can do, use send_laptop_task automatically even if the user does not explicitly say 'on the laptop'. "
-          "Desktop capabilities include file/folder operations, Windows and desktop control, system status/settings, opening and controlling desktop apps, browser automation, coding/development-agent work, screen inspection, local file processing, web/news/weather/flight lookups, reminders, messaging, media/video/YouTube actions, monitoring, dynamic Center Stage control, interactive hologram creation/editing, normal shaded 3D Earth Watch with rotatable globe, atmosphere/clouds/stars, approximate UTC-synchronized sunlight, coordinate pins, location focus and validated optional live ISS tracking, multi-object 3D Scene Lab composition, natural object-name selection/movement/rotation/scaling, multi-select and named-group batch editing, align/distribute tools, line/grid/radial arrays, parent-child Scene Graph hierarchy, reusable camera bookmarks and timeline-authored cinematic camera keyframes, live drop/launch/zero-G/float physics simulation, holographic distance measurements, scene diagnostics and live collision-risk visualization, target lock and follow/look-at/orbit-target constraints, waypoint route playback, hologram/blueprint/xray/solid/thermal technical render modes, timed Mission Sequences with direct live video capture, persistent Snapshot Vault checkpoints, conditional timer/distance/collision Scene Lab Trigger Engine automation, duplicate/undo/redo, animated object motion, multi-object eased timeline/keyframe animation, persistent manual and cinematic camera paths, object-attached HUD/data cards, holographic object links, Scene Director modes, named in-app scene projects, persistent imported GLB Asset Library with reuse/delete and embedded animation control, audio-reactive particles, themes/HUD labels, exploded views, camera/layout control, scene save/reopen, screenshot capture, real live Three.js scene video recording and short local animation-video rendering/preview, converting the current hologram or 3D scene into a video, whole-system/world awareness, self-diagnostics, adaptive screen awareness, smart-home/IoT scenes, presence, backups, long-running supervisor tasks, research/knowledge retrieval, persistent goals, prediction, decision support, dry-run simulation, and any other action/plugin available to the desktop ULTRON. "
-          "Never answer 'I cannot do that from the phone' merely because the capability lives on the laptop; delegate it through send_laptop_task. "
-          "If the user explicitly says iPhone/phone, use phone tools. If the user explicitly says laptop/computer/Windows, use send_laptop_task. If no device is named, use phone tools for clearly iPhone-local intents and use the desktop agent for desktop/tool/file/system/automation tasks. "
-          "Use get_laptop_status when the user asks whether the laptop is online, busy, muted, or what it is doing. "
-          "Use get_latest_laptop_task when the user asks what happened to the last laptop task, whether it finished, or for its result. "
-          "Use cancel_laptop_task when the user explicitly asks to cancel the latest queued laptop task. "
-          "send_laptop_task may schedule a task for later by setting delay_minutes. "
-          "For complex laptop tasks, include a short ordered plan of 2-7 concrete steps so the desktop agent can report progress and resume from checkpoints. "
-          "For an online immediate desktop task, send_laptop_task returns quickly so the phone's Gemini Live audio session never blocks. The browser receives the eventual desktop result independently and announces it; you must not wait for or inject another result turn. "
-          "After send_laptop_task returns accepted/running, only acknowledge briefly that the task was sent or is being processed; NEVER claim completion yet. "
-          "Do not pretend a laptop action is completed until the desktop agent reports completion; accurately say whether it completed, failed, was scheduled, or remains queued. "
-          "The phone is in always-listening mode while the microphone session is active; no wake word is required. "
-          "When the user gives a direct phone/app command, execute the appropriate tool immediately before speaking. "
-          "Do not ask follow-up closing questions such as 'Başka bir emriniz var mı?' after completing a command. "
-          "For successful direct actions, keep any spoken confirmation extremely short, for example 'Açıyorum.' or say nothing beyond the result."
-
-    )
+    system_instruction = build_live_voice_instruction(base_prompt)
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
     voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
     try:
@@ -1417,7 +1695,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     await pool.execute(
         """
         INSERT INTO conversations(id,user_id,title)
-        VALUES($1,$2,'Telefon sesli ULTRON')
+        VALUES($1,$2,'Telefon sesli GÖLGE')
         ON CONFLICT(id) DO UPDATE SET updated_at=NOW()
         """,
         conv_uuid, user_id,
@@ -1450,34 +1728,21 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         ),
         tools=[{"function_declarations": [
             {
-                "name": "request_ultron_development",
-                "description": "For the user's requests to add ULTRON features, fix ULTRON bugs, or update ULTRON's own source. Save a Cloud request for explicit ChatGPT handoff; never pretend code is already changed.",
-                "parameters": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "prompt": {"type": "STRING", "description": "Requested modification in full, without secrets."},
-                        "target": {"type": "STRING", "enum": ["phone", "desktop", "both"],
-                                   "description": "phone=free iPhone PWA, desktop=Windows, both default."}
-                    },
-                    "required": ["prompt"]
-                }
-            },
-            {
                 "name": "save_memory",
-                "description": "Save or update a stable user fact in the shared ULTRON Cloud memory. Use when the user asks to remember something or shares an important persistent fact.",
+                "description": "Save or update an owner fact only after an explicit request in the current spoken turn to remember/save it. A disclosure alone is not consent. Never store passwords, API keys, tokens, or one-time codes.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
                         "key": {"type": "STRING", "description": "Short stable key, for example favorite_color or school."},
                         "value": {"type": "STRING", "description": "The exact fact to remember, preserving the user's wording when practical."},
-                        "category": {"type": "STRING", "description": "PROFILE, PREFERENCE, PROJECT, RELATIONSHIP, WISH, NOTE, FACT, IMPORTANT, DEVICE, or TASK."}
+                        "category": {"type": "STRING", "enum": ["PREFERENCE", "PROJECT", "GOAL", "FACT", "DEVICE"]}
                     },
                     "required": ["key", "value"]
                 }
             },
             {
                 "name": "recall_memory",
-                "description": "Search the latest shared ULTRON Cloud memory for facts relevant to the user's question.",
+                "description": "Search the latest shared GÖLGE Cloud memory for facts relevant to the user's question.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1499,7 +1764,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 ,
             {
                 "name": "control_phone_ui",
-                "description": "Control the current ULTRON phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message.",
+                "description": "Control the current GÖLGE phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1511,7 +1776,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "send_laptop_task",
-                "description": "Delegate any task that the paired Windows desktop ULTRON can perform. This is the phone voice assistant's gateway to the full desktop action/plugin/tool set; use it automatically for desktop-capable tasks, not only when the user literally says laptop.",
+                "description": "Delegate any task that the paired Windows desktop GÖLGE can perform. This is the phone voice assistant's gateway to the full desktop action/plugin/tool set; use it automatically for desktop-capable tasks, not only when the user literally says laptop.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1524,26 +1789,26 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "get_laptop_status",
-                "description": "Read the paired laptop's current ULTRON presence/status.",
+                "description": "Read the paired laptop's current GÖLGE presence/status.",
                 "parameters": {"type": "OBJECT", "properties": {}}
             },
             {
                 "name": "get_latest_laptop_task",
-                "description": "Get the latest desktop ULTRON agent task status, progress, and result.",
+                "description": "Get the latest desktop GÖLGE agent task status, progress, and result.",
                 "parameters": {"type": "OBJECT", "properties": {}}
             },
             {
                 "name": "cancel_laptop_task",
-                "description": "Cancel the latest queued desktop ULTRON agent task. Only queued tasks can be cancelled.",
+                "description": "Cancel the latest queued desktop GÖLGE agent task. Only queued tasks can be cancelled.",
                 "parameters": {"type": "OBJECT", "properties": {}}
             },
             {
                 "name": "run_ios_shortcut",
-                "description": "Run an Apple Shortcut on the current iPhone. Use ULTRON Bridge by default and pass the requested phone action as text input.",
+                "description": "Run an Apple Shortcut on the current iPhone. Use GÖLGE Bridge by default and pass the requested phone action as text input.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "shortcut_name": {"type": "STRING", "description": "Shortcut name. Default ULTRON Bridge."},
+                        "shortcut_name": {"type": "STRING", "description": "Shortcut name. Default GÖLGE Bridge."},
                         "input": {"type": "STRING", "description": "Text command or payload to pass into the shortcut."}
                     },
                     "required": ["input"]
@@ -1551,7 +1816,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             },
             {
                 "name": "run_ios_action",
-                "description": "Send an iPhone system-setting automation command to ULTRON Bridge. Do NOT use for opening apps; use control_phone_ui for apps.",
+                "description": "Send an iPhone system-setting automation command to GÖLGE Bridge. Do NOT use for opening apps; use control_phone_ui for apps.",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
@@ -1652,7 +1917,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                                 "id": command_id,
                                 "status": status or "running",
                                 "task": task_text,
-                                "message": "Görev 5 saniye içinde tamamlanmadı; laptop ULTRON çalışmaya devam ediyor.",
+                                "message": "Görev 5 saniye içinde tamamlanmadı; laptop GÖLGE çalışmaya devam ediyor.",
                             })
 
                         await asyncio.sleep(0.20)
@@ -1672,7 +1937,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             "type": "laptop_task_update",
                             "id": command_id,
                             "status": "watch_error",
-                            "message": str(exc)[:180],
+                            "message": "Laptop görev durumu şu anda okunamıyor.",
                         })
 
             await send_json({
@@ -1702,6 +1967,18 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         if kind == "text":
                             text = str(payload.get("text", "")).strip()
                             if text:
+                                if len(text) > 16000:
+                                    await send_json({
+                                        "type": "input_error",
+                                        "error": "text_too_long",
+                                        "max_chars": 16000,
+                                    })
+                                    continue
+                                # Keep typed Live turns in the same per-turn
+                                # consent and history path as audio transcripts.
+                                # Add before awaiting Gemini so a fast tool call
+                                # cannot race ahead of its consent evidence.
+                                in_parts.append(text)
                                 await session.send_client_content(
                                     turns={"role": "user", "parts": [{"text": text}]},
                                     turn_complete=True,
@@ -1742,25 +2019,40 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     key = str(args.get("key", "")).strip()[:120]
                     value = str(args.get("value", "")).strip()[:8000]
                     category = str(args.get("category", "FACT")).strip().upper()[:40] or "FACT"
+                    if category not in {"PREFERENCE", "PROJECT", "GOAL", "FACT", "DEVICE"}:
+                        category = "FACT"
                     if not key or not value:
                         return types.FunctionResponse(
                             id=fc.id, name=name,
                             response={"ok": False, "error": "key_and_value_required"},
                         )
-                    row = await pool.fetchrow(
-                        """
-                        INSERT INTO memories(user_id, category, key, value, version, updated_by_device)
-                        VALUES($1,$2,$3,$4,1,$5)
-                        ON CONFLICT(user_id,key) DO UPDATE SET
-                          category=EXCLUDED.category,
-                          value=EXCLUDED.value,
-                          version=memories.version+1,
-                          updated_by_device=EXCLUDED.updated_by_device,
-                          updated_at=NOW()
-                        RETURNING category,key,value,version,updated_at
-                        """,
-                        user_id, category, key, value, device_id,
-                    )
+                    if not explicit_memory_save_requested(" ".join(in_parts)):
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={
+                                "ok": False,
+                                "error": "owner_explicit_request_required",
+                                "note": "No memory was written. A personal disclosure is not permission to save it.",
+                            },
+                        )
+                    if not safe_manual_memory_value(key + " " + value):
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={
+                                "ok": False,
+                                "error": "credential_not_stored",
+                                "note": "No memory was written because the value resembles a credential.",
+                            },
+                        )
+                    try:
+                        row = await upsert_owner_memory(
+                            pool, user_id, device_id, category, key, value
+                        )
+                    except ValueError:
+                        return types.FunctionResponse(
+                            id=fc.id, name=name,
+                            response={"ok": False, "error": "invalid_or_sensitive_memory"},
+                        )
                     await send_json({
                         "type": "memory_saved",
                         "key": key,
@@ -1854,11 +2146,6 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 
                 if name == "send_laptop_task":
                     task_text = str(args.get("task", "")).strip()[:4000]
-                    if task_text and dev_intent(task_text):
-                        return types.FunctionResponse(
-                            id=fc.id, name=name,
-                            response={"ok": False, "error": "ULTRON_self_development_must_use_ChatGPT_handoff"},
-                        )
                     if not task_text:
                         return types.FunctionResponse(
                             id=fc.id, name=name,
@@ -1948,7 +2235,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             "task": task_text,
                             "origin": "voice",
                             "result_will_arrive_async": True,
-                            "message": "Laptop ULTRON görevi aldı. Sonuç tamamlanınca bu sesli oturuma otomatik gelecek.",
+                            "message": "Laptop GÖLGE görevi aldı. Sonuç tamamlanınca bu sesli oturuma otomatik gelecek.",
                         },
                     )
 
@@ -2050,7 +2337,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                     )
 
                 if name == "run_ios_shortcut":
-                    shortcut_name = str(args.get("shortcut_name", "ULTRON Bridge")).strip()[:120] or "ULTRON Bridge"
+                    shortcut_name = str(args.get("shortcut_name", "GÖLGE Bridge")).strip()[:120] or "GÖLGE Bridge"
                     shortcut_input = str(args.get("input", "")).strip()[:1000]
                     if not shortcut_input:
                         return types.FunctionResponse(
@@ -2095,7 +2382,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         id=fc.id, name=name,
                         response={
                             "ok": True,
-                            "shortcut_name": "ULTRON Bridge",
+                            "shortcut_name": "GÖLGE Bridge",
                             "command": command,
                             "note": "Execution depends on actions and permissions configured inside the Apple Shortcut.",
                         },
@@ -2115,6 +2402,22 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             async with send_lock:
                                 await ws.send_bytes(response.data)
 
+                        sc = getattr(response, "server_content", None)
+                        if sc is not None and getattr(sc, "interrupted", False):
+                            # Drop the unfinished assistant transcript and stop
+                            # any audio already queued locally.
+                            out_parts.clear()
+                            await send_json({"type": "interrupted"})
+                        # The current transcription is the consent evidence for
+                        # save_memory. Process it before any tool call in this
+                        # same Live response.
+                        if (sc is not None and sc.input_transcription
+                                and sc.input_transcription.text):
+                            text = str(sc.input_transcription.text).strip()
+                            if text:
+                                in_parts.append(text)
+                                await send_json({"type": "input_transcript", "text": text})
+
                         if getattr(response, "tool_call", None):
                             fn_responses = []
                             for fc in response.tool_call.function_calls:
@@ -2122,20 +2425,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                             if fn_responses:
                                 await session.send_tool_response(function_responses=fn_responses)
 
-                        sc = getattr(response, "server_content", None)
                         if sc is None:
                             continue
-                        if getattr(sc, "interrupted", False):
-                            # Gemini detected the user speaking over the answer.
-                            # Drop the unfinished assistant transcript and tell
-                            # the phone to stop any audio already queued locally.
-                            out_parts.clear()
-                            await send_json({"type": "interrupted"})
-                        if sc.input_transcription and sc.input_transcription.text:
-                            text = str(sc.input_transcription.text).strip()
-                            if text:
-                                in_parts.append(text)
-                                await send_json({"type": "input_transcript", "text": text})
                         if sc.output_transcription and sc.output_transcription.text:
                             text = str(sc.output_transcription.text).strip()
                             if text:
@@ -2191,19 +2482,20 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
     except asyncio.CancelledError:
         raise
     except Exception as exc:
+        error_code = _safe_provider_error(exc)
         try:
             await pool.execute(
                 "INSERT INTO events(user_id,event_type,detail,device_id) "
                 "VALUES($1,'gemini_live_error',$2,$3)",
-                user_id, str(exc)[:1000], device_id,
+                user_id, error_code, device_id,
             )
         except Exception:
             pass
         if not ws.closed:
             await send_json({
                 "type": "error",
-                "message": "Sesli ULTRON bağlantısı geçici olarak kullanılamıyor.",
-                "detail": str(exc)[:160],
+                "message": "Sesli GÖLGE bağlantısı geçici olarak kullanılamıyor.",
+                "detail": error_code,
             })
     finally:
         if not ws.closed:
@@ -2256,6 +2548,7 @@ def build_app() -> web.Application:
     add_world_routes(app)
     register_development_routes(app)
     register_local_brain_routes(app,_memory_context,_recent_context)
+    register_local_listening_analysis_routes(app)
     register_personal_plan_routes(app)
     register_learning_routes(app)
     register_conversation_note_routes(app)
@@ -2269,7 +2562,16 @@ def build_app() -> web.Application:
     app.router.add_get("/api/messages", list_messages)
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat", chat)
+    app.router.add_post("/api/scene-design", scene_design)
+    from scene_assets import register as register_scene_assets
+    register_scene_assets(app)
+    from scene_queue import post_scene, get_scene
+    app.router.add_post("/api/local-scene-design", post_scene)
+    app.router.add_get("/api/local-scene-design/{id}", get_scene)
+    app.router.add_post("/api/listening-analysis", listening_analysis_api)
     app.router.add_post("/api/vision", vision)
+    app.router.add_post("/api/image/generate", generate_image)
+    app.router.add_get("/api/image/generated/{id}", get_generated_image)
     app.router.add_post("/api/document", document)
     app.router.add_post("/api/camera-frame", camera_frame)
     app.router.add_get("/api/live", live_voice)
@@ -2284,6 +2586,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/device-presence", device_presence)
     app.router.add_get("/api/memories", list_memories)
     app.router.add_put("/api/memories", upsert_memory)
+    app.router.add_get("/api/memories/{key}/history", list_memory_history)
     app.router.add_delete("/api/memories/{key}", delete_memory)
     app.on_response_prepare.append(prevent_stale_chat_assets)
     app.on_startup.append(init_db)

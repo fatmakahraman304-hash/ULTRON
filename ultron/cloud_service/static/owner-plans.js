@@ -1,4 +1,4 @@
-/* ULTRON manual planning UI: all writes follow user interaction.
+/* GÖLGE manual planning UI: all writes follow user interaction.
  * This is NOT Google/Apple Calendar sync or a scheduled push notification.
  */
 (function(global, factory) {
@@ -47,7 +47,7 @@
       const time = p.scheduled_time ? " " + String(p.scheduled_time).slice(0, 5) : "";
       detail.textContent = date + time + (p.note ? " • " + String(p.note).slice(0, 500) : "");
       const state = doc.createElement("small");
-      state.textContent = p.is_done ? "Tamamlandı • ULTRON planı" : "Planlandı • bildirim kurulmadı";
+      state.textContent = p.is_done ? "Tamamlandı • GÖLGE planı" : "Planlandı • bildirim kurulmadı";
       const controls = doc.createElement("div");
       controls.className = "row";
       const edit = doc.createElement("button");
@@ -65,7 +65,7 @@
       remove.className = "secondary";
       remove.textContent = "SİL";
       remove.addEventListener("click", () => {
-        if (ask("Bu ULTRON planını kalıcı olarak silmek istiyor musun?")) return mutate(p.id, "DELETE");
+        if (ask("Bu GÖLGE planını kalıcı olarak silmek istiyor musun?")) return mutate(p.id, "DELETE");
       });
       controls.append(edit, done, remove);
       row.append(title, detail, state, controls);

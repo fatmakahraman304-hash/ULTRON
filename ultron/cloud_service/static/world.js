@@ -1,4 +1,4 @@
-// ULTRON WORLD: truthful real-source 2D map and 3D globe, no fake live data.
+// GÖLGE WORLD: truthful real-source 2D map and 3D globe, no fake live data.
 const $=id=>document.getElementById(id);
 const allowedCoordinate=(v,min,max,defaultValue)=>{const n=Number(v);return Number.isFinite(n)&&n>=min&&n<=max?n:defaultValue;};
 const params=new URLSearchParams(location.search);

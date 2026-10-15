@@ -1,7 +1,7 @@
 {
-  "name": "ULTRON Mobile",
-  "short_name": "ULTRON",
-  "description": "ULTRON Cloud assistant with shared memory, voice, camera and remote desktop control.",
+  "name": "GÖLGE Mobile",
+  "short_name": "GÖLGE",
+  "description": "GÖLGE Cloud assistant with shared memory, voice, camera and remote desktop control.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -10,7 +10,7 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/static/ultron-icon.svg",
+      "src": "/static/golge-icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

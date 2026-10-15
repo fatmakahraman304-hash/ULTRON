@@ -7,6 +7,10 @@ Short bounded recent turns fit the small 4GB laptop GPU memory budget.
 from __future__ import annotations
 
 import re
+if __package__:
+    from .text_normalization import fold_turkish, folded_regex
+else:
+    from text_normalization import fold_turkish, folded_regex
 
 
 def _bounded_excerpt(text: str, size: int) -> str:
@@ -109,6 +113,7 @@ _COMMON_TERMS = frozenset((
     "previous", "remember", "please", "tell", "more", "that", "this",
     "than", "then", "continue", "conversation",
     "demiştik", "konuşmuştuk", "hatırlat", "söylediklerimi",
+    "demiştim", "dedim", "sordum", "yazdım", "mesajım", "mesajim",
     "konuştuklarımız", "previously", "earlier", "discussed", "discuss",
     "remember", "remind", "said", "talked",
 ))
@@ -136,7 +141,7 @@ def _topic_terms(text: str) -> set[str]:
             and word not in _COMMON_TERMS and not word.isdigit()}
 
 
-_TOPIC_SWITCH = re.compile(
+_TOPIC_SWITCH = folded_regex(
     r"(?:\b(?:konuyu|konumuzu|mevzuyu)\s+değiştir(?:elim|mek)?\b|"
     r"\b(?:başka|yeni)(?: bir)? konuya geç(?:elim|mek)?\b|"
     r"\b(?:bu konuyu|bunu)\s+bırak(?:alım)?\b|"
@@ -150,15 +155,17 @@ _TOPIC_SWITCH = re.compile(
 def is_topic_switch_request(question: str) -> bool:
     """Only explicit topic-change intent suppresses older topic retrieval."""
     return (isinstance(question, str) and len(question) <= 320 and
-            bool(_TOPIC_SWITCH.search(" ".join(question.strip().split()))))
+            bool(_TOPIC_SWITCH.search(fold_turkish(" ".join(question.strip().split())))))
 
 
-_OLD_TURN_CORRECTION = re.compile(
+_OLD_TURN_CORRECTION = folded_regex(
     r"^(?:hayır\b|yok\b(?!\s+(?:mu|mı|mi|mü)\b)|"
     r"yanlış anladın\b|onu demedim\b|düzeltme\s*:|"
     r"aslında\b.{0,95}\b(?:kastettim|demiştim|istiyorum|olacak|olsun)\b|"
     r"no[,!:]\s|no,?\s+i meant\b|"
-    r"actually,?\s+i meant\b|correction\s*:)",
+    r"actually,?\s+i meant\b|correction\s*:)|"
+    r"^.{0,80}\b(?:demek istediğim|kastettiğim|kastetmiştim|kastettim|"
+    r"i meant|i was referring to)\b",
     re.I | re.S,
 )
 
@@ -166,7 +173,7 @@ _OLD_TURN_CORRECTION = re.compile(
 def is_explicit_turn_correction(text: str) -> bool:
     """A clear owner correction directly after an old assistant response."""
     return isinstance(text, str) and bool(
-        _OLD_TURN_CORRECTION.match(text.strip()[:180])
+        _OLD_TURN_CORRECTION.match(fold_turkish(text.strip()[:180]))
     )
 
 
@@ -213,6 +220,14 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
             pair.add(index + 1)
         elif message["role"] == "assistant" and index > 0 and earlier[index - 1]["role"] == "user":
             pair.add(index - 1)
+        # A corrected exchange is one evidence unit: never recall the old
+        # answer without the owner's immediately following correction merely
+        # because the correction does not repeat the topic name.
+        following = max(pair) + 1
+        if (following < len(earlier)
+                and earlier[following]["role"] == "user"
+                and is_explicit_turn_correction(earlier[following]["content"])):
+            pair.add(following)
         if len(indices | pair) <= min(4, count - recent_count):
             indices.update(pair)
     chosen = [earlier[index] for index in sorted(indices)]
@@ -239,18 +254,115 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
 
 
 
+
+# A long-running project often contains dozens of short "devam et" turns.
+# The original concrete request must not disappear merely because the latest
+# 12-16 turns are all status updates. Never make an invented task anchor.
+_BARE_CONTINUATION = folded_regex(
+    r"^(?:(?:gölge|golge|ultron)[,!: ]+)?"
+    r"(?:devam(?: et)?|aynen devam et|devam o zaman|"
+    r"kaldığın yerden devam(?: et)?|kaldig(in)? yerden devam(?: et)?|"
+    r"devam et büyük aşamaya|büyük aşamaya devam et|"
+    r"continue|go on|keep going|carry on)"
+    r"[.! ]*$", re.I,
+)
+
+
+def is_bare_continuation_request(question: str) -> bool:
+    """A short go-ahead, not an explicit named new task or reminder."""
+    return isinstance(question, str) and len(question) <= 140 and bool(
+        _BARE_CONTINUATION.fullmatch(fold_turkish(" ".join(question.strip().split())))
+    )
+
+
+def select_continuation_turns(rows, *, max_chars: int = 3200,
+                              max_turns: int = 14) -> list[dict[str, str]]:
+    """Carry the last explicit *owner* goal through a sea of 'continue' turns.
+
+    Return only original user/assistant roles, never instructions synthesized
+    from model outputs. A topic switch or a substantive recent owner request
+    prevents an older project from being revived. Read-only, bounded, no extra
+    model request or memory writes.
+    """
+    cap = max(0, min(int(max_chars), 7200))
+    count = max(0, min(int(max_turns), 20))
+    if cap == 0 or count == 0:
+        return []
+    clean = [
+        {"role": row.get("role"), "content": row.get("content").strip()}
+        for row in rows
+        if hasattr(row, "get") and row.get("role") in ("user", "assistant")
+        and isinstance(row.get("content"), str) and row.get("content").strip()
+    ]
+    if len(clean) <= count or count < 4:
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    recent_count = count - 2
+    recent = clean[-recent_count:]
+    # A recent *correction* is a constraint on an earlier task, not an
+    # independent replacement goal. Keep the older goal when the last short
+    # user messages contain only continuations and corrections.
+    # An actual concrete new request or a topic switch still supersedes it.
+    if any(row["role"] == "user" and
+           (is_topic_switch_request(row["content"]) or
+            (not is_bare_continuation_request(row["content"])
+             and not is_explicit_turn_correction(row["content"])))
+           for row in recent):
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    earlier = clean[:-recent_count]
+    # Do not recover a task from before the most recent topic switch.
+    switch_index = max(
+        (i for i, row in enumerate(earlier)
+         if row["role"] == "user" and is_topic_switch_request(row["content"])),
+        default=-1,
+    )
+    task = None
+    correction = None
+    for row in reversed(earlier[switch_index + 1:]):
+        if row["role"] != "user" or is_bare_continuation_request(row["content"]):
+            continue
+        if is_explicit_turn_correction(row["content"]):
+            if correction is None:
+                correction = row
+            continue
+        task = row
+        break
+    if task is None:
+        # A correction alone ("Hayır, onu değil") must not conjure an older task.
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    # Prioritize the actual owner's goal and their latest correction. Both
+    # remain ordinary user turns and keep original chronology.
+    anchors = [task]
+    if correction is not None:
+        anchors.append(correction)
+    allowance = max(64, cap // 3)
+    share = max(24, allowance // len(anchors))
+    originals = [
+        {"role": "user", "content": _bounded_excerpt(item["content"], share)}
+        for item in anchors
+    ]
+    anchors_ready = prepare_turns(originals, max_chars=allowance,
+                                  max_turns=len(originals))
+    remaining = cap - sum(len(x["content"]) for x in anchors_ready)
+    tail = prepare_turns(recent, max_chars=remaining,
+                         max_turns=count - len(anchors_ready))
+    return anchors_ready + tail
+
+
 # An explicit on-demand recap spans the beginning, middle and end of only the
 # currently selected conversation. Normal follow-ups keep recency priority.
 _RECAP_PATTERNS = (
-    re.compile(r"^(?:ultron[,.!? ]+)?(?:bu |bizim )?(?:sohbeti|sohbetimizi|konuşmayı|konuşmamızı|"
+    folded_regex(r"^(?:ultron[,.!? ]+)?(?:bu |bizim )?(?:sohbeti|sohbetimizi|konuşmayı|konuşmamızı|"
                r"konuştuklarımızı) (?:kısaca |bana )?(?:özetle|özetler misin|özetini çıkar|"
                r"özetini çıkart)(?: lütfen| lütfen)?[.?!]*$", re.I),
-    re.compile(r"^(?:az önce|bu sohbette|bu konuşmada|şimdiye kadar) "
+    folded_regex(r"^(?:az önce|bu sohbette|bu konuşmada|şimdiye kadar) "
                r"(?:ne |neler )?(?:konuştuk|konuşmuştuk|konuştuklarımız nelerdi)"
                r"(?:\?)?$", re.I),
-    re.compile(r"^(?:please )?(?:summarize|recap) (?:our|this|the) (?:chat|conversation)"
+    folded_regex(r"^(?:please )?(?:summarize|recap) (?:our|this|the) (?:chat|conversation)"
                r"(?: please)?[.?!]*$", re.I),
-    re.compile(r"^what (?:did|have) we (?:discuss|talked about) "
+    folded_regex(r"^what (?:did|have) we (?:discuss|talked about) "
                r"(?:in this chat|so far)[.?!]*$", re.I),
 )
 
@@ -258,7 +370,7 @@ _RECAP_PATTERNS = (
 def is_thread_recap_request(question: str) -> bool:
     if not isinstance(question, str) or len(question) > 180:
         return False
-    text = " ".join(question.strip().split())
+    text = fold_turkish(" ".join(question.strip().split()))
     return any(pattern.fullmatch(text) is not None for pattern in _RECAP_PATTERNS)
 
 
@@ -305,7 +417,7 @@ def select_recap_turns(rows, *, max_chars: int = 3200,
     return beginning_turns + middle_turns + recent_turns
 
 
-_FIRST_RETURN = re.compile(
+_FIRST_RETURN = folded_regex(
     r"^(?:ilk (?:söylediğine|söylediğime|söylediğimize|konuya|konuştuğumuz konuya)|"
     r"başlangıçtaki konuya) (?:geri )?dön(?:elim)?[.!?]*$|"
     r"^(?:go |let's go )?back to (?:the |our )?first (?:topic|thing we discussed)[.!?]*$",
@@ -315,13 +427,94 @@ _FIRST_RETURN = re.compile(
 
 def is_first_topic_return(question: str) -> bool:
     return isinstance(question, str) and len(question) <= 180 and bool(
-        _FIRST_RETURN.fullmatch(" ".join(question.strip().split())))
+        _FIRST_RETURN.fullmatch(fold_turkish(" ".join(question.strip().split()))))
 
 
-_REMINDER_VERB = re.compile(
+_PREVIOUS_TOPIC_RETURN = folded_regex(
+    r"^(?:önceki|bir önceki|eski)\s+(?:proje(?:ye|yi|ye geri)?|konu(?:ya|yu|ya geri)?|"
+    r"başlığa|çalışmaya)\s+(?:geri\s+)?(?:dön(?:elim|mek)?|sürdür(?:elim)?)[.!?]*$|"
+    r"^(?:geri\s+)?dön(?:elim|mek)?\s+(?:önceki|bir önceki|eski)\s+"
+    r"(?:proje(?:ye)?|konu(?:ya)?|başlığa|çalışmaya)[.!?]*$|"
+    r"^(?:(?:let['’]?s|can we)\s+)?(?:go\s+back\s+to|back\s+to)\s+"
+    r"(?:the\s+)?(?:previous|prior|earlier|last)\s+"
+    r"(?:project|topic|subject|work)[.!?]*$|"
+    r"^(?:return\s+to|resume)\s+(?:the\s+)?(?:previous|prior|earlier|last)\s+"
+    r"(?:project|topic|subject)[.!?]*$",
+    re.I,
+)
+
+
+def is_previous_topic_return_request(question: str) -> bool:
+    """Explicitly return to the prior topic; unlike a switch, retrieve history."""
+    return isinstance(question, str) and len(question) <= 180 and bool(
+        _PREVIOUS_TOPIC_RETURN.fullmatch(
+            fold_turkish(" ".join(question.strip().split()))
+        )
+    )
+
+
+def select_previous_topic_turns(rows, *, max_chars: int = 3200,
+                                max_turns: int = 14) -> list[dict[str, str]]:
+    """Keep evidence for the topic before the latest explicit topic switch.
+
+    When the thread never explicitly marked a switch, sample its beginning,
+    middle and recent turns so the composer can ask if "previous" is ambiguous.
+    This remains same-thread, role-labelled history and does not guess a topic.
+    """
+    cap = max(0, min(int(max_chars), 7200))
+    count = max(0, min(int(max_turns), 20))
+    clean = [
+        {"role": row.get("role"), "content": row.get("content")}
+        for row in rows
+        if hasattr(row, "get") and row.get("role") in ("user", "assistant")
+        and isinstance(row.get("content"), str) and row["content"].strip()
+    ]
+    if not clean or not cap or not count:
+        return []
+    if len(clean) <= count:
+        return prepare_turns(clean, max_chars=cap, max_turns=count)
+
+    switches = [
+        index for index, row in enumerate(clean)
+        if row["role"] == "user" and is_topic_switch_request(row["content"])
+    ]
+    if not switches:
+        return select_recap_turns(clean, max_chars=cap, max_turns=count)
+
+    switch = switches[-1]
+    anchor_index = next(
+        (index for index in range(switch - 1, -1, -1)
+         if clean[index]["role"] == "user"
+         and not is_bare_continuation_request(clean[index]["content"])
+         and not is_explicit_turn_correction(clean[index]["content"])),
+        None,
+    )
+    if anchor_index is None:
+        return select_recap_turns(clean, max_chars=cap, max_turns=count)
+
+    anchor_end = anchor_index
+    if (anchor_index + 1 < switch
+            and clean[anchor_index + 1]["role"] == "assistant"):
+        anchor_end += 1
+    anchors = clean[anchor_index:anchor_end + 1]
+    tail = clean[switch:]
+    room_for_tail = max(1, count - len(anchors))
+    recent = tail[-room_for_tail:]
+    allowance = cap // 3
+    anchor_turns = prepare_turns(
+        anchors, max_chars=allowance, max_turns=min(len(anchors), count - 1)
+    )
+    recent_turns = prepare_turns(
+        recent, max_chars=cap - sum(len(item["content"]) for item in anchor_turns),
+        max_turns=count - len(anchor_turns),
+    )
+    return anchor_turns + recent_turns
+
+
+_REMINDER_VERB = folded_regex(
     r"\b(?:hatırlat|hatirlat|anımsat|animsat|remind me)\b", re.I
 )
-_FUTURE_REMINDER = re.compile(
+_FUTURE_REMINDER = folded_regex(
     r"\b(?:yarın|yarin|öbür gün|haftaya|gelecek hafta|"
     r"tomorrow|tonight|next week|"
     r"saat\s*[0-2]?\d(?::[0-5]\d)?|"
@@ -334,12 +527,19 @@ _FUTURE_REMINDER = re.compile(
 def is_future_reminder_request(question: str) -> bool:
     """Do not mistake a scheduled reminder for a past-conversation recall."""
     return isinstance(question, str) and len(question) <= 320 and bool(
-        _REMINDER_VERB.search(question) and _FUTURE_REMINDER.search(question)
+        _REMINDER_VERB.search(fold_turkish(question)) and
+        _FUTURE_REMINDER.search(fold_turkish(question))
     )
 
 
-_NAMED_RECALL = re.compile(
-    r"\b(?:ne demiştik|ne konuşmuştuk|ne konuştuk|"
+_NAMED_RECALL = folded_regex(
+    r"\b(?:ne demiştim|ne demiştik|ne konuşmuştuk|ne konuştuk|"
+    r"az önce (?:ben )?ne|önceki mesaj(?:ım|im)? ne(?:ydi)?|"
+    r"son (?:yazdığım|sorduğum) (?:şey|mesaj) ne(?:ydi)?|"
+    r"bu sohbette en son ne (?:sordum|yazdım)|"
+    r"what did i just say|what was my (?:last|previous) message|"
+    r"what did i ask (?:earlier|before)|repeat my previous message|"
+    r"what did i tell you just now|"
     r"(?:konuştuğumuzu|konuşmamızı|sohbetimizi|konuştuklarımızı)\s+hatırlat|"
     r"hatırlıyor musun|daha önce ne|"
     r"what did we (?:say|discuss|decide)|remind me what|"
@@ -351,14 +551,14 @@ _NAMED_RECALL = re.compile(
 def is_named_recall_request(question: str) -> bool:
     """Only explicit old-topic recall warrants an older-than-window SQL lookup."""
     return isinstance(question, str) and len(question) <= 280 and bool(
-        _NAMED_RECALL.search(" ".join(question.strip().split()))
+        _NAMED_RECALL.search(fold_turkish(" ".join(question.strip().split())))
     ) and not is_future_reminder_request(question)
 
 
 async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
                                        *, question: str, before_id: int | None = None,
                                        max_chars: int = 3200,
-                                       limit: int = 14, lookback: int = 80
+                                       limit: int = 14, lookback: int = 200
                                        ) -> list[dict[str, str]]:
     """Look back only in the authenticated owner's named conversation.
 
@@ -379,6 +579,107 @@ async def load_contextual_thread_turns(pool, user_id: str, conversation_id,
         return await load_thread_turns(
             pool, user_id, conversation_id, before_id=before_id,
             max_chars=max_chars, limit=n,
+        )
+    if is_bare_continuation_request(question):
+        # The last explicit owner goal may be older than the latest small
+        # Qwen/Gemini window after repeated short continuations. Fetch a
+        # bounded same-thread pages and reserve two turns for owner intent.
+        # Normal chat and a recent concrete goal still need only one query.
+        window = max(n, min(int(lookback), 200))
+        rows = await pool.fetch(
+            "SELECT id,role,content FROM messages "
+            "WHERE user_id=$1 AND conversation_id=$2 "
+            "AND ($3::bigint IS NULL OR id < $3) "
+            "AND role IN ('user','assistant') "
+            "ORDER BY id DESC LIMIT $4",
+            user_id, conversation_id, before_id, window,
+        )
+        rows = list(rows)
+        page = rows
+        # At most 1,200 source messages, with no larger model context. Extra
+        # reads happen only when the full recent page contains no owner scope.
+        for _ in range(5):
+            has_scope = any(
+                row.get("role") == "user"
+                and isinstance(row.get("content"), str) and row["content"].strip()
+                and not is_bare_continuation_request(row["content"])
+                and not is_explicit_turn_correction(row["content"])
+                for row in rows if hasattr(row, "get")
+            )
+            if has_scope or len(page) < window or n < 4 or max_chars <= 0:
+                break
+            ids = [row.get("id") for row in page if hasattr(row, "get")
+                   and type(row.get("id")) is int and row["id"] > 0]
+            if not ids:
+                break
+            cursor = min(ids)
+            try:
+                older = await pool.fetch(
+                    "SELECT id,role,content FROM messages "
+                    "WHERE user_id=$1 AND conversation_id=$2 "
+                    "AND ($3::bigint IS NULL OR id < $3) "
+                    "AND role IN ('user','assistant') AND id < $5 "
+                    "ORDER BY id DESC LIMIT $4",
+                    user_id, conversation_id, before_id, window, cursor,
+                )
+            except Exception:
+                # Optional recall failure must not discard verified recent
+                # dialogue or expose database/provider details to the owner.
+                break
+            page = [row for row in older if hasattr(row, "get")
+                    and type(row.get("id")) is int and 0 < row["id"] < cursor]
+            if not page:
+                break
+            rows.extend(page)
+        return select_continuation_turns(
+            list(reversed(rows)), max_chars=max_chars, max_turns=n
+        )
+    if is_previous_topic_return_request(question):
+        # An explicit return request is the only normal-chat path that samples
+        # beyond the recent window without a named keyword. Search a bounded
+        # amount of this same thread for the most recent topic switch and its
+        # prior user anchor; never query another conversation or owner.
+        window = max(n, min(int(lookback), 80))
+        rows = list(await pool.fetch(
+            "SELECT id,role,content FROM messages "
+            "WHERE user_id=$1 AND conversation_id=$2 "
+            "AND ($3::bigint IS NULL OR id < $3) "
+            "AND role IN ('user','assistant') ORDER BY id DESC LIMIT $4",
+            user_id, conversation_id, before_id, window,
+        ))
+        page = rows
+        for _ in range(3):
+            chronological = list(reversed(rows))
+            switches = [
+                index for index, row in enumerate(chronological)
+                if row.get("role") == "user" and isinstance(row.get("content"), str)
+                and is_topic_switch_request(row["content"])
+            ]
+            if len(page) < window or (switches and switches[-1] > 0):
+                break
+            ids = [row.get("id") for row in page if hasattr(row, "get")
+                   and type(row.get("id")) is int and row["id"] > 0]
+            if not ids:
+                break
+            cursor = min(ids)
+            try:
+                older = await pool.fetch(
+                    "SELECT id,role,content FROM messages "
+                    "WHERE user_id=$1 AND conversation_id=$2 "
+                    "AND ($3::bigint IS NULL OR id < $3) "
+                    "AND role IN ('user','assistant') AND id < $5 "
+                    "ORDER BY id DESC LIMIT $4",
+                    user_id, conversation_id, before_id, window, cursor,
+                )
+            except Exception:
+                break
+            page = [row for row in older if hasattr(row, "get")
+                    and type(row.get("id")) is int and 0 < row["id"] < cursor]
+            if not page:
+                break
+            rows.extend(page)
+        return select_previous_topic_turns(
+            list(reversed(rows)), max_chars=max_chars, max_turns=n
         )
     if is_first_topic_return(question):
         # Explicit first-topic requests need the true start, even beyond 80 rows.

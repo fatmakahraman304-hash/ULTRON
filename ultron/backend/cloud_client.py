@@ -33,6 +33,38 @@ class CloudDeliveryRejected(RuntimeError):
         super().__init__(message)
 
 
+def safe_cloud_error(exc: Exception) -> str:
+    """Classify cloud failures for status/activity output without echoing details."""
+    current = exc
+    seen = set()
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, CloudTransientError):
+            return "cloud_temporarily_unavailable"
+        if isinstance(current, CloudDeliveryRejected):
+            return "cloud_request_rejected"
+        if isinstance(current, (TimeoutError, ConnectionError)):
+            return "cloud_temporarily_unavailable"
+        status = getattr(current, "status_code", None) or getattr(current, "code", None)
+        try:
+            status = int(status)
+        except (TypeError, ValueError):
+            status = None
+        if status in (408, 425, 429) or (status is not None and status >= 500):
+            return "cloud_temporarily_unavailable"
+        if status is not None and 400 <= status < 500:
+            return "cloud_request_rejected"
+        if isinstance(current, urllib.error.HTTPError):
+            return "cloud_request_failed"
+        if isinstance(current, urllib.error.URLError):
+            return "cloud_temporarily_unavailable"
+        class_name = type(current).__name__.lower()
+        if any(marker in class_name for marker in ("timeout", "connecterror", "connectionerror")):
+            return "cloud_temporarily_unavailable"
+        current = current.__cause__ or current.__context__
+    return "cloud_request_failed"
+
+
 class CloudClient:
     def __init__(self) -> None:
         self.base_url = os.getenv("ULTRON_CLOUD_URL", "").strip().rstrip("/")
@@ -116,7 +148,7 @@ class CloudClient:
             self.last_ok_ts = time.time()
             return data
         except Exception as exc:
-            self.last_error = str(exc)[:500]
+            self.last_error = safe_cloud_error(exc)
             raise
 
     def renew_lease_sync(self, command_id: int, *, delivery_attempt: int,
@@ -142,6 +174,14 @@ class CloudClient:
             self._local_executor, partial(local_chat, prompt, system, turns),
         )
 
+    async def local_listening_analysis(self, prompt: str, system: str, stage: str) -> dict:
+        """Private no-tools Qwen transcript analysis; never desktop automation."""
+        from integration.local_cloud_brain import local_listening_analysis
+        return await asyncio.get_running_loop().run_in_executor(
+            self._local_executor,
+            partial(local_listening_analysis, prompt, system, stage),
+        )
+
     async def health(self) -> dict[str, Any]:
         if not self.enabled:
             return {"ok": False, "enabled": False, "error": "not configured"}
@@ -149,7 +189,7 @@ class CloudClient:
             data = await self._request("GET", "/health")
             return {"enabled": True, **data}
         except Exception as exc:
-            return {"ok": False, "enabled": True, "error": str(exc)}
+            return {"ok": False, "enabled": True, "error": safe_cloud_error(exc)}
 
     async def chat(self, message: str) -> dict[str, Any]:
         body: dict[str, Any] = {"message": message}

@@ -2,9 +2,32 @@ name: ULTRON Scene Build Check
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+      - feat/golge-reference-orb-ui-20261013
+      - feat/golge-deep-dialog-continuity-20261013
+      - feat/golge-qwen-goal-routing-20261013
+    paths:
+      - "ultron/cloud_service/**"
+      - "mark_app.py"
+      - "integration/**"
+      - "scripts/tests/test_listening_browser.py"
+      - "scripts/bootstrap.ps1"
+      - "scripts/tests/test_bootstrap_frontend_dependency_sync.py"
+      - "ui.py"
+      - "tests/test_setup_overlay.py"
+      - ".github/workflows/scene-check.yml"
   push:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/ultron-listen-prod-compat-20261012
+      - feat/ultron-qwen-probe-latest-live-20261013
+      - feat/golge-identity-rebrand-20261013
+      - feat/golge-deep-dialog-continuity-20261013
+      - feat/golge-qwen-goal-routing-20261013
+      - feat/golge-temporal-memory-20261013
+      - feat/golge-reference-orb-ui-20261013
     paths:
       - "ultron/backend/**"
       - "ultron/frontend/**"
@@ -15,9 +38,26 @@ on:
       - "AGENTS.md"
       - "ultron/cloud_service/**"
       - "mark_app.py"
+      - "ui.py"
+      - "tests/test_setup_overlay.py"
       - ".github/workflows/scene-check.yml"
 
 jobs:
+  windows-bootstrap-syntax:
+    runs-on: windows-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Parse Windows startup script with PowerShell
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/bootstrap.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
+          Write-Host 'bootstrap.ps1 syntax valid'
+
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -30,11 +70,20 @@ jobs:
           python-version: "3.12"
       - name: Compile changed Python
         run: |
+          python -m py_compile ultron/backend/bridge.py
+          python -m py_compile ultron/backend/github_pr_publisher.py
+          python -m py_compile ultron/backend/codegen.py
           python -m py_compile ultron/backend/server.py
           python -m py_compile ultron/backend/app/core/fast_brain.py
+          python -m py_compile ultron/backend/app/agent/agent.py
+          python -m py_compile ultron/backend/app/vision/vision_llm.py
           python -m py_compile scripts/ultron_fast_brain_doctor.py
           python -m py_compile ultron/backend/app/core/model_router.py
           python -m py_compile ultron/backend/app/core/brain.py
+          python -m py_compile ultron/backend/app/cognitive/research_engine.py
+          python -m py_compile ultron/backend/app/cognitive/research_context.py
+          python -m py_compile ultron/backend/app/core/intent.py
+          python -m py_compile ultron/backend/app/core/runtime.py
           python -m py_compile ultron/backend/earth_watch.py
           python -m py_compile actions/ultron_stage.py
           python -m py_compile integration/web_panel.py
@@ -64,14 +113,46 @@ jobs:
           python -m unittest discover -s scripts/tests -p 'test_mark_video_dock_qt.py' -v
       - name: Trusted code fast-forward safety tests
         run: python -m unittest discover -s scripts/tests -p 'test_safe_self_update.py' -v
+      - name: Explicit GÖLGE code-change approval routing
+        env:
+          PYTHONPATH: ultron/backend
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_github_pr_publisher.py' -v
+      - name: GÖLGE project-root path boundary regression
+        env:
+          PYTHONPATH: ultron/backend
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_codegen_path_boundary.py' -v
       - name: ULTRON Fast Brain single-pass and Ollama wire regression tests
         env:
           PYTHONPATH: ultron/backend
         run: python -m unittest discover -s ultron/backend/tests -p 'test_fast_brain.py' -v
+      - name: Desktop model, agent, vision and merged API privacy regressions
+        run: |
+          python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'aiohttp>=3.9,<4' 'Pillow>=10' 'psutil>=5'
+          python -m pytest -q ultron/backend/tests/test_model_router.py
+      - name: Earth layers, geographic state and source isolation
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_earth*.py' -v
+      - name: Removed legacy hologram and intro presets cannot be restored
+        run: python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v
+      - name: Windows startup frontend dependency synchronization contract
+        run: python -m unittest discover -s scripts/tests -p 'test_bootstrap_frontend_dependency_sync.py' -v
+      - name: Backend launcher exposes repository package imports
+        run: python -m pytest -q scripts/tests/test_launcher_pythonpath.py
+      - name: SSRF-bounded source reading and 100-case memory research evaluation
+        env:
+          PYTHONPATH: ultron/backend:ultron/cloud_service
+        run: python -m pytest -q ultron/backend/tests/test_wave5_verified_research.py ultron/backend/tests/test_wave5_research_agent.py ultron/backend/tests/test_memory_research_v3_eval.py
+      - name: Desktop first-run setup focus and persistence regression
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q tests/test_setup_overlay.py
       - name: Local Qwen phone mic tap-to-interrupt and stale speech reply guard
         run: |
           node --check ultron/cloud_service/static/voice-turn-guard.js
           node --test ultron/cloud_service/test_voice_turn_guard.cjs
+      - name: Validate synthetic-only Qwen owner roundtrip
+        run: |
+          node --check ultron/cloud_service/static/local-listening-probe.js
+          node --test ultron/cloud_service/test_local_listening_probe.cjs
       - name: Single ULTRON speaker arbitration on phone and laptop
         run: |
           node --check ultron/cloud_service/static/speaker-policy.js
@@ -92,12 +173,32 @@ jobs:
         run: |
           python -m unittest discover -s scripts/tests -p 'test_local_cloud_brain.py' -v
           python -m unittest discover -s ultron/cloud_service -p 'test_local_brain_bridge.py' -v
+      - name: GÖLGE 35-turn goal-to-Qwen route regression suite
+        run: python -m unittest discover -s scripts/tests -p 'test_golge_qwen_goal_routing.py' -v
       - name: Earth Watch backend state regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth_watch_config.py' -v
       - name: Desktop Cloud lease ownership regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_delivery_guard.py' -v
       - name: Durable desktop Cloud dispatch regression tests
         run: python -m unittest discover -s ultron/backend/tests -p 'test_cloud_dispatch_journal.py' -v
+      - name: GÖLGE shared saved-memory focus during bare continuation
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: python -m unittest ultron.cloud_service.test_golge_memory_focus_continuity -v
+      - name: GÖLGE date-aware personal-memory selection regressions
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m py_compile ultron/cloud_service/personal_context_focus.py
+          python -m unittest -v ultron.cloud_service.test_golge_temporal_memory ultron.cloud_service.test_personal_context_focus
+      - name: GÖLGE goal continuity across long conversations
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m py_compile ultron/cloud_service/conversation_turns.py
+          python -m py_compile ultron/cloud_service/conversation_persona.py
+          python -m unittest -q ultron.cloud_service.test_golge_long_continuity
+          python -m unittest -q ultron.cloud_service.test_contextual_recall ultron.cloud_service.test_conversation_persona
       - name: Self-development release proof guard regressions
         run: python -m unittest discover -s ultron/cloud_service -p 'test_development_updates.py' -v
       - name: Development GitHub CI Render and desktop proof state-machine tests
@@ -157,6 +258,41 @@ jobs:
       - name: TypeScript and Vite build
         working-directory: ultron/frontend
         run: npm run build
+      - name: Keep WebGL center stage out of initial dashboard bundle
+        working-directory: ultron/frontend
+        run: npm run test:bundle
       - name: Earth Watch geographic regression tests
         working-directory: ultron/frontend
         run: npm run test:earth
+      - name: Natural 3D scene grammar and saved-project transforms
+        run: |
+          node scripts/test_scene_intents.mjs
+          node scripts/test_scene_design.mjs
+          PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_design.py -v
+          node scripts/test_hologram_project.mjs
+          node scripts/build_scene_browser.mjs
+          git diff --exit-code -- ultron/cloud_service/static/scene-control.js ultron/cloud_service/static/scene-intents.js
+      - name: Install actual WebGL browser verification
+        run: |
+          python -m pip install aiohttp playwright
+          python -m playwright install --with-deps chromium
+      - name: Mobile and desktop actual 3D scene interactions
+        run: |
+          PYTHONPATH=ultron/cloud_service python -m unittest ultron/cloud_service/test_scene_assets.py -v
+          PYTHONPATH=. python scripts/tests/test_scene_desktop_api.py
+          python scripts/tests/test_scene_browser.py
+          python scripts/tests/test_frontend_stage_loading.py
+      - name: Mobile listening consent and full-summary browser interaction
+        run: python scripts/tests/test_listening_browser.py
+      - name: GÖLGE private generated-image reload and download UI contract
+        run: node ultron/cloud_service/test_image_generation_ui.cjs
+      - name: GÖLGE screenshot-matched mobile and laptop layout contracts
+        run: node --test ultron/cloud_service/test_golge_reference_ui.cjs
+      - name: GÖLGE mobile visual composition in real Chromium
+        run: python scripts/tests/test_golge_reference_browser.py
+      - name: GÖLGE visible identity and legacy protocol compatibility
+        run: |
+          node --test ultron/cloud_service/test_golge_identity.cjs
+          PYTHONPATH=ultron/cloud_service:. python -m unittest ultron.cloud_service.test_golge_identity -v
+          PYTHONPATH=ultron/cloud_service:. python -m unittest ultron.cloud_service.test_golge_visible_brand_contract -v
+          python -m unittest discover -s ios/ULTRONMobile/tests -p 'test_siri_bridge_contract.py' -v

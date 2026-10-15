@@ -26,6 +26,20 @@ class TestPersonalBriefing(unittest.TestCase):
         self.assertEqual(r["items"][0]["source"], "owner_saved_memory")
         self.assertEqual(r["items"][1]["value"], "Ses gecikmesini ölç")
 
+    def test_suggestions_use_owner_plan_or_saved_goal_and_never_create_actions(self):
+        plan = {"id": 7, "title": "Ultron ses gecikmesini ölç", "scheduled_date": "2026-10-14",
+                "scheduled_time": None, "is_done": False}
+        planned = build_briefing([], plan_rows=[plan])
+        self.assertEqual(planned["suggestion_source"], "owner_created_plan")
+        self.assertIn("ses gecikmesini ölç", planned["suggestions"][0])
+        self.assertFalse(planned["reminders_created"])
+        self.assertFalse(planned["actions_executed"])
+
+        goal = build_briefing([{"category": "GOAL", "key": "English", "value": "B2 çalış"}])
+        self.assertEqual(goal["suggestion_source"], "owner_saved_memory")
+        self.assertIn("B2 çalış", goal["suggestions"][0])
+        self.assertEqual(len(goal["suggestions"]), 1)
+
     def test_deduplicate_and_bounded(self):
         rows = [{"category": "GOAL", "key": "X", "value": "Önemli"}] * 30
         rows += [{"category": "GOAL", "key": str(i), "value": "v" * 1000} for i in range(30)]

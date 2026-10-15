@@ -1,4 +1,4 @@
-/* ULTRON FREE VOICE (PWA).
+/* GÖLGE FREE VOICE (PWA).
  * Explicit user tap -> browser speech recognizer (if supported) ->
  * owner's authenticated /api/local-chat -> paired Windows Ollama ->
  * existing browser speechSynthesis. No Gemini Live connection or paid API.

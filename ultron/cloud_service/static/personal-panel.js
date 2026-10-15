@@ -1,4 +1,4 @@
-/* ULTRON Mobile: user-invoked, read-only owner briefing and capability display.
+/* GÖLGE Mobile: user-invoked, read-only owner briefing and capability display.
  * No automatic polling, microphone, permissions, storage writes or device actions.
  * All cloud-sourced text is displayed with textContent (never innerHTML).
  */
@@ -30,7 +30,7 @@
         title: clean(p.title, 140),
         category: "PLAN",
         detail: clean(p.date, 10) + (p.time ? " " + clean(p.time, 5) : ""),
-        source: "ULTRON kişisel planı",
+        source: "GÖLGE kişisel planı",
       }))
       .filter(p => p.title);
     const stored = (Array.isArray(payload && payload.items) ? payload.items : [])
@@ -39,10 +39,20 @@
         title: clean(x && x.key, 100),
         category: clean(x && x.category, 50),
         detail: clean(x && x.value, 300),
-        source: x && x.source === "owner_saved_memory" ? "ULTRON hafızası" : "Kaynak doğrulanmadı",
+        source: x && x.source === "owner_saved_memory" ? "GÖLGE hafızası" : "Kaynak doğrulanmadı",
       }))
       .filter(x => x.title && x.detail);
     return [...manual, ...stored].slice(0, 12);
+  }
+  function suggestionEntries(payload) {
+    const allowed = new Set(["owner_created_plan", "owner_saved_memory", "no_saved_context"]);
+    const source = clean(payload && payload.suggestion_source, 40);
+    if (!allowed.has(source)) return [];
+    return (Array.isArray(payload && payload.suggestions) ? payload.suggestions : [])
+      .slice(0, 1)
+      .map(value => ({title: "İstersen sonraki adım", detail: clean(value, 220),
+        source: source === "no_saved_context" ? "Genel öneri" : "Kayıtlı bilgilerinden"}))
+      .filter(item => item.detail);
   }
   function capabilityEntries(payload) {
     return (Array.isArray(payload && payload.capabilities) ? payload.capabilities : [])
@@ -86,8 +96,9 @@
         const payload = await fetchJson("/api/personal-briefing");
         const entries = briefingEntries(payload);
         renderEntries(doc, find("briefingItems"), entries);
+        renderEntries(doc, find("briefingSuggestions"), suggestionEntries(payload));
         status.textContent = entries.length
-          ? entries.length + " kayıtlı bilgi • yalnızca ULTRON hafızası"
+          ? entries.length + " kayıtlı bilgi • yalnızca GÖLGE hafızası"
           : "Henüz kayıtlı bilgi yok. Aşağıdaki hafıza alanına bir hedef ekleyebilirsin.";
       } catch (err) {
         status.textContent = "Özet getirilemedi: " + clean(err && err.message, 160);
@@ -118,5 +129,5 @@
     }
     return {init, loadBriefing, loadReadiness};
   }
-  return {create, briefingEntries, capabilityEntries};
+  return {create, briefingEntries, suggestionEntries, capabilityEntries};
 });

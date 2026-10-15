@@ -230,7 +230,7 @@ class QwenBrowserTests(unittest.IsolatedAsyncioTestCase):
             await page.wait_for_function("""async()=>{
               const keys=await caches.keys();
               const r=await navigator.serviceWorker.getRegistration('/static/');
-              return r?.active && keys.includes('ultron-shell-v56')&&!keys.includes('ultron-shell-v55');
+              return r?.active && keys.includes('ultron-shell-v66')&&!keys.includes('ultron-shell-v55');
             }""")
             await page.goto(self.url + '/static/index.html')
             await page.wait_for_function("typeof window.ULTRONChatTransport?.localAnswer==='function'")

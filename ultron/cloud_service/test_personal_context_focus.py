@@ -35,7 +35,7 @@ class FocusedMemoryTests(unittest.TestCase):
 
     def test_daily_plan_focus_more_dates_but_never_pretends_to_notify(self):
         plans=[
-            {"title":f"Plan {i}","scheduled_date":datetime.date(2026,10,11)+datetime.timedelta(days=i),
+            {"title":f"Plan {i}","scheduled_date":datetime.date.today()+datetime.timedelta(days=i+1),
              "scheduled_time":None}
             for i in range(8)
         ]
@@ -59,13 +59,15 @@ class FocusedMemoryTests(unittest.TestCase):
         self.assertIn("Mimarlık",text)
         self.assertNotIn("\nSYSTEM:",text)
         self.assertNotIn("empty: ",text)
-        self.assertEqual(select_personal_context([],[]),"No saved ULTRON memory or personal plans yet.")
+        self.assertEqual(select_personal_context([],[]),"No saved GÖLGE memory or personal plans yet.")
         self.assertEqual(select_personal_context(rows,[],max_chars=0),"")
         app=(HERE/"app.py").read_text(encoding="utf-8")
         bridge=(HERE/"local_brain_bridge.py").read_text(encoding="utf-8")
         self.assertIn("load_focused_owner_context(pool, user_id, query)",app)
-        self.assertIn('await _memory_context(pool, request["user_id"], query=text)',app)
-        self.assertIn('request.app["local_memory_context"](conn, request["user_id"], text)',bridge)
+        self.assertIn('await _memory_context(pool, request["user_id"], query=focus_query)',app)
+        self.assertIn('focus_query = memory_focus_question(text, turns)',app)
+        self.assertIn('request.app["local_memory_context"](',bridge)
+        self.assertIn('conn, request["user_id"], focus_query',bridge)
         self.assertIn("WHERE user_id=$1",(HERE/"personal_context_focus.py").read_text(encoding="utf-8"))
 
 
@@ -85,6 +87,12 @@ class QualityModelRoutingTests(unittest.TestCase):
                               installed=["qwen3:4b","qwen3:8b"],primary="qwen3:4b")
         self.assertEqual(selected.model,"qwen3:8b")
         self.assertTrue(selected.inventory_checked)
+
+    def test_research_prefers_configured_installed_reasoning_model(self):
+        policy=FastBrainPolicy({"enabled":True,"research_models":["qwen3:8b"]})
+        selected=policy.choose(task=classify_text("Kaynaklarla araştır ve doğrula"),
+                              installed=["qwen3:4b","qwen3:8b"],primary="qwen3:4b")
+        self.assertEqual((selected.task,selected.model),("RESEARCH","qwen3:8b"))
 
     def test_short_chat_stays_on_fast_low_resource_model(self):
         self.assertEqual(classify_text("Selam nasılsın?"),"FAST")

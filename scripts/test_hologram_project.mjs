@@ -8,3 +8,7 @@ const good={schema:'ultron-project-v1',name:'Test',view:{explosion:.5,selected:0
 assert.equal(validateProject(good).view.notes[0],'Bakım notu');
 for(const mutate of [p=>p.parts[0].positions[0]=NaN,p=>p.parts[0].indices=[0,1,99],p=>p.parts[0].indices=[],p=>p.view.offsets=[],p=>p.view.selected=200,p=>p.view.camera=[0,0,0],p=>p.view.cut=Infinity,p=>p.view.notes=['x'.repeat(2001)],p=>p.schema='unsupported',p=>p.parts=Array(201).fill(p.parts[0])]){const p=structuredClone(good);mutate(p);assert.throws(()=>validateProject(p));}
 console.log('PROJECT_VALIDATION_PASS (11 checks)');
+const transformed=structuredClone(good);transformed.view.rotations=[[0,1.2,0]];transformed.view.scales=[[1.25,1.25,1.25]];transformed.view.removed=[false];
+assert.deepEqual(validateProject(transformed).view.scales,[[1.25,1.25,1.25]]);
+for(const mutate of [p=>p.view.rotations=[[NaN,0,0]],p=>p.view.scales=[[0,1,1]],p=>p.view.scales=[[6,1,1]],p=>p.view.removed=['yes'],p=>p.view.removed=[true],p=>p.view.rotations=[]]){const p=structuredClone(transformed);mutate(p);assert.throws(()=>validateProject(p));}
+console.log('SPATIAL_PROJECT_VALIDATION_PASS (7 checks)');

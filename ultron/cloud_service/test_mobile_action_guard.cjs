@@ -7,19 +7,19 @@ const path = require("node:path");
 const guard = require("./static/mobile-action-guard.js");
 const command = { version: 1, source: "ultron", action: "set_brightness", target: "", value: "35" };
 
-test("allowed iOS action points only to ULTRON Bridge", () => {
+test("allowed iOS action points only to GÖLGE Bridge", () => {
   const event = guard.fromLiveEvent({ type: "ios_action", command });
   assert.equal(event.label, "Ekran parlaklığını değiştir");
   assert.deepEqual(event.command, command);
   const url = new URL(guard.shortcutURL(event.command));
   assert.equal(url.protocol, "shortcuts:");
   assert.equal(url.hostname, "run-shortcut");
-  assert.equal(url.searchParams.get("name"), "ULTRON Bridge");
+  assert.equal(url.searchParams.get("name"), "GÖLGE Bridge");
   assert.deepEqual(JSON.parse(url.searchParams.get("text")), command);
 });
 
-test("named shortcut accepts only validated ULTRON Bridge JSON", () => {
-  const valid = { type: "ios_shortcut", shortcut_name: "ULTRON Bridge", input: JSON.stringify(command) };
+test("named shortcut accepts only validated GÖLGE Bridge JSON", () => {
+  const valid = { type: "ios_shortcut", shortcut_name: "GÖLGE Bridge", input: JSON.stringify(command) };
   assert.deepEqual(guard.fromLiveEvent(valid).command, command);
   assert.equal(guard.fromLiveEvent({ ...valid, shortcut_name: "Erase Phone" }), null);
   assert.equal(guard.fromLiveEvent({ ...valid, input: "not json" }), null);
@@ -68,9 +68,9 @@ test("remote tab includes queue status badge and task summary", () => {
   assert.match(html,/id="remoteBadge"/);
 });
 
-test("ULTRON mobile inline JavaScript parses without syntax errors", () => {
+test("GÖLGE mobile inline JavaScript parses without syntax errors", () => {
   const html=fs.readFileSync(path.join(__dirname,"static","index.html"),"utf8");
   const match=html.match(/<script>\s*([\s\S]*?)<\/script>/);
-  assert.ok(match,"Expected ULTRON inline application script");
+  assert.ok(match,"Expected GÖLGE inline application script");
   assert.doesNotThrow(()=>new vm.Script(match[1],{filename:"ultron-mobile-inline.js"}));
 });

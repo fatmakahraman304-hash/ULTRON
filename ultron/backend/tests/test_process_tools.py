@@ -15,9 +15,15 @@ def test_process_list_real():
     assert res["count"] >= 5 and len(res["processes"]) <= 10
     names = [p["name"] for p in res["processes"]]
     assert any(names)
-    # kendi sürecimizi bulalım (name filtresi gerçek çalışıyor)
-    me = process_list(name="python", limit=100)
-    assert me["count"] >= 1
+    # Spawn a known Python process: pytest itself may be named "pytest",
+    # so relying on the test runner's process name is not portable.
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+    try:
+        found = process_list(name="python", limit=100)
+        assert any(proc["pid"] == child.pid for proc in found["processes"])
+    finally:
+        child.terminate()
+        child.wait(timeout=5)
 
 
 def test_process_info_real():

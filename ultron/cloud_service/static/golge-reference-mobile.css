@@ -1,0 +1,119 @@
+/* GÖLGE | user's cyan-on-ink mobile reference.
+ * Chat remains native/functional: login, tools, memory, uploads and consent.
+ * The orb is CSS/3D, lightweight on iOS and compatible without WebGL.
+ */
+:root{--bg:#050b11;--panel:#0a131b;--panel2:#111c25;--line:#26414b;--red:#8ce7ed;--red2:#3b8b98;--muted:#91aab4;color-scheme:dark}
+html,body{height:100%;min-height:100dvh;background:#050a10!important}
+body,body[style]{
+ background:radial-gradient(ellipse at 52% 23%,#0d2631,#050a11 56%,#03060b 100%)!important;
+ background-size:auto!important;
+}
+body:before,body:after{content:none!important;background:none!important}
+.shell:has(#chatView.active){max-width:760px;height:100dvh;min-height:100dvh;display:flex;flex-direction:column;
+ padding-bottom:0!important;gap:0;overflow:hidden}
+.topbar{flex:0 0 67px;z-index:30!important;margin:0!important;padding:7px 2px!important;background:#050b11e9!important;
+ border-bottom:1px solid #17303a!important;box-shadow:none!important}
+.brand{gap:12px!important}
+.brand-mark{width:29px!important;height:29px!important;border:2px solid #abfaff!important;box-shadow:0 0 14px #59e9f7a1!important;background:#071d28}
+.brand-mark:before{background:#061c25!important;border:1px solid #c6fbff!important;width:13px!important;height:13px!important;box-shadow:0 0 11px #53d3e8!important}
+.brand b{font-size:19px!important;letter-spacing:.29em!important;font-weight:550}
+.online{
+ font-size:11px!important;max-width:30vw!important;color:#d8e7e9!important;
+ border:1px solid #315460!important;
+ background:#07161eeb!important;
+ box-shadow:0 0 11px #0b637128!important;
+}
+.online .dot{width:7px!important;height:7px!important;background:#04dbad!important;box-shadow:0 0 12px #00e4a8}
+.round-action{width:40px!important;height:40px!important;border-radius:50%!important;background:#0d1b25!important;color:#e3f8fa!important;border:1px solid #274e58!important;box-shadow:none!important}
+#panelMenuToggle{background:#101d27!important;border-radius:13px!important}
+#app:not(.hidden):has(#chatView.active){flex:1;min-height:0;display:flex;flex-direction:column}
+#chatView.active{display:flex;flex-direction:column;min-height:0;flex:1;
+ padding:0 0 calc(110px + env(safe-area-inset-bottom));overflow:hidden}
+/* Phone-only: chat starts directly below the status/header.
+   The decorative central orb and its reserved space are deliberately gone. */
+#chatView.active{justify-content:flex-start}
+#chatView #messages{flex:1;min-height:0!important;max-height:none!important;overflow-y:auto!important;
+ overscroll-behavior:contain;padding:12px 8px 14px!important;gap:10px!important;
+ scrollbar-width:thin;scrollbar-color:#234e5c transparent}
+#chatView .msg{font:14px/1.62 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important;
+ max-width:89%;margin-bottom:8px;background:#101a23!important;border:1px solid #243944!important;
+ box-shadow:0 5px 20px #0003!important;border-radius:15px!important;content-visibility:auto;contain-intrinsic-size:auto 84px;
+ padding:12px 14px!important;color:#e8f3f6!important}
+#chatView .msg.user{background:#14232d!important;border-color:#2b4c58!important;color:#eef5f7!important}
+#chatView .msg.assistant{margin-left:32px!important}
+#chatView .msg.assistant:before{content:'◯'!important;left:-35px!important;color:#c5f9fd!important;
+ font-size:19px!important;background:#061821!important;border:1px solid #4ebecb!important;
+ box-shadow:0 0 8px #48d7e962!important}
+/* The previous inline red-neon theme generates red ::after dots beside
+   each chat bubble. The owner's approved design has no such markers.
+   Scope this override to phone chat so desktop 3D and other views are intact. */
+#chatView .msg.assistant::after,
+#chatView .msg.user::after{
+ content:none!important;display:none!important;
+ background:none!important;border:0!important;box-shadow:none!important;
+}
+#chatView .msg.user::before{
+ color:#b8d5db!important;text-shadow:none!important;
+}
+#chatView .msg.assistant::before{
+ color:#c5f9fd!important;
+ border-color:#4ebecb!important;
+ box-shadow:0 0 8px #48d7e962!important;
+}
+#chatView .msg-time{color:#869fa9!important;font-size:10px}
+#chatView .composer{left:50%;bottom:calc(8px + env(safe-area-inset-bottom))!important;
+ width:min(730px,calc(100% - 20px))!important;padding:8px!important;
+ border-radius:20px!important;border:1px solid #286579!important;
+ background:#0a1922f5!important;box-shadow:0 0 28px #0cc5e32c,0 16px 42px #0009!important;
+ backdrop-filter:blur(18px)}
+#chatView .composer .row{display:flex;align-items:center;gap:7px}
+#chatView .composer .attach-wrap{order:1;flex:0 0 auto}
+#chatView .composer textarea{order:2;flex:1;min-width:0;min-height:47px;max-height:95px!important;
+ border-radius:13px!important;background:#0b1923!important;border:1px solid #1e3745!important;
+ box-shadow:none!important;color:#e5fafc;font-size:16px!important}
+#chatView .composer textarea::placeholder{color:#7995a3!important}
+#chatView .composer #voiceBtn{order:3;flex:0 0 44px!important;width:44px;height:44px;border-radius:50%!important;
+ background:#0d303b!important;border:1px solid #66c3da!important;
+ color:#9afaff!important;box-shadow:0 0 16px #3ccee54c!important;
+ font-size:0}
+#chatView .composer #voiceBtn::after{content:'';display:block;margin:auto;width:22px;height:25px;
+ background:#b3f6ff;
+ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='9' y='2' width='6' height='13' rx='3' fill='black'/%3E%3Cpath d='M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
+#chatView .composer #sendBtn{order:4;flex:0 0 44px!important;width:44px!important;height:44px!important;
+ border-radius:50%!important;color:#062028!important;background:#90f1fb!important;
+ box-shadow:0 0 15px #47cee86b!important}
+#chatView .composer:has(#message:placeholder-shown) #sendBtn{display:none}
+#chatView .composer:has(#message:not(:placeholder-shown)) #voiceBtn{display:none}
+#chatView .composer .plus-btn{width:44px;height:44px;border-radius:50%!important;
+ background:#111f2a!important;border:1px solid #345060!important}
+#chatView .voice-status{color:#84a9b5;font-size:11px}
+.tabs.panel-nav-open{z-index:45!important}
+@media(max-width:390px){
+ #chatView .composer{width:calc(100% - 14px)!important;padding:6px!important}
+ #chatView .composer .row{gap:5px}
+ #chatView .composer textarea{padding:9px!important}
+ #chatView .msg{font-size:13px!important}
+}
+/* Fixed scenery lives behind the independent message scroller, like a chat wallpaper.
+   Generated photographic scenery; it is not a camera feed or a photograph of a verified location. */
+@media(max-width:760px){
+ html,body{height:100%;min-height:100dvh;overflow:hidden!important;background:#04080e!important}
+ body,body[style]{background:#04080e!important;background-image:none!important}
+ body:before{content:''!important;display:block!important;position:fixed!important;inset:0!important;z-index:0!important;
+  background:#03080d url('/static/golge-night-lake.webp') center center/cover no-repeat!important;pointer-events:none!important}
+ body:after{content:''!important;display:block!important;position:fixed!important;inset:0!important;z-index:0!important;
+  background:linear-gradient(180deg,#02060b55,#02060b20 33%,#02060b66 100%)!important;pointer-events:none!important}
+ .shell:has(#chatView.active){position:relative;z-index:1;isolation:isolate;background:transparent!important;
+  height:100dvh;min-height:100dvh;padding-top:env(safe-area-inset-top)!important}
+ .shell:has(#chatView.active)>.topbar{background:#030a10a8!important;backdrop-filter:blur(10px)}
+ #app:not(.hidden):has(#chatView.active),#chatView.active{background:transparent!important}
+ #chatView #messages{scrollbar-gutter:stable;scroll-padding-block:12px}
+ #chatView .composer{bottom:calc(7px + env(safe-area-inset-bottom))!important}
+}
+
+/* Photorealistic wallpaper; these remain real, independently scrollable chat bubbles. */
+@media(max-width:760px){
+ #chatView .msg.assistant{background:linear-gradient(145deg,#071d30df,#061424df)!important;border:1px solid #23628199!important;backdrop-filter:blur(8px)}
+ #chatView .msg.user{background:linear-gradient(140deg,#09578bdc,#063759e6)!important;border:1px solid #2399c6aa!important}
+ #chatView .composer{background:#061524ed!important;border-color:#246e90!important;backdrop-filter:blur(14px)}
+}

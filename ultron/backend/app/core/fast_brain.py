@@ -10,38 +10,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-_TASKS = frozenset(("GENERAL", "FAST", "CODING", "VISION"))
-_CODE = re.compile(
-    r"\b(?:python|javascript|typescript|react|git|github|debug|api|endpoint|"
-    r"fonksiyon|function|kod(?:u|ları|larıyla| yaz| yazdır)?|script|betik|"
-    r"programla|programlama|bug|hata ayıkla|hata düzelt|refactor|"
-    r"derle|compile|class|sınıf|algoritma|sql|docker|terminal|"
-    r"npm|pip|test yaz|build)\b", re.IGNORECASE,
-)
-_VISION = re.compile(
-    r"(?:görseli|fotoğrafı|resmi|ekran görüntüsünü|screenshot|"
-    r"resimdeki|fotoğraftaki|görseldeki).*(?:incele|analiz|anlat|oku)|"
-    r"(?:bu (?:resim|fotoğraf|görsel|ekran görüntüsü))", re.IGNORECASE,
-)
-_DEEP = re.compile(
-    r"(?:detaylı (?:araştır|karşılaştır|analiz|açıkla)|"
-    r"ayrıntılı (?:karşılaştır|analiz|açıkla)|kapsamlı (?:analiz|karşılaştır|açıkla)|"
-    r"uzun rapor|matematiksel ispat|derinlemesine|çok aşamalı|"
-    r"mantık yürüt|artılarını eksilerini karşılaştır|"
-    r"step by step reasoning|deep analysis|compare in detail)", re.IGNORECASE,
-)
+from ultron.cloud_service.conversation_persona import classify_model_task
+
+_TASKS = frozenset(("GENERAL", "FAST", "CODING", "VISION", "RESEARCH"))
 
 
 def classify_text(text: str) -> str:
-    """Conservative intent classification; no LLM/API round trip."""
-    value = str(text or "").strip()
-    if _VISION.search(value):
-        return "VISION"
-    if _CODE.search(value):
-        return "CODING"
-    if _DEEP.search(value):
-        return "GENERAL"
-    return "FAST"
+    """Shared Cloud/local task route; no LLM/API round trip."""
+    return classify_model_task(text)
 
 
 _SIMPLE_CHAT = re.compile(
@@ -96,6 +72,9 @@ class FastBrainPolicy:
             ]),
             "CODING": self.cfg.get("coding_models", [
                 "qwen2.5-coder:7b", "qwen3.5:4b", "qwen3:8b",
+            ]),
+            "RESEARCH": self.cfg.get("research_models", [
+                "qwen3:8b", "qwen3.5:4b", "qwen3:4b",
             ]),
             "VISION": self.cfg.get("vision_models", [
                 "llava:7b", "qwen3.5:4b",

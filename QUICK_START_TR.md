@@ -1,4 +1,4 @@
-# ULTRON masaüstü
+# GÖLGE masaüstü
 
 START.bat tek ana pencereyi açar: PyQt6 içinde React/TypeScript dashboard ve gerçek Three.js Core. Ana ekranlar arasında seçim veya eski dashboarda dönüş yoktur. Hologram Çalışma Alanı (Ctrl+H), GLB/parça/el kontrolü için ayrı uzman araçtır.
 
@@ -8,7 +8,7 @@ START.bat tek ana pencereyi açar: PyQt6 içinde React/TypeScript dashboard ve g
 
 Kurulum: INSTALL.bat. Tanılama: DOCTOR.bat. Uygulama kapalıyken START.bat -Smoke ile otomatik masaüstü açılışı denenebilir. Frontend değişirse ultron/frontend klasöründe npm ci ve npm run build çalıştırın.
 
-Yerel model yanıtları mevcut backend sözleşmesine göre tamamlanmış yanıt olarak gelir; sahte token akışı gösterilmez. Backend kapalıysa ULTRON BACKEND OFFLINE, model yoksa MODEL NOT AVAILABLE görünür.
+Yerel model yanıtları mevcut backend sözleşmesine göre tamamlanmış yanıt olarak gelir; sahte token akışı gösterilmez. Backend kapalıysa GÖLGE BACKEND OFFLINE, model yoksa MODEL NOT AVAILABLE görünür.
 
 Özel sesle uyandırma için gerçek ultron.onnx modeli gerekir; henüz kurulu değildir. Elle mikrofon/bas konuş kullanılabilir. config/api_keys.json kişiseldir ve Git'e dahil edilmez.
 

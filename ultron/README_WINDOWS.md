@@ -1,4 +1,4 @@
-# ULTRON Final — Windows
+# GÖLGE Final — Windows
 
 ## Kurulum
 
@@ -11,9 +11,9 @@
 
 ## Local Voice
 
-ULTRON'un TTS yolu tamamen lokaldir ve ağ üzerinden ses sentezi yapmaz.
+GÖLGE'un TTS yolu tamamen lokaldir ve ağ üzerinden ses sentezi yapmaz.
 Öncelikli motor **Piper local**'dır; Piper modeli yoksa yerel `eSpeak-ng` kullanılabilir.
-Uygun yerel motor yoksa ULTRON başarılı ses üretmiş gibi davranmaz ve `UNAVAILABLE`/hata bildirir.
+Uygun yerel motor yoksa GÖLGE başarılı ses üretmiş gibi davranmaz ve `UNAVAILABLE`/hata bildirir.
 Piper modelini lisansına uygun şekilde `backend\data\voice\piper\tr_TR-ahmet-medium.onnx` konumuna yerleştirin.
 
 ## Güvenlik
@@ -22,7 +22,7 @@ Backend ve Vite varsayılan olarak yalnızca localhost'a bind edilir. LAN erişi
 
 ## Self Diagnostic
 
-"Ultron, kendini kontrol et ve hata varsa bildir." komutu; agent, tool registry, memory, planner, local voice, vision, proactive monitor, Ollama, veritabanları, master rules, donanım, portlar ve gerçek hata olaylarını kontrol eder.
+"Gölge, kendini kontrol et ve hata varsa bildir." komutu; agent, tool registry, memory, planner, local voice, vision, proactive monitor, Ollama, veritabanları, master rules, donanım, portlar ve gerçek hata olaylarını kontrol eder.
 
 ## Test
 

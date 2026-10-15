@@ -8,12 +8,14 @@ to the user and checked for ownership on every poll. Cloud memory is shared.
 from __future__ import annotations
 
 import json
+import os
 import time
 import uuid
 
 from aiohttp import web
 from conversation_persona import build_system_instruction
 from conversation_turns import load_contextual_thread_turns
+from personal_context_focus import memory_focus_question
 from auto_learning import learn_from_owner_message
 from local_reply_validation import _validated_local_reply
 
@@ -127,13 +129,19 @@ async def post_local_chat(request: web.Request) -> web.Response:
                 if details is None:
                     return web.json_response({"error":"previous_local_reply_invalid"}, status=409)
                 await _save_reply(conn, request["user_id"], old["command_id"], details)
-            # Bound shared memory/history to protect 4GB consumer GPU.
-            memory = (await request.app["local_memory_context"](conn, request["user_id"], text))[:2400]
+            # Retrieve only the authenticated owner's current-thread turns
+            # before querying saved facts. Follow-up focus must agree between
+            # local Qwen and cloud Gemini; never use assistant text as intent.
             turns = await load_contextual_thread_turns(
                 conn, request["user_id"], conversation,
                 question=text, max_chars=2600, limit=12,
             )
+            focus_query = memory_focus_question(text, turns)
+            memory = (await request.app["local_memory_context"](
+                conn, request["user_id"], focus_query
+            ))[:2400]
             system = build_system_instruction(
+                base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
                 memory=memory, recent="Conversation turns provided separately with roles.",
                 user_message=text, read_only=True, max_chars=4500,
                 has_prior_turns=bool(turns),
