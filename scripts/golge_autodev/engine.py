@@ -418,11 +418,16 @@ def infer(prompt: str, provider: str, *, max_output_tokens: int = MAX_MODEL_OUTP
         model = os.getenv("GOLGE_AUTODEV_OLLAMA_MODEL", "qwen2.5-coder:7b")
         if not re.fullmatch(r"[\w.:/-]{2,80}", model):
             raise ProposalError("invalid_local_model")
+        request_body = {"model": model, "prompt": prompt, "stream": False,
+                        "format": "json",
+                        "options": {"temperature": 0.1, "num_predict": max_output_tokens}}
+        # Qwen3 can spend the entire bounded response on hidden thinking,
+        # leaving no parseable JSON patch. This is a provider-side request
+        # setting, never a model-supplied network or security override.
+        if model.lower().startswith("qwen3"):
+            request_body["think"] = False
         result = _json_request(
-            "http://127.0.0.1:11434/api/generate",
-            {"model": model, "prompt": prompt, "stream": False, "format": "json",
-             "options": {"temperature": 0.1, "num_predict": max_output_tokens}},
-            {},
+            "http://127.0.0.1:11434/api/generate", request_body, {},
         )
         return str(result.get("response") or "")
     raise ProposalError("unsupported_provider")
