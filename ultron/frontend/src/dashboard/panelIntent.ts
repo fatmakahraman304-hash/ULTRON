@@ -1,10 +1,11 @@
 /** UI-only speech/text routing. Never runs a native OS tool. */
-export type Workspace = 'chat'|'world'|'hologram'|'memory'|'remote'|'develop'|'tools'|'settings';
+export type Workspace = 'chat'|'control-center'|'world'|'hologram'|'memory'|'remote'|'develop'|'tools'|'settings';
 export function resolvePanelIntent(input:string):Workspace|null {
- const t=String(input||'').toLocaleLowerCase('tr-TR').replace(/[’']/g,"'").replace(/\s+/g,' ').trim();
+ const t=String(input||'').toLocaleLowerCase('tr-TR').replace(/[’']/g,"'").replace(/\s+/g,' ').trim().replace(/^(?:gölge|golge|ultron)[,\s:]+/,'').replace(/[.!?]+$/,'').trim();
  if(!t||t.length>400)return null;
- if(/^(?:ana ekrana dön|ana ekrana don|sohbete dön|sohbete don|paneli kapat|ekranı kapat|ekrani kapat|close panel|back to chat|ultron ana ekran)$/.test(t))return 'chat';
+ if(/^(?:ana ekrana dön|ana ekrana don|sohbete dön|sohbete don|normal moda dön|normal moda don|sohbet ekranına dön|sohbet ekranina don|kontrol merkezini kapat|kontrol merkezinden çık|kontrol merkezinden cik|paneli kapat|ekranı kapat|ekrani kapat|close panel|back to chat|back to normal mode|ultron ana ekran)$/.test(t))return 'chat';
  if(!/(?:^|\s)(?:aç|ac|göster|goster|getir|çıkart|cikart|geç|gec|bak|izle|başlat|baslat|open|show|bring)(?=$|\s|[.!?])/.test(t))return null;
+ if(/(?:kontrol merkezi|kontrol merkezini|kontrol paneli|control center|control centre)/.test(t))return 'control-center';
  if(/(?:hologram\s*(?:lab|laboratuvar|çalışma alanı|calisma alani)|hologram laboratuvarı|hologram laboratuvari|hologram tasarım|hologram tasarim)/.test(t))return 'hologram';
  if(/(?:dünya|dunya|world|harita|earth watch|uçak|ucak|deprem|hava durumu|weather)/.test(t))return 'world';
  if(/(?:hafıza|hafiza|hatıra|hatira|öğrenme|ogrenme|takvim|planlarım|planlarim)/.test(t))return 'memory';

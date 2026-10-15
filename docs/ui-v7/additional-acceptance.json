@@ -1,0 +1,19 @@
+{
+  "environment": "Actual production UI / isolated real backend / Chromium SwiftShader; not physical Windows or iPhone",
+  "checks": {
+    "weather_provider_to_ui": "PASS",
+    "flight_provider_to_ui": "PASS",
+    "direct_control_center_to_core_return": "PASS"
+  },
+  "weather": {
+    "source": "Open-Meteo",
+    "provider_time": "2026-10-16T00:15",
+    "temperature_c": 17.1
+  },
+  "flights": {
+    "source": "adsb.lol",
+    "retrieved_at": "2026-10-15T21:26:49.000Z",
+    "reported_aircraft": 6
+  },
+  "method": "Typed real UI commands: Hava durumunu göster → Uçakları göster → Kontrol merkezini aç → CORE’a dön. Assert real provider panel text, then no control center and one CORE canvas. No fake model or data responses."
+}

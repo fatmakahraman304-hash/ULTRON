@@ -14,7 +14,10 @@ on:
       - 'ultron/frontend/**'
       - 'ultron/cloud_service/static/index.html'
       - 'ultron/cloud_service/static/golge-minimal.css'
+      - 'ultron/cloud_service/static/golge-reference-mobile.css'
+      - 'ultron/cloud_service/static/golge-night-lake.webp'
       - 'ultron/cloud_service/static/sw.js'
+      - 'ultron/cloud_service/test_golge_reference_ui.cjs'
       - 'scripts/test_golge_minimal_ui.mjs'
       - '.github/workflows/golge-responsive-ui.yml'
 
@@ -42,3 +45,7 @@ jobs:
       - name: TypeScript and Vite production build
         run: npm run build
         working-directory: ultron/frontend
+      - name: Dashboard workspace, live CORE and deterministic network contracts
+        run: node --experimental-strip-types --test ultron/frontend/tests/panelIntent.test.mjs ultron/frontend/tests/coreNetwork.test.mjs ultron/frontend/tests/connectionStatus.test.mjs ultron/frontend/tests/earthIntent.test.mjs ultron/frontend/tests/earthMath.test.mjs
+      - name: Cloud PWA fixed-wallpaper and mobile-chat contracts
+        run: node --test ultron/cloud_service/test_golge_reference_ui.cjs

@@ -23,6 +23,10 @@ EARTH_DEFAULTS = {
     "focus_lat": 20.0,
     "focus_lon": 0.0,
     "focus_label": "GLOBAL",
+    "camera_distance": 7.4,
+    "map_zoom": 5,
+    "layer": "GLOBAL",
+    "focus_revision": 0,
     "markers": [],
 }
 EARTH_BOOLEAN_KEYS = (
@@ -85,6 +89,10 @@ def normalize_earth_state(raw: Any) -> dict:
     state["focus_lat"] = earth_number(source.get("focus_lat"), 20.0, -90, 90)
     state["focus_lon"] = earth_longitude(source.get("focus_lon"), 0.0)
     state["focus_label"] = earth_text(source.get("focus_label"), "GLOBAL")
+    state["camera_distance"] = earth_number(source.get("camera_distance"), 7.4, 6, 15)
+    state["map_zoom"] = earth_number(source.get("map_zoom"), 5, 1, 19)
+    state["focus_revision"] = int(earth_number(source.get("focus_revision"), 0, 0, 1_000_000_000))
+    state["layer"] = source.get("layer") if source.get("layer") in {"GLOBAL", "MAP", "SATELLITE", "WEATHER", "FLIGHTS", "LOCATIONS"} else "GLOBAL"
     raw_markers = source.get("markers")
     markers: list[dict] = []
     ids: set[str] = set()

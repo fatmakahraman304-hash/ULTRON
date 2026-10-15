@@ -1,0 +1,141 @@
+{
+  "environment": "Real isolated backend; Chromium SwiftShader WebGL / CPU compositor; no physical iPhone or Windows GPU",
+  "checks": {
+    "auth_origin_world_route_boundary": "PASS",
+    "real_gpu_transition_and_outgoing_disposal": "PASS",
+    "orbit_and_wheel_zoom": "PASS",
+    "cyprus_true_coordinates_camera_direction": "PASS",
+    "city_map_is_real_tiles_not_globe_upscale": "PASS",
+    "unlicensed_satellite_preserves_current_view": "PASS",
+    "shared_earth_chat_and_single_websocket": "PASS",
+    "repeat_scene_transition_cleanup": "PASS",
+    "mobile_fixed_photo_scroll_and_keyboard_height_simulation": "PASS",
+    "shader_react_errors": "PASS"
+  },
+  "providers": {
+    "Kıbrıs": {
+      "http": 200,
+      "source": "Photon/OSM",
+      "results": [
+        {
+          "lat": 34.9823018,
+          "lon": 33.1451285,
+          "label": "Κύπρος - Kıbrıs",
+          "kind": "country"
+        }
+      ],
+      "status": "PASS"
+    },
+    "Lefkoşa": {
+      "http": 200,
+      "source": "Photon/OSM",
+      "results": [
+        {
+          "lat": 35.1853773,
+          "lon": 33.3610135,
+          "label": "Lefkoşa, Kuzey Kıbrıs Türk Cumhuriyeti, Κύπρος - Kıbrıs",
+          "kind": "city"
+        },
+        {
+          "lat": 35.1802259,
+          "lon": 33.4407845,
+          "label": "Lefkoşa Türk Belediyesi, Kuzey Kıbrıs Türk Cumhuriyeti, Κύπρος - Kıbrıs",
+          "kind": "city"
+        },
+        {
+          "lat": 35.213758,
+          "lon": 33.3379893,
+          "label": "Lefkoşa Atatürk Stadyumu, Kızılbaş, Kuzey Kıbrıs Türk Cumhuriyeti, Κύπρος - Kıbrıs",
+          "kind": "house"
+        },
+        {
+          "lat": 35.1441361,
+          "lon": 33.5114962,
+          "label": "Lefkoşa ilçesi, Kuzey Kıbrıs Türk Cumhuriyeti, Κύπρος - Kıbrıs",
+          "kind": "county"
+        }
+      ],
+      "status": "PASS"
+    },
+    "SATELLITE": "BLOCKED: no licensed imagery configuration"
+  },
+  "errors": [],
+  "microphone": "NOT RUN",
+  "tts": "NOT RUN",
+  "visual_acceptance": "REVIEW_REQUIRED",
+  "video_segments": [
+    {
+      "name": "CORE idle",
+      "seconds_after_page_ready": 0.0
+    },
+    {
+      "name": "CORE to Earth",
+      "seconds_after_page_ready": 5.41
+    },
+    {
+      "name": "Mouse rotate and wheel zoom",
+      "seconds_after_page_ready": 20.75
+    },
+    {
+      "name": "Geocode and focus Kıbrıs",
+      "seconds_after_page_ready": 29.33
+    },
+    {
+      "name": "Geocode and focus Lefkoşa",
+      "seconds_after_page_ready": 35.34
+    },
+    {
+      "name": "Satellite unavailable boundary",
+      "seconds_after_page_ready": 45.03
+    },
+    {
+      "name": "Day night terminator",
+      "seconds_after_page_ready": 46.43
+    },
+    {
+      "name": "Normal chat to control center",
+      "seconds_after_page_ready": 50.84
+    },
+    {
+      "name": "Earth to CORE",
+      "seconds_after_page_ready": 61.58
+    }
+  ],
+  "backend": {
+    "platform": "Linux",
+    "cpu_percent": 1.0,
+    "ram_total_gb": 9.7,
+    "cloud_configured": false
+  },
+  "headless_render_measurement": {
+    "renderer": "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)",
+    "quality": "balanced",
+    "geometries": "4",
+    "textures": "4",
+    "raf_p50_ms": 178.2,
+    "raf_p95_ms": 198,
+    "target_windows_fps": "NOT RUN"
+  },
+  "real_model": {
+    "status": "BLOCKED",
+    "response": {
+      "ok": false,
+      "status": "UNAVAILABLE",
+      "error": "Ollama veya yerel model yok. INSTALL.bat model kurulumunu deneyebilir."
+    }
+  },
+  "tile_responses": [
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200,
+    200
+  ]
+}

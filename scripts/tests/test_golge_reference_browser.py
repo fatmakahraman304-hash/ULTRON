@@ -60,13 +60,21 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
           const orb=document.querySelector('.golge-welcome-orb');
           const chat=document.querySelector('#chatView').getBoundingClientRect();
           const list=document.querySelector('#messages').getBoundingClientRect();
-          const css=getComputedStyle(document.querySelector('body')).backgroundImage;
-          return {hero:!!hero,orb:!!orb,topGap:list.top-chat.top,css};
+          const wallpaper=getComputedStyle(document.body,'::before');
+          return {
+            hero:!!hero,orb:!!orb,topGap:list.top-chat.top,
+            wallpaperImage:wallpaper.backgroundImage,
+            wallpaperPosition:wallpaper.position,
+          };
         }""")
         self.assertFalse(initial["hero"])
         self.assertFalse(initial["orb"])
         self.assertLess(initial["topGap"],30)
-        self.assertIn("radial-gradient",initial["css"])
+        # The wallpaper is a fixed pseudo-element so it does not travel with
+        # the independently scrolling message list. The body itself is
+        # intentionally transparent/flat on mobile.
+        self.assertIn("golge-night-lake.webp",initial["wallpaperImage"])
+        self.assertEqual(initial["wallpaperPosition"],"fixed")
         await self.page.evaluate("""() => {
           const list=document.querySelector('#messages');
           for(let i=0;i<36;i++){
@@ -91,6 +99,8 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
             scrollTop:list.scrollTop,
             scrollRange:list.scrollHeight-list.clientHeight,
             windowY:window.scrollY,
+            wallpaperImage:getComputedStyle(document.body,'::before').backgroundImage,
+            wallpaperPosition:getComputedStyle(document.body,'::before').position,
             menu:!!$('#panelMenuToggle'),
             microphone:!!$('#voiceBtn'),
             attachment:!!$('#plusBtn'),
@@ -104,6 +114,8 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(state["messagePanel"]["bottom"],state["composer"]["top"]+6)
         self.assertTrue(state["menu"] and state["microphone"] and state["attachment"])
         self.assertLess(state["windowY"],4)
+        self.assertIn("golge-night-lake.webp",state["wallpaperImage"])
+        self.assertEqual(state["wallpaperPosition"],"fixed")
         # CSS, not an edited screenshot: inspect computed pseudo-elements
         # on both message roles and the online badge on the actual mobile DOM.
         red_marks=await self.page.evaluate("""() => {

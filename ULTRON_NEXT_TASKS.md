@@ -1,11 +1,37 @@
-## Next tasks — True Interruption Engine V1 device validation
+## 2026-10-16 — Güncel kapsam ve devam
 
-1. Review draft [PR #37](https://github.com/fatmakahraman304-hash/ULTRON/pull/37) at code SHA `b67dfd758bf046758228b380b9931d391d0c5f44`. Its exact-code Cloud/PostgreSQL, Responsive, Local Qwen Listening and Scene Actions passed. PR #37 is stacked on PR #36; do not merge or deploy without explicit release approval.
-2. On Windows, test ESC/Stop during real Ollama streaming and confirm the local process stops. The adapter closes its streaming HTTP response, but actual Qwen process termination remains **NOT_RUN**.
-3. On a physical iPhone, test Stop during Gemini output, queued local Qwen, delivered local Qwen, WebAudio and browser TTS. Keep microphone restart and PR #30 long-listening behavior intact. These device checks remain **NOT_RUN**.
-4. Measure cancellation end-to-end on the owner laptop and iPhone. The 0.343/0.608 ms p50/p95 figures measure a local fake HTTP fixture only; 600 ms is the configured phone-to-laptop lease poll interval.
-5. Gemini generation is only output-suppressed, not provider-cancelled. Approval-gated computer tasks stay independent from chat cancellation. Keep those boundaries and the no-extra-panel mobile UI.
-6. PR #34 Memory V4, #35 Evidence V4, and #36 natural conversation recovery remain open/unmerged. Production stays on `6ef3f5d207fc9430cbbd552988935995529e87f5`.
+1. PR #44'te üç eski özelliğin kaldırılmasını incele: GÖLGE intro render, Dünya hologramı, enerji hologramı. Ana CORE ve ayrı harita kullanıcı talimatıyla kalır.
+2. Yeni kaldırma commit'inin GitHub Actions kontrollerini tamamla; başarısız job varsa düzelt. Test: `python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v`, frontend build, `python scripts/tests/test_frontend_stage_loading.py`.
+3. Üretime merge veya Render deploy için ayrıca açık onay gerekir; bu görev yayın yetkisi vermez.
+4. Fiziksel Windows/iPhone ve gerçek Qwen/Gemini/mikrofon/TTS testleri hâlâ yapılmadı. Önceki raporların bu sınırlarını koru.
+
+Aşağıdaki eski görevler tarihsel kayıttır; kaldırılan üç preset yeniden eklenmemelidir.
+
+## PR #44 — CORE/Dünya son doğrulama ve fiziksel kabul
+
+1. docs/GOLGE_EARTH_V7.md ve docs/ui-v7/ gerçek ekran/kayıtlarını incele. Etiketli sentetik ses testi mikrofon/TTS başarısı değildir; yeni sohbet ekranlarında gerçek sahne cevapları ve model UNAVAILABLE sonucu vardır.
+2. Yetkili Windows laptopta mevcut bridge/Ollama/Qwen ve Cloud eşleşmesini doğrula. Bu yürütücüde VPN/model kimliği yok; internete Ollama açma veya model indirme. Native PCM/TTS RMS, kesme ve ses transkriptinden Dünya/CORE komutlarını ölç.
+3. RTX'te gerçek FPS/VRAM, gizli sekme, düşük kalite ve 20+ geçiş; iPhone'da gerçek klavye/mic/PWA/uzun dinleme. SwiftShader kayıt ölçümü p50 178,2 ms/p95 198,0 ms; bu ortamda 60 FPS yok. Fiziksel donanım NOT RUN.
+4. Uydu/terrain ancak gerçek veri lisansı ve güvenli kaynak ile etkinleşebilir. Varsayılan uydu BLOCKED; MAP gerçek OSM sokak haritasıdır. Ücretli sağlayıcı otomatik açılmaz.
+5. PR #44 taslak kalsın; mevcut diğer PR bağımlılıklarına dokunma. Kullanıcının ayrı açık onayı olmadan production merge veya Render deploy yapma.
+
+## PR #44 — Tasarım incelemesi ve gerçek cihaz/model engelleri
+
+1. `docs/GOLGE_V5_VISUAL_REVIEW.md` ve `docs/ui-v5/` altındaki yeni gerçek uygulama kayıtlarını incele. Dolu sohbet örnekleri görünür SENTETİK SOHBET etiketi taşır; tasarım kabulünü teknik test sonucundan çıkarma.
+2. Yetkili Windows laptopta mevcut Ollama/Qwen kurulumunu ve Qt köprüsünü doğrula. Bu yürütücüde laptop/VPN veya hazır model yok; ağırlık indirme veya internete Ollama açma.
+3. Mevcut Cloud cihaz eşleşmesi ve kullanılabilir model yetkisi sağlanırsa aynı gerçek sohbet kabulünü tekrar çalıştır. API anahtarlarını arayüze/loglara koyma; UNAVAILABLE sonucunu başarı sayma.
+4. Fiziksel iPhone Safari'de sabit fotoğraf, gerçek klavye, uzun sohbet, dosya/mikrofon ve PWA yeniden bağlantısını; Windows'ta gerçek RMS/TTS senkronunu ve RTX yeniden boyutlandırmayı ölç. Headless CPU-kompozitörü kaydı cihaz testi değildir.
+5. PR #44 taslak kalsın. Kullanıcının açık üretim onayı olmadan production merge veya Render deploy yapma. Diğer açık PR bağımlılıklarına dokunma.
+
+## Next tasks — GÖLGE V5 interface release verification
+
+1. Review draft [PR #44](https://github.com/fatmakahraman304-hash/ULTRON/pull/44); validated code/test commit `41c907056130536b6ec7abb482a4a02bf33e1437` passed exact-head Responsive, Scene, Cloud/PostgreSQL and Local Qwen Listening Actions. Do not merge or deploy without the user's release authorization.
+2. On the Windows laptop, confirm the real native bridge reports CPU/RAM/GPU and audio amplitude, verify local Ollama/Qwen and Gemini fallback, test 3D CORE state transitions and view switching, and measure actual GPU frame time. Keep missing sensors visibly unavailable.
+3. On physical iPhone Safari, verify authenticated chat history, fixed wallpaper while scrolling, keyboard/safe-area composer, image/file attach, mic permission, voice turn and network recovery. Background microphone behavior remains subject to iOS restrictions.
+4. Validate one authenticated local/cloud chat exchange and same-owner phone/laptop history without changing stored user data. Confirm the control-center action tools continue through existing approval/audit flows.
+5. Recheck Render `/health` and deployment SHA after network is available. No live deployment has been started; this desktop code branch is unmerged.
+6. Investigate the existing OrbitControls 575.89 kB chunk warning using measured bundle evidence before changing chunk boundaries.
+
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.
@@ -760,11 +786,22 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 4. Test real Gemini and Qwen only when providers are reachable and credentials are available; report model/version, first-token/total latency, and all 100 scenarios with NOT_RUN for missing cases. Do not install/download models or modify the owner’s Windows laptop in this branch task.
 5. Add bounded PDF parsing only if a safe dependency and decompression/page limits are justified; retain HTML/text-only truthful behavior until then.
 6. After owner approval, release separately; verify production commit, Render deploy SHA and health. Physical iPhone/Windows acceptance remains a separate NOT_RUN item.
-## Next — True Interruption Engine V1 review and device verification
+## Next: finish Windows startup recovery
 
-1. Push the tested branch and create a draft PR stacked on PR #36 head cbac06d. Do not alter PRs #34/#35 and do not merge/deploy.
-2. Wait for exact-head GitHub Actions; require Cloud/PostgreSQL, Scene/frontend and Local Qwen Listening checks to pass. The cancel-before-submit and concurrent submit/cancel cases require the disposable PostgreSQL job.
-3. On Windows, test ESC/Stop during local Qwen token streaming and verify Ollama exits; on iPhone, test Stop during Cloud Gemini, queued Qwen, delivered Qwen, and speech playback. Keep missing physical tests NOT_RUN.
-4. Confirm cancel latency on actual devices; the 600 ms lease polling interval and fake transport p50/p95 are not end-to-end measurements.
-5. Gemini inference can currently only be output-suppressed, not stopped. Keep `provider_stopped=false` until a provider-side cancellation acknowledgement exists.
-6. Preserve approval-gated computer tasks and PR #30 long-listening behavior. Do not merge or deploy this draft.
+1. Review/pull the startup dependency-sync fix from PR once its CI passes.
+2. On the laptop, run `cd /d "%USERPROFILE%\ULTRON-3a6f489\ultron\frontend" && npm ci`, return to the repository root, then run `START.bat` once as immediate recovery.
+3. On the fixed startup path, run `git pull --ff-only origin feat/ultron-cloud-shared-memory` after confirming the local branch/worktree are clean, then run `START.bat`; verify the frontend build completes and `leaflet` resolves.
+4. Continue the previously pending real Windows Ollama/microphone/TTS checks and physical iPhone Safari voice checks. Do not treat CI or Chromium emulation as device validation.
+## Current task — recover Windows frontend dependencies (2026-10-15)
+
+- PR #44 is already merged/deployed at `bab1b760fcb97164d42d76b0ca67909a0591538a`. The owner then reported `START.bat` TypeScript TS2307 for `leaflet` because its old `node_modules` was not refreshed after the lockfile changed.
+- Current fix branch: `fix/windows-start-sync-frontend-deps` from production SHA `bab1b760`. Wait for Windows PowerShell syntax check and Scene Build CI, then merge only after those checks pass (prior blanket release authorization applies to this fix).
+- Immediate laptop workaround: `cd /d "%USERPROFILE%\ULTRON-3a6f489\ultron\frontend"`, run `npm ci`, return to repo root, then `START.bat`.
+- After the fix is merged, pull the production branch with a clean working tree and rerun `START.bat`; capture exact output. Then resume physical Windows Qwen/mic/TTS and iPhone Safari tests. Never call those device tests passed based on CI.
+## Current task — Windows backend import startup failure (2026-10-15)
+
+- Owner log root cause: `ModuleNotFoundError: No module named 'ultron'` from `merged_api.py` at backend startup. Reproduction: from `ultron/backend`, setting `PYTHONPATH` only to that same backend directory makes `from ultron.cloud_service.conversation_persona import classify_intent` fail.
+- Fix branch: `fix/windows-backend-pythonpath`, based on production after PR #50. New subprocess regression fails before the fix and must pass after it; wait for Scene Build CI before merge.
+- After merge, on the owner's PC run `git pull --ff-only origin feat/ultron-cloud-shared-memory` from a clean production branch and `START.bat`. Confirm it prints `ULTRON hazır` without degraded-mode warning. Then test a short local Qwen chat, microphone input and Piper playback.
+- Do not interpret `[WinError 10054]` during a closed health-check connection or malformed-PDF fixture messages as the fatal startup cause; use the final `Traceback` when diagnosing.
+- Follow-up log on the owner laptop: backend reports ready; desktop then exits at `mark_app.py:52` because `memory` resolved to a non-package module. PR #51 has been extended with import-order fix and Python safe-path subprocess regression. Re-run `START.bat` after merging/pulling the reviewed fix; check for `ULTRON hazır` and a still-running desktop before microphone/TTS testing.
