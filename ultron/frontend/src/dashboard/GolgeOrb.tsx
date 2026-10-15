@@ -5,9 +5,11 @@ import {buildCoreNetwork} from './coreNetwork';
 
 /** GPU light scattering and projection. Activity is independent of audio;
  * amplitude is provided only by the existing native RMS bridge. */
-export default function GolgeOrb({state,amplitude}:{state:CoreState;amplitude:number}){
+export default function GolgeOrb({state,amplitude,transition='stable'}:{state:CoreState;amplitude:number;transition?:'stable'|'enter'|'exit'}){
  const host=useRef<HTMLDivElement>(null),dynamics=useRef({state,amplitude});
  const [fallback,setFallback]=useState(false);
+ const phase=useRef({value:transition,at:performance.now()});
+ useEffect(()=>{phase.current={value:transition,at:performance.now()}},[transition]);
  useEffect(()=>{dynamics.current={state,amplitude}},[state,amplitude]);
  useEffect(()=>{
   const el=host.current;if(!el)return;
@@ -17,7 +19,7 @@ export default function GolgeOrb({state,amplitude}:{state:CoreState;amplitude:nu
   const mat=<T extends THREE.Material,>(m:T)=>{materials.push(m);return m};
   let resizeObserver:ResizeObserver|undefined,intersectionObserver:IntersectionObserver|undefined;
   let pointerMove:(e:PointerEvent)=>void=()=>{},visibilityChange=()=>{};
-  const dispose=()=>{disposed=true;cancelAnimationFrame(frame);resizeObserver?.disconnect();intersectionObserver?.disconnect();el.removeEventListener('pointermove',pointerMove);document.removeEventListener('visibilitychange',visibilityChange);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());if(renderer){renderer.dispose();renderer.domElement.remove();}};
+  const dispose=()=>{disposed=true;cancelAnimationFrame(frame);resizeObserver?.disconnect();intersectionObserver?.disconnect();el.removeEventListener('pointermove',pointerMove);document.removeEventListener('visibilitychange',visibilityChange);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());if(renderer){renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}};
   try{
    renderer=new THREE.WebGLRenderer({alpha:false,antialias:true,powerPreference:'low-power'});
    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));renderer.setClearColor(0x030b16,1);renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -25,7 +27,7 @@ export default function GolgeOrb({state,amplitude}:{state:CoreState;amplitude:nu
    const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(43,1,.1,60);
    camera.position.set(0,.42,7.7);camera.lookAt(0,-.45,0);
    const rig=new THREE.Group(),core=new THREE.Group();rig.add(core);scene.add(rig);
-   const uniforms={time:{value:0},energy:{value:0},alert:{value:0},pixelScale:{value:1}};
+   const uniforms={time:{value:0},energy:{value:0},alert:{value:0},pixelScale:{value:1},scatter:{value:0}};
    // The dark field and subtle grid are drawn in the same bounded GPU pass.
    const backdrop=mat(new THREE.ShaderMaterial({depthWrite:false,
     vertexShader:`varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
@@ -36,11 +38,14 @@ export default function GolgeOrb({state,amplitude}:{state:CoreState;amplitude:nu
     uniforms,vertexShader:`varying vec3 vN;varying vec3 vP;void main(){vec4 p=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vP=p.xyz;gl_Position=projectionMatrix*p;}`,
     fragmentShader:`varying vec3 vN;varying vec3 vP;uniform float energy;uniform float alert;void main(){float rim=pow(1.-abs(dot(normalize(vN),normalize(-vP))),3.4);vec3 color=mix(vec3(.08,.55,1.),vec3(1.,.18,.12),alert);gl_FragColor=vec4(color,rim*(.16+energy*.12));}`
    }));core.add(new THREE.Mesh(geo(new THREE.SphereGeometry(1.62,64,40)),glass));
-   const net=buildCoreNetwork(1400),nodeGeometry=geo(new THREE.BufferGeometry());
+   const gl=renderer.getContext(),debug=gl.getExtension('WEBGL_debug_renderer_info'),gpu=debug?String(gl.getParameter(debug.UNMASKED_RENDERER_WEBGL)):'';
+   const constrained=!gpu||/swiftshader|llvmpipe|software|intel.*(?:hd|uhd)/i.test(gpu)||navigator.hardwareConcurrency<5;
+   el.dataset.renderer=gpu||'WebGL';el.dataset.pointCount=String(constrained?1400:2200);
+   const net=buildCoreNetwork(constrained?1400:2200),nodeGeometry=geo(new THREE.BufferGeometry());
    nodeGeometry.setAttribute('position',new THREE.BufferAttribute(net.nodePositions,3));nodeGeometry.setAttribute('color',new THREE.BufferAttribute(net.nodeColors,3));nodeGeometry.setAttribute('seed',new THREE.BufferAttribute(net.nodeSeeds,1));
    const nodeMaterial=mat(new THREE.ShaderMaterial({transparent:true,depthWrite:false,vertexColors:true,blending:THREE.AdditiveBlending,uniforms,
-    vertexShader:`attribute float seed;uniform float time;uniform float energy;uniform float alert;uniform float pixelScale;varying vec3 vColor;varying float vAlpha;
-     void main(){vec3 p=position*(1.+sin(time*.9+seed*24.)*(.004+energy*.009));vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;
+    vertexShader:`attribute float seed;uniform float time;uniform float energy;uniform float alert;uniform float scatter;uniform float pixelScale;varying vec3 vColor;varying float vAlpha;
+     void main(){vec3 p=position*(1.+sin(time*.9+seed*24.)*(.004+energy*.009)+scatter*(.6+seed*.7));vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;
      gl_PointSize=clamp((5.5+pow(seed,6.)*18.+energy*4.)*pixelScale*7.7/-mv.z,2.,28.);vColor=mix(color,vec3(1.,.21,.14),alert*.8);
      vAlpha=(.42+.58*smoothstep(-1.7,1.7,p.z))*(.75+.25*sin(time*.6+seed*31.));}`,
     fragmentShader:`varying vec3 vColor;varying float vAlpha;void main(){vec2 p=gl_PointCoord-.5;float r=length(p);if(r>.5)discard;
@@ -93,7 +98,11 @@ export default function GolgeOrb({state,amplitude}:{state:CoreState;amplitude:nu
     flowMaterial.uniforms.speed.value=reduce?.matches?0:d.state==='THINKING'?.36:d.state==='SPEAKING'?.2:d.state==='LISTENING'?.13:.055;
     el.dataset.state=d.state;el.dataset.audioLevel=boost.toFixed(3);
     if(!reduce?.matches){core.rotation.y=t*.045;core.rotation.z=Math.sin(t*.18)*.024;core.scale.setScalar(1+Math.sin(t*.8)*.005+boost*.022);rig.rotation.x+=(targetX-rig.rotation.x)*.035;rig.rotation.y+=(targetY-rig.rotation.y)*.035;rings.forEach((o,i)=>{o.rotation.z+=[.12,-.18,.085,-.1][i]*dt*(1+energy);});}
-    lineMaterial.opacity=.075+energy*.11;renderer?.render(scene,camera);
+    const p=phase.current,progress=reduce?.matches?1:Math.min(1,(now-p.at)/1300),ease=progress*progress*(3-2*progress),transfer=p.value==='exit'?ease:p.value==='enter'?1-ease:0;
+    uniforms.scatter.value=Math.sin(transfer*Math.PI)*.8;rig.scale.setScalar(1-transfer*.92);
+    rings.forEach((o,i)=>{if(!reduce?.matches)o.rotation.z+=transfer*dt*(i%2?2:-2)});
+    el.dataset.transition=p.value;el.dataset.transfer=transfer.toFixed(3);
+    lineMaterial.opacity=(.075+energy*.11)*(1-transfer);renderer?.render(scene,camera);
    };
    const start=()=>{if(running||disposed||!visible||document.hidden)return;running=true;last=0;frame=requestAnimationFrame(tick);};
    const stop=()=>{running=false;cancelAnimationFrame(frame);};visibilityChange=()=>document.hidden?stop():start();document.addEventListener('visibilitychange',visibilityChange);

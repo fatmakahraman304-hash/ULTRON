@@ -12,6 +12,9 @@ import math
 import logging
 from urllib.parse import urlsplit
 import time
+import os
+import ipaddress
+import re
 from typing import Any
 from aiohttp import ClientSession, ClientTimeout, web
 
@@ -50,8 +53,11 @@ async def _upstream(url: str, *, ttl: int, key: str) -> dict[str, Any]:
         if cached and cached[0] > time.monotonic():
             return cached[1]
         try:
+            # Respect the configured network proxy without enabling .netrc
+            # credential forwarding to these public, unauthenticated sources.
+            proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
             async with ClientSession(timeout=_TIMEOUT, headers={"User-Agent": _UA}) as session:
-                async with session.get(url, allow_redirects=False) as response:
+                async with session.get(url, allow_redirects=False, proxy=proxy) as response:
                     if response.status != 200:
                         logging.getLogger("ultron.world").warning("provider_status host=%s status=%s",urlsplit(url).hostname,response.status)
                         raise web.HTTPBadGateway(
@@ -292,26 +298,92 @@ async def search(request: web.Request) -> web.Response:
     # Geocoding uses rate-limited community Photon, never guesses an address.
     import re
     query = re.sub(r"[\x00-\x1f]+", " ", query)
-    data = await _upstream("https://photon.komoot.io/api/?" + urlencode({"q": query, "limit": 5}),
+    # Turkish island/country names can rank unrelated same-name neighbourhoods
+    # above the country. Translate the *query*, never invent coordinates.
+    aliases = {"kıbrıs": "Cyprus", "kibris": "Cyprus", "türkiye": "Turkey", "turkiye": "Turkey", "avrupa": "Europe"}
+    requested = aliases.get(query.casefold(), query)
+    country = requested in {"Cyprus", "Turkey"}
+    data = await _upstream("https://photon.komoot.io/api/?" + urlencode({"q": requested, "limit": 5}),
                            key="search:" + query.casefold(), ttl=3600)
     hits = []
     for item in (data.get("features") or [])[:5]:
         prop, coord = item.get("properties") or {}, (item.get("geometry") or {}).get("coordinates") or []
+        if country and prop.get('type') != 'country':
+            continue
         if len(coord) != 2:
             continue
         try:
             lon, lat = float(coord[0]), float(coord[1])
-            if not all(map(math.isfinite, (lon, lat))):
+            if not all(map(math.isfinite, (lon, lat))) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
                 continue
         except (TypeError, ValueError):
             continue
-        label = ", ".join(str(prop.get(k)) for k in ("name", "city", "state", "country")
-                          if prop.get(k))
-        hits.append({"lat": lat, "lon": lon, "label": label[:160]})
+        label = ", ".join(dict.fromkeys(str(prop.get(k)) for k in ("name", "city", "state", "country")
+                                       if prop.get(k)))
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            continue
+        if any(abs(hit['lat']-lat)<.02 and abs(hit['lon']-lon)<.02 for hit in hits):
+            continue  # One locality can be returned with multiple OSM geometries.
+        hits.append({"lat": lat, "lon": lon, "label": label[:160],
+                     "kind": str(prop.get('type') or prop.get('osm_value') or '')[:40]})
     return web.json_response({"source": "Photon/OSM", "results": hits})
 
 
+def earth_layers_config() -> dict[str, Any]:
+    """Public client configuration only. Never publish API credentials.
+
+    Satellite templates are operator-provided public CORS endpoints. A license
+    assertion and attribution are mandatory; this is not a license purchase.
+    No arbitrary URL is fetched/proxied by this endpoint.
+    """
+    satellite: dict[str, Any] = {"available": False, "reason": "Lisanslı uydu kaynağı yapılandırılmadı"}
+    template = os.environ.get('GOLGE_SATELLITE_TILE_URL', '')
+    attribution = os.environ.get('GOLGE_SATELLITE_ATTRIBUTION', '')[:160]
+    try:
+        url = urlsplit(template)
+        host = (url.hostname or '').lower()
+        try:
+            public = ipaddress.ip_address(host).is_global
+        except ValueError:
+            public = bool('.' in host and not host.endswith(('.localhost', '.local', '.internal', '.test')))
+        valid = (len(template) <= 400 and url.scheme == 'https' and public and host != 'localhost'
+                 and url.port in (None, 443) and not url.username and not url.password
+                 and not url.query and not url.fragment
+                 and all(url.path.count(token) == 1 for token in ('{z}', '{x}', '{y}'))
+                 and bool(re.fullmatch(r'/[A-Za-z0-9_./{}-]+\.(?:png|jpg|jpeg|webp)', url.path)))
+        if valid and attribution.strip() and os.environ.get('GOLGE_SATELLITE_LICENSE_APPROVED') == '1':
+            satellite = {"available": True, "url": template, "attribution": attribution,
+                         "max_zoom": 18, "source": "Operator-licensed imagery"}
+    except ValueError:
+        pass
+    return {
+        "MAP": {"available": True, "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                "max_zoom": 19, "attribution": "© OpenStreetMap contributors", "source": "OpenStreetMap · sokak haritası"},
+        "SATELLITE": satellite,
+        "TERRAIN": {"available": False, "reason": "Lisanslı yükseklik / bina verisi yapılandırılmadı"},
+        "WEATHER": {"available": True, "source": "Open-Meteo / MET Norway", "endpoint": "/api/world/weather"},
+        "FLIGHTS": {"available": True, "source": "adsb.lol / adsb.fi", "endpoint": "/api/world/flights"},
+    }
+
+
+async def earth_layers(_request: web.Request) -> web.Response:
+    return web.json_response(earth_layers_config(), headers={"Cache-Control": "no-store"})
+
+
+async def iss(_request: web.Request) -> web.Response:
+    data = await _upstream('https://api.wheretheiss.at/v1/satellites/25544', ttl=10, key='iss')
+    try:
+        lat, lon = float(data['latitude']), float(data['longitude'])
+        if not (math.isfinite(lat) and math.isfinite(lon) and -90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError()
+    except (KeyError, ValueError, TypeError):
+        raise web.HTTPBadGateway(text='{"error":"iss_data_missing"}', content_type='application/json')
+    return web.json_response({'source':'Where the ISS at', 'lat':lat, 'lon':lon, 'retrieved_at':int(time.time())})
+
+
 def add_world_routes(app: web.Application) -> None:
+    app.router.add_get("/api/world/layers", earth_layers)
+    app.router.add_get("/api/world/iss", iss)
     app.router.add_get("/api/world/weather", weather)
     app.router.add_get("/api/world/flights", flights)
     app.router.add_get("/api/world/earthquakes", earthquakes)

@@ -45,6 +45,6 @@ jobs:
         run: npm run build
         working-directory: ultron/frontend
       - name: Dashboard workspace, live CORE and deterministic network contracts
-        run: node --experimental-strip-types --test ultron/frontend/tests/panelIntent.test.mjs ultron/frontend/tests/coreNetwork.test.mjs ultron/frontend/tests/connectionStatus.test.mjs
+        run: node --experimental-strip-types --test ultron/frontend/tests/panelIntent.test.mjs ultron/frontend/tests/coreNetwork.test.mjs ultron/frontend/tests/connectionStatus.test.mjs ultron/frontend/tests/earthIntent.test.mjs ultron/frontend/tests/earthMath.test.mjs
       - name: Cloud PWA fixed-wallpaper and mobile-chat contracts
         run: node --test ultron/cloud_service/test_golge_reference_ui.cjs

@@ -7,7 +7,7 @@ export type HologramConfig={
  scale:number;opacity:number;wireframe:boolean;pulse:boolean;label:string;
 };
 export type EarthMarker={id:string;lat:number;lon:number;label:string;color:string};
-export type EarthState={auto_rotate:boolean;rotation_speed:number;clouds:boolean;atmosphere:boolean;stars:boolean;sun_sync:boolean;grid:boolean;night:boolean;live_iss:boolean;focus_lat:number;focus_lon:number;focus_label:string;markers:EarthMarker[]};
+export type EarthState={auto_rotate:boolean;rotation_speed:number;clouds:boolean;atmosphere:boolean;stars:boolean;sun_sync:boolean;grid:boolean;night:boolean;live_iss:boolean;focus_lat:number;focus_lon:number;focus_label:string;markers:EarthMarker[];layer?:string;camera_distance?:number;map_zoom?:number;focus_revision?:number};
 export type SceneMotion={type:string;speed:number;radius:number;amplitude:number;axis:string};
 export type ScenePhysics={mode:string;gravity:number;velocity:number[];bounce:number;floor:number;started_at?:number|null};
 export type SceneConstraint={type:string;target_id?:string|null;distance:number;speed:number;offset:number[]};

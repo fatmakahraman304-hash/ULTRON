@@ -1,29 +1,17 @@
 import {Activity,Camera,Cloud,Code,FileText,Globe2,MessageSquare,Monitor,Radio,Settings,ShieldCheck,Terminal,Wifi} from 'lucide-react';
-import {useEffect,useState,type CSSProperties,type ReactNode} from 'react';
-import {EarthWatch} from './EarthWatch';
+import {type MutableRefObject,type CSSProperties,type ReactNode} from 'react';
+import {EarthWatch,type EarthView} from './EarthWatch';
+import type {EarthSearch,PlaceHit} from './useEarthActions';
 import {cloudConnection} from './connectionStatus';
 import type {AIStatus,SystemSnapshot} from '../lib/types';
 import type {CoreState,EarthState,Native,StageState} from './runtime';
 
-type Props={system:SystemSnapshot|null;ai:AIStatus|null;health:any;connected:boolean;native:Native|null;devicePresence:any[];notifications:any[];stage:StageState;taskState:CoreState;onBack:()=>void;onOpen:(name:string)=>void;notify:(message:string)=>void;mapRequest?:{id:number;operation:string;args:Record<string,unknown>};composer?:ReactNode};
+type Props={system:SystemSnapshot|null;ai:AIStatus|null;health:any;connected:boolean;native:Native|null;devicePresence:any[];notifications:any[];stage:StageState;taskState:CoreState;onBack:()=>void;onOpen:(name:string)=>void;notify:(message:string)=>void;earthCommand:(op:string,args?:Record<string,unknown>)=>unknown;earthView:MutableRefObject<EarthView|null>;earthSearch?:EarthSearch|null;onChoosePlace:(hit:PlaceHit)=>unknown;composer?:ReactNode};
 const amount=(v:unknown,suffix='')=>typeof v==='number'&&Number.isFinite(v)?`${v.toFixed(1)}${suffix}`:'Kullanılamıyor';
 function safeEvent(value:unknown){return String(value??'').replace(/(api[_ -]?key|token|password|secret|authorization)\s*[:=]\s*[^\s,;]+/gi,'$1=[gizlendi]').replace(/\b(Bearer|Basic)\s+[^\s,;]+/gi,'$1 [gizlendi]').replace(/\b(?:AIza[0-9A-Za-z_-]{20,}|sk-[A-Za-z0-9_-]{16,})\b/g,'[gizlendi]').replace(/[\r\n\t]+/g,' ').slice(0,240);}
 function Device({icon:Icon,title,status,detail,online=false}:{icon:typeof Monitor;title:string;status:string;detail:string;online?:boolean}){return <div className="cc-device"><Icon aria-hidden="true"/><div><b>{title}</b><small>{detail}</small></div><span className={online?'online':''}><i/>{status}</span></div>;}
-export default function ControlCenter({system,ai,health,connected,native,devicePresence,notifications,stage,taskState,onBack,onOpen,notify,mapRequest,composer}:Props){
- const [earth,setEarth]=useState<EarthState>({...stage.earth,grid:true});
- const mapCommand=(operation:string,extra:Record<string,unknown>={})=>{
-  if(operation==='earth_control'){setEarth(previous=>({...previous,...extra} as EarthState));return;}
-  if(operation==='earth_focus'){
-   const lat=Number(extra.lat),lon=Number(extra.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon)){notify('Koordinat geçersiz.');return;}
-   const place=String(extra.place||extra.label||'HEDEF');setEarth(previous=>({...previous,focus_lat:Math.max(-90,Math.min(90,lat)),focus_lon:((lon+180)%360+360)%360-180,focus_label:place,auto_rotate:place.toUpperCase()==='GLOBAL'}));return;
-  }
-  if(operation==='earth_marker_add'){
-   const lat=Number(extra.lat),lon=Number(extra.lon);if(!Number.isFinite(lat)||!Number.isFinite(lon))return;
-   setEarth(previous=>({...previous,markers:[...previous.markers.slice(-19),{id:`local-${Date.now()}`,lat:Math.max(-90,Math.min(90,lat)),lon:((lon+180)%360+360)%360-180,label:String(extra.label||'PIN').slice(0,40),color:'#35caff'}]}));
-  }
-  if(operation==='earth_marker_clear')setEarth(previous=>({...previous,markers:[]}));
- };
- useEffect(()=>{if(mapRequest)mapCommand(mapRequest.operation,mapRequest.args);},[mapRequest]);
+export default function ControlCenter({system,ai,health,connected,native,devicePresence,notifications,stage,taskState,onBack,onOpen,notify,earthCommand,earthView,earthSearch,onChoosePlace,composer}:Props){
+ const earth=stage.earth,mapCommand=earthCommand;
  const phone=devicePresence.find((d:any)=>String(d.device||'').toLowerCase()==='phone'),cloud=cloudConnection(health);
  const source=system?.platform?(system.platform==='Windows'?'Windows laptop':`${system.platform} servis ortamı`):'Telemetri kaynağı';
  const metrics=[{name:'CPU',value:system?.cpu?.percent,detail:system?.cpu?.freq_mhz?amount(system.cpu.freq_mhz,' MHz'):'Sensör bekleniyor'},{name:'RAM',value:system?.ram?.percent,detail:system?.ram?`${amount(system.ram.used_gb)} / ${amount(system.ram.total_gb)} GB`:'Sensör bekleniyor'},{name:'DİSK',value:system?.disk?.percent,detail:system?.disk?`${amount(system.disk.used_gb)} / ${amount(system.disk.total_gb)} GB`:'Sensör bekleniyor'},{name:'GPU',value:system?.gpu?.util,detail:system?.gpu?.name||'Sensör kullanılamıyor'}];
@@ -44,10 +32,10 @@ export default function ControlCenter({system,ai,health,connected,native,deviceP
     <section className="cc-card"><header><Radio/><h2>ZEKA VE SES</h2></header><div className="cc-model"><span>Yerel model</span><b>{ai?.connected&&ai.models?.length?(ai.primary||ai.models[0]):'Bağlı model yok'}</b></div><div className="cc-model"><span>Ses köprüsü</span><b>{native?taskState:'Bu oturumda yok'}</b></div><div className="cc-source"><ShieldCheck/><span>Telemetri kaynağı: {source}. Sensör değerleri tahmin edilmez.</span></div></section>
    </aside>
    <section className="cc-center">
-    <section className="cc-map-card"><header><Globe2/><h2>DÜNYA GÖRÜNÜMÜ</h2><span className="cc-map-kind">3D</span><button disabled title="Canlı uydu haritası için lisanslı harita sağlayıcısı yapılandırılmamış">Uydu · yapılandırılmadı</button></header>
-     <EarthWatch config={earth} showCoreButton={false} showMapButton={false} onCommand={mapCommand}/>
-     <div className="cc-map-footer"><span><i/>STATİK YÜZEY HARİTASI</span><span>{earth.focus_label} · {earth.focus_lat.toFixed(2)}°, {earth.focus_lon.toFixed(2)}°</span></div>
-     <p className="cc-map-note">Fareyle döndür · tekerlekle yakınlaş · konum seç. Canlı uydu, hava durumu ve uçuş sağlayıcısı yapılandırılmadı.</p>
+    <section className="cc-map-card"><header><Globe2/><h2>DÜNYA GÖRÜNÜMÜ</h2><span className="cc-map-kind">3D</span><span className="cc-map-online">ORTAK SAHNE</span></header>
+     <EarthWatch config={earth} showCoreButton={false} showMapButton={false} onCommand={mapCommand} viewMemory={earthView} search={earthSearch} onChoose={onChoosePlace}/>
+     <div className="cc-map-footer"><span><i/>KAYNAK DURUMU HARİTADA</span><span>{earth.focus_label} · {earth.focus_lat.toFixed(2)}°, {earth.focus_lon.toFixed(2)}°</span></div>
+     <p className="cc-map-note">Fareyle döndür · tekerlekle yakınlaş · konum seç. Katmanlar yalnızca gerçek kaynak yanıtıyla gösterilir.</p>
     </section>
     {composer}
    </section>

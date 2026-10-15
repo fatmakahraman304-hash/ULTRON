@@ -1,3 +1,12 @@
+## 2026-10-16 — PR #44 CORE/Dünya doğrulaması
+
+- Yerel odaklı otomatik set: **54 PASS / 0 FAIL** (24 frontend intent/CORE/geo/bağlantı, 1 lazy bundle, 11 backend Earth/lisans/geocoding, 16 Cloud WORLD/mobil sözleşmesi, 2 gerçek Chromium sahne/mobil testi). Minimal UI, TypeScript/Vite build, Python compile, YAML, diff PASS; npm audit 0 zafiyet.
+- Ayrı gerçek izole backend/WebGL kabulü: **10 kontrol PASS**, tek WebSocket/sohbet korunumu, gerçek Photon Kıbrıs/Lefkoşa, doğru kamera, OSM tile HTTP 200, çift sahneden tek canvas'a temizlik, auth/Origin, mobil sabit fotoğraf ve shader kontrolleri. Bu fiziksel cihaz testi değildir.
+- Open-Meteo HTTP 200 (0,771 sn) ve adsb.lol HTTP 200 (0,681 sn) tek ölçümler; kaynaklı gerçek UI ekranları kaydedildi. Uydu/terrain BLOCKED, lisans yok. Ana kaynak/sonuç JSON'ları docs/ui-v7/ altında.
+- Gerçek model endpoint'i: UNAVAILABLE; Qwen/Gemini **BLOCKED**. Native köprü yapay genlik/transkript testi **4 sözleşme PASS (SİMÜLASYON)**. Fiziksel mikrofon/TTS, iPhone ve Windows/RTX **NOT RUN**.
+- SwiftShader / CPU compositor kayıt sırasında RAF p50 178,2 ms, p95 198,0 ms; 60 FPS bu ortamda sağlanmadı. Gerçek laptop FPS/VRAM NOT RUN. Görsel kabul REVIEW_REQUIRED. Başlangıçtaki ülke/odak/kamera/zoom hataları düzeltildi; test sürücüsünün Origin/başlangıç/geçiş örneklemesi de düzeltildi.
+- PR taslak, production değişmedi, Render deploy yapılmadı. Ayrıntılı galeri ve yöntem: docs/GOLGE_EARTH_V7.md.
+
 ## 2026-10-15 — PR #44 referans düzeltmesi / doğrulama
 
 - Temiz başlangıç: PR #44 HEAD 8bb6000a608a853dbf22ebbc08fb721e526b95cc, aynı geliştirme dalı; uzak dal da doğrulandı. Üretim dalı değiştirilmedi.

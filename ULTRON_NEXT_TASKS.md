@@ -1,3 +1,11 @@
+## PR #44 — CORE/Dünya son doğrulama ve fiziksel kabul
+
+1. docs/GOLGE_EARTH_V7.md ve docs/ui-v7/ gerçek ekran/kayıtlarını incele. Etiketli sentetik ses testi mikrofon/TTS başarısı değildir; yeni sohbet ekranlarında gerçek sahne cevapları ve model UNAVAILABLE sonucu vardır.
+2. Yetkili Windows laptopta mevcut bridge/Ollama/Qwen ve Cloud eşleşmesini doğrula. Bu yürütücüde VPN/model kimliği yok; internete Ollama açma veya model indirme. Native PCM/TTS RMS, kesme ve ses transkriptinden Dünya/CORE komutlarını ölç.
+3. RTX'te gerçek FPS/VRAM, gizli sekme, düşük kalite ve 20+ geçiş; iPhone'da gerçek klavye/mic/PWA/uzun dinleme. SwiftShader kayıt ölçümü p50 178,2 ms/p95 198,0 ms; bu ortamda 60 FPS yok. Fiziksel donanım NOT RUN.
+4. Uydu/terrain ancak gerçek veri lisansı ve güvenli kaynak ile etkinleşebilir. Varsayılan uydu BLOCKED; MAP gerçek OSM sokak haritasıdır. Ücretli sağlayıcı otomatik açılmaz.
+5. PR #44 taslak kalsın; mevcut diğer PR bağımlılıklarına dokunma. Kullanıcının ayrı açık onayı olmadan production merge veya Render deploy yapma.
+
 ## PR #44 — Tasarım incelemesi ve gerçek cihaz/model engelleri
 
 1. `docs/GOLGE_V5_VISUAL_REVIEW.md` ve `docs/ui-v5/` altındaki yeni gerçek uygulama kayıtlarını incele. Dolu sohbet örnekleri görünür SENTETİK SOHBET etiketi taşır; tasarım kabulünü teknik test sonucundan çıkarma.

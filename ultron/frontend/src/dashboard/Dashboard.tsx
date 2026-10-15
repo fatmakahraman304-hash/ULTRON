@@ -5,6 +5,10 @@ import {useUltron,request,type CoreState} from './runtime';
 import {Panel,ModelPanel,ToolPanel} from './Panels';
 import {resolvePanelIntent} from './panelIntent';
 import {chatChannel} from './connectionStatus';
+import {resolveEarthIntent} from './earthIntent';
+import {useEarthActions} from './useEarthActions';
+import type {EarthView} from './EarthWatch';
+import './earth-engine.css';
 import {SystemRail,FileDrop} from './ReferencePanels';
 const ControlCenter=lazy(()=>import('./ControlCenter'));
 import MessageText from './MessageText';
@@ -18,7 +22,8 @@ export default function Dashboard(){
  const [sceneRequest,setSceneRequest]=useState<{id:number;text:string}>();
  const [stageBundleReady,setStageBundleReady]=useState(false);
  const u=useUltron(),[devDraft,setDevDraft]=useState(''),[modal,setModal]=useState(''),[model,setModel]=useState(''),[input,setInput]=useState(''),[command,setCommand]=useState(''),[busy,setBusy]=useState(false),[localState,setLocalState]=useState<CoreState>('IDLE'),[clock,setClock]=useState(new Date()),[hologram,setHologram]=useState(false),[compact,setCompact]=useState(false),[extra,setExtra]=useState(''),[mode,setMode]=useState('general'),[workspace,setWorkspace]=useState<'chat'|'control-center'>('chat'),[isMobile,setIsMobile]=useState(false);
- const [controlMapRequest,setControlMapRequest]=useState<{id:number;operation:string;args:Record<string,unknown>}>();
+ const earthView=useRef<EarthView|null>(null);
+ const earth=useEarthActions(u.stage,isMobile,operation=>{setHologram(false);setModal('');if(operation==='reset')setWorkspace('chat')});
  const messages=useRef<HTMLDivElement>(null),abort=useRef<AbortController|null>(null),errorTimer=useRef<ReturnType<typeof setTimeout>|undefined>(undefined),mobileFilePicker=useRef<()=>void>(()=>{});
  const voiceRouteSeen=useRef<string|null>(''),typedRouteSeen=useRef('');
  useEffect(()=>{const timer=setInterval(()=>setClock(new Date()),1000);return()=>{clearInterval(timer);clearTimeout(errorTimer.current);abort.current?.abort();};},[]);
@@ -29,7 +34,7 @@ export default function Dashboard(){
  const notify=(message:string)=>{u.setNotice(message);setLocalState('ERROR');clearTimeout(errorTimer.current);errorTimer.current=setTimeout(()=>setLocalState('IDLE'),1800);};
  const stageIntent=async(raw:string)=>{
   const t=raw.toLocaleLowerCase('tr-TR').replace(/[’']/g,'').replace(/\s+/g,' ').trim();
-  const action=async(operation:string,extra:Record<string,unknown>={})=>{if(workspace==='control-center'&&operation.startsWith('earth_')){setControlMapRequest({id:Date.now(),operation,args:extra});return {ok:true};}return await request('/api/stage/command',{operation,...extra});};
+  const action=async(operation:string,extra:Record<string,unknown>={})=>{return await request('/api/stage/command',{operation,...extra});};
   const color=(()=>{
    if(/kırmızı|kirmizi|red/.test(t))return '#ff3047';if(/cyan|turkuaz/.test(t))return '#35ffe4';
    if(/mavi|blue/.test(t))return '#268bff';if(/yeşil|yesil|green/.test(t))return '#25ff8a';
@@ -50,39 +55,6 @@ export default function Dashboard(){
   if(/(?:videoyu|video).*(?:oynat|devam|play)/.test(t)){await action('video_play');return 'Video oynatılıyor.';}
   if(/(?:videoyu|video).*(?:kaydet|indir)/.test(t)){await action('video_save');return 'Video kaydetme penceresi açıldı.';}
   if(/(?:hologramı|hologrami|tasarımı|tasarimi).*(?:kaydet|indir)/.test(t)){await action('hologram_save');return 'Hologram projesi kaydediliyor.';}
-
-  if(/(?:2d|normal|sokak|uydu|detaylı|detayli).*?(?:harita|dünya|dunya)|(?:harita|dünya|dunya).*?(?:2d|normal|sokak|uydu|mahalle|bina)|(?:haritayı|haritayi|harita).*?(?:aç|ac|göster|goster)/.test(t)){await action('world_map');return 'GÖLGE WORLD 2D haritası ve gerçek zamanlı veriler CORE üzerinde açıldı.';}
-  if(/(?:3d\s*dünya|3d\s*dunya|earth watch|global monitor|normal\s*3d\s*dünya|normal\s*3d\s*dunya|dünyayı\s*(?:aç|ac|göster|goster|izle)|dunya(?:yı|yi)\s*(?:aç|ac|göster|goster|izle))/.test(t)){await action('earth_open');return 'EARTH WATCH açıldı.';}
-  const earthMode=u.stage.mode==='earth_watch'||workspace==='control-center';
-  if(earthMode){
-   const places:Array<[RegExp,string,number,number]>= [
-    [/(?:türkiye|turkiye|turkey)/,'TÜRKİYE',39,35],
-    [/(?:kıbrıs|kibris|cyprus)/,'KIBRIS',35.13,33.43],
-    [/(?:istanbul)/,'İSTANBUL',41.01,28.98],
-    [/(?:londra|london)/,'LONDON',51.5074,-.1278],
-    [/(?:new york|nyc)/,'NEW YORK',40.7128,-74.006],
-    [/(?:tokyo|tokyo)/,'TOKYO',35.6762,139.6503],
-    [/(?:avrupa|europe)/,'EUROPE',50,15]
-   ];
-   const place=places.find(([re])=>re.test(t));
-   const coords=t.match(/(-?\d+(?:[.,]\d+)?)\s*(?:,|\s)\s*(-?\d+(?:[.,]\d+)?)\s*(?:koordinat|coordinate|enlem|lat|°)?/);
-   if(place&&/(?:git|dön|don|odaklan|göster|goster|yaklaş|yaklas|focus|zoom)/.test(t)){await action('earth_focus',{place:place[1],lat:place[2],lon:place[3]});return place[1]+' konumuna odaklanıldı.';}
-   if(coords&&/(?:koordinat|enlem|boylam|lat|lon|odaklan|focus|git)/.test(t)){const lat=Number(coords[1].replace(',','.')),lon=Number(coords[2].replace(',','.'));await action('earth_focus',{place:'COORDINATE',lat,lon});return lat.toFixed(3)+', '+lon.toFixed(3)+' koordinatına odaklanıldı.';}
-   if(/(?:güneş|gunes|sun).*(?:kapat|sabit|senkronu durdur|utc.*kapat)/.test(t)){await action('earth_control',{sun_sync:false});return 'UTC Güneş senkronu kapatıldı.';}
-   if(/(?:güneş|gunes|sun).*(?:utc|gerçek zaman|gercek zaman|senkron|aktif et|aç|ac)/.test(t)){await action('earth_control',{sun_sync:true});return 'Earth Watch UTC Güneş aydınlatması açıldı.';}
-   if(/(?:iss|uzay istasyonu).*(?:göster|goster|aç|ac|izle|takip)/.test(t)){await action('earth_control',{live_iss:true});return 'Canlı ISS takibi açıldı.';}
-   if(/(?:iss|uzay istasyonu).*(?:kapat|gizle|durdur)/.test(t)){await action('earth_control',{live_iss:false});return 'ISS takibi kapatıldı.';}
-   if(/(?:gece modu|night mode|gece görünümü|gece gorunumu).*(?:aç|ac|geç|gec|aktif)?/.test(t)){await action('earth_control',{night:true});return 'Earth Watch gece moduna geçti.';}
-   if(/(?:gündüz modu|gunduz modu|day mode)/.test(t)){await action('earth_control',{night:false});return 'Earth Watch gündüz moduna geçti.';}
-   if(/(?:enlem|boylam|lat.?lon).*(?:grid|ızgara|izgara).*(?:aç|ac|göster|goster)/.test(t)){await action('earth_control',{grid:true});return 'Enlem-boylam ızgarası açıldı.';}
-   if(/(?:grid|ızgara|izgara).*(?:kapat|gizle)/.test(t)){await action('earth_control',{grid:false});return 'Dünya ızgarası kapatıldı.';}
-   if(/(?:bulut|cloud).*(?:kapat|gizle)/.test(t)){await action('earth_control',{clouds:false});return 'Bulut katmanı kapatıldı.';}
-   if(/(?:bulut|cloud).*(?:aç|ac|göster|goster)/.test(t)){await action('earth_control',{clouds:true});return 'Bulut katmanı açıldı.';}
-   if(/(?:dünya|dunya).*(?:dönmeyi|donmeyi|dönüşü|donusu|rotasyonu).*(?:durdur|kapat)/.test(t)){await action('earth_control',{auto_rotate:false});return 'Dünya otomatik dönüşü durduruldu.';}
-   if(/(?:dünya|dunya).*(?:dönsün|donsun|döndür|dondur|rotasyon).*(?:başlat|baslat|aç|ac)?/.test(t)){await action('earth_control',{auto_rotate:true});return 'Dünya otomatik dönüşü açıldı.';}
-   if(place&&/(?:pin|işaret|isaret|marker).*(?:koy|ekle|işaretle|isaretle)/.test(t)){await action('earth_marker_add',{label:place[1],lat:place[2],lon:place[3],color:color||'#ff334d'});return place[1]+' için Dünya üzerine pin eklendi.';}
-   if(/(?:pin|işaret|isaret|marker).*(?:temizle|sil|kaldır|kaldir)/.test(t)){await action('earth_marker_clear');return 'Earth Watch pinleri temizlendi.';}
-  }
 
   const sceneMode=u.stage.mode==='scene_lab';
   const selected=sceneMode?u.stage.scene.objects.find(o=>o.id===u.stage.scene.selected_id):undefined;
@@ -350,7 +322,7 @@ export default function Dashboard(){
   return 'both';
  };
  const workspaceIntent=async(raw:string):Promise<string>=>{
-  if(workspace==='control-center'&&/uydu.*harita|satellite.*map/i.test(raw))return 'Canlı uydu haritası için lisanslı bir sağlayıcı yapılandırılmadı. Etkileşimli 3D Dünya açık kaldı.';
+
   const w=resolvePanelIntent(raw);
   if(!w)return '';
   if(w==='control-center'){
@@ -359,7 +331,7 @@ export default function Dashboard(){
   }
   if(w==='chat'){if(workspace==='control-center'){setWorkspace('chat');setModal('');return 'Normal sohbet açıldı.';}setModal('');setHologram(false);if(u.stage.mode!=='core_idle')await request('/api/stage/command',{operation:'reset'});return 'Ana ekran açıldı.';}
   if(w==='hologram'){setModal('');setHologram(true);return 'Hologram Lab açıldı.';}
-  if(w==='world'){const op=/(?:2d|harita|sokak)/i.test(raw)?'world_map':'earth_open';await request('/api/stage/command',{operation:op});setModal('');setHologram(false);return op==='world_map'?'Dünya haritası açıldı.':'3D Dünya açıldı.';}
+  if(w==='world'){if(/uydu|satellite/i.test(raw))return await earth.command('earth_layer',{layer:'SATELLITE'});if(isMobile)return 'Dünya görünümü laptop ekranında kullanılabilir.';const op=/(?:2d|harita|sokak)/i.test(raw)?'world_map':'earth_open';const reply=await earth.command(op==='world_map'?'earth_layer':'earth_open',op==='world_map'?{layer:'MAP'}:{});setModal('');setHologram(false);return reply;}
   if(w==='memory'){open('Hafıza');return 'Hafıza açıldı.';}
   if(w==='remote'){open('Kontroller');return 'Cihaz kontrolleri açıldı.';}
   if(w==='develop'){open('Geliştir');u.native?.devRefresh?.();return 'Geliştirme alanı açıldı.';}
@@ -369,6 +341,8 @@ export default function Dashboard(){
  };
  const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
    typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();
+   const earthIntent=resolveEarthIntent(text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
+   if(earthIntent){u.add('user',text);try{u.add('assistant',await earth.command(earthIntent.operation,earthIntent.args));}catch(e){notify((e as Error).message)}return;}
    if(sceneIntent(text,hologram)){u.add('user',text);setHologram(true);setModal('');setSceneRequest(prev=>({id:(prev?.id||0)+1,text}));return;}
    if(resolvePanelIntent(text)){
      u.add('user',text);
@@ -401,7 +375,8 @@ export default function Dashboard(){
    voiceRouteSeen.current=id;
    if(latest.text.toLocaleLowerCase('tr-TR').trim()===typedRouteSeen.current){typedRouteSeen.current='';return;}
    if(sceneIntent(latest.text,hologram)){setHologram(true);setModal('');setSceneRequest(prev=>({id:(prev?.id||0)+1,text:latest.text}));return;}
-   if(workspace==='control-center'&&/(?:odaklan|yaklaş|yaklas|focus|zoom)/i.test(latest.text)){void stageIntent(latest.text).then(reply=>{if(reply)u.add('assistant',reply)}).catch(e=>notify((e as Error).message));return;}
+   const earthIntent=resolveEarthIntent(latest.text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
+   if(earthIntent){void earth.command(earthIntent.operation,earthIntent.args).then(reply=>u.add('assistant',reply)).catch(e=>notify((e as Error).message));return;}
    if(!resolvePanelIntent(latest.text))return;
    void workspaceIntent(latest.text).then(reply=>{if(reply)u.add('assistant',reply)}).catch(e=>notify((e as Error).message));
  },[u.messages,workspace,isMobile]);
@@ -416,7 +391,7 @@ export default function Dashboard(){
  <button onClick={()=>open('Ayarlar')}><Settings/>Ayarlar</button><button onClick={()=>open('Kontroller')}><Gamepad2/>Kontroller</button>
  <button onClick={holo}><Box/>Hologram Çalışma Alanı</button><button onClick={()=>open('Dosyalar')}><Folder/>Dosyalar</button><button onClick={()=>open('Araçlar')}><Wrench/>Araçlar</button><button onClick={()=>open('Eklentiler')}><Puzzle/>Eklentiler</button><button onClick={()=>{open('Geliştir');u.native?.devRefresh?.()}}><Code/>KENDİNİ GELİŞTİR</button>
  </nav><span className={'golge-connection '+(u.connected||u.native?'connected':'')} role="status"><i/>{u.connected?'Servis bağlı':u.native?'Ses köprüsü bağlı':'Bağlantı bekleniyor'}</span><button className="cc-mode-toggle" aria-label={workspace==='control-center'?'Normal sohbete dön':'Kontrol merkezini aç'} aria-pressed={workspace==='control-center'} onClick={()=>{if(isMobile){u.add('assistant','Kontrol merkezi laptop ekranında kullanılabilir; bu cihazda sohbet açık kaldı.');return;}setWorkspace(workspace==='control-center'?'chat':'control-center')}}><PanelsTopLeft/>{workspace==='control-center'?'Sohbet':'Kontrol Merkezi'}</button><button className="voice-first-mic" aria-label={u.muted?'Mikrofonu aç':'Mikrofonu kapat'} disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>} {u.muted?'Mikrofon':'Dinliyor'}</button><button className="voice-first-menu" aria-label="Çalışma alanlarını aç" onClick={()=>open('Araçlar')}><Grid2X2/> Araçlar</button><time>{clock.toLocaleTimeString('tr-TR')}<small>{clock.toLocaleDateString('tr-TR',{day:'2-digit',month:'short',year:'numeric'})}<br/>{clock.toLocaleDateString('tr-TR',{weekday:'long'})}</small></time><button className="power" aria-label="GÖLGE'yi kapat" disabled={!u.native} onClick={()=>u.native?.action('shutdown')}><Power/></button></header>
- <main className={'main-grid '+(workspace==='control-center'?'control-center-grid':'')}>{workspace==='control-center'?<Suspense fallback={<div className="center-stage-loading" role="status">Kontrol merkezi hazırlanıyor…</div>}><ControlCenter system={u.system} ai={u.ai} health={u.health} connected={u.connected} native={u.native} devicePresence={u.devicePresence} notifications={u.notifications} stage={u.stage} taskState={state} composer={<form className="composer cc-composer" onSubmit={e=>{e.preventDefault();void send();}}><input aria-label="Kontrol merkezi komutu" value={input} onChange={e=>setInput(e.target.value)} placeholder="GÖLGE, Kıbrıs'a odaklan…"/><button type="button" className="composer-mic" aria-label="Kontrol merkezi mikrofonu" disabled={!u.native} onClick={()=>u.native?.action('mute')}><Mic/></button><button aria-label="Kontrol komutunu gönder" disabled={busy||!input.trim()}><Send/></button></form>} mapRequest={controlMapRequest} onBack={()=>setWorkspace('chat')} onOpen={open} notify={notify}/></Suspense>:<>{!isMobile&&<><aside className="golge-navigation" aria-label="GÖLGE çalışma alanları">
+ <main className={'main-grid '+(workspace==='control-center'?'control-center-grid':'')}>{workspace==='control-center'?<Suspense fallback={<div className="center-stage-loading" role="status">Kontrol merkezi hazırlanıyor…</div>}><ControlCenter system={u.system} ai={u.ai} health={u.health} connected={u.connected} native={u.native} devicePresence={u.devicePresence} notifications={u.notifications} stage={u.stage} taskState={state} composer={<form className="composer cc-composer" onSubmit={e=>{e.preventDefault();void send();}}><input aria-label="Kontrol merkezi komutu" value={input} onChange={e=>setInput(e.target.value)} placeholder="GÖLGE, Kıbrıs'a odaklan…"/><button type="button" className="composer-mic" aria-label="Kontrol merkezi mikrofonu" disabled={!u.native} onClick={()=>u.native?.action('mute')}><Mic/></button><button aria-label="Kontrol komutunu gönder" disabled={busy||!input.trim()}><Send/></button></form>} earthCommand={(op,args)=>earth.command(op,args).then(reply=>{u.setNotice(reply)}).catch(e=>notify((e as Error).message))} earthView={earthView} earthSearch={earth.search} onChoosePlace={hit=>earth.choose(hit).catch(e=>notify((e as Error).message))} onBack={()=>setWorkspace('chat')} onOpen={open} notify={notify}/></Suspense>:<>{!isMobile&&<><aside className="golge-navigation" aria-label="GÖLGE çalışma alanları">
  <button className={!modal?'current':''} onClick={()=>{setModal('');document.querySelector<HTMLInputElement>('.chat-panel input[aria-label="Mesaj"]')?.focus()}}><MessageSquare/>Sohbet</button>
  <button onClick={()=>open('Hafıza')}><Calendar/>Geçmiş</button>
  <button onClick={()=>open('Dosyalar')}><Files/>Belgeler</button>
@@ -424,7 +399,7 @@ export default function Dashboard(){
  <button onClick={()=>open('Ayarlar')}><Settings/>Ayarlar</button>
  <div className="nav-status"><i className={u.connected?'online':''}/><div>GÖLGE<small>{u.connected?'Backend bağlı':'Servis bekleniyor'}</small></div></div>
  </aside><SystemRail system={u.system} history={u.history} health={u.health} connected={u.connected}/>
- <section className="reactor-panel metal-frame"><div className="core-topline"><span><i/>GÖLGE CORE</span><span>ETKİLEŞİMLİ HOLOGRAM</span></div>{stageBundleReady?<Suspense fallback={<div className="center-stage-loading" role="status">3D çekirdek hazırlanıyor</div>}><CenterStage stage={u.stage} state={state} amplitude={u.amplitude} notify={notify} openNativeVideo={u.native?.videoRequest?()=>u.native?.videoRequest?.('open_file',''):undefined}/></Suspense>:<div className="center-stage-loading" role="status">3D çekirdek hazırlanıyor</div>}{u.stage.mode==='core_idle'&&<div className="golge-stage-caption" role="status"><strong>GÖLGE</strong><span>{coreCaption}</span><div className="core-waveform" aria-hidden="true">{Array.from({length:37},(_,i)=><i key={i} style={{height:2+Math.max(0,Math.min(1,u.amplitude))*26*(.25+.75*Math.sin(i*1.7)**2)}}/>)}</div></div>}{u.stage.mode==='core_idle'&&<><div className="subsystems left">{chipsLeft.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div><div className="subsystems right">{chipsRight.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div></>}{!u.connected&&<div className="offline" role="status">Yerel servisle bağlantı kuruluyor</div>}</section></>}
+ <section className="reactor-panel metal-frame">{u.stage.mode==='core_idle'&&<div className="core-topline"><span><i/>GÖLGE CORE</span><span>ETKİLEŞİMLİ HOLOGRAM</span></div>}{stageBundleReady?<Suspense fallback={<div className="center-stage-loading" role="status">3D çekirdek hazırlanıyor</div>}><CenterStage stage={u.stage} earthCommand={(op,args)=>earth.command(op,args).then(reply=>{u.setNotice(reply)}).catch(e=>notify((e as Error).message))} earthView={earthView} earthSearch={earth.search} onChoosePlace={hit=>earth.choose(hit).catch(e=>notify((e as Error).message))} state={state} amplitude={u.amplitude} notify={notify} openNativeVideo={u.native?.videoRequest?()=>u.native?.videoRequest?.('open_file',''):undefined}/></Suspense>:<div className="center-stage-loading" role="status">3D çekirdek hazırlanıyor</div>}{u.stage.mode==='core_idle'&&<div className="golge-stage-caption" role="status"><strong>GÖLGE</strong><span>{coreCaption}</span><div className="core-waveform" aria-hidden="true">{Array.from({length:37},(_,i)=><i key={i} style={{height:2+Math.max(0,Math.min(1,u.amplitude))*26*(.25+.75*Math.sin(i*1.7)**2)}}/>)}</div></div>}{u.stage.mode==='core_idle'&&<><div className="subsystems left">{chipsLeft.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div><div className="subsystems right">{chipsRight.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div></>}{!u.connected&&<div className="offline" role="status">Yerel servisle bağlantı kuruluyor</div>}</section></>}
  <aside className="right-panels"><Panel title="SOHBET" icon={<MessageSquare/>} className="chat-panel" extra={<button disabled={busy} onClick={()=>u.setMessages([])}><Trash2/>Temizle</button>}><div className="messages" ref={messages}>{!u.messages.length&&<p className="chat-empty"><strong>Birlikte başlayalım.</strong>{u.connected?'Bir şey sor, bir fikir paylaş ya da bir görev ver.':'Yerel GÖLGE servisi açık olduğunda sohbet burada devam eder.'}</p>}{u.messages.map(m=><article className={'message '+m.role} key={m.id}><header className="message-meta"><b>{m.role==='user'?'Sen':'GÖLGE'}</b><time>{new Date(m.time).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</time></header><div className="message-content"><MessageText text={m.text}/></div></article>)}{busy&&<p className="muted">Yanıt hazırlanıyor…</p>}</div><form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><button type="button" className="mobile-attach" aria-label="Dosya veya görsel ekle" onClick={()=>mobileFilePicker.current()}><Paperclip/></button><input aria-label="Mesaj" value={input} onChange={e=>setInput(e.target.value)} placeholder="GÖLGE'ye bir şey söyle…"/><button type="button" className="composer-mic" aria-label={u.muted?'Mikrofonu aç':'Mikrofonu kapat'} disabled={!u.native} title={u.native?'Yerel mikrofon':'Sesli giriş için yerel GÖLGE köprüsü gerekir'} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>}</button><button aria-label="Gönder" disabled={disabledSend||!input.trim()}><Send/></button></form></Panel>
  <FileDrop pickerRef={mobileFilePicker} notify={notify} ask={send} nativeFile={u.native?()=>u.native?.action('file'):undefined}/>
  <Panel title="KOMUT" icon={<Command/>} className="command-panel"><form onSubmit={e=>{e.preventDefault();void send(command);}}><button type="button" className="mic-circle" aria-label="Mikrofon" disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>}</button><input aria-label="Komut" value={command} onChange={e=>setCommand(e.target.value)} placeholder="Komut yaz…"/><button aria-label="Komutu gönder" disabled={disabledSend||!command.trim()}><Send/></button></form><button className="interrupt" onClick={stop}><Square/>KONUŞMAYI DURDUR <span>[ESC]</span></button><button className={'voice-status '+(u.native&&!u.muted?'active':'')} disabled={!u.native} onClick={()=>u.native?.action('mute')}><Mic/>{u.native?(u.muted?'MİKROFON KAPALI':state==='THINKING'?'İŞLENİYOR':'MİKROFON AKTİF'):'MİKROFON N/A'}</button></Panel></aside></>}

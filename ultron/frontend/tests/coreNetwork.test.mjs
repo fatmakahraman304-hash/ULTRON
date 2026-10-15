@@ -42,7 +42,7 @@ test("desktop CORE uses live Three.js buffers and the real audio amplitude input
   const fs=await import('node:fs');
   const source=fs.readFileSync(new URL('../src/dashboard/GolgeOrb.tsx',import.meta.url),'utf8');
   assert.match(source,/new THREE\.WebGLRenderer/);
-  assert.match(source,/buildCoreNetwork\(1400\)/);
+  assert.match(source,/buildCoreNetwork\(constrained\?1400:2200\)/);
   assert.match(source,/new THREE\.LineSegments/);
   assert.match(source,/flowMaterial/);
   assert.match(source,/Number\(d\.amplitude\)/);

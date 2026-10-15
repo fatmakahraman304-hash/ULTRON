@@ -1157,6 +1157,7 @@ async def api_stage_command(req: web.Request) -> web.Response:
         earth = normalize_earth_state(state.get("earth"))
         if "lat" in body: earth["focus_lat"] = earth_number(body.get("lat"), earth["focus_lat"], -85, 85)
         if "lon" in body: earth["focus_lon"] = earth_longitude(body.get("lon"), earth["focus_lon"])
+        earth["layer"] = "MAP"
         state["earth"] = earth
         state.update({"mode":"world_map","title":"GÖLGE WORLD","subtitle":"2D MAP / LIVE GEO","progress":100})
     elif op in {"earth_open", "earth_watch", "world_watch"}:
@@ -1170,6 +1171,11 @@ async def api_stage_command(req: web.Request) -> web.Response:
                 earth[key] = earth_boolean(body[key], earth[key])
         if "rotation_speed" in body:
             earth["rotation_speed"] = earth_number(body["rotation_speed"], earth["rotation_speed"], 0, 1.5)
+        for key, low, high in (("camera_distance", 6, 15), ("map_zoom", 1, 19)):
+            if key in body:
+                earth[key] = earth_number(body[key], earth[key], low, high)
+        if body.get("layer") in {"GLOBAL", "MAP", "SATELLITE", "WEATHER", "FLIGHTS", "LOCATIONS"}:
+            earth["layer"] = body["layer"]
         state["earth"] = earth
         state["mode"] = "earth_watch"
     elif op == "earth_focus":
@@ -1177,8 +1183,16 @@ async def api_stage_command(req: web.Request) -> web.Response:
         earth["focus_lat"] = earth_number(body.get("lat"), earth["focus_lat"], -90, 90)
         earth["focus_lon"] = earth_longitude(body.get("lon"), earth["focus_lon"])
         earth["focus_label"] = earth_text(body.get("place") or body.get("label"), "TARGET")
+        earth["focus_revision"] = (earth["focus_revision"] + 1) % 1_000_000_000
+        earth["camera_distance"] = earth_number(body.get("camera_distance"), 6.8 if earth["focus_label"] != "GLOBAL" else 7.4, 6, 15)
+        earth["map_zoom"] = earth_number(body.get("map_zoom"), earth["map_zoom"], 1, 19)
+        if body.get("layer") in {"GLOBAL", "MAP", "SATELLITE"}:
+            earth["layer"] = body["layer"]
         # Holding a selected region in view takes priority over automatic rotation.
         earth["auto_rotate"] = earth["focus_label"].upper() == "GLOBAL"
+        if earth["auto_rotate"]:
+            earth["night"] = False
+            earth["layer"] = "GLOBAL"
         state["earth"] = earth
         state.update({"mode": "earth_watch", "title": "EARTH WATCH",
                       "subtitle": f"{earth['focus_label']} / TARGET"})
@@ -3968,6 +3982,8 @@ def main() -> None:
     app.router.add_post("/api/tasks/{id}/approve", api_tasks_approve)
     app.router.add_get("/api/models/health", api_models_health)
     app.router.add_get("/api/world", api_world)
+    from ultron.cloud_service.world_api import add_world_routes
+    add_world_routes(app)
     app.router.add_get("/api/vault", api_vault_list)
     app.router.add_get("/api/skills", api_skills)
     app.router.add_get("/api/voice/wake", api_wake_status)

@@ -1,3 +1,10 @@
+## 2026-10-16 — PR #44 ortak CORE / Dünya ve gerçek kaynaklar
+
+- Aynı PR dalında CORE ↔ EarthWatch GPU geçişi, ortak stage.earth/kamera, gerçek Photon/OSM araması, belirsiz konum seçimi, lazy Leaflet sokak haritası ve opsiyonel lisanslı XYZ sözleşmesi uygulandı. Night/day terminatörü, katmanlar, gerçek hava/uçuş ve ISS kaynakları mevcut adaptörlerle bütünleşti.
+- Kıbrıs sorgusunun yanlış mahallelere gitmesi, düşük FPS kamera süresi, aynı konuma tekrar odaklanma ve pikselleşen aşırı küre zoom'u düzeltildi. Şehir ayrıntısı gerçek harita döşemesinde; uydu/terrain yapılandırılmadan başarı denmez.
+- 54 odaklı test + 10 gerçek izole backend/WebGL kabul kontrolü PASS; ayrı 4 sentetik ses/transkript sözleşmesi PASS. Qwen/Gemini BLOCKED, fiziksel Windows/iPhone/mikrofon/TTS NOT RUN. Görsel kabul REVIEW_REQUIRED; SwiftShader'da 60 FPS elde edilmedi.
+- Kanıt/rapor: docs/GOLGE_EARTH_V7.md ve docs/ui-v7/. Open-Meteo, adsb.lol, Photon ve OSM tile gerçek HTTP yanıtları alındı. PR taslak; merge/deploy yok.
+
 ## 2026-10-15 — PR #44 tasarım reddi sonrası gerçek düzeltmeler
 
 - Aynı `feat/golge-v5-interface-control-center-20261015` dalı kullanılıyor; üretim tabanı 6ef3f5d korunuyor. Eski görünüm tamamlanmış tasarım sayılmadı.

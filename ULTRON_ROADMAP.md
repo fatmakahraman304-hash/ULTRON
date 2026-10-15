@@ -1,3 +1,10 @@
+## 2026-10-16 — CORE / Dünya çalışma alanı (PR #44)
+
+- [x] Ortak normal/kontrol merkezi Dünya durumu, kaynak bağlı konum arama ve seçim, gerçek sokak haritası, GPU geçiş/temizlik, UTC terminatör, gerçek hava/uçuş gösterimi.
+- [x] API auth/Origin ve lisanssız uydu sınırları; mevcut kişisel hafıza, agent, approval ve ses köprüsü korunur.
+- [ ] Fiziksel RTX FPS/VRAM, Windows mic/TTS ve iPhone Safari; gerçek Qwen/Gemini modeli.
+- [ ] İsteniyorsa lisanslı uydu/terrain; görsel kabul ve ayrı üretim onayı. Ayrıntı: docs/GOLGE_EARTH_V7.md.
+
 ## 2026-10-15 — PR #44 referans tasarım düzeltmesi
 
 Önceki teknik geçiş tasarım kabulü sayılmadı. Aynı dalda masaüstü menü/CORE/sohbet oranları, yakın-komşulu ağ geometrisi, yıldız ışıkları, enerji halkaları ve projeksiyon tabanı yeniden işlendi. Kontrol merkezi gerçek ölçüm göstergeleri, cihaz listesi, yerel paketlenmiş Dünya dokuları, komutla odak ve sağ olay/kamera/araç sütunuyla düzenlendi. Geometrik mobil SVG kaldırıldı; fotoğraf görünümünde üretilmiş WebP sabit arka plan kullanılıyor. Mevcut runtime, izinli araçlar ve ses genliği köprüsü korunuyor.
