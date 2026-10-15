@@ -101,6 +101,29 @@ def _run(command: list[str], *, cwd: Path, timeout: int = 240) -> tuple[str, str
     return "FAIL", diagnostics
 
 
+def _check_python_types(changed_paths: list[str], *, root: Path) -> dict[str, str]:
+    """Isolated, mandatory mypy gate for all changed Python sources."""
+    python_files = [path for path in changed_paths if path.endswith(".py")]
+    if not python_files:
+        return {"status": "NOT_APPLICABLE", "reason": "no Python files changed"}
+    try:
+        has_mypy = importlib.util.find_spec("mypy") is not None
+    except (ImportError, ValueError):
+        has_mypy = False
+    if not has_mypy:
+        return {"status": "NOT_RUN", "reason": "mypy is not installed in the isolated verifier"}
+    # --no-incremental does not disable mypy's cache writes. The generated
+    # checkout is intentionally read-only in Docker; /tmp is a disposable,
+    # size-limited writable tmpfs there. Never write into the live checkout.
+    command = [sys.executable, "-m", "mypy", "--follow-imports=skip",
+               "--ignore-missing-imports", "--no-error-summary", "--no-incremental",
+               "--cache-dir=/tmp/mypy", *python_files]
+    status, reason = _run(command, cwd=root)
+    # Type-checker crashes and missing runtime support must never be treated
+    # as successful verification or bypassed with a weaker check.
+    return {"status": status, **({"reason": reason} if reason else {})}
+
+
 def complete_verification(proposal: dict, goal: dict, *, root: Path,
                           engine_module, changed_paths: list[str],
                           original_sources: dict[str, str], unit_status: str) -> dict:
@@ -110,20 +133,7 @@ def complete_verification(proposal: dict, goal: dict, *, root: Path,
     gates = preflight(proposal, goal, root=root, engine_module=engine_module)
     gates["unit_test"] = {"status": unit_status}
 
-    try:
-        has_mypy = importlib.util.find_spec("mypy") is not None
-    except (ImportError, ValueError):
-        has_mypy = False
-    python_files = [path for path in changed_paths if path.endswith(".py")]
-    if not has_mypy:
-        gates["type_check"] = {"status": "NOT_RUN", "reason": "mypy is not installed in the isolated verifier"}
-    elif not python_files:
-        gates["type_check"] = {"status": "NOT_APPLICABLE", "reason": "no Python files changed"}
-    else:
-        command = [sys.executable, "-m", "mypy", "--follow-imports=skip",
-                   "--ignore-missing-imports", "--no-error-summary", "--no-incremental", *python_files]
-        status, reason = _run(command, cwd=root)
-        gates["type_check"] = {"status": status, **({"reason": reason} if reason else {})}
+    gates["type_check"] = _check_python_types(changed_paths, root=root)
 
     integration_paths = goal.get("integration_tests", [])
     if not integration_paths:
