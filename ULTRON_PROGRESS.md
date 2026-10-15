@@ -1,3 +1,12 @@
+## 2026-10-15 — PR #44 tasarım reddi sonrası gerçek düzeltmeler
+
+- Aynı `feat/golge-v5-interface-control-center-20261015` dalı kullanılıyor; üretim tabanı 6ef3f5d korunuyor. Eski görünüm tamamlanmış tasarım sayılmadı.
+- CORE'daki uzun yatay bağlantı hatası önce testle yeniden üretildi; gerçek yüzey komşuları, değişken ışık noktaları, cyan/amber parıltıları, dönen enerji halkaları, shader arka plan ve daha güçlü projeksiyon oluşturuldu. 1.400 düğüm / sınırlandırılmış geometri bütçesi korundu.
+- Normal masaüstü düzeni ve kontrol merkezi yeniden tasarlandı. Telefonun geometrik SVG'si kaldırıldı; üretilen fotoğraf görünümündeki dağ/göl WebP'si hem React hem Cloud PWA'da sabit katman oldu (shell v74). Dünya doku/bulut/gece görüntüleri yerelden yükleniyor; canlı uydu sağlayıcısı yoksa açıkça belirtiliyor.
+- Yerel servis bağlantısının Cloud başarısı sayılması düzeltildi. HTTP bağlantısı yokken Qt köprüsü mevcutsa otomatik native sohbet yolu korunuyor; gerçek fiziksel Qt davranışı henüz NOT RUN.
+- Gerçek izole backend, mevcut session/Origin güvenliği, tek WebSocket ve gerçek Linux telemetrisi doğrulandı. `/api/merged/invoke` gerçek istek aldı ancak model yok: UNAVAILABLE. Sağlayıcı başarı sonucu uydurulmadı.
+- Headless SwiftShader'ın varsayılan kompozitöründe dolu sohbeti küçültme sırasında bozuk PNG yakalandı; QA, gerçek WebGL'i CPU kompozitörüyle kaydediyor ve kayıp başlık piksellerini reddediyor. Bu fiziksel RTX doğrulaması değildir. Görsel kabul REVIEW_REQUIRED; Windows/iPhone/mikrofon/TTS NOT RUN.
+
 ## 2026-10-15 — GÖLGE V5 interface and interactive CORE
 
 - Work is isolated on `feat/golge-v5-interface-control-center-20261015`, from GitHub/Render production base `6ef3f5d207fc9430cbbd552988935995529e87f5`; no upstream branch files were overwritten. Draft [PR #44](https://github.com/fatmakahraman304-hash/ULTRON/pull/44) is open and unmerged. Validated code/test commit `41c907056130536b6ec7abb482a4a02bf33e1437` passed exact-head Actions: Responsive Interface #38772280381, Scene Build #38772280054, Cloud/PostgreSQL #38772280060, and Local Qwen Listening #38772280179. An older Scene run failed because a stale test inspected `body`'s removed gradient; the test now verifies the fixed night-lake pseudo-element before and after message scrolling, and its updated Chromium run passes. No merge/deploy was performed.

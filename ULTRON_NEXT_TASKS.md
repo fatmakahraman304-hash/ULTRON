@@ -1,3 +1,11 @@
+## PR #44 — Tasarım incelemesi ve gerçek cihaz/model engelleri
+
+1. `docs/GOLGE_V5_VISUAL_REVIEW.md` ve `docs/ui-v5/` altındaki yeni gerçek uygulama kayıtlarını incele. Dolu sohbet örnekleri görünür SENTETİK SOHBET etiketi taşır; tasarım kabulünü teknik test sonucundan çıkarma.
+2. Yetkili Windows laptopta mevcut Ollama/Qwen kurulumunu ve Qt köprüsünü doğrula. Bu yürütücüde laptop/VPN veya hazır model yok; ağırlık indirme veya internete Ollama açma.
+3. Mevcut Cloud cihaz eşleşmesi ve kullanılabilir model yetkisi sağlanırsa aynı gerçek sohbet kabulünü tekrar çalıştır. API anahtarlarını arayüze/loglara koyma; UNAVAILABLE sonucunu başarı sayma.
+4. Fiziksel iPhone Safari'de sabit fotoğraf, gerçek klavye, uzun sohbet, dosya/mikrofon ve PWA yeniden bağlantısını; Windows'ta gerçek RMS/TTS senkronunu ve RTX yeniden boyutlandırmayı ölç. Headless CPU-kompozitörü kaydı cihaz testi değildir.
+5. PR #44 taslak kalsın. Kullanıcının açık üretim onayı olmadan production merge veya Render deploy yapma. Diğer açık PR bağımlılıklarına dokunma.
+
 ## Next tasks — GÖLGE V5 interface release verification
 
 1. Review draft [PR #44](https://github.com/fatmakahraman304-hash/ULTRON/pull/44); validated code/test commit `41c907056130536b6ec7abb482a4a02bf33e1437` passed exact-head Responsive, Scene, Cloud/PostgreSQL and Local Qwen Listening Actions. Do not merge or deploy without the user's release authorization.

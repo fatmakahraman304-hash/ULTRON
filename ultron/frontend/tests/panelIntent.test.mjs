@@ -10,7 +10,7 @@ test("desktop natural voice/text commands open workspace and go home",()=>{
   ["Hafızamı göster","memory"],["Uzaktan kontrolü aç","remote"],
   ["Geliştirme panelini aç","develop"],["Araçları göster","tools"],
   ["Ayarları aç","settings"],["Ana ekrana dön","chat"],["Paneli kapat","chat"],
-  ["Normal moda dön","chat"],["Sohbet ekranına dön","chat"]
+  ["GÖLGE, normal moda dön.","chat"],["Normal moda dön","chat"],["Sohbet ekranına dön","chat"]
  ];
  for(const [input,result] of cases)assert.equal(resolvePanelIntent(input),result,input);
 });
@@ -28,9 +28,9 @@ test("mobile and desktop share the same conversation intent routing",()=>{
  assert.match(jsx,/matchMedia\('\(max-width:840px\)'\)/);
  assert.match(jsx,/ControlCenter/);
  assert.match(jsx,/!isMobile&&/);
- assert.match(reactCss,/position:fixed;inset:0;z-index:0;background:#03080d url\('\/golge-night-lake\.svg'\)/);
+ assert.match(reactCss,/position:fixed;inset:0;z-index:0;background:#03080d url\('\/golge-night-lake\.webp'\)/);
  assert.match(mobileCss,/position:fixed!important;inset:0!important/);
- assert.match(mobileCss,/\/static\/golge-night-lake\.svg/);
+ assert.match(mobileCss,/\/static\/golge-night-lake\.webp/);
  assert.match(control,/system\?\.cpu\?\.percent/);
  assert.match(control,/devicePresence\.find/);
  assert.match(control,/notifications\.slice/);

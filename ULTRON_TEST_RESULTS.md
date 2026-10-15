@@ -1,3 +1,12 @@
+## 2026-10-15 — PR #44 referans düzeltmesi / doğrulama
+
+- Temiz başlangıç: PR #44 HEAD 8bb6000a608a853dbf22ebbc08fb721e526b95cc, aynı geliştirme dalı; uzak dal da doğrulandı. Üretim dalı değiştirilmedi.
+- Test-first: eski CORE yüzey ağı yerel komşular yerine uzun kirişler üretiyordu; yeni coğrafi-yakınlık testi önce FAIL, düzeltmeden sonra PASS.
+- Odaklı otomatik testler: 14 CORE/intent/bağlantı, 3 Cloud PWA, 6 Earth matematiği, 1 lazy bundle, 5 Earth backend, 2 gerçek Chromium tarayıcı testi = 31 PASS. Ayrı minimal UI sözleşmesi, service-worker syntax, Python compile, YAML/test-yolu kontrolü ve npm ci + TypeScript/Vite build PASS. Mevcut OrbitControls 575.88 kB / 146.13 kB gzip uyarısı sürüyor.
+- Gerçek izole loopback backend mevcut session-cookie / Origin sınırıyla çalıştırıldı. Anonim istek ve yanlış Origin reddedildi. Gerçek HTTP, tek WebSocket, CPU/RAM Linux telemetrisi; görünüm geçişinde sohbetin korunması, Dünya odak/zoom, mobil sabit fotoğraf / ayrı mesaj kaydırma kontrolleri PASS. Görsel akışta 9 kontrol PASS (biri açık demo), 0 React/shader hatası. Rapor ve ekranlar: `docs/ui-v5/`; ayrıntılı koşullar `docs/GOLGE_V5_VISUAL_REVIEW.md`.
+- Gerçek sohbet endpoint'i çağrıldı; sonuç HTTP 200, ok=false, status=UNAVAILABLE (Ollama/model yok, Cloud cihaz bağlantısı yok). Gerçek Qwen/Gemini çıkarımı BLOCKED. Dolu sohbet görüntüleri ayrı, açık SENTETİK SOHBET demo yanıtlarıdır; gerçek provider puanı değildir.
+- İlk görsel iterasyonda bulut alfa kanalı ve CORE başlık/taban çakışması düzeltildi. Varsayılan headless SwiftShader kompozitörü yeniden boyutlandırmada bozuk kare üretti; yalnız QA tarayıcısında CPU kompozitörü kullanıldı. WebGL çizimi gerçek; fiziksel GPU/FPS, iPhone, Windows mikrofon/TTS NOT RUN. Görsel kabul REVIEW_REQUIRED. No merge/deploy.
+
 ## 2026-10-15 — GÖLGE V5 UI and CORE local verification
 
 - Baseline: clean workspace at production commit `6ef3f5d207fc9430cbbd552988935995529e87f5`; new branch `feat/golge-v5-interface-control-center-20261015`. GitHub confirms `feat/ultron-cloud-shared-memory` is identical to that SHA at check time. No merge/deploy.

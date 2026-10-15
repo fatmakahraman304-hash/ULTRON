@@ -73,7 +73,7 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
         # The wallpaper is a fixed pseudo-element so it does not travel with
         # the independently scrolling message list. The body itself is
         # intentionally transparent/flat on mobile.
-        self.assertIn("golge-night-lake.svg",initial["wallpaperImage"])
+        self.assertIn("golge-night-lake.webp",initial["wallpaperImage"])
         self.assertEqual(initial["wallpaperPosition"],"fixed")
         await self.page.evaluate("""() => {
           const list=document.querySelector('#messages');
@@ -114,7 +114,7 @@ class GolgeReferenceMobileBrowser(unittest.IsolatedAsyncioTestCase):
         self.assertLessEqual(state["messagePanel"]["bottom"],state["composer"]["top"]+6)
         self.assertTrue(state["menu"] and state["microphone"] and state["attachment"])
         self.assertLess(state["windowY"],4)
-        self.assertIn("golge-night-lake.svg",state["wallpaperImage"])
+        self.assertIn("golge-night-lake.webp",state["wallpaperImage"])
         self.assertEqual(state["wallpaperPosition"],"fixed")
         # CSS, not an edited screenshot: inspect computed pseudo-elements
         # on both message roles and the online badge on the actual mobile DOM.

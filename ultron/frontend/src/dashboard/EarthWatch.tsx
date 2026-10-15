@@ -3,6 +3,9 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
 import {Globe2,LocateFixed,RotateCcw,Satellite} from 'lucide-react';
 import {request,type EarthState} from './runtime';
+import earthDay from '../assets/earth/day.webp';
+import earthClouds from '../assets/earth/clouds.webp';
+import earthLights from '../assets/earth/lights.webp';
 import {cartesianToEarth,earthToCartesian,solarPositionUTC} from './earthMath';
 
 function earthVector(lat:number,lon:number,r=2.25){
@@ -12,17 +15,6 @@ function vectorEarth(v:THREE.Vector3){return cartesianToEarth(v.x,v.y,v.z);}
 function fallbackEarthTexture(){
  const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;const ctx=canvas.getContext('2d')!;
  const ocean=ctx.createLinearGradient(0,0,0,canvas.height);ocean.addColorStop(0,'#164c78');ocean.addColorStop(.48,'#0b416e');ocean.addColorStop(1,'#062e52');ctx.fillStyle=ocean;ctx.fillRect(0,0,canvas.width,canvas.height);
- const xy=(lon:number,lat:number)=>[(lon+180)/360*canvas.width,(90-lat)/180*canvas.height] as const;
- const poly=(points:number[][],fill:string)=>{ctx.beginPath();points.forEach((p,i)=>{const [x,y]=xy(p[0],p[1]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle='#c8d6a244';ctx.lineWidth=1;ctx.stroke();};
- const land='#6e8750',dry='#8b8b58';
- poly([[-168,71],[-140,66],[-126,52],[-118,34],[-105,24],[-82,25],[-66,45],[-80,58],[-110,72]],land);
- poly([[-82,12],[-67,7],[-51,-5],[-48,-25],[-59,-48],[-72,-55],[-79,-28]],land);
- poly([[-18,35],[2,37],[15,31],[34,31],[51,13],[43,-13],[31,-34],[12,-35],[-3,-18],[-17,12]],dry);
- poly([[-10,36],[5,55],[30,70],[66,74],[98,61],[124,51],[146,55],[171,68],[166,45],[132,23],[112,7],[79,8],[55,26],[34,34],[20,45]],land);
- poly([[112,-11],[154,-10],[153,-39],[132,-44],[115,-30]],dry);
- poly([[-73,60],[-28,83],[-17,68],[-45,58]],'#89936f');
- poly([[45,-13],[50,-25],[49,-13]],land);
- ctx.globalAlpha=.16;ctx.strokeStyle='#dcecff';ctx.lineWidth=1;for(let lat=-60;lat<=60;lat+=30){const [,y]=xy(0,lat);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}for(let lon=-150;lon<=150;lon+=30){const [x]=xy(lon,0);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,canvas.height);ctx.stroke();}ctx.globalAlpha=1;
  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.wrapS=THREE.RepeatWrapping;return texture;
 }
 function earthLabel(text:string,color='#ff334d'){
@@ -32,7 +24,7 @@ function earthLabel(text:string,color='#ff334d'){
  const tex=new THREE.CanvasTexture(canvas);tex.colorSpace=THREE.SRGBColorSpace;const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));sprite.scale.set(1.35,.3,1);return sprite;
 }
 export function EarthWatch({config,onCommand,showCoreButton=true,showMapButton=true}:{config:EarthState;onCommand:(operation:string,extra?:Record<string,unknown>)=>Promise<unknown>|void;showCoreButton?:boolean;showMapButton?:boolean}){
- const host=useRef<HTMLDivElement>(null),[picked,setPicked]=useState<{lat:number;lon:number}|null>(null),[issOk,setIssOk]=useState(false);
+ const host=useRef<HTMLDivElement>(null),[picked,setPicked]=useState<{lat:number;lon:number}|null>(null),[issOk,setIssOk]=useState(false),[webglError,setWebglError]=useState(false),[textureStatus,setTextureStatus]=useState<'loading'|'loaded'|'failed'>('loading');
  // Renderer rebuilds for layer changes; preserve the user's actual zoom/orbit and Earth orientation.
  const savedView=useRef<{position:number[];target:number[];orientation:number[];focus:string}|null>(null);
  const key=JSON.stringify(config);
@@ -41,17 +33,23 @@ export function EarthWatch({config,onCommand,showCoreButton=true,showMapButton=t
   const previousView=savedView.current;
   const scene=new THREE.Scene();scene.background=new THREE.Color(config.night?0x000207:0x01050b);
   const camera=new THREE.PerspectiveCamera(42,1,.1,100);camera.position.set(0,.25,7.4);
-  const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(config.night?0x000207:0x01050b,1);el.appendChild(renderer.domElement);
+  let renderer:THREE.WebGLRenderer;try{renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'low-power'});}catch{setWebglError(true);return;}renderer.setPixelRatio(Math.min(devicePixelRatio,1.6));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor(config.night?0x000207:0x01050b,1);el.appendChild(renderer.domElement);
   const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.055;controls.enablePan=false;controls.minDistance=3.05;controls.maxDistance=15;
   if(previousView){camera.position.fromArray(previousView.position);controls.target.fromArray(previousView.target);controls.update();}
   const root=new THREE.Group();scene.add(root);
-  const map=fallbackEarthTexture(),earthMat=new THREE.MeshStandardMaterial({map,roughness:.78,metalness:.02,color:config.night?0x7080a0:0xffffff});
+  const map=fallbackEarthTexture(),earthMat=new THREE.MeshStandardMaterial({map,roughness:.8,metalness:.06,color:config.night?0x92b2df:0xffffff,emissive:0xffc884,emissiveIntensity:config.night?.65:.14});
   const earth=new THREE.Mesh(new THREE.SphereGeometry(2.25,96,64),earthMat);root.add(earth);
-  const loader=new THREE.TextureLoader();loader.setCrossOrigin('anonymous');loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',tex=>{if(dead){tex.dispose();return;}tex.colorSpace=THREE.SRGBColorSpace;earthMat.map?.dispose();earthMat.map=tex;earthMat.needsUpdate=true;},()=>{},()=>{});
-  if(config.atmosphere){const atm=new THREE.Mesh(new THREE.SphereGeometry(2.34,72,48),new THREE.MeshBasicMaterial({color:0x3aa8ff,transparent:true,opacity:config.night ? .10 : .075,side:THREE.BackSide,blending:THREE.AdditiveBlending,depthWrite:false}));root.add(atm);}
-  if(config.clouds){loader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png',tex=>{if(dead){tex.dispose();return;}tex.colorSpace=THREE.SRGBColorSpace;const clouds=new THREE.Mesh(new THREE.SphereGeometry(2.285,72,48),new THREE.MeshPhongMaterial({map:tex,transparent:true,opacity:.42,depthWrite:false,blending:THREE.NormalBlending}));clouds.userData.clouds=true;root.add(clouds);},()=>{},()=>{});}
-  const hemi=new THREE.HemisphereLight(config.night?0x24436f:0xc7e6ff,config.night?0x010205:0x07101b,config.night ? .25 : .72);scene.add(hemi);
-  const sun=new THREE.DirectionalLight(0xffffff,config.night ? .72 : 2.25);sun.position.set(6,3,5);scene.add(sun);
+  const loader=new THREE.TextureLoader();loader.setCrossOrigin('anonymous');loader.load(earthDay,tex=>{if(dead){tex.dispose();return;}tex.colorSpace=THREE.SRGBColorSpace;earthMat.map?.dispose();earthMat.map=tex;earthMat.needsUpdate=true;setTextureStatus('loaded');},undefined,()=>{if(!dead)setTextureStatus('failed');});
+  loader.load(earthLights,tex=>{if(dead){tex.dispose();return;}tex.colorSpace=THREE.SRGBColorSpace;earthMat.emissiveMap=tex;earthMat.needsUpdate=true;});
+  if(config.atmosphere){
+   const atmosphere=new THREE.ShaderMaterial({transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.FrontSide,
+    vertexShader:`varying vec3 vN;varying vec3 vP;void main(){vec4 p=modelViewMatrix*vec4(position,1.);vN=normalize(normalMatrix*normal);vP=p.xyz;gl_Position=projectionMatrix*p;}`,
+    fragmentShader:`varying vec3 vN;varying vec3 vP;void main(){float rim=pow(1.-abs(dot(normalize(vN),normalize(-vP))),4.5);gl_FragColor=vec4(.08,.5,1.,rim*.7);}`});
+   root.add(new THREE.Mesh(new THREE.SphereGeometry(2.31,72,48),atmosphere));
+  }
+  if(config.clouds){loader.load(earthClouds,tex=>{if(dead){tex.dispose();return;}tex.colorSpace=THREE.SRGBColorSpace;const clouds=new THREE.Mesh(new THREE.SphereGeometry(2.285,72,48),new THREE.MeshPhongMaterial({map:tex,color:0xdcefff,transparent:true,opacity:.42,depthWrite:false}));clouds.userData.clouds=true;root.add(clouds);},()=>{},()=>{});}
+  const hemi=new THREE.HemisphereLight(config.night?0x24436f:0xc7e6ff,config.night?0x010205:0x07101b,config.night ? .4 : 1.15);scene.add(hemi);
+  const sun=new THREE.DirectionalLight(0xffffff,config.night ? .72 : 2.25);sun.position.set(6,3,5);scene.add(sun);const fill=new THREE.DirectionalLight(0x7bbdff,config.night?.28:.65);fill.position.set(-3,1,6);scene.add(fill);
   let sunCalculationAt=0,solarVector=earthVector(0,0,1);
   if(config.stars){const count=1800,pos=new Float32Array(count*3);for(let i=0;i<count;i++){const p=new THREE.Vector3().randomDirection().multiplyScalar(14+Math.random()*24);pos.set(p.toArray(),i*3);}const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));scene.add(new THREE.Points(geo,new THREE.PointsMaterial({color:0xdceeff,size:.025,transparent:true,opacity:.8,depthWrite:false})));}
   if(config.grid){for(let lat=-60;lat<=60;lat+=30){const pts:THREE.Vector3[]=[];for(let lon=-180;lon<=180;lon+=4)pts.push(earthVector(lat,lon,2.267));root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x63d8ff,transparent:true,opacity:.18})));}for(let lon=-150;lon<=180;lon+=30){const pts:THREE.Vector3[]=[];for(let lat=-88;lat<=88;lat+=3)pts.push(earthVector(lat,lon,2.267));root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x63d8ff,transparent:true,opacity:.14})));}}
@@ -114,7 +112,7 @@ export function EarthWatch({config,onCommand,showCoreButton=true,showMapButton=t
    dead=true;cancelAnimationFrame(raf);if(issTimer)clearInterval(issTimer);issRequest?.abort();ro.disconnect();
    renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointerup',pointerUp);
    renderer.domElement.removeEventListener('pointercancel',pointerCancel);renderer.domElement.removeEventListener('pointerleave',pointerCancel);
-   controls.dispose();scene.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const mats=(m as any).material?(Array.isArray((m as any).material)?(m as any).material:[(m as any).material]):[];for(const mat of mats){if(mat.map)mat.map.dispose();mat.dispose?.();}});renderer.dispose();renderer.domElement.remove();};
+   controls.dispose();scene.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();const mats=(m as any).material?(Array.isArray((m as any).material)?(m as any).material:[(m as any).material]):[];for(const mat of mats){if(mat.map)mat.map.dispose();if(mat.alphaMap)mat.alphaMap.dispose();if(mat.emissiveMap)mat.emissiveMap.dispose();mat.dispose?.();}});renderer.dispose();renderer.domElement.remove();};
  },[key]);
- return <div className="earth-watch-shell"><div className="earth-watch-webgl" ref={host}/><div className="earth-watch-brand"><Globe2/><div><b>EARTH WATCH</b><small>{config.focus_label||'GLOBAL'} · 3D GLOBAL VIEW</small></div></div><div className="earth-watch-controls"><button className={config.auto_rotate?'active':''} onClick={()=>onCommand('earth_control',{auto_rotate:!config.auto_rotate})}>{config.auto_rotate?'ROTATION ON':'ROTATION OFF'}</button><button className={config.clouds?'active':''} onClick={()=>onCommand('earth_control',{clouds:!config.clouds})}>CLOUDS</button><button className={config.sun_sync?'active':''} onClick={()=>onCommand('earth_control',{sun_sync:!config.sun_sync})}>UTC SUN {config.sun_sync?'ON':'OFF'}</button><button className={config.atmosphere?'active':''} onClick={()=>onCommand('earth_control',{atmosphere:!config.atmosphere})}>ATMOSPHERE</button><button className={config.grid?'active':''} onClick={()=>onCommand('earth_control',{grid:!config.grid})}>LAT/LON GRID</button><button className={config.night?'active':''} onClick={()=>onCommand('earth_control',{night:!config.night})}>NIGHT</button><button className={config.live_iss?'active':''} onClick={()=>onCommand('earth_control',{live_iss:!config.live_iss})}><Satellite/> ISS {config.live_iss?(issOk?'LIVE':'WAIT'):'OFF'}</button><button onClick={()=>onCommand('earth_focus',{lat:20,lon:0,place:'GLOBAL'})}>GLOBAL</button><button onClick={()=>onCommand('earth_focus',{lat:39,lon:35,place:'TÜRKİYE'})}>TÜRKİYE</button><button onClick={()=>onCommand('earth_focus',{lat:35.13,lon:33.43,place:'KIBRIS'})}>KIBRIS</button>{showMapButton&&<button onClick={()=>onCommand('world_map')}><Globe2/> 2D HARİTA / LIVE</button>}{showCoreButton&&<button onClick={()=>onCommand('reset')}><RotateCcw/> CORE</button>}</div>{picked&&<div className="earth-watch-pick"><LocateFixed/><span>{picked.lat.toFixed(4)}°, {picked.lon.toFixed(4)}°</span><button onClick={()=>onCommand('earth_focus',{lat:picked.lat,lon:picked.lon,place:'SELECTED'})}>FOCUS</button><button onClick={()=>onCommand('earth_marker_add',{lat:picked.lat,lon:picked.lon,label:'PIN',color:'#ff3347'})}>PIN HERE</button></div>}</div>;
+ return <div className="earth-watch-shell"><div className="earth-watch-webgl" ref={host}/>{webglError?<div className="earth-render-status" role="status">3D Dünya bu tarayıcıda kullanılamıyor.</div>:textureStatus!=='loaded'&&<div className="earth-render-status" role="status">{textureStatus==='failed'?'Statik yüzey dokusu yüklenemedi':'Yüzey dokusu yükleniyor…'}</div>}<div className="earth-watch-brand"><Globe2/><div><b>DÜNYA</b><small>{config.focus_label||'GLOBAL'} · 3D GÖRÜNÜM</small></div></div><div className="earth-watch-controls"><button className={config.auto_rotate?'active':''} onClick={()=>onCommand('earth_control',{auto_rotate:!config.auto_rotate})}>{config.auto_rotate?'DÖNÜŞ AÇIK':'DÖNÜŞ KAPALI'}</button><button className={config.clouds?'active':''} onClick={()=>onCommand('earth_control',{clouds:!config.clouds})}>BULUT</button><button className={config.sun_sync?'active':''} onClick={()=>onCommand('earth_control',{sun_sync:!config.sun_sync})}>UTC SUN {config.sun_sync?'ON':'OFF'}</button><button className={config.atmosphere?'active':''} onClick={()=>onCommand('earth_control',{atmosphere:!config.atmosphere})}>ATMOSFER</button><button className={config.grid?'active':''} onClick={()=>onCommand('earth_control',{grid:!config.grid})}>IZGARA</button><button className={config.night?'active':''} onClick={()=>onCommand('earth_control',{night:!config.night})}>GECE</button><button className={config.live_iss?'active':''} onClick={()=>onCommand('earth_control',{live_iss:!config.live_iss})}><Satellite/> ISS {config.live_iss?(issOk?'LIVE':'WAIT'):'OFF'}</button><button onClick={()=>onCommand('earth_focus',{lat:20,lon:0,place:'GLOBAL'})}>GLOBAL</button><button onClick={()=>onCommand('earth_focus',{lat:39,lon:35,place:'TÜRKİYE'})}>TÜRKİYE</button><button onClick={()=>onCommand('earth_focus',{lat:35.13,lon:33.43,place:'KIBRIS'})}>KIBRIS</button>{showMapButton&&<button onClick={()=>onCommand('world_map')}><Globe2/> 2D HARİTA / LIVE</button>}{showCoreButton&&<button onClick={()=>onCommand('reset')}><RotateCcw/> CORE</button>}</div>{picked&&<div className="earth-watch-pick"><LocateFixed/><span>{picked.lat.toFixed(4)}°, {picked.lon.toFixed(4)}°</span><button onClick={()=>onCommand('earth_focus',{lat:picked.lat,lon:picked.lon,place:'SELECTED'})}>FOCUS</button><button onClick={()=>onCommand('earth_marker_add',{lat:picked.lat,lon:picked.lon,label:'PIN',color:'#ff3347'})}>PIN HERE</button></div>}</div>;
 }

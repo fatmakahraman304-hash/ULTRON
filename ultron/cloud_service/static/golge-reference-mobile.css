@@ -95,12 +95,12 @@ body:before,body:after{content:none!important;background:none!important}
  #chatView .msg{font-size:13px!important}
 }
 /* Fixed scenery lives behind the independent message scroller, like a chat wallpaper.
-   The vector art is illustrative; it is not a camera feed or a claimed photograph. */
+   Generated photographic scenery; it is not a camera feed or a photograph of a verified location. */
 @media(max-width:760px){
  html,body{height:100%;min-height:100dvh;overflow:hidden!important;background:#04080e!important}
  body,body[style]{background:#04080e!important;background-image:none!important}
  body:before{content:''!important;display:block!important;position:fixed!important;inset:0!important;z-index:0!important;
-  background:#03080d url('/static/golge-night-lake.svg') center center/cover no-repeat!important;pointer-events:none!important}
+  background:#03080d url('/static/golge-night-lake.webp') center center/cover no-repeat!important;pointer-events:none!important}
  body:after{content:''!important;display:block!important;position:fixed!important;inset:0!important;z-index:0!important;
   background:linear-gradient(180deg,#02060b55,#02060b20 33%,#02060b66 100%)!important;pointer-events:none!important}
  .shell:has(#chatView.active){position:relative;z-index:1;isolation:isolate;background:transparent!important;
@@ -109,4 +109,11 @@ body:before,body:after{content:none!important;background:none!important}
  #app:not(.hidden):has(#chatView.active),#chatView.active{background:transparent!important}
  #chatView #messages{scrollbar-gutter:stable;scroll-padding-block:12px}
  #chatView .composer{bottom:calc(7px + env(safe-area-inset-bottom))!important}
+}
+
+/* Photorealistic wallpaper; these remain real, independently scrollable chat bubbles. */
+@media(max-width:760px){
+ #chatView .msg.assistant{background:linear-gradient(145deg,#071d30df,#061424df)!important;border:1px solid #23628199!important;backdrop-filter:blur(8px)}
+ #chatView .msg.user{background:linear-gradient(140deg,#09578bdc,#063759e6)!important;border:1px solid #2399c6aa!important}
+ #chatView .composer{background:#061524ed!important;border-color:#246e90!important;backdrop-filter:blur(14px)}
 }

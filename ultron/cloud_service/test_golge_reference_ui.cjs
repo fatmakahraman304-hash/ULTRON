@@ -44,13 +44,13 @@ test('mobile layout separates scrollable messages and fixed composer without hid
  assert.match(css,/#chatView \.msg\.user::before\{/);
  assert.match(css,/border:1px solid #315460!important/);
  assert.match(css,/position:fixed!important;inset:0!important/);
- assert.match(css,/\/static\/golge-night-lake\.svg/);
- assert.ok(fs.existsSync(path.join(root,'ultron/cloud_service/static/golge-night-lake.svg')));
+ assert.match(css,/\/static\/golge-night-lake\.webp/);
+ assert.ok(fs.existsSync(path.join(root,'ultron/cloud_service/static/golge-night-lake.webp')));
 
  const sw=file('ultron/cloud_service/static/sw.js');
- assert.match(sw,/ultron-shell-v73/);
+ assert.match(sw,/ultron-shell-v74/);
  assert.match(sw,/\/static\/golge-reference-mobile\.css/);
- assert.match(sw,/\/static\/golge-night-lake\.svg/);
+ assert.match(sw,/\/static\/golge-night-lake\.webp/);
 });
 
 test('desktop procedural 3D remains bounded and other feature stages remain functional',()=>{
@@ -69,11 +69,11 @@ test('desktop procedural 3D remains bounded and other feature stages remain func
   assert.ok(stage.includes("stage.mode==='"+mode+"'"),'existing stage '+mode+' gone');
  }
  assert.match(dash,/className="golge-navigation"/);
- for(const name of ['Sohbet','Bugün','Düşün','Araştır','Yarat','Hatırla']){
+ for(const name of ['Sohbet','Geçmiş','Belgeler','Araçlar','Ayarlar']){
   assert.ok(dash.includes('>'+name+'</button>'), 'missing real sidebar action '+name);
  }
  assert.match(dash,/import '\.\/golge-reference\.css'/);
- assert.match(skin,/grid-template-columns:120px/);
+ assert.match(skin,/grid-template-columns:clamp/);
  assert.match(skin,/@media\(max-width:840px\)/);
  assert.match(skin,/prefers-reduced-motion:reduce/);
 });

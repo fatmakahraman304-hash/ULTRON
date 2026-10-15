@@ -8,7 +8,7 @@ export type CoreNetwork={
   flowSeeds:Float32Array;
 };
 
-/** Deterministic Fibonacci sphere and sparse short-range network for the CORE.
+/** Deterministic Fibonacci sphere and spatially local network for the CORE.
  * Geometry is capped to keep low-end laptop GPUs within a predictable budget.
  */
 export function buildCoreNetwork(requested=1400):CoreNetwork{
@@ -29,7 +29,7 @@ export function buildCoreNetwork(requested=1400):CoreNetwork{
     nodePositions[j+1]=y*radius;
     nodePositions[j+2]=Math.sin(theta)*radial*radius;
     nodeSeeds[i]=((i*73)%997)/997;
-    const orange=i%113===17;
+    const orange=i%67===17;
     if(orange){
       orangeNodeCount++;
       nodeColors[j]=1;nodeColors[j+1]=.48;nodeColors[j+2]=.17;
@@ -38,19 +38,29 @@ export function buildCoreNetwork(requested=1400):CoreNetwork{
       nodeColors[j]=.18+tint*.25;nodeColors[j+1]=.75+tint*.25;nodeColors[j+2]=.92+tint*.08;
     }
   }
-  const edgeCount=nodeCount+Math.ceil(nodeCount/7);
-  const links=new Float32Array(edgeCount*6);
-  const flowSeeds=new Float32Array(edgeCount);
-  let edge=0;
+  // Fibonacci indices are not spatial neighbours: i+1 forms long chords and
+  // visible latitude stripes. Connect three actual nearest surface neighbours.
+  const edges:number[]=[];
+  const seen=new Set<string>();
   for(let i=0;i<nodeCount;i++){
-    for(const offset of i%7===0?[1,7]:[1]){
-      const next=(i+offset)%nodeCount;
-      const from=i*3,to=next*3,at=edge*6;
-      links[at]=nodePositions[from];links[at+1]=nodePositions[from+1];links[at+2]=nodePositions[from+2];
-      links[at+3]=nodePositions[to];links[at+4]=nodePositions[to+1];links[at+5]=nodePositions[to+2];
-      flowSeeds[edge]=((edge*47)%997)/997;
-      edge++;
+    const nearest:Array<{index:number;distance:number}>=[];
+    const a=i*3;
+    for(let j=0;j<nodeCount;j++){
+      if(i===j)continue;
+      const b=j*3;
+      const distance=(nodePositions[a]-nodePositions[b])**2+(nodePositions[a+1]-nodePositions[b+1])**2+(nodePositions[a+2]-nodePositions[b+2])**2;
+      if(distance>.65**2)continue;
+      if(nearest.length<3||distance<nearest[nearest.length-1].distance){
+        nearest.push({index:j,distance});nearest.sort((x,y)=>x.distance-y.distance);nearest.length=Math.min(3,nearest.length);
+      }
+    }
+    for(const neighbour of nearest){
+      const j=neighbour.index,key=`${Math.min(i,j)}:${Math.max(i,j)}`;
+      if(seen.has(key))continue;seen.add(key);
+      edges.push(...nodePositions.subarray(a,a+3),...nodePositions.subarray(j*3,j*3+3));
     }
   }
+  const links=new Float32Array(edges);
+  const flowSeeds=Float32Array.from({length:edges.length/6},(_,i)=>((i*47)%997)/997);
   return {nodeCount,orangeNodeCount,nodePositions,nodeColors,nodeSeeds,links,flowSeeds};
 }
