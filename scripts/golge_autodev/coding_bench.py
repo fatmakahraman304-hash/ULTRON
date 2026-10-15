@@ -369,11 +369,20 @@ def _provider_guard(provider: str, *, cloud_budget_confirmed: bool) -> str | Non
     return None
 
 
+def _local_patch_format() -> str:
+    """Conservative default; strict schema is an explicit comparison mode."""
+    option = os.getenv("GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT", "json").strip().lower()
+    if option not in {"json", "schema"}:
+        raise BenchmarkError("invalid_local_patch_format")
+    return option
+
+
 def infer_with_budget(prompt: str, provider: str) -> str:
-    # Reuse the repository's Gemini/Ollama transport and cap each benchmark
-    # response separately from the autonomous repair pipeline's larger limit.
+    # Use exactly the same public coding prompt, oracle protection, limits,
+    # and model for both modes. The provider-side JSON Schema is experimental:
+    # a valid-shaped response is not evidence of correct program behavior.
     import engine
-    if provider == "ollama":
+    if provider == "ollama" and _local_patch_format() == "schema":
         return engine.infer(prompt, provider, max_output_tokens=MAX_OUTPUT_TOKENS,
                             response_schema=LOCAL_PATCH_RESPONSE_SCHEMA)
     return engine.infer(prompt, provider, max_output_tokens=MAX_OUTPUT_TOKENS)
@@ -493,6 +502,12 @@ def run_benchmark(*, provider: str | None, max_cases: int = MAX_TASKS,
         raise BenchmarkError("invalid_case_limit")
     selected = list(TASKS[:max_cases])
     guard = _provider_guard(provider, cloud_budget_confirmed=cloud_budget_confirmed) if provider else "provider_not_requested"
+    local_patch_format = None
+    if provider == "ollama":
+        try:
+            local_patch_format = _local_patch_format()
+        except BenchmarkError:
+            guard = "invalid_local_patch_format"
     if provider and (type(max_calls) is not int or not 1 <= max_calls <= min(MAX_PROVIDER_CALLS, max_cases * MAX_ATTEMPTS)):
         guard = "explicit_provider_call_limit_required"
     if guard:
@@ -539,6 +554,7 @@ def run_benchmark(*, provider: str | None, max_cases: int = MAX_TASKS,
             "model_status": ("NOT_RUN" if provider is None else
                              "BLOCKED" if guard or not provider_call_total else "ATTEMPTED"),
             "simulated": infer_fn is not None,
+            "ollama_patch_format": local_patch_format,
             # Keep the historical pass/(PASS+FAIL) score for compatibility, but
             # report full-suite success separately so BLOCKED cases cannot
             # make an eight-task run appear better than six successes out of eight.
