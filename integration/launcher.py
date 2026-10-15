@@ -24,6 +24,34 @@ def stop_process(process):
         process.wait(timeout=5)
 
 
+def desktop_pythonpath(existing=""):
+    """Prefer the original MARK memory package over backend/memory.py.
+
+    The backend needs its own memory.py module while the native desktop needs
+    ROOT/memory/ (a package). Run each child with the correct path priority.
+    """
+    roots = [str(ROOT), str(BACKEND)]
+    normalized = {
+        os.path.normcase(os.path.normpath(path)) for path in roots
+    }
+    for path in existing.split(os.pathsep):
+        if path and os.path.normcase(os.path.normpath(path)) not in normalized:
+            roots.append(path)
+    return os.pathsep.join(roots)
+
+
+def child_pythonpath(existing=""):
+    """Make ultron.* and legacy backend imports available to subprocesses.
+
+    server.py runs with cwd=ultron/backend, so ROOT is otherwise invisible.
+    Preserve the caller's optional PYTHONPATH.
+    """
+    paths = [str(BACKEND), str(ROOT)]
+    if existing:
+        paths.append(existing)
+    return os.pathsep.join(paths)
+
+
 class Services:
     def __init__(self):
         self.backend = None
@@ -59,6 +87,7 @@ class Services:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
         env = os.environ.copy()
+        env['PYTHONPATH'] = child_pythonpath(env.get('PYTHONPATH', ''))
         env.update(ULTRON_PORT=str(port), ULTRON_BIND_HOST='127.0.0.1',
                    MARK_ULTRON_TOKEN=secrets.token_urlsafe(32), MARK_AUDIO_OWNER='mark',
                    MARK_ULTRON_URL=f'http://127.0.0.1:{port}', PYTHONUTF8='1',
@@ -139,6 +168,11 @@ def main(argv=None):
                 cmd = [sys.executable, '-u', str(ROOT / 'mark_app.py')]
                 if args.smoke:
                     services.env['MARK_SMOKE_SECONDS'] = '8'
+                # The native app imports ROOT/memory/ while backend imports
+                # ultron/backend/memory.py. Prioritize each import namespace.
+                services.env['PYTHONPATH'] = desktop_pythonpath(
+                    services.env.get('PYTHONPATH', '')
+                )
                 services.ui = services.spawn(cmd, ROOT, 'mark.log')
             if args.smoke:
                 if services.ui:

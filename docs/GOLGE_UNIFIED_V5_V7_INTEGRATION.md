@@ -30,3 +30,15 @@ Bu commit kaynakları birleştirir; tek başına fiziksel cihazda çalışan uç
 ## Kırmızı çizgiler
 
 Onay kapıları, günlükleme, yetki sınırları, gizli anahtarların korunması, provider bütçe kapıları ve offline/UNAVAILABLE durumları korunur. Otomatik paid model isteği, veri silme, otomatik merge ve production deploy bu entegrasyon işleminden yapılmaz.
+
+## Windows startup regression — 16 Ekim 2026
+
+Owner Windows device evidence: the first V5/V7 launch built the frontend successfully and copied seven Cloud memory records, but fell back to offline desktop because `ultron/backend/merged_api.py` could not import `ultron.cloud_service.conversation_persona` (ModuleNotFoundError: ultron). Bootstrap exported only the backend folder to PYTHONPATH; child process CWD is `ultron/backend`.
+
+Draft fix `fix/golge-unified-windows-pythonpath-20261016`: include **both repository root and backend path** in Windows bootstrap and in `integration.launcher.Services.start` child environment, preserving inherited PYTHONPATH. Test `python -m unittest discover -s tests -p 'test_launcher_pythonpath.py' -v`. On Windows, then validate `START.bat` with PYTHONPATH unset, verify backend `/api/merged/health`, and test a real Qwen chat. Passing CI is not evidence of physical Windows audio or Render production deployment.
+
+## Windows desktop memory-name collision (same owner diagnosis)
+
+After backend health passed (`ULTRON hazır; masaüstü açılıyor`), the desktop child exited: `ModuleNotFoundError: No module named 'memory.memory_manager'; 'memory' is not a package`. This is a distinct import namespace from the backend problem: backend has `ultron/backend/memory.py` while the native UI uses root `memory/memory_manager.py` and `memory/config_manager.py`. Both are named top-level `memory`.
+
+The launcher must provide different search order to subprocesses: backend `[BACKEND, ROOT]` and native desktop `[ROOT, BACKEND]`, preserving non-GÖLGE inherited paths. In `mark_app.py`, explicitly import the native memory package before Qt UI to avoid accidentally caching the homonymous backend module. CI tests cover both real import paths in subprocesses, import priority, and UI import order. Windows audio/Qt actual launch remains to be confirmed by the owner.

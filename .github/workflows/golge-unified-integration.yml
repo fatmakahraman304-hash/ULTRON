@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - integration/golge-unified-v5-v7-20261015
   workflow_dispatch:
 
 permissions:
@@ -40,6 +41,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Desktop child process Python import boundary
+        run: python -m unittest discover -s tests -p 'test_launcher_pythonpath.py' -v
       - name: Install cloud dependencies
         run: python -m pip install --disable-pip-version-check -r ultron/cloud_service/requirements.txt
       - name: Compile the Cloud/local bridge

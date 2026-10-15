@@ -48,12 +48,14 @@ import sounddevice as sd
 import numpy as np
 from google import genai
 from google.genai import types
-from ui import UltronUI
+# Bind the desktop memory package before importing UI or backend-facing tools:
+# ultron/backend/memory.py is an unrelated top-level 'memory' module.
 from memory.memory_manager import (
     load_memory, update_memory, format_memory_for_prompt,
     save_session_summary, pop_last_session,
     search_memory, set_trim_notifier,
 )
+from ui import UltronUI
 from integration.cloud_memory_sync import (
     upsert_cloud_memory,
     sync as sync_cloud_memory,
