@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import difflib
 import json
 import os
 import re
@@ -107,8 +108,28 @@ class BenchmarkError(ValueError):
     pass
 
 
+def _public_candidate_delta(task: dict, current_files: dict[str, str]) -> str:
+    """Bounded starter-to-candidate diff; never inspect acceptance-oracle fields."""
+    original_files = task["starter_files"]
+    sections: list[str] = []
+    for path, candidate in sorted(current_files.items()):
+        original = original_files.get(path)
+        if original is None or original == candidate:
+            continue
+        delta = difflib.unified_diff(
+            original.splitlines(), candidate.splitlines(),
+            fromfile=f"starter/{path}", tofile=f"candidate/{path}", lineterm=""
+        )
+        sections.extend(delta)
+        if sum(len(line) + 1 for line in sections) > 2_800:
+            break
+    if not sections:
+        return "Candidate has no source changes relative to the original starter."
+    return "\\n".join(sections)[:2_800]
+
+
 def build_prompt(task: dict, *, current_files: dict[str, str] | None = None,
-                 diagnostics: str = "") -> str:
+                 diagnostics: str = "", repair_mode: bool = False) -> str:
     """Render only task statement and working files, never the oracle fields."""
     files = current_files or task["starter_files"]
     payload = {"task": task["prompt"],
@@ -126,6 +147,19 @@ def build_prompt(task: dict, *, current_files: dict[str, str] | None = None,
     if diagnostics:
         safe = _sanitize(diagnostics)
         payload["public_repair_feedback"] = safe
+    if repair_mode:
+        # This context uses only the published starter and previous generated
+        # source. No private test assertion, expected value, or stdout is read.
+        payload["public_candidate_vs_starter_diff"] = _public_candidate_delta(task, files)
+        payload["repair_rules"] = [
+            "The previous candidate failed behavioral verification. Re-examine "
+            "each requirement in task against the current working_files.",
+            "Find a plausible semantic gap using only task and working_files; "
+            "do not assume private test inputs or expected outputs.",
+            "Produce a genuine behavior-changing correction, not identical "
+            "code, formatting, or comments. Preserve the required public API.",
+            "Return complete source for all paths as the specified JSON object.",
+        ]
     prompt = json.dumps(payload, ensure_ascii=False)
     if len(prompt) > MAX_PROMPT_CHARS:
         raise BenchmarkError("prompt_too_large")
@@ -343,7 +377,8 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
         last_diagnostics = ""
         previous_test_failed = False
         for attempt in range(1, max_attempts + 1):
-            prompt = build_prompt(task, current_files=current, diagnostics=last_diagnostics)
+            prompt = build_prompt(task, current_files=current, diagnostics=last_diagnostics,
+                                  repair_mode=previous_test_failed)
             model_started = time.perf_counter()
             calls += 1
             try:
