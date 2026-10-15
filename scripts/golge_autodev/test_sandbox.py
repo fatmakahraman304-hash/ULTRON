@@ -46,7 +46,7 @@ class GeneratedCodeSandboxContracts(unittest.TestCase):
             self.assertIn("network blocked", result.stdout)
 
 
-    def test_venv_mounts_base_interpreter_read_only_without_host_home(self):
+    def test_venv_mounts_base_interpreter_read_only_with_sandbox_restrictions(self):
         # Mock Docker to test the invocation contract on machines without it.
         with tempfile.TemporaryDirectory() as root_tmp, \
              tempfile.TemporaryDirectory() as venv_tmp, \
