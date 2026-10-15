@@ -1,0 +1,18 @@
+{
+  "weather": {
+    "status": "PASS",
+    "http": 200,
+    "source": "Open-Meteo",
+    "updated": "2026-10-16T00:15",
+    "count": null,
+    "seconds": 0.771
+  },
+  "flights": {
+    "status": "PASS",
+    "http": 200,
+    "source": "adsb.lol",
+    "updated": null,
+    "count": 12,
+    "seconds": 0.681
+  }
+}

@@ -1,3 +1,37 @@
+## 2026-10-16 — Güncel kapsam ve devam
+
+1. PR #44'te üç eski özelliğin kaldırılmasını incele: GÖLGE intro render, Dünya hologramı, enerji hologramı. Ana CORE ve ayrı harita kullanıcı talimatıyla kalır.
+2. Yeni kaldırma commit'inin GitHub Actions kontrollerini tamamla; başarısız job varsa düzelt. Test: `python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v`, frontend build, `python scripts/tests/test_frontend_stage_loading.py`.
+3. Üretime merge veya Render deploy için ayrıca açık onay gerekir; bu görev yayın yetkisi vermez.
+4. Fiziksel Windows/iPhone ve gerçek Qwen/Gemini/mikrofon/TTS testleri hâlâ yapılmadı. Önceki raporların bu sınırlarını koru.
+
+Aşağıdaki eski görevler tarihsel kayıttır; kaldırılan üç preset yeniden eklenmemelidir.
+
+## PR #44 — CORE/Dünya son doğrulama ve fiziksel kabul
+
+1. docs/GOLGE_EARTH_V7.md ve docs/ui-v7/ gerçek ekran/kayıtlarını incele. Etiketli sentetik ses testi mikrofon/TTS başarısı değildir; yeni sohbet ekranlarında gerçek sahne cevapları ve model UNAVAILABLE sonucu vardır.
+2. Yetkili Windows laptopta mevcut bridge/Ollama/Qwen ve Cloud eşleşmesini doğrula. Bu yürütücüde VPN/model kimliği yok; internete Ollama açma veya model indirme. Native PCM/TTS RMS, kesme ve ses transkriptinden Dünya/CORE komutlarını ölç.
+3. RTX'te gerçek FPS/VRAM, gizli sekme, düşük kalite ve 20+ geçiş; iPhone'da gerçek klavye/mic/PWA/uzun dinleme. SwiftShader kayıt ölçümü p50 178,2 ms/p95 198,0 ms; bu ortamda 60 FPS yok. Fiziksel donanım NOT RUN.
+4. Uydu/terrain ancak gerçek veri lisansı ve güvenli kaynak ile etkinleşebilir. Varsayılan uydu BLOCKED; MAP gerçek OSM sokak haritasıdır. Ücretli sağlayıcı otomatik açılmaz.
+5. PR #44 taslak kalsın; mevcut diğer PR bağımlılıklarına dokunma. Kullanıcının ayrı açık onayı olmadan production merge veya Render deploy yapma.
+
+## PR #44 — Tasarım incelemesi ve gerçek cihaz/model engelleri
+
+1. `docs/GOLGE_V5_VISUAL_REVIEW.md` ve `docs/ui-v5/` altındaki yeni gerçek uygulama kayıtlarını incele. Dolu sohbet örnekleri görünür SENTETİK SOHBET etiketi taşır; tasarım kabulünü teknik test sonucundan çıkarma.
+2. Yetkili Windows laptopta mevcut Ollama/Qwen kurulumunu ve Qt köprüsünü doğrula. Bu yürütücüde laptop/VPN veya hazır model yok; ağırlık indirme veya internete Ollama açma.
+3. Mevcut Cloud cihaz eşleşmesi ve kullanılabilir model yetkisi sağlanırsa aynı gerçek sohbet kabulünü tekrar çalıştır. API anahtarlarını arayüze/loglara koyma; UNAVAILABLE sonucunu başarı sayma.
+4. Fiziksel iPhone Safari'de sabit fotoğraf, gerçek klavye, uzun sohbet, dosya/mikrofon ve PWA yeniden bağlantısını; Windows'ta gerçek RMS/TTS senkronunu ve RTX yeniden boyutlandırmayı ölç. Headless CPU-kompozitörü kaydı cihaz testi değildir.
+5. PR #44 taslak kalsın. Kullanıcının açık üretim onayı olmadan production merge veya Render deploy yapma. Diğer açık PR bağımlılıklarına dokunma.
+
+## Next tasks — GÖLGE V5 interface release verification
+
+1. Review draft [PR #44](https://github.com/fatmakahraman304-hash/ULTRON/pull/44); validated code/test commit `41c907056130536b6ec7abb482a4a02bf33e1437` passed exact-head Responsive, Scene, Cloud/PostgreSQL and Local Qwen Listening Actions. Do not merge or deploy without the user's release authorization.
+2. On the Windows laptop, confirm the real native bridge reports CPU/RAM/GPU and audio amplitude, verify local Ollama/Qwen and Gemini fallback, test 3D CORE state transitions and view switching, and measure actual GPU frame time. Keep missing sensors visibly unavailable.
+3. On physical iPhone Safari, verify authenticated chat history, fixed wallpaper while scrolling, keyboard/safe-area composer, image/file attach, mic permission, voice turn and network recovery. Background microphone behavior remains subject to iOS restrictions.
+4. Validate one authenticated local/cloud chat exchange and same-owner phone/laptop history without changing stored user data. Confirm the control-center action tools continue through existing approval/audit flows.
+5. Recheck Render `/health` and deployment SHA after network is available. No live deployment has been started; this desktop code branch is unmerged.
+6. Investigate the existing OrbitControls 575.89 kB chunk warning using measured bundle evidence before changing chunk boundaries.
+
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.

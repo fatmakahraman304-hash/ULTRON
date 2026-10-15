@@ -112,6 +112,10 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'aiohttp>=3.9,<4' 'Pillow>=10' 'psutil>=5'
           python -m pytest -q ultron/backend/tests/test_model_router.py
+      - name: Earth layers, geographic state and source isolation
+        run: python -m unittest discover -s ultron/backend/tests -p 'test_earth*.py' -v
+      - name: Removed legacy hologram and intro presets cannot be restored
+        run: python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v
       - name: SSRF-bounded source reading and 100-case memory research evaluation
         env:
           PYTHONPATH: ultron/backend:ultron/cloud_service

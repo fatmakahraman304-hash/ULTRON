@@ -1,3 +1,34 @@
+## 2026-10-16 — Üç legacy preset kaldırıldı
+
+Kullanıcının açık kapsam yanıtıyla yalnızca GÖLGE intro render, Dünya hologramı ve enerji hologramı kaldırıldı; ana CORE, EarthWatch/harita ve kontrol merkezi korunur. Dashboard Araçlar düğmeleri, CenterStage presetleri/çizimleri, ilgili sahne kısayolları ve agent araç açıklamaları temizlendi. Backend artık kaldırılan türleri create/update/add, batch ve JSON import yollarında HTTP 400 ile reddeder; intro/energy video şablonları kabul edilmez. Eski snapshot'lar yalnızca desteklenen nesneleri canlı sahneye getirir; kullanıcı proje dosyaları ve hafıza silinmez.
+
+Test-first regresyon eski sürümün kaldırılan özellikleri hâlâ kabul ettiğini gösterdi. Düzeltme sonrası 47 odaklı test geçti (7 kaldırma, 11 backend Earth, 24 frontend, 3 PWA sözleşmesi, 1 bundle, 1 gerçek Chromium). npm ci, TypeScript/Vite build, Python compile, YAML ve eklenen satırlarda credential-pattern taraması başarılı. Chromium testi üç düğmenin yokluğunu ve ana CORE/kontrol merkezi Dünya dönüşünü birlikte sınar. Browser backend'i kontrollü fixture'dır; gerçek model/Windows/iPhone/ses doğrulaması değildir. Bu kayıt yerel doğrulamadır; yeni commit'in Actions sonucu PR üzerinden ayrıca kontrol edilir. Merge/deploy yapılmaz.
+
+## 2026-10-16 — PR #44 ortak CORE / Dünya ve gerçek kaynaklar
+
+- Aynı PR dalında CORE ↔ EarthWatch GPU geçişi, ortak stage.earth/kamera, gerçek Photon/OSM araması, belirsiz konum seçimi, lazy Leaflet sokak haritası ve opsiyonel lisanslı XYZ sözleşmesi uygulandı. Night/day terminatörü, katmanlar, gerçek hava/uçuş ve ISS kaynakları mevcut adaptörlerle bütünleşti.
+- Kıbrıs sorgusunun yanlış mahallelere gitmesi, düşük FPS kamera süresi, aynı konuma tekrar odaklanma ve pikselleşen aşırı küre zoom'u düzeltildi. Şehir ayrıntısı gerçek harita döşemesinde; uydu/terrain yapılandırılmadan başarı denmez.
+- 54 odaklı test + 10 gerçek izole backend/WebGL kabul kontrolü PASS; ayrı 4 sentetik ses/transkript sözleşmesi PASS. Qwen/Gemini BLOCKED, fiziksel Windows/iPhone/mikrofon/TTS NOT RUN. Görsel kabul REVIEW_REQUIRED; SwiftShader'da 60 FPS elde edilmedi.
+- Kanıt/rapor: docs/GOLGE_EARTH_V7.md ve docs/ui-v7/. Open-Meteo, adsb.lol, Photon ve OSM tile gerçek HTTP yanıtları alındı. PR taslak; merge/deploy yok.
+
+## 2026-10-15 — PR #44 tasarım reddi sonrası gerçek düzeltmeler
+
+- Aynı `feat/golge-v5-interface-control-center-20261015` dalı kullanılıyor; üretim tabanı 6ef3f5d korunuyor. Eski görünüm tamamlanmış tasarım sayılmadı.
+- CORE'daki uzun yatay bağlantı hatası önce testle yeniden üretildi; gerçek yüzey komşuları, değişken ışık noktaları, cyan/amber parıltıları, dönen enerji halkaları, shader arka plan ve daha güçlü projeksiyon oluşturuldu. 1.400 düğüm / sınırlandırılmış geometri bütçesi korundu.
+- Normal masaüstü düzeni ve kontrol merkezi yeniden tasarlandı. Telefonun geometrik SVG'si kaldırıldı; üretilen fotoğraf görünümündeki dağ/göl WebP'si hem React hem Cloud PWA'da sabit katman oldu (shell v74). Dünya doku/bulut/gece görüntüleri yerelden yükleniyor; canlı uydu sağlayıcısı yoksa açıkça belirtiliyor.
+- Yerel servis bağlantısının Cloud başarısı sayılması düzeltildi. HTTP bağlantısı yokken Qt köprüsü mevcutsa otomatik native sohbet yolu korunuyor; gerçek fiziksel Qt davranışı henüz NOT RUN.
+- Gerçek izole backend, mevcut session/Origin güvenliği, tek WebSocket ve gerçek Linux telemetrisi doğrulandı. `/api/merged/invoke` gerçek istek aldı ancak model yok: UNAVAILABLE. Sağlayıcı başarı sonucu uydurulmadı.
+- Headless SwiftShader'ın varsayılan kompozitöründe dolu sohbeti küçültme sırasında bozuk PNG yakalandı; QA, gerçek WebGL'i CPU kompozitörüyle kaydediyor ve kayıp başlık piksellerini reddediyor. Bu fiziksel RTX doğrulaması değildir. Görsel kabul REVIEW_REQUIRED; Windows/iPhone/mikrofon/TTS NOT RUN.
+
+## 2026-10-15 — GÖLGE V5 interface and interactive CORE
+
+- Work is isolated on `feat/golge-v5-interface-control-center-20261015`, from GitHub/Render production base `6ef3f5d207fc9430cbbd552988935995529e87f5`; no upstream branch files were overwritten. Draft [PR #44](https://github.com/fatmakahraman304-hash/ULTRON/pull/44) is open and unmerged. Validated code/test commit `41c907056130536b6ec7abb482a4a02bf33e1437` passed exact-head Actions: Responsive Interface #38772280381, Scene Build #38772280054, Cloud/PostgreSQL #38772280060, and Local Qwen Listening #38772280179. An older Scene run failed because a stale test inspected `body`'s removed gradient; the test now verifies the fixed night-lake pseudo-element before and after message scrolling, and its updated Chromium run passes. No merge/deploy was performed.
+- React desktop has NORMAL CHAT and a user/voice-command-opened CONTROL CENTER view. The latter reuses existing telemetry, device presence, task notifications, tool modal, native camera bridge and `EarthWatch`; unavailable values stay explicit, event text is redacted, and no unrestricted shell or fake sensor feed was added. Returning home retains chat/runtime state. Mobile rendering omits the CORE and control center.
+- Three.js GÖLGE CORE is an actual bounded procedural network of 1,400 points with link/signal buffers, animated torus rings and projection base; state/amplitude arrive from the existing native bridge. A genuine Chromium shader error was found and fixed. The browser regression checks shader compilation and WebGL `NO_ERROR`, not hardware FPS/audio quality.
+- Mobile React and Cloud PWA use a fixed, authored SVG mountain/lake wallpaper behind the independent chat scroller; composer/safe-area CSS and service-worker pre-cache were updated. The scene's visible product labels now say GÖLGE. `EarthWatch` was extracted/reused instead of creating another globe implementation.
+- Generated visual evidence: `/workspace/golge-v5-ui-evidence/desktop-chat.png`, `desktop-control-center.png`, `mobile-chat.png`. Local Chromium checks: 1366×768 and 1920×1080 desktop chat/control view; 390×844 mobile scroll isolation, fixed background, composer within viewport, zero React page errors; one CORE canvas and one globe canvas; zero Three shader compile errors and WebGL error 0. These are browser emulation/SwiftShader checks.
+- Real authenticated chat, backend telemetry, local Qwen/Gemini, physical microphone/TTS, Windows GPU, iPhone Safari and live Render health were not verified. Render MCP confirms service `srv-db20lmei0phs73crgujg` is LIVE at production SHA `6ef3f5d207fc9430cbbd552988935995529e87f5` (deploy `dep-db7mfuss728c73db4k10`). A direct public `/health` request timed out from this executor; no deployment was started. Vite emits an informational 575.89 kB OrbitControls chunk warning; the production build succeeds.
+
 ## 2026-10-14 — Shared cognitive intent router v2
 
 - Started clean from production `b6b563d0521a874c46bd0cbe2d1a1ab5e4d8efc0` on isolated branch `feat/golge-cognitive-router-v2-20261014`; previous local branch and user files were preserved.

@@ -1,3 +1,31 @@
+## 2026-10-16 — Kullanıcının seçtiği üç eski özelliğin kaldırılması (PR #44)
+
+- GÖLGE intro render, hazır Dünya hologramı ve enerji hologramı; düğmeler, presetler, prosedürel çizim ve araç tanımlarından kaldırıldı.
+- Kullanıcı kapsamı açıkça doğruladı: ana canlı CORE ve ayrı Dünya/harita sistemi korunur.
+- Kaldırılan türler/şablonlar API'de reddedilir; içe aktarma ve eski snapshot normalizasyonu bunları yeniden etkinleştirmez. Kayıtlı kullanıcı proje dosyaları silinmez.
+- Üretime merge/deploy yok; değişiklik mevcut taslak PR #44'te incelenecek.
+
+## 2026-10-16 — CORE / Dünya çalışma alanı (PR #44)
+
+- [x] Ortak normal/kontrol merkezi Dünya durumu, kaynak bağlı konum arama ve seçim, gerçek sokak haritası, GPU geçiş/temizlik, UTC terminatör, gerçek hava/uçuş gösterimi.
+- [x] API auth/Origin ve lisanssız uydu sınırları; mevcut kişisel hafıza, agent, approval ve ses köprüsü korunur.
+- [ ] Fiziksel RTX FPS/VRAM, Windows mic/TTS ve iPhone Safari; gerçek Qwen/Gemini modeli.
+- [ ] İsteniyorsa lisanslı uydu/terrain; görsel kabul ve ayrı üretim onayı. Ayrıntı: docs/GOLGE_EARTH_V7.md.
+
+## 2026-10-15 — PR #44 referans tasarım düzeltmesi
+
+Önceki teknik geçiş tasarım kabulü sayılmadı. Aynı dalda masaüstü menü/CORE/sohbet oranları, yakın-komşulu ağ geometrisi, yıldız ışıkları, enerji halkaları ve projeksiyon tabanı yeniden işlendi. Kontrol merkezi gerçek ölçüm göstergeleri, cihaz listesi, yerel paketlenmiş Dünya dokuları, komutla odak ve sağ olay/kamera/araç sütunuyla düzenlendi. Geometrik mobil SVG kaldırıldı; fotoğraf görünümünde üretilmiş WebP sabit arka plan kullanılıyor. Mevcut runtime, izinli araçlar ve ses genliği köprüsü korunuyor.
+
+Gerçek izole backend, oturum doğrulaması, Origin reddi, WebSocket ve Linux telemetrisi çalıştırıldı. Gerçek model isteği sağlayıcı bulunmadığı için UNAVAILABLE: bu ortamda Ollama veya Cloud cihaz/model yapılandırması yok. Dolu sohbet görselleri görünür şekilde sentetik demo etiketli. Fiziksel Windows/iPhone, gerçek mikrofon/TTS ve Qwen/Gemini çıkarımı NOT RUN; görsel kabul kullanıcı incelemesi bekliyor. PR #44 taslak kalır, merge/deploy yapılmaz. Ayrıntılar: `docs/GOLGE_V5_VISUAL_REVIEW.md`.
+
+## 2026-10-15 — GÖLGE V5 responsive chat, live CORE and laptop control center
+
+Started from production tip `6ef3f5d207fc9430cbbd552988935995529e87f5` on isolated branch `feat/golge-v5-interface-control-center-20261015`. Draft [PR #44](https://github.com/fatmakahraman304-hash/ULTRON/pull/44) is based directly on production. The validated code/test commit is `41c907056130536b6ec7abb482a4a02bf33e1437`; exact-head GitHub Actions pass for Responsive Interface, Scene Build, Cloud/PostgreSQL, and Local Qwen Listening. A stale browser assertion was corrected to measure the independent fixed SVG wallpaper instead of the intentionally cleared body background. The PR remains unmerged and no deployment was started. The interface has one shared React dashboard state with a desktop-only, lazy-loaded control-center view and a mobile-only chat layout; switching views preserves the mounted dashboard runtime, conversation and device bridge. Existing CenterStage and EarthWatch were reused. The control center displays only the telemetry/device/event data supplied by the existing runtime, and unknown sensors remain “Kullanılamıyor”; its tool, terminal and camera entries call existing permission-aware panels/bridges. It adds no shell endpoint or fake live camera/weather/flight feed.
+
+The desktop idle CORE uses a deterministic, bounded Three.js Fibonacci-sphere network (1,400 points, sparse links, signal points, four rotating rings and projection beam). State and amplitude are wired to the existing desktop audio bridge. Chromium WebGL testing caught an undeclared `alert` shader uniform that source-level checks missed; it was fixed, and CI’s real-browser dashboard test now checks for shader compilation errors, a clean WebGL context, control-center/globe entry, and return to CORE. The page honors reduced motion, visibility/intersection pause, responsive pixel ratio and resource cleanup. This verifies Chromium/SwiftShader WebGL only; it is not a measured RTX 2050 frame-rate claim.
+
+Mobile chat now omits the CORE and desktop control center, keeps a separate scrolling message area and composer, and uses a fixed illustrative night-lake SVG wallpaper (not a camera or a claimed photograph). The cloud PWA stylesheet and service worker cache were updated in parallel. Visible legacy product names in the dashboard/scene/accessibility copy were changed to GÖLGE while internal API names remain compatible. Browser checks covered 390×844, 1366×768 and 1920×1080; physical iPhone Safari and Windows are still untested. Real backend/model/audio behavior and Render deployment remain unverified; no merge or deploy was performed.
+
 ## 2026-10-14 — Cognitive intent router v2 on production base b6b563d
 
 Added a single zero-model-call `IntentDecision` path in `conversation_persona.py` and connected it to both Cloud/local shared dialogue guidance and desktop `FastBrainPolicy` task selection. It distinguishes chat, continuation, correction, return-to-previous-topic, current-thread history recall, explicit owner-memory recall, research, computer/tool tasks and 3D scene commands. Research uses the existing reasoning-model preference list (only installed models); ordinary greetings remain on FAST. Tool-shaped requests retain read-only/approval boundaries, and prompts forbid claiming web research, device/file/test changes or scene edits without confirmed tool output. No second model call or new client-side action system was added.

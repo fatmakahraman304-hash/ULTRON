@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "source": "FAKE QWebChannel / injected audio levels; real production UI and real isolated stage API",
+  "checks": [
+    "listening amplitude including zero",
+    "speaking amplitude including zero",
+    "return to idle",
+    "synthetic transcript Earth and CORE routing"
+  ],
+  "physical_microphone": "NOT RUN",
+  "real_tts": "NOT RUN",
+  "errors": []
+}
