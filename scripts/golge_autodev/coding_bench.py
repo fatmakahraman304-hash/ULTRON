@@ -115,6 +115,13 @@ def build_prompt(task: dict, *, current_files: dict[str, str] | None = None,
                                  for path, content in sorted(files.items())],
                "output_contract": {"summary": "short explanation",
                                    "files": [{"path": "exact allowed path", "content": "complete file"}]}}
+    payload["coding_rules"] = [
+        "Return one complete valid JSON object, with no Markdown or extra text.",
+        "Include the complete updated source for every working_files path, using exact paths.",
+        "Preserve public APIs and check empty, invalid, boundary, and numeric edge cases.",
+        "When validating paths or identifiers, distinguish raw inputs from derived values.",
+        "Keep security boundaries and unrelated behavior intact; avoid speculative changes.",
+    ]
     if diagnostics:
         safe = _sanitize(diagnostics)
         payload["untrusted_test_diagnostics"] = safe
@@ -279,6 +286,7 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
                     "attempts": 0, "provider_calls": 0, "elapsed_ms": int((time.perf_counter()-start)*1000),
                     "model_ms": 0, "test_ms": test_ms, "reason": baseline_diag}
         last_diagnostics = ""
+        previous_test_failed = False
         for attempt in range(1, max_attempts + 1):
             prompt = build_prompt(task, current_files=current, diagnostics=last_diagnostics)
             model_started = time.perf_counter()
@@ -296,15 +304,37 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
             try:
                 patch = _decode_patch(raw)
                 changed = validate_patch(task, patch)
+                # A repeated failed patch cannot fix an observed test failure.
+                # Stop rather than spending another sandbox run on identical code.
+                if previous_test_failed and all(current[path] == content for path, content in changed):
+                    return {"id": task["id"], "category": task["category"], "status": "FAIL",
+                            "attempts": attempt, "provider_calls": calls,
+                            "elapsed_ms": int((time.perf_counter()-start)*1000),
+                            "model_ms": model_ms, "test_ms": test_ms,
+                            "reason": "unchanged_patch_after_repair"}
                 current = dict(current)
                 for path, content in changed:
                     current[path] = content
                     (workspace / path).write_text(content, encoding="utf-8")
             except BenchmarkError as exc:
+                reason = str(exc)
+                # Only shape/format mistakes may be retried. Unsafe paths,
+                # secret-like content, oversized files, and duplicate paths
+                # remain fail-closed without a second provider call.
+                recoverable = {"model_json_invalid", "model_response_invalid",
+                               "model_patch_incomplete"}
+                if attempt < max_attempts and reason in recoverable:
+                    last_diagnostics = (
+                        "Previous response rejected: " + reason + ". "
+                        "Return exactly one valid JSON object with a files array, "
+                        "containing complete source for each original path; "
+                        "no additional paths, no Markdown."
+                    )
+                    continue
                 return {"id": task["id"], "category": task["category"], "status": "BLOCKED",
                         "attempts": attempt, "provider_calls": calls,
                         "elapsed_ms": int((time.perf_counter()-start)*1000), "model_ms": model_ms,
-                        "test_ms": test_ms, "reason": str(exc)}
+                        "test_ms": test_ms, "reason": reason}
             passed, diagnostics, elapsed = _run_oracle(
                 task, workspace, oracle_dir, typescript_bin=typescript_bin, node_bin=node_bin)
             test_ms += elapsed
@@ -314,6 +344,7 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
                         "elapsed_ms": int((time.perf_counter()-start)*1000),
                         "model_ms": model_ms, "test_ms": test_ms}
             last_diagnostics = diagnostics
+            previous_test_failed = True
         return {"id": task["id"], "category": task["category"], "status": "FAIL",
                 "attempts": max_attempts, "provider_calls": calls,
                 "elapsed_ms": int((time.perf_counter()-start)*1000),
