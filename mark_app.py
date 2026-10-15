@@ -2239,7 +2239,12 @@ class UltronLive:
             # A separate bounded queue response returns text only; never send
             # this input to desktop automation or an external API.
             if payload.get("mode") == "local_brain":
-                lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt, log=log_lease)
+                from integration.local_cloud_brain import LocalChatCancelled, LocalChatCancellation
+                cancellation = LocalChatCancellation()
+                lease_guard = RemoteLeaseGuard(
+                    client, command_id, delivery_attempt, interval=0.6,
+                    interrupt_on_lost=cancellation.cancel, log=log_lease,
+                )
                 lease_task = asyncio.create_task(lease_guard.run())
                 # Record actual dispatch before inference. Otherwise failed
                 # runs show only "claimed", making queue stalls indistinguishable
@@ -2254,10 +2259,24 @@ class UltronLive:
                 if lease_guard.lost.is_set():
                     log_lease(f"local chat lease already lost: {lease_guard.reason}")
                     return
-                local = await client.local_chat(
-                    task_text, str(payload.get("system") or "")[:5400],
-                    payload.get("turns") if isinstance(payload.get("turns"),list) else []
-                )
+                try:
+                    local = await client.local_chat(
+                        task_text, str(payload.get("system") or "")[:5400],
+                        payload.get("turns") if isinstance(payload.get("turns"),list) else [],
+                        cancellation=cancellation,
+                    )
+                except LocalChatCancelled:
+                    log_lease("Local Qwen stream closed after owner interruption.")
+                    if cancellation.transport_closed:
+                        try:
+                            await client.report_task_progress(
+                                command_id, delivery_attempt=delivery_attempt,
+                                stage="cancelled",
+                                message="Yerel Qwen HTTP akışı kesildi.",
+                            )
+                        except Exception as exc:
+                            log_lease(f"Qwen interruption acknowledgement unavailable: {type(exc).__name__}")
+                    return
                 if lease_guard.lost.is_set():
                     log_lease("Ollama result discarded: Cloud lease is no longer active")
                     return

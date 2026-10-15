@@ -700,7 +700,11 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Baseline reproduction failed with `ModuleNotFoundError`; post-fix subprocess regressions **2 passed**, prior startup-import regressions **4 passed**, Python compile and diff checks passed. Owner's Qwen/Render doctor passed 3/3; physical desktop startup must still be repeated after pulling the fix.
 - Follow-up Windows log after the temporary root `PYTHONPATH` confirms backend health succeeds, then `mark_app.py:52` fails with `No module named 'memory.memory_manager'; 'memory' is not a package`. Root cause is desktop Python resolving backend `memory.py` before the desktop `memory/` package. The memory package import is now moved before UI imports; safe-path subprocess and source-order regressions bring the focused suite to **8 passed**.
 
-## 2026-10-15 — PR #5 continuation recall synchronized
+## 2026-10-15 — PR #36 dependency synchronization
 
-- Preserved current bounded same-owner continuation paging and added bilingual bare-continuation forms from the older PR's intent. Older task plus correction remain ordinary chronological user turns; latest correction is not discarded.
-- Regression suite with disposable PostgreSQL: **27 passed**, covering continuation selection, correction, same-thread/owner isolation, and conversation history.
+- Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
+- PR #37 true interruption changes merged into this dependency branch at 61f3e02; synchronize and validate before production merge.
+
+## 2026-10-15 — PR #5 synchronized with current production
+
+- The current bounded owner/thread paging implementation preserves the original goal and latest correction across bare continuations. Disposable-PostgreSQL conversation suites passed **27/27** on the preceding synchronized base; rerun exact-head CI after this production merge.

@@ -9,6 +9,7 @@ on:
     branches:
       - feat/golge-qwen-goal-routing-20261013
       - feat/ultron-cloud-shared-memory
+      - feat/golge-natural-conversation-voice-20261014
     paths:
       - 'ultron/frontend/**'
       - 'ultron/cloud_service/static/index.html'
