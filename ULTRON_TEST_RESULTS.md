@@ -803,4 +803,4 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 
 ## 2026-10-15 — PR #34 review regressions
 
-- Episodic PostgreSQL/API/security tests: **13 passed**; Evidence V4 deterministic/evaluation tests: **105 passed**. Day-window bounds and connector-word search have explicit regressions. Device/provider tests remain **NOT RUN**.
+- Episodic PostgreSQL/API/security tests: **13 passed**; Evidence V4 deterministic/evaluation tests: **109 passed**. Day-window bounds and connector-word search have explicit regressions. Device/provider tests remain **NOT RUN**.
