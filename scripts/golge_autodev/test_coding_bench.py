@@ -272,5 +272,71 @@ class CodingBenchmarkContracts(unittest.TestCase):
             [("file.ts", "const value = 1;")]))
 
 
+    def test_v7_repair_prompt_explains_source_delta_without_private_oracles(self):
+        task = {
+            "prompt": "Make transform preserve valid IDs, reject empty values, and trim input.",
+            "starter_files": {"module.py": "def transform(value):\\n    return value\\n"},
+            "oracle_script": "TOP_PRIVATE_ASSERTION_4125",
+        }
+        current = {"module.py": "def transform(value):\\n    return value.strip()\\n"}
+        initial = json.loads(coding_bench.build_prompt(task, current_files=current))
+        self.assertNotIn("repair_rules", initial)
+        repaired = json.loads(coding_bench.build_prompt(
+            task, current_files=current, diagnostics="Independent behavior failed",
+            repair_mode=True,
+        ))
+        self.assertIn("return value.strip()", repaired["working_files"][0]["content"])
+        delta = repaired["public_candidate_vs_starter_diff"]
+        self.assertIn("starter/module.py", delta)
+        self.assertIn("candidate/module.py", delta)
+        self.assertIn("-    return value", delta)
+        self.assertIn("+    return value.strip()", delta)
+        self.assertTrue(any("behavior-changing" in rule for rule in repaired["repair_rules"]))
+        self.assertNotIn("TOP_PRIVATE_ASSERTION_4125", json.dumps(repaired))
+
+    def test_v7_second_model_attempt_uses_only_public_source_for_repair(self):
+        task = {
+            "id": "synthetic-repair",
+            "category": "python_bugfix",
+            "prompt": "Implement compute so the result is transformed as specified.",
+            "language": "python",
+            "starter_files": {"compute.py": "def compute(value):\\n    return value\\n"},
+        }
+        candidate = "def compute(value):\\n    return value + 1\\n"
+        repair = "def compute(value):\\n    return value + 2\\n"
+        responses = [
+            json.dumps({"files": [{"path": "compute.py", "content": candidate}]}),
+            json.dumps({"files": [{"path": "compute.py", "content": repair}]}),
+        ]
+        private = "WITHHELD_RESULT_7831"
+        with patch.object(coding_bench, "_run_oracle", side_effect=[
+            (False, "baseline failure", 1),
+            (False, private, 1),
+            (True, "pass", 1),
+        ]) as oracle, patch.object(coding_bench, "infer_with_budget", side_effect=responses) as model:
+            result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["provider_calls"], 2)
+        self.assertEqual(oracle.call_count, 3)
+        prompts = [json.loads(call.args[0]) for call in model.call_args_list]
+        self.assertNotIn("repair_rules", prompts[0])
+        self.assertIn("repair_rules", prompts[1])
+        self.assertIn("+    return value + 1", prompts[1]["public_candidate_vs_starter_diff"])
+        self.assertNotIn(private, json.dumps(prompts))
+        self.assertNotIn(private, json.dumps(result))
+
+    def test_v7_public_source_diff_is_bounded_for_large_changes(self):
+        task = {
+            "starter_files": {"large.py": "def f():\\n    return 0\\n"},
+            "oracle_script": "FORBIDDEN_PRIVATE_TEST_9901",
+        }
+        candidate = {"large.py": "def f():\\n    return 1\\n" + ("# long unrelated comment\\n" * 20_000)}
+        delta = coding_bench._public_candidate_delta(task, candidate)
+        self.assertLessEqual(len(delta), 2_800)
+        self.assertNotIn(task["oracle_script"], delta)
+
+
+
+
 if __name__ == "__main__":
     unittest.main()
