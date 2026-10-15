@@ -43,10 +43,14 @@ test('mobile layout separates scrollable messages and fixed composer without hid
  assert.match(css,/content:none!important;display:none!important/);
  assert.match(css,/#chatView \.msg\.user::before\{/);
  assert.match(css,/border:1px solid #315460!important/);
+ assert.match(css,/position:fixed!important;inset:0!important/);
+ assert.match(css,/\/static\/golge-night-lake\.svg/);
+ assert.ok(fs.existsSync(path.join(root,'ultron/cloud_service/static/golge-night-lake.svg')));
 
  const sw=file('ultron/cloud_service/static/sw.js');
- assert.match(sw,/ultron-shell-v72/);
+ assert.match(sw,/ultron-shell-v73/);
  assert.match(sw,/\/static\/golge-reference-mobile\.css/);
+ assert.match(sw,/\/static\/golge-night-lake\.svg/);
 });
 
 test('desktop procedural 3D remains bounded and other feature stages remain functional',()=>{

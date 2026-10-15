@@ -1,3 +1,12 @@
+## Next tasks — GÖLGE V5 interface release verification
+
+1. Finish review of branch `feat/golge-v5-interface-control-center-20261015`, publish it as a draft PR against production `feat/ultron-cloud-shared-memory`, then wait for exact-head GitHub Actions and fix any failures. Do not merge or deploy without the user's release authorization.
+2. On the Windows laptop, confirm the real native bridge reports CPU/RAM/GPU and audio amplitude, verify local Ollama/Qwen and Gemini fallback, test 3D CORE state transitions and view switching, and measure actual GPU frame time. Keep missing sensors visibly unavailable.
+3. On physical iPhone Safari, verify authenticated chat history, fixed wallpaper while scrolling, keyboard/safe-area composer, image/file attach, mic permission, voice turn and network recovery. Background microphone behavior remains subject to iOS restrictions.
+4. Validate one authenticated local/cloud chat exchange and same-owner phone/laptop history without changing stored user data. Confirm the control-center action tools continue through existing approval/audit flows.
+5. Recheck Render `/health` and deployment SHA after network is available. No live deployment has been started; this desktop code branch is unmerged.
+6. Investigate the existing OrbitControls 575.89 kB chunk warning using measured bundle evidence before changing chunk boundaries.
+
 ## Next tasks — cognitive router v2 follow-up
 
 1. Review draft [PR #32](https://github.com/fatmakahraman304-hash/ULTRON/pull/32) on isolated branch `feat/golge-cognitive-router-v2-20261014`, functional code head `74c932ae5002e9dae4285ffdc5552972ca50514c`. Exact-head Actions all passed (#38548733163 Cloud/PostgreSQL, #38548733148 Scene, #38548733003 Local Qwen Listening). Keep it unmerged and undeployed until explicit owner approval; `feat/ultron-cloud-shared-memory` is Render-connected.
