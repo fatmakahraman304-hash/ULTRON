@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "base_branch": "feat/ultron-cloud-shared-memory",
+  "goals": [
+    {
+      "id": "voice-interrupt-contract",
+      "title": "Strengthen voice interruption invariants",
+      "goal": "Improve internal voice-runtime interruption and race safety. Verify cancellation state, stale result suppression and non-regression of LISTENING and WORKING. Do not claim real model/TTS cancellation unless backed by a real provider adapter. Preserve audio ownership.",
+      "paths": [
+        "ultron/backend/app/multimodal/voice_runtime.py",
+        "ultron/backend/tests/test_autodev_voice_interrupt.py"
+      ],
+      "test_path": "ultron/backend/tests/test_autodev_voice_interrupt.py"
+    },
+    {
+      "id": "dialogue-continuity-contract",
+      "title": "Strengthen conversation interruption continuity",
+      "goal": "Improve bounded communication-state handling for interruptions and resumed turns, with deterministic regression tests. Do not change user data storage, device permissions, routing, security or microphone ownership.",
+      "paths": [
+        "ultron/backend/app/cognitive/communication.py",
+        "ultron/backend/tests/test_autodev_communication.py"
+      ],
+      "test_path": "ultron/backend/tests/test_autodev_communication.py"
+    }
+  ]
+}
