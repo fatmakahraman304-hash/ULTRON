@@ -780,3 +780,10 @@ The separate disposable PostgreSQL container was used only for tests and stopped
 
 Exact-head hosted verification for workflow commit `698190a94ac8f8a471cc91dc481cac59d0f71ea5`: Cloud/PostgreSQL [#38555225630](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225630) **SUCCESS**, Scene [#38555225647](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225647) **SUCCESS**, Local Qwen Listening [#38555225690](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225690) **SUCCESS**. Hosted V3 steps: 500-continuation suite **8 passed**; deterministic research/evaluation **112 passed**; real PostgreSQL memory versioning suite **8 passed**. Draft [PR #33](https://github.com/fatmakahraman304-hash/ULTRON/pull/33), unmerged.
 Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d657361821ae728814ba3506a79b309`; public `/health` returned HTTP 200 and the same commit. No deployment or merge was performed.
+## 2026-10-15 — Windows startup dependency recovery
+
+- Owner-reported reproduction: `START.bat` frontend TypeScript build failed with TS2307 for `leaflet` after a code pull.
+- Source inspection at deployed base `bab1b760fcb97164d42d76b0ca67909a0591538a`: Leaflet and `@types/leaflet` exist in both package manifest and lockfile; bootstrap only invoked `npm ci` when `node_modules` did not exist. Root cause is stale dependency installation, not an absent declared package.
+- Added lockfile-hash synchronization before rebuilding. Dependency-sync contract tests **2 passed**; `npm ci --no-audit --no-fund` installed the locked packages and `npm run build` passed (1,706 modules). Earth math tests **6 passed** and lazy-bundle contract **1 passed**. `git diff --check` and workflow YAML parsing passed.
+- PowerShell parser and physical Windows `START.bat` validation: **NOT RUN** locally (no PowerShell or Windows host in this environment); a Windows GitHub Actions parser check is included in the PR. The contract tests do not simulate the Windows process itself.
+- Immediate workaround: run `npm ci` in `ultron/frontend`, then rerun `START.bat` from the project root.

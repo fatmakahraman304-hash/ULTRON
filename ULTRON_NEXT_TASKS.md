@@ -786,3 +786,15 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 4. Test real Gemini and Qwen only when providers are reachable and credentials are available; report model/version, first-token/total latency, and all 100 scenarios with NOT_RUN for missing cases. Do not install/download models or modify the owner’s Windows laptop in this branch task.
 5. Add bounded PDF parsing only if a safe dependency and decompression/page limits are justified; retain HTML/text-only truthful behavior until then.
 6. After owner approval, release separately; verify production commit, Render deploy SHA and health. Physical iPhone/Windows acceptance remains a separate NOT_RUN item.
+## Next: finish Windows startup recovery
+
+1. Review/pull the startup dependency-sync fix from PR once its CI passes.
+2. On the laptop, run `cd /d "%USERPROFILE%\ULTRON-3a6f489\ultron\frontend" && npm ci`, return to the repository root, then run `START.bat` once as immediate recovery.
+3. On the fixed startup path, run `git pull --ff-only origin feat/ultron-cloud-shared-memory` after confirming the local branch/worktree are clean, then run `START.bat`; verify the frontend build completes and `leaflet` resolves.
+4. Continue the previously pending real Windows Ollama/microphone/TTS checks and physical iPhone Safari voice checks. Do not treat CI or Chromium emulation as device validation.
+## Current task — recover Windows frontend dependencies (2026-10-15)
+
+- PR #44 is already merged/deployed at `bab1b760fcb97164d42d76b0ca67909a0591538a`. The owner then reported `START.bat` TypeScript TS2307 for `leaflet` because its old `node_modules` was not refreshed after the lockfile changed.
+- Current fix branch: `fix/windows-start-sync-frontend-deps` from production SHA `bab1b760`. Wait for Windows PowerShell syntax check and Scene Build CI, then merge only after those checks pass (prior blanket release authorization applies to this fix).
+- Immediate laptop workaround: `cd /d "%USERPROFILE%\ULTRON-3a6f489\ultron\frontend"`, run `npm ci`, return to repo root, then `START.bat`.
+- After the fix is merged, pull the production branch with a clean working tree and rerun `START.bat`; capture exact output. Then resume physical Windows Qwen/mic/TTS and iPhone Safari tests. Never call those device tests passed based on CI.

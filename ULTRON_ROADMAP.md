@@ -640,3 +640,8 @@ The continuation path also passed a test-first 500 “Devam et” regression: it
 Exact-head GitHub Actions on `698190a94ac8f8a471cc91dc481cac59d0f71ea5` passed: [Cloud/PostgreSQL #38555225630](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225630), [Scene #38555225647](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225647), and [Local Qwen Listening #38555225690](https://github.com/fatmakahraman304-hash/ULTRON/actions/runs/38555225690). Draft [PR #33](https://github.com/fatmakahraman304-hash/ULTRON/pull/33) remains unmerged. Render remains LIVE at production SHA `0b2315a77d657361821ae728814ba3506a79b309`; no deployment was started.
 
 Next dependency order: improve temporal/episode recall using existing owner/thread data without mixing scopes → add evidence claim extraction and contradiction/independent-domain checks with fixture-based evaluations → provider-backed Gemini/Qwen and live-network latency only when credentials/services are available → obtain explicit release approval before merge/deploy.
+## Windows desktop update reliability — 2026-10-15
+
+- Keep `START.bat` self-healing after code pulls: compare the installed frontend dependency fingerprint with `ultron/frontend/package-lock.json`, install from the lockfile when stale, and rebuild only after dependency synchronization succeeds.
+- Acceptance: the dependency sync contract test passes, frontend `npm ci` + production build passes, Scene Build CI passes on the exact commit, and the owner's Windows `START.bat` no longer reports missing frontend packages.
+- Current limitation: Windows hardware verification depends on the owner's laptop and remains pending until the fix is pulled and started there.

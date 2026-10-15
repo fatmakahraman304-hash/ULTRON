@@ -58,7 +58,18 @@ try {
     if ($Mode -eq 'start' -or $Mode -eq 'install') {
         $frontendDir = Join-Path $projectRoot 'ultron\frontend'
         $distIndex = Join-Path $frontendDir 'dist\index.html'
-        $needsFrontendBuild = -not (Test-Path -LiteralPath $distIndex)
+        $nodeModules = Join-Path $frontendDir 'node_modules'
+        $frontendLock = Join-Path $frontendDir 'package-lock.json'
+        $dependencyMarker = Join-Path $nodeModules '.ultron-package-lock.sha256'
+        $expectedLockHash = if (Test-Path -LiteralPath $frontendLock) {
+            (Get-FileHash -LiteralPath $frontendLock -Algorithm SHA256).Hash
+        } else { '' }
+        $installedLockHash = if (Test-Path -LiteralPath $dependencyMarker) {
+            (Get-Content -LiteralPath $dependencyMarker -Raw -ErrorAction SilentlyContinue).Trim()
+        } else { '' }
+        $needsFrontendDependencies = (-not (Test-Path -LiteralPath $nodeModules)) -or
+            (-not $expectedLockHash) -or ($installedLockHash -ne $expectedLockHash)
+        $needsFrontendBuild = (-not (Test-Path -LiteralPath $distIndex)) -or $needsFrontendDependencies
         if (-not $needsFrontendBuild) {
             $distTime = (Get-Item -LiteralPath $distIndex).LastWriteTimeUtc
             $frontendInputs = @(
@@ -89,9 +100,11 @@ try {
             Write-Host 'ULTRON Center Stage arayuzu derleniyor...' -ForegroundColor Cyan
             Push-Location -LiteralPath $frontendDir
             try {
-                if (-not (Test-Path -LiteralPath (Join-Path $frontendDir 'node_modules'))) {
-                    & $npm.Source ci
+                if ($needsFrontendDependencies) {
+                    Write-Host 'Frontend bagimlilik kilidi degismis; npm paketleri eslestiriliyor...' -ForegroundColor Cyan
+                    & $npm.Source ci --no-audit --no-fund
                     if ($LASTEXITCODE -ne 0) { throw "Frontend npm ci basarisiz: $LASTEXITCODE" }
+                    [System.IO.File]::WriteAllText($dependencyMarker, $expectedLockHash, [System.Text.Encoding]::ASCII)
                 }
                 & $npm.Source run build
                 if ($LASTEXITCODE -ne 0) { throw "Frontend build basarisiz: $LASTEXITCODE" }
