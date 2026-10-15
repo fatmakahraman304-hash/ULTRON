@@ -6,7 +6,7 @@ Based on V7 draft PR #46; do not merge/deploy independently.
 ## Confirmed resources
 
 - Repository: fatmakahraman304-hash/ULTRON.
-- GitHub publication: existing ultron/backend/github_pr_publisher.py uses the owner's local gh login, user approval, isolated testing, and a **draft PR**. It cannot merge or deploy.
+- GitHub publication: existing ultron/backend/github_pr_publisher.py uses the owner's local gh login, isolated verification, and **draft PRs**. Manual chat patch application requires owner approval; separately bounded autonomous proposals can publish drafts without approving a merge. Neither flow merges or deploys.
 - Render workspace: My Workspace (tea-db20gvek1f9s738lb3rg).
 - Render service: GÖLGE (srv-db20lmei0phs73crgujg).
 - Render-tracked deploy branch: feat/ultron-cloud-shared-memory.
