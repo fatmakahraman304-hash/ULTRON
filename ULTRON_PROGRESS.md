@@ -711,3 +711,4 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Added bounded, explicit 1–365 day recall windows so accepted retrospective phrases always apply their requested time bounds; unsupported ranges remain ordinary chat.
 - Excluded English `for` and Turkish `hakkında` from mandatory lexical groups; added regression tests for both languages and date limits.
 - Real disposable-PostgreSQL episodic API/security suite: **13 passed**. Evidence engine and 100-case evaluation: **109 passed**. Python compilation passed.
+- All four resume documents now record V4 implementation, exact test evidence, limits, and the next merge step. The GitHub review's stale V4 next-task note is addressed in the branch tracking files.

@@ -1,5 +1,11 @@
 ## 2026-10-16 — Güncel kapsam ve devam
 
+## 2026-10-15 — Current merge queue and Memory V4 status
+
+- PR #34 now contains PR #35 and is synchronized with production through `c66b5dae`; its latest implementation adds bounded 1–365 day recall and bilingual connector-word filtering. Exact-head Actions for `fece4ef` are pending.
+- The older “Next tasks — Memory and Verified Research V3” section below is historical. Episodic Memory V4 and Evidence V4 implementation are present in PR #34; remaining limits are semantic retrieval/verification, PDF support, live providers, and physical device testing.
+- Next: wait for all PR #34 checks; merge only if they pass. Then verify Render's production SHA and continue with PR #36's synchronized interruption flow. PR #40 scheduler remains blocked on its upstream rollout and independent credentials/cost review.
+
 1. PR #44'te üç eski özelliğin kaldırılmasını incele: GÖLGE intro render, Dünya hologramı, enerji hologramı. Ana CORE ve ayrı harita kullanıcı talimatıyla kalır.
 2. Yeni kaldırma commit'inin GitHub Actions kontrollerini tamamla; başarısız job varsa düzelt. Test: `python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v`, frontend build, `python scripts/tests/test_frontend_stage_loading.py`.
 3. Üretime merge veya Render deploy için ayrıca açık onay gerekir; bu görev yayın yetkisi vermez.
