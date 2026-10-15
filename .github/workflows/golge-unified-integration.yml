@@ -1,0 +1,86 @@
+name: GÖLGE Unified Integration Gate
+
+on:
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui:
+    name: UI and TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ultron/frontend/package-lock.json
+      - name: Run mobile, UI and PWA contracts
+        run: |
+          node scripts/test_golge_minimal_ui.mjs
+          node --check ultron/cloud_service/static/sw.js
+          node --test ultron/frontend/tests/connectionStatus.test.mjs ultron/frontend/tests/coreNetwork.test.mjs ultron/frontend/tests/panelIntent.test.mjs
+      - name: Install exact frontend dependencies
+        run: npm ci --prefix ultron/frontend --no-audit --no-fund
+      - name: Build production TypeScript application
+        run: npm run build --prefix ultron/frontend
+
+  cloud:
+    name: Cloud, memory and desktop bridge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install cloud dependencies
+        run: python -m pip install --disable-pip-version-check -r ultron/cloud_service/requirements.txt
+      - name: Compile the Cloud/local bridge
+        run: |
+          python -m py_compile ultron/cloud_service/app.py ultron/cloud_service/local_brain_bridge.py ultron/backend/cloud_client.py ultron/backend/cloud_delivery.py
+      - name: Check owner memory, dialogue, research and local bridge contracts
+        env:
+          PYTHONPATH: ultron/cloud_service:ultron/backend
+        run: |
+          python -m unittest discover -s ultron/cloud_service -p 'test_local_brain_bridge.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_verified_research_integration.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_conversation_turns.py' -v
+
+  engineer:
+    name: V7 sandboxed autonomous engineer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: ultron/frontend/package-lock.json
+      - name: Prepare pinned network-isolated code sandbox
+        run: |
+          docker info --format '{{.ServerVersion}}'
+          docker pull ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+      - name: Install provider-free testing tools
+        run: python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'mypy==1.15.0'
+      - name: Install locked frontend code-check toolchain
+        run: npm ci --prefix ultron/frontend --no-audit --no-fund
+      - name: Test V7 safety, repair and GitHub publisher contracts
+        run: |
+          python -m unittest discover -s scripts/golge_autodev -p 'test_*.py' -v
+          PYTHONPATH=ultron/backend python -m pytest -q ultron/backend/tests/test_github_pr_publisher.py
+          python scripts/golge_autodev/coding_bench.py --max-cases 8 > /tmp/golge-unified-not-run.json
+          python -c "import json; d=json.load(open('/tmp/golge-unified-not-run.json')); assert d['model_status']=='NOT_RUN' and d['summary']['not_run']==8 and d['score'] is None"
