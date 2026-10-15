@@ -1,3 +1,9 @@
+## 2026-10-16 — Üç legacy preset kaldırıldı
+
+Kullanıcının açık kapsam yanıtıyla yalnızca GÖLGE intro render, Dünya hologramı ve enerji hologramı kaldırıldı; ana CORE, EarthWatch/harita ve kontrol merkezi korunur. Dashboard Araçlar düğmeleri, CenterStage presetleri/çizimleri, ilgili sahne kısayolları ve agent araç açıklamaları temizlendi. Backend artık kaldırılan türleri create/update/add, batch ve JSON import yollarında HTTP 400 ile reddeder; intro/energy video şablonları kabul edilmez. Eski snapshot'lar yalnızca desteklenen nesneleri canlı sahneye getirir; kullanıcı proje dosyaları ve hafıza silinmez.
+
+Test-first regresyon eski sürümün kaldırılan özellikleri hâlâ kabul ettiğini gösterdi. Düzeltme sonrası 47 odaklı test geçti (7 kaldırma, 11 backend Earth, 24 frontend, 3 PWA sözleşmesi, 1 bundle, 1 gerçek Chromium). npm ci, TypeScript/Vite build, Python compile, YAML ve eklenen satırlarda credential-pattern taraması başarılı. Chromium testi üç düğmenin yokluğunu ve ana CORE/kontrol merkezi Dünya dönüşünü birlikte sınar. Browser backend'i kontrollü fixture'dır; gerçek model/Windows/iPhone/ses doğrulaması değildir. Bu kayıt yerel doğrulamadır; yeni commit'in Actions sonucu PR üzerinden ayrıca kontrol edilir. Merge/deploy yapılmaz.
+
 ## 2026-10-16 — PR #44 ortak CORE / Dünya ve gerçek kaynaklar
 
 - Aynı PR dalında CORE ↔ EarthWatch GPU geçişi, ortak stage.earth/kamera, gerçek Photon/OSM araması, belirsiz konum seçimi, lazy Leaflet sokak haritası ve opsiyonel lisanslı XYZ sözleşmesi uygulandı. Night/day terminatörü, katmanlar, gerçek hava/uçuş ve ISS kaynakları mevcut adaptörlerle bütünleşti.

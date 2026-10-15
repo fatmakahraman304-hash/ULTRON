@@ -1,3 +1,10 @@
+## 2026-10-16 — Kullanıcının seçtiği üç eski özelliğin kaldırılması (PR #44)
+
+- GÖLGE intro render, hazır Dünya hologramı ve enerji hologramı; düğmeler, presetler, prosedürel çizim ve araç tanımlarından kaldırıldı.
+- Kullanıcı kapsamı açıkça doğruladı: ana canlı CORE ve ayrı Dünya/harita sistemi korunur.
+- Kaldırılan türler/şablonlar API'de reddedilir; içe aktarma ve eski snapshot normalizasyonu bunları yeniden etkinleştirmez. Kayıtlı kullanıcı proje dosyaları silinmez.
+- Üretime merge/deploy yok; değişiklik mevcut taslak PR #44'te incelenecek.
+
 ## 2026-10-16 — CORE / Dünya çalışma alanı (PR #44)
 
 - [x] Ortak normal/kontrol merkezi Dünya durumu, kaynak bağlı konum arama ve seçim, gerçek sokak haritası, GPU geçiş/temizlik, UTC terminatör, gerçek hava/uçuş gösterimi.

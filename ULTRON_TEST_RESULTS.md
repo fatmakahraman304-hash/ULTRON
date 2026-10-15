@@ -1,3 +1,12 @@
+## 2026-10-16 — Legacy intro / Dünya hologramı / enerji hologramı kaldırma
+
+- Test-first: eski kod kaldırılan presetleri create/update/add/import/video yollarında kabul etti; yeni regresyonlar beklenen şekilde başarısız oldu.
+- Düzeltme sonrası **47 odaklı test PASS, 0 FAIL**: 7 kaldırma sözleşmesi, 11 backend Earth, 24 frontend route/CORE/Earth/bağlantı, 3 Cloud PWA sözleşmesi, 1 lazy bundle, 1 gerçek Chromium testi.
+- Chromium fixture backend ile ana CORE WebGL, kontrol merkezi Dünya canvas'ı, sohbete dönüş ve Araçlar menüsünde üç kaldırılan düğmenin yokluğunu doğruladı. Bu bir fiziksel cihaz veya gerçek sağlayıcı testi değildir.
+- npm ci + TypeScript/Vite production build PASS; mevcut OrbitControls chunk boyutu uyarısı sürer. Python compile, minimal UI static contract, workflow YAML, diff whitespace ve eklenen satırlarda credential-pattern taraması PASS.
+- Değişikliklerin yerel kontrol kapsamı: Dashboard.tsx, CenterStage.tsx, runtime.ts, backend/server.py, actions/ultron_stage.py, iki test dosyası ve Scene CI adımı. Chat/model/voice/auth/approval modülleri değiştirilmedi.
+- Yeni HEAD Actions sonuçları PR #44 üzerinde ayrıca izlenir. Gerçek model, Windows/iPhone ve gerçek ses NOT RUN. Production branch ve Render değiştirilmez.
+
 ## 2026-10-16 — PR #44 CORE/Dünya doğrulaması
 
 - Yerel odaklı otomatik set: **54 PASS / 0 FAIL** (24 frontend intent/CORE/geo/bağlantı, 1 lazy bundle, 11 backend Earth/lisans/geocoding, 16 Cloud WORLD/mobil sözleşmesi, 2 gerçek Chromium sahne/mobil testi). Minimal UI, TypeScript/Vite build, Python compile, YAML, diff PASS; npm audit 0 zafiyet.

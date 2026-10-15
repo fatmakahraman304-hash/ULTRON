@@ -95,6 +95,15 @@ class FrontendStageLoadingTests(unittest.IsolatedAsyncioTestCase):
         await self.page.locator('.cc-map-card canvas').wait_for(timeout=10000)
         await self.page.get_by_role('button',name='Normal sohbete dön').first.click()
         await self.page.locator('.center-stage canvas').wait_for(timeout=10000)
+        # Explicitly removed legacy presets must disappear, while the main
+        # CORE and the distinct Earth viewer above remain operational.
+        await self.page.get_by_role('button',name='Araçlar',exact=True).first.click()
+        dialog = self.page.get_by_role('dialog',name='Araçlar',exact=True)
+        await dialog.wait_for()
+        for label in ('GÖLGE intro render', 'Dünya hologramı', 'Enerji hologramı'):
+            self.assertEqual(await dialog.get_by_role('button',name=label,exact=True).count(), 0)
+        self.assertEqual(await dialog.get_by_role('button',name='Gelişmiş Hologram Lab',exact=True).count(), 1)
+        await dialog.get_by_role('button',name='Paneli kapat').click()
         self.assertEqual(self.shader_errors,[])
         self.assertEqual(self.errors,[])
 

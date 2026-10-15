@@ -1,3 +1,12 @@
+## 2026-10-16 — Güncel kapsam ve devam
+
+1. PR #44'te üç eski özelliğin kaldırılmasını incele: GÖLGE intro render, Dünya hologramı, enerji hologramı. Ana CORE ve ayrı harita kullanıcı talimatıyla kalır.
+2. Yeni kaldırma commit'inin GitHub Actions kontrollerini tamamla; başarısız job varsa düzelt. Test: `python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v`, frontend build, `python scripts/tests/test_frontend_stage_loading.py`.
+3. Üretime merge veya Render deploy için ayrıca açık onay gerekir; bu görev yayın yetkisi vermez.
+4. Fiziksel Windows/iPhone ve gerçek Qwen/Gemini/mikrofon/TTS testleri hâlâ yapılmadı. Önceki raporların bu sınırlarını koru.
+
+Aşağıdaki eski görevler tarihsel kayıttır; kaldırılan üç preset yeniden eklenmemelidir.
+
 ## PR #44 — CORE/Dünya son doğrulama ve fiziksel kabul
 
 1. docs/GOLGE_EARTH_V7.md ve docs/ui-v7/ gerçek ekran/kayıtlarını incele. Etiketli sentetik ses testi mikrofon/TTS başarısı değildir; yeni sohbet ekranlarında gerçek sahne cevapları ve model UNAVAILABLE sonucu vardır.

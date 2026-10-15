@@ -47,8 +47,8 @@ export default function Dashboard(){
   if(/(?:animasyon|animation).*(?:oynat|göster|goster|aç|ac|yap|oluştur|olustur)|(?:oynat|göster|goster).*(?:animasyon|animation)/.test(t)&&!/(?:videoya|kaydet|indir)/.test(t)){const kind=/(?:kuş|kus|bird|civciv)/.test(t)?'bird':/(?:yörünge|yorunge|orbit|dön|don)/.test(t)?'orbit':/(?:nabız|nabiz|pulse)/.test(t)?'pulse':'bird';await action('animation_show',{kind,title:'GÖLGE MINI ANIMATION'});return 'Küçük animasyon GÖLGE CORE içinde oynatılıyor.';}
   if(/(?:core.?a dön|çekirdeğe dön|orta alanı sıfırla|sahneyi sıfırla)/.test(t)){await action('reset');return 'Center Stage çekirdeğe döndü.';}
   if(/(?:bunu|hologramı|hologrami).*(?:videoya çevir|video yap)/.test(t)){await action('video_from_stage',{duration,title:current.label});return 'Hologram video renderına geçti.';}
-  if(/(?:video|animasyon|intro).*(?:yap|oluştur|olustur|render|hazırla|hazirla)/.test(t)){
-   let template='ultron_intro';if(/logo/.test(t))template='logo_reveal';else if(/enerji|çekirdek|cekirdek/.test(t))template='energy_core';else if(/sistem.*(?:aktiv|açıl|acil)/.test(t))template='system_activation';else if(/görev|gorev.*tamam/.test(t))template='task_complete';
+  if(/(?:video|animasyon).*(?:yap|oluştur|olustur|render|hazırla|hazirla)/.test(t)){
+   let template='logo_reveal';if(/sistem.*(?:aktiv|açıl|acil)/.test(t))template='system_activation';else if(/görev|gorev.*tamam/.test(t))template='task_complete';
    await action('video_create',{template,duration,title:/ultron/.test(t)?'GÖLGE':current.label||'GÖLGE'});return duration+' saniyelik video renderı başladı.';
   }
   if(/(?:videoyu|video).*(?:durdur|duraklat|pause)/.test(t)){await action('video_pause');return 'Video duraklatıldı.';}
@@ -62,21 +62,18 @@ export default function Dashboard(){
   if(/(?:operasyon|taktik).*(?:sahne|masa)/.test(t)){await action('scene_preset',{preset:'operations'});return 'Operasyon sahnesi kuruldu.';}
   if(/araç|arac|vehicle/.test(t)&&/tarama|scan/.test(t)&&/(?:sahne|göster|goster|oluştur|olustur|kur)/.test(t)){await action('scene_preset',{preset:'vehicle_scan'});return 'Araç tarama sahnesi kuruldu.';}
   if(/(?:drone).*(?:hangar|bay|sahne)/.test(t)){await action('scene_preset',{preset:'drone_bay'});return 'Drone sahnesi kuruldu.';}
-  if(/(?:gezegen|planet|dünya|dunya).*(?:sahne|sistem)/.test(t)){await action('scene_preset',{preset:'planetary'});return 'Gezegen sahnesi kuruldu.';}
   if(/(?:komuta merkezi|command center|kontrol merkezi).*(?:sahne|kur|oluştur|olustur)?/.test(t)){await action('scene_preset',{preset:'command_center'});return 'Komuta merkezi sahnesi kuruldu.';}
   if(/(?:şehir|sehir|city).*(?:tarama|scan|sahne)/.test(t)){await action('scene_preset',{preset:'city_scan'});return 'Şehir tarama sahnesi kuruldu.';}
   if(/(?:uzay|space).*(?:operasyon|sahne|sistem)/.test(t)){await action('scene_preset',{preset:'space_ops'});return 'Uzay operasyon sahnesi kuruldu.';}
   if(/(?:robotik|robotics|robot laboratuvarı|robot laboratuvari)/.test(t)){await action('scene_preset',{preset:'robotics'});return 'Robotik laboratuvar sahnesi kuruldu.';}
 
-  const multiScene=/\b(?:araba|araç|arac|vehicle|drone|dünya|dunya|globe|küre|kure|enerji|core|network|ağ|ag|logo|kule|tower|robot|robot kolu|uydu|satellite|uçak|ucak|aircraft|bina|building|gemi|ship|radar|portal|küp|kup|cube)\b/.test(t)&&
+  const multiScene=/\b(?:araba|araç|arac|vehicle|drone|küre|kure|network|ağ|ag|logo|kule|tower|robot|robot kolu|uydu|satellite|uçak|ucak|aircraft|bina|building|gemi|ship|radar|portal|küp|kup|cube)\b/.test(t)&&
     (/(?:yanına|yanina|sağına|sagina|soluna|birlikte|ve|ile|iki|üç|uc|sahneye|sahne kur)/.test(t));
   if(multiScene&&/(?:koy|ekle|oluştur|olustur|göster|goster|kur|yerleştir|yerlestir)/.test(t)){
    const specs:Array<Record<string,unknown>>=[];
-   const push=(kind:string,label:string,colorValue:string,count=1)=>{for(let i=0;i<count;i++)specs.push({kind,label:count>1?label+' '+(i+1):label,color:colorValue,scale:kind==='globe'?1.05:kind==='vehicle'?1.0:.78});};
-   if(/dünya|dunya|globe/.test(t))push('globe','EARTH','#35ffe4');
+   const push=(kind:string,label:string,colorValue:string,count=1)=>{for(let i=0;i<count;i++)specs.push({kind,label:count>1?label+' '+(i+1):label,color:colorValue,scale:kind==='vehicle'?1.0:.78});};
    if(/araba|araç|arac|vehicle/.test(t))push('vehicle','VEHICLE',color||'#ff3047');
    if(/drone/.test(t)){const count=/(?:iki|2)\s*drone/.test(t)?2:/(?:üç|uc|3)\s*drone/.test(t)?3:1;push('drone','DRONE',color||'#ff3047',count);}
-   if(/enerji|core|çekirdek|cekirdek/.test(t))push('energy','CORE',color||'#ff3047');
    if(/network|ağ|ag/.test(t))push('network','NETWORK','#ff3047');
    if(/logo/.test(t))push('logo','GÖLGE','#ff3047');
    if(/kule|tower/.test(t))push('tower','TOWER','#ff3047');
@@ -100,7 +97,7 @@ export default function Dashboard(){
    const namedTarget=u.stage.scene.objects.find(o=>{const name=String(o.label||'').toLocaleLowerCase('tr-TR');return name.length>1&&t.includes(name);});
    const selectedCount=u.stage.scene.selected_ids?.length||0;
    const sceneAliases:Record<string,string[]>={
-    vehicle:['vehicle','car','araba','araç','arac'],drone:['drone','dron'],globe:['globe','earth','dünya','dunya'],
+    vehicle:['vehicle','car','araba','araç','arac'],drone:['drone','dron'],
     radar:['radar'],robot:['robot'],satellite:['satellite','uydu'],aircraft:['aircraft','uçak','ucak'],
     ship:['ship','gemi'],building:['building','bina'],arm:['arm','robot kolu'],tower:['tower','kule'],portal:['portal'],cube:['cube','küp','kup']
    };
@@ -253,14 +250,14 @@ export default function Dashboard(){
     if(Object.keys(patch).length>1){await action('scene_update',patch);return 'Seçili sahne nesnesi güncellendi.';}
    }
 
-   const addKind=/(?:ekle|koy|yerleştir|yerlestir)/.test(t)?(/drone/.test(t)?'drone':/araba|araç|arac|vehicle/.test(t)?'vehicle':/dünya|dunya|globe/.test(t)?'globe':/network|ağ|ag/.test(t)?'network':/logo/.test(t)?'logo':/kule|tower/.test(t)?'tower':/enerji|core/.test(t)?'energy':''):'';
+   const addKind=/(?:ekle|koy|yerleştir|yerlestir)/.test(t)?(/drone/.test(t)?'drone':/araba|araç|arac|vehicle/.test(t)?'vehicle':/network|ağ|ag/.test(t)?'network':/logo/.test(t)?'logo':/kule|tower/.test(t)?'tower':''):'';
    if(addKind){await action('scene_add',{kind:addKind,label:addKind.toUpperCase(),color:color||'#ff3047'});return 'Yeni '+addKind+' nesnesi sahneye eklendi.';}
   }
 
-  const createHolo=/(?:hologram|enerji küresi|enerji kuresi|dünya küresi|dunya kuresi|drone|araç|arac|logo).*(?:yap|oluştur|olustur|göster|goster|tasarla)|(?:ortaya|ortada).*(?:küre|kure|hologram|drone|dünya|dunya|araç|arac|logo)/.test(t);
+  const createHolo=/(?:hologram|drone|araç|arac|logo).*(?:yap|oluştur|olustur|göster|goster|tasarla)|(?:ortaya|ortada).*(?:küre|kure|hologram|drone|dünya|dunya|araç|arac|logo)/.test(t);
   if(createHolo){
-   let kind='energy';if(/dünya|dunya/.test(t))kind='globe';else if(/ağ|ag|network|node/.test(t))kind='network';else if(/drone/.test(t))kind='drone';else if(/araba|araç|arac|vehicle/.test(t))kind='vehicle';else if(/logo/.test(t))kind='logo';else if(/küre|kure|sphere/.test(t)&&!/enerji/.test(t))kind='sphere';
-   const extra:Record<string,unknown>={kind,label:kind==='globe'?'EARTH':kind==='logo'?'GÖLGE':kind.toUpperCase()};if(color)extra.color=color;
+   let kind='network';if(/ağ|ag|network|node/.test(t))kind='network';else if(/drone/.test(t))kind='drone';else if(/araba|araç|arac|vehicle/.test(t))kind='vehicle';else if(/logo/.test(t))kind='logo';else if(/küre|kure|sphere/.test(t)&&!/enerji/.test(t))kind='sphere';
+   const extra:Record<string,unknown>={kind,label:kind==='logo'?'GÖLGE':kind.toUpperCase()};if(color)extra.color=color;
    await action('hologram_create',extra);return 'Hologram Center Stage üzerinde oluşturuldu.';
   }
 
@@ -341,6 +338,7 @@ export default function Dashboard(){
  };
  const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
    typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();
+   if(/(?:^|\s)intro(?:\s|$)|(?:enerji|dünya|dunya) (?:hologram|küre|kure)/.test(text.toLocaleLowerCase('tr-TR'))&&/(?:oluştur|olustur|göster|goster|aç|render|yap)/.test(text.toLocaleLowerCase('tr-TR'))&&!/(?:nedir|nasıl|nasil|neden)/.test(text.toLocaleLowerCase('tr-TR'))){u.add('user',text);u.add('assistant','Bu hazır hologram/intro özelliği kaldırıldı.');return;}
    const earthIntent=resolveEarthIntent(text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
    if(earthIntent){u.add('user',text);try{u.add('assistant',await earth.command(earthIntent.operation,earthIntent.args));}catch(e){notify((e as Error).message)}return;}
    if(sceneIntent(text,hologram)){u.add('user',text);setHologram(true);setModal('');setSceneRequest(prev=>({id:(prev?.id||0)+1,text}));return;}
@@ -364,7 +362,7 @@ export default function Dashboard(){
  const review=async(path:string,id:string)=>{try{await request(path,{id});u.setPending(null);u.setPatch(null);}catch(e){notify((e as Error).message);}};
  const run=async(path:string,body?:unknown)=>{try{setExtra(JSON.stringify(await request(path,body),null,2));}catch(e){notify((e as Error).message);}};
  const open=(name:string)=>{setModal(name);setExtra('');if(name==='Eklentiler'){u.native?.action('plugins');void run('/api/skills');}if(name==='Araçlar')void run('/api/tools');if(name==='Kontroller')void run('/api/voice/wake');};
- const holo=()=>{void request('/api/stage/command',{operation:'hologram_create',kind:u.stage?.hologram?.kind||'energy'}).catch(e=>notify((e as Error).message));};
+ const holo=()=>{void request('/api/stage/command',{operation:'hologram_create',kind:u.stage?.hologram?.kind||'network'}).catch(e=>notify((e as Error).message));};
  // Native speech transcripts arrive through desktop message logs. Route only UI.
  useEffect(()=>{
    const latest=[...u.messages].reverse().find(m=>m.role==='user');
@@ -408,7 +406,7 @@ export default function Dashboard(){
  {modal&&<div className="modal-shade"><section className="work-dialog metal-frame" role="dialog" aria-modal="true" aria-label={modal}><header><h2>{modal}</h2><button aria-label="Paneli kapat" onClick={()=>setModal('')}><X/></button></header><div className="dialog-content">
  {['Ayarlar','Kod Asistanı'].includes(modal)&&<><ModelPanel ai={u.ai} model={model} setModel={setModel} native={u.native}/><label>Yanıt modu<select aria-label="Yanıt modu" value={mode} onChange={e=>setMode(e.target.value)}><option value="general">Genel</option><option value="coding">Kod</option><option value="fast">Hızlı</option><option value="agent">Araç kullanan agent</option></select></label><button onClick={()=>open('Hafıza')}>Hafıza</button><button onClick={()=>open('Bildirimler')}>Bildirimler</button></>}
  {modal==='Kontroller'&&<><div className="control-buttons"><button disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?'Mikrofonu aç':'Mikrofonu kapat'}</button><button disabled={!u.native} onClick={()=>u.native?.action('audio')}>Ses aygıtları</button><button disabled={!u.native} onClick={()=>u.native?.action('camera')}>Kamera</button><button disabled={!u.native} onClick={()=>u.native?.action('controls')}>Wake / bas konuş kontrolleri</button></div><h3>Telefon Kontrolü</h3><p className="muted">{(()=>{const phone=u.devicePresence.find((d:any)=>d.device==='phone');return phone?.online?'Telefon GÖLGE: ONLINE'+(phone?.state?.view?' • '+phone.state.view.toUpperCase():''):'Telefon GÖLGE: OFFLINE';})()}</p><div className="control-buttons"><button disabled={!u.native} onClick={()=>u.native?.action('phone:ping')}>Bağlantı sinyali</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:vibrate')}>Telefonu titreştir</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:refresh')}>Telefon GÖLGE'u yenile</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:focus_chat')}>Sohbeti aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:open_memory')}>Hafızayı aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:open_remote')}>Uzaktan kontrolü aç</button><button disabled={!u.native} onClick={()=>u.native?.action('phone:scroll_top')}>Sayfanın başına git</button></div><p className="muted">Bu panel telefonun GÖLGE web arayüzünü yönetir. iOS sisteminin kendi izinleri ayrı kalır.</p></>}
- {modal==='Araçlar'&&<><div className="tool-grid">{['Browser','Dosyalar','Terminal','Vizyon','Görevler','Hafıza','Ayarlar','Kod Asistanı'].map(n=><button key={n} onClick={()=>open(n)}>{n}</button>)}</div><h3>Center Stage</h3><div className="control-buttons"><button onClick={()=>void request('/api/stage/command',{operation:'hologram_create',kind:'energy'})}>Enerji hologramı</button><button onClick={()=>void request('/api/stage/command',{operation:'hologram_create',kind:'globe'})}>Dünya hologramı</button><button onClick={()=>void request('/api/stage/command',{operation:'video_create',template:'ultron_intro',duration:6,title:'GÖLGE'})}>GÖLGE intro render</button><button onClick={()=>void request('/api/stage/command',{operation:'reset'})}>Core'a dön</button><button onClick={()=>setHologram(true)}>Gelişmiş Hologram Lab</button></div></>}
+ {modal==='Araçlar'&&<><div className="tool-grid">{['Browser','Dosyalar','Terminal','Vizyon','Görevler','Hafıza','Ayarlar','Kod Asistanı'].map(n=><button key={n} onClick={()=>open(n)}>{n}</button>)}</div><h3>Center Stage</h3><div className="control-buttons"><button onClick={()=>void request('/api/stage/command',{operation:'reset'})}>Core'a dön</button><button onClick={()=>setHologram(true)}>Gelişmiş Hologram Lab</button></div></>}
  {modal==='Geliştir'&&<>
     <h3>GÖLGE • CHATGPT GELİŞTİRME KÖPRÜSÜ</h3>
     <p>GÖLGE, bu ChatGPT sohbetini kendiliğinden yönetemez. İsteği Cloud’a kaydeder; görevi ChatGPT’ye senin onayınla kopyalayıp açar. GitHub CI, Render ve Windows sürümü doğrulanmadan “tamamlandı” demez.</p>

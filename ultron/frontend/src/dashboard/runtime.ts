@@ -39,10 +39,10 @@ export type StageState={
 export const defaultStage:StageState={
  mode:'core_idle',title:'GÖLGE',subtitle:'NEURAL CORE',progress:0,revision:0,job_id:null,save_nonce:0,save_kind:'',record_nonce:0,record_duration:8,
  animation:{kind:'bird',title:'KÜÇÜK ANİMASYON'},
- hologram:{kind:'energy',color:'#ff3047',glow:1,speed:1,rings:4,particles:900,scale:1,opacity:.92,wireframe:false,pulse:true,label:'GÖLGE'},
+ hologram:{kind:'network',color:'#ff3047',glow:1,speed:1,rings:4,particles:900,scale:1,opacity:.92,wireframe:false,pulse:true,label:'GÖLGE'},
  earth:{auto_rotate:true,rotation_speed:.08,clouds:true,atmosphere:true,stars:true,sun_sync:true,grid:false,night:false,live_iss:false,focus_lat:20,focus_lon:0,focus_label:'GLOBAL',markers:[]},
  scene:{objects:[],links:[],hud:[],groups:[],camera_bookmarks:[],camera_track:[],sequence:{name:'',steps:[],playing:false,loop:false,started_at:null,run_id:0,duration:0},triggers:[],measurements:[],selected_id:null,selected_ids:[],focus_id:null,target_id:null,camera:'isometric',camera_pose:null,project_name:'Untitled',explode:0,auto_orbit:true,grid:true,show_labels:true,show_trails:true,audio_reactive:true,collision_overlay:false,render_mode:'hologram',theme:'crimson',snap:.25,animation:'idle',timeline:{duration:8,cursor:0,playing:false,loop:true,started_at:null,keyframes:[]},cinematic:{enabled:false,preset:'orbit',duration:8,started_at:null,loop:true}},
- video:{template:'ultron_intro',duration:6,title:'GÖLGE',ready:false,mime:'',bytes:0}
+ video:{template:'logo_reveal',duration:6,title:'GÖLGE',ready:false,mime:'',bytes:0}
 };
 export const coreState=(value:string):CoreState=>({PLANNING:'THINKING',EXECUTING:'WORKING',VERIFYING:'WORKING',DONE:'IDLE',WAITING_APPROVAL:'IDLE'}[value]??(['IDLE','LISTENING','THINKING','SPEAKING','WORKING','ERROR'].includes(value)?value:'IDLE')) as CoreState;
 export type Native={send:(text:string)=>void;action:(name:string)=>void;videoRequest?:(action:string,source:string)=>void;devRequest?:(prompt:string,target:string)=>void;devRefresh?:()=>void;devVerify?:(id:string)=>void;devInstall?:(id:string)=>void;openChatGPT?:(handoff:string)=>void;hologramAction?:(name:string)=>void;ready:()=>void;message:{connect:(fn:(data:string)=>void)=>void;disconnect?:(fn:(data:string)=>void)=>void}};
