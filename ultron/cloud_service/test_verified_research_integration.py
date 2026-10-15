@@ -50,7 +50,7 @@ class VerifiedResearchIntegrationTests(unittest.TestCase):
             "GÖLGE, internette pil kapasitesi hakkında kaynakları araştır",
             engine_factory=lambda: engine,
         ))
-        self.assertEqual(engine.calls, [("pil kapasitesi hakkında kaynakları", 3, False)])
+        self.assertEqual(engine.calls, [("pil kapasitesi hakkında kaynakları", 5, False)])
         self.assertTrue(engine.closed)
         self.assertEqual(result["evidence_level"], "source_pages_read")
 

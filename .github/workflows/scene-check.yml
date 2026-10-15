@@ -5,11 +5,17 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-episodic-memory-v4-20261014
       - feat/golge-reference-orb-ui-20261013
       - feat/golge-deep-dialog-continuity-20261013
       - feat/golge-qwen-goal-routing-20261013
     paths:
       - "ultron/cloud_service/**"
+      - "ultron/backend/app/cognitive/research_engine.py"
+      - "ultron/backend/app/cognitive/research_context.py"
+      - "ultron/backend/tests/test_evidence_engine_v4.py"
+      - "ultron/backend/tests/test_evidence_v4_eval.py"
+      - "evals/research/evidence_v4_scenarios.json"
       - "mark_app.py"
       - "integration/**"
       - "scripts/tests/test_listening_browser.py"
@@ -112,10 +118,10 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check 'pytest>=8,<9' 'aiohttp>=3.9,<4' 'Pillow>=10' 'psutil>=5'
           python -m pytest -q ultron/backend/tests/test_model_router.py
-      - name: SSRF-bounded source reading and 100-case memory research evaluation
+      - name: SSRF-bounded source reading and 100-case Evidence V4 evaluation
         env:
           PYTHONPATH: ultron/backend:ultron/cloud_service
-        run: python -m pytest -q ultron/backend/tests/test_wave5_verified_research.py ultron/backend/tests/test_wave5_research_agent.py ultron/backend/tests/test_memory_research_v3_eval.py
+        run: python -m pytest -q ultron/backend/tests/test_wave5_verified_research.py ultron/backend/tests/test_wave5_research_agent.py ultron/backend/tests/test_memory_research_v3_eval.py ultron/backend/tests/test_evidence_engine_v4.py ultron/backend/tests/test_evidence_v4_eval.py
       - name: Desktop first-run setup focus and persistence regression
         env:
           QT_QPA_PLATFORM: offscreen

@@ -30,7 +30,7 @@ async def research_for_chat(message: str, *, engine_factory=None) -> dict | None
     engine = (engine_factory or (lambda: ResearchEngine(db_path=":memory:")))()
     try:
         return await asyncio.to_thread(
-            engine.research, query, max_sources=3, store=False
+            engine.research, query, max_sources=5, store=False
         )
     except Exception:
         return {"ok": False, "status": "research_unavailable",

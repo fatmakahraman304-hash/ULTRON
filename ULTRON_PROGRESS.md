@@ -1,3 +1,12 @@
+## 2026-10-14 — Evidence Engine V4 implementation on PR #35
+
+- PR [#35](https://github.com/fatmakahraman304-hash/ULTRON/pull/35), branch `feat/golge-evidence-engine-v4-20261014`, stacked on Memory V4 PR #34. Functional code head: `c2535703e086ba03b2874746e6e68b7f18ea784e`; tracking-doc changes are being recorded separately. PR #35 is draft; its feature-code head passed Cloud `persona-policy`/`postgres-fencing` run `38565475135` and Scene `verify` run `38565475141`. Rerun after the tracking-doc commit. PR #34 is ready for review with no approval; neither PR was merged.
+- Added separate publication/page-update/HTTP-modified/access times, near-duplicate page clustering, independent-source status, a short-page unassessed status, unit-aware numeric matching, same-context/year potential-conflict warnings with per-value URLs, and valid bounded history serialization with safe handling of legacy truncated JSON.
+- Explicit cloud research requests now read up to five candidates; ordinary chat remains search-free. No UI changed. Existing request pinning, DNS/SSRF and redirect safety remain in place.
+- `test_evidence_engine_v4.py`, `test_evidence_v4_eval.py`, existing Wave 5 source reader/agent and V3 research eval: **221 passed**. The independent frozen set contains **100 scenarios (50 Turkish, 50 English), all deterministic fixtures**. Cloud research integration: **6 passed**. Full Cloud/PostgreSQL suite with isolated local DB: **376 passed** at Memory V4; prior-stage actions passed 4/4.
+- Synthetic five-candidate source-processing benchmark (baseline commit `a7b5906` vs V4 pipeline): p50 **2.223 vs 5.341 ms**, p95 **3.316 vs 8.870 ms**. This is processing-only and shows a small deterministic CPU cost from extra diagnostics; no external network, Gemini/Qwen inference, or full user-response latency was measured.
+- Not verified: real public-site retrieval, live model quality, physical iPhone Safari, physical Windows laptop. Render was not touched by these PRs. At 12:42 UTC, the existing deploy `dep-db7mfuss728c73db4k10` remained LIVE and `/health` returned HTTP 200 with production SHA `6ef3f5d207fc9430cbbd552988935995529e87f5`.
+
 ## 2026-10-14 — Episodic Memory V4 ready for review
 
 - PR [#34](https://github.com/fatmakahraman304-hash/ULTRON/pull/34), branch `feat/golge-episodic-memory-v4-20261014`; implementation commit `95db098`, CI/import separation fix `3af7cae`. The PR is now ready for review, but has no approval and is not merged.
