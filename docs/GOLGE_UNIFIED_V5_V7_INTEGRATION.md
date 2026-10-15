@@ -30,3 +30,9 @@ Bu commit kaynakları birleştirir; tek başına fiziksel cihazda çalışan uç
 ## Kırmızı çizgiler
 
 Onay kapıları, günlükleme, yetki sınırları, gizli anahtarların korunması, provider bütçe kapıları ve offline/UNAVAILABLE durumları korunur. Otomatik paid model isteği, veri silme, otomatik merge ve production deploy bu entegrasyon işleminden yapılmaz.
+
+## Windows startup regression — 16 Ekim 2026
+
+Owner Windows device evidence: the first V5/V7 launch built the frontend successfully and copied seven Cloud memory records, but fell back to offline desktop because `ultron/backend/merged_api.py` could not import `ultron.cloud_service.conversation_persona` (ModuleNotFoundError: ultron). Bootstrap exported only the backend folder to PYTHONPATH; child process CWD is `ultron/backend`.
+
+Draft fix `fix/golge-unified-windows-pythonpath-20261016`: include **both repository root and backend path** in Windows bootstrap and in `integration.launcher.Services.start` child environment, preserving inherited PYTHONPATH. Test `python -m unittest discover -s tests -p 'test_launcher_pythonpath.py' -v`. On Windows, then validate `START.bat` with PYTHONPATH unset, verify backend `/api/merged/health`, and test a real Qwen chat. Passing CI is not evidence of physical Windows audio or Render production deployment.

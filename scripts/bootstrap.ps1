@@ -12,8 +12,11 @@ foreach ($cloudName in @('ULTRON_CLOUD_URL','ULTRON_DEVICE_TOKEN','ULTRON_CLOUD_
     }
 }
 $backendPath = Join-Path $projectRoot 'ultron\backend'
-if ($env:PYTHONPATH) { $env:PYTHONPATH = $backendPath + ';' + $env:PYTHONPATH }
-else { $env:PYTHONPATH = $backendPath }
+# Backend runs from ultron/backend but imports ultron.cloud_service from
+# repository root. Both import roots must be available to child Python.
+$pythonPaths = @($backendPath, $projectRoot)
+if ($env:PYTHONPATH) { $pythonPaths += $env:PYTHONPATH }
+$env:PYTHONPATH = $pythonPaths -join [IO.Path]::PathSeparator
 $env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $projectRoot 'cache\playwright'
 $pythonExe = Join-Path $projectRoot '.venv\Scripts\python.exe'
 try {

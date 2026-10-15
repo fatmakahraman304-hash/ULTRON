@@ -24,6 +24,18 @@ def stop_process(process):
         process.wait(timeout=5)
 
 
+def child_pythonpath(existing=""):
+    """Make ultron.* and legacy backend imports available to subprocesses.
+
+    server.py runs with cwd=ultron/backend, so ROOT is otherwise invisible.
+    Preserve the caller's optional PYTHONPATH.
+    """
+    paths = [str(BACKEND), str(ROOT)]
+    if existing:
+        paths.append(existing)
+    return os.pathsep.join(paths)
+
+
 class Services:
     def __init__(self):
         self.backend = None
@@ -59,6 +71,7 @@ class Services:
             sock.bind(('127.0.0.1', 0))
             port = sock.getsockname()[1]
         env = os.environ.copy()
+        env['PYTHONPATH'] = child_pythonpath(env.get('PYTHONPATH', ''))
         env.update(ULTRON_PORT=str(port), ULTRON_BIND_HOST='127.0.0.1',
                    MARK_ULTRON_TOKEN=secrets.token_urlsafe(32), MARK_AUDIO_OWNER='mark',
                    MARK_ULTRON_URL=f'http://127.0.0.1:{port}', PYTHONUTF8='1',
