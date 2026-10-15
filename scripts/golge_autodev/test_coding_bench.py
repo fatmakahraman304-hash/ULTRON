@@ -13,6 +13,33 @@ import coding_bench
 
 
 class CodingBenchmarkContracts(unittest.TestCase):
+    def test_v7_local_benchmark_requests_structured_json_without_oracle_data(self):
+        prompt = coding_bench.build_prompt(coding_bench.TASKS[0])
+        with patch("engine.infer", return_value='{"files": []}') as local:
+            result = coding_bench.infer_with_budget(prompt, "ollama")
+        self.assertEqual(result, '{"files": []}')
+        self.assertEqual(local.call_args.kwargs["max_output_tokens"], coding_bench.MAX_OUTPUT_TOKENS)
+        schema = local.call_args.kwargs["response_schema"]
+        self.assertEqual(schema["type"], "object")
+        self.assertIn("files", schema["required"])
+        self.assertEqual(schema["properties"]["files"]["type"], "array")
+        self.assertNotIn(coding_bench.TASKS[0]["oracle_script"], json.dumps(schema))
+        with patch("engine.infer", return_value="{}") as cloud:
+            coding_bench.infer_with_budget(prompt, "gemini")
+        self.assertNotIn("response_schema", cloud.call_args.kwargs)
+
+    def test_v7_local_schema_does_not_replace_allowlist_or_secret_gates(self):
+        task = coding_bench.TASKS[0]
+        schema = coding_bench.LOCAL_PATCH_RESPONSE_SCHEMA
+        self.assertTrue(schema["properties"]["files"]["items"]["additionalProperties"] is False)
+        with self.assertRaisesRegex(coding_bench.BenchmarkError, "model_path_outside_task"):
+            coding_bench.validate_patch(task, {"files": [
+                {"path": "../private.py", "content": "pass"}
+            ]})
+        with self.assertRaisesRegex(coding_bench.BenchmarkError, "model_patch_incomplete"):
+            coding_bench.validate_patch(task, {"files": []})
+
+
     def test_registry_covers_eight_distinct_coding_tasks(self):
         self.assertEqual(len(coding_bench.TASKS), 8)
         self.assertEqual({task["category"] for task in coding_bench.TASKS}, coding_bench.CATEGORIES)
