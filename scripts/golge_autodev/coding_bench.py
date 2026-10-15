@@ -41,6 +41,31 @@ CATEGORIES = {
     "api_integration", "feature_development", "secure_code_change", "performance_improvement",
 }
 
+# A provider-side format hint, not a substitute for validate_patch:
+# path allowlisting, duplicate detection, secret filtering, and byte limits
+# remain mandatory after JSON is returned. This schema is task-independent
+# and contains no hidden acceptance tests, source paths, or expected values.
+LOCAL_PATCH_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "files": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["path", "content"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["files"],
+    "additionalProperties": False,
+}
+
 TASKS = (
     {
         "id": "py-normalize-key", "category": "python_bugfix", "language": "python",
@@ -348,6 +373,9 @@ def infer_with_budget(prompt: str, provider: str) -> str:
     # Reuse the repository's Gemini/Ollama transport and cap each benchmark
     # response separately from the autonomous repair pipeline's larger limit.
     import engine
+    if provider == "ollama":
+        return engine.infer(prompt, provider, max_output_tokens=MAX_OUTPUT_TOKENS,
+                            response_schema=LOCAL_PATCH_RESPONSE_SCHEMA)
     return engine.infer(prompt, provider, max_output_tokens=MAX_OUTPUT_TOKENS)
 
 
