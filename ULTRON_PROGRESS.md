@@ -700,8 +700,11 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Baseline reproduction failed with `ModuleNotFoundError`; post-fix subprocess regressions **2 passed**, prior startup-import regressions **4 passed**, Python compile and diff checks passed. Owner's Qwen/Render doctor passed 3/3; physical desktop startup must still be repeated after pulling the fix.
 - Follow-up Windows log after the temporary root `PYTHONPATH` confirms backend health succeeds, then `mark_app.py:52` fails with `No module named 'memory.memory_manager'; 'memory' is not a package`. Root cause is desktop Python resolving backend `memory.py` before the desktop `memory/` package. The memory package import is now moved before UI imports; safe-path subprocess and source-order regressions bring the focused suite to **8 passed**.
 
-## 2026-10-15 — PR #4 local Qwen empty-reply recovery synchronized
+## 2026-10-15 — PR #36 dependency synchronization
 
-- Kept the current bounded Ollama length-retry and long-listening path while integrating the PR's single retry on a different installed Qwen model when the first model returns only thinking text.
-- Recovery remains local-only, uses the same trusted prompt/turns, never downloads a model, never falls back to cloud, and rejects incomplete or unexpected-model replies.
-- Recovery regression tests **5 passed**; local brain unit tests **6 passed**; Python compilation passed. Actual Windows Ollama inference remains device-specific.
+- Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
+- PR #37 true interruption changes merged into this dependency branch at 61f3e02; synchronize and validate before production merge.
+
+## 2026-10-15 — PR #4 synchronized with current production
+
+- Retained local-Qwen thinking-only fallback while merging the latest production interruption changes. Regression tests: recovery 5 passed; local brain 7 passed; Python compilation passed. Actual model inference remains device-dependent.

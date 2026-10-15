@@ -5,8 +5,13 @@
 })(typeof window!=='undefined'?window:null,function(){
  'use strict';
  async function request(path,options={},fetcher=fetch){
-  const {timeoutMs=20000,...init}=options;
+  const {timeoutMs=20000,signal:externalSignal,...init}=options;
   const controller=new AbortController();
+  const externalAbort=()=>controller.abort();
+  if(externalSignal){
+   if(externalSignal.aborted)controller.abort();
+   else externalSignal.addEventListener('abort',externalAbort,{once:true});
+  }
   const timer=setTimeout(()=>controller.abort(),timeoutMs);
   try{
    const res=await fetcher(path,{...init,credentials:'include',cache:'no-store',signal:controller.signal,
@@ -19,18 +24,21 @@
    if(!res.ok){const e=new Error(data.detail||data.error||('HTTP '+res.status));e.status=res.status;e.data=data;throw e}
    return data;
   }catch(error){
+   if(externalSignal?.aborted){const e=new Error('İstek durduruldu.');e.name='AbortError';throw e}
    if(error.status)throw error;
    const e=new Error(controller.signal.aborted?'Bağlantı zaman aşımına uğradı.':'Bağlantı geçici olarak koptu.');
    e.network=true;e.timeout=controller.signal.aborted;throw e;
-  }finally{clearTimeout(timer)}
+  }finally{clearTimeout(timer);externalSignal?.removeEventListener('abort',externalAbort)}
  }
- async function localAnswer(api,body,{onSubmitted=()=>{},onWaiting=()=>{},sleep=ms=>new Promise(r=>setTimeout(r,ms)),now=Date.now,deadlineMs=150000}={}){
+ async function localAnswer(api,body,{onSubmitted=()=>{},onWaiting=()=>{},sleep=ms=>new Promise(r=>setTimeout(r,ms)),now=Date.now,deadlineMs=150000,signal}={}){
   if(!body.request_id)throw new Error('İstek kimliği eksik.');
+  const assertActive=()=>{if(signal?.aborted){const e=new Error('İstek durduruldu.');e.name='AbortError';throw e}};
   const end=now()+deadlineMs;
   let submitted;
   for(let attempt=0;attempt<3;attempt++){
+   assertActive();
    try{
-    submitted=await api('/api/local-chat',{method:'POST',body:JSON.stringify(body),timeoutMs:15000});break;
+    submitted=await api('/api/local-chat',{method:'POST',body:JSON.stringify(body),timeoutMs:15000,signal});break;
    }catch(e){
     // Exactly the same request_id/body, protected by the server transaction.
     if(!e.network||attempt===2)throw e;
@@ -41,9 +49,11 @@
   onSubmitted(submitted);
   const id=encodeURIComponent(submitted.command_id);
   while(now()<end){
+   assertActive();
    await sleep(1000);
+   assertActive();
    let result;
-   try{result=await api('/api/local-chat/'+id,{timeoutMs:Math.max(1,Math.min(8000,end-now()))})}
+   try{result=await api('/api/local-chat/'+id,{timeoutMs:Math.max(1,Math.min(8000,end-now())),signal})}
    catch(e){if(e.data?.error!=='invalid_local_reply'&&(e.network||e.status>=500)){onWaiting();continue}throw e}
    if(result.status==='completed'&&typeof result.reply==='string'&&result.reply.trim())return result;
    if(['failed','expired','cancelled'].includes(result.status))throw new Error(result.detail||'Sohbet yanıtı tamamlanamadı.');
