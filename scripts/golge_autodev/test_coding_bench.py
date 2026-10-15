@@ -219,13 +219,13 @@ class CodingBenchmarkContracts(unittest.TestCase):
         task = coding_bench.TASKS[0]
         secret = "PRIVATE_ACCEPTANCE_EXPECTED_8392"
         first = json.dumps({"files": [{"path": "solution.py",
-                           "content": "def normalize_key(value): return value.strip()\\n"}]})
+                           "content": "def normalize_key(value): return value.strip()\n"}]})
         second = json.dumps({"files": [{"path": "solution.py",
-                            "content": "def normalize_key(value): return value.lower()\\n"}]})
+                            "content": "def normalize_key(value): return value.lower()\n"}]})
         with patch.object(coding_bench, "_run_oracle",
                           side_effect=[(False, "baseline", 1),
                                        (False, f"AssertionError: {secret}", 1),
-                                       (False, f"AssertionError: {secret}", 1)]) as oracle, \\
+                                       (False, f"AssertionError: {secret}", 1)]) as oracle, \
              patch.object(coding_bench, "infer_with_budget",
                           side_effect=[first, second]) as model:
             result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
@@ -239,12 +239,12 @@ class CodingBenchmarkContracts(unittest.TestCase):
     def test_v7_python_cosmetic_repair_does_not_rerun_hidden_checks(self):
         task = coding_bench.TASKS[0]
         first = json.dumps({"files": [{"path": "solution.py",
-                           "content": "def normalize_key(value): return value.strip()\\n"}]})
+                           "content": "def normalize_key(value): return value.strip()\n"}]})
         second = json.dumps({"files": [{"path": "solution.py",
-                            "content": "# no behavioral change\\ndef normalize_key(value):\\n    return value.strip()\\n"}]})
+                            "content": "# no behavioral change\ndef normalize_key(value):\n    return value.strip()\n"}]})
         with patch.object(coding_bench, "_run_oracle",
                           side_effect=[(False, "baseline", 1),
-                                       (False, "hidden check failed", 1)]) as oracle, \\
+                                       (False, "hidden check failed", 1)]) as oracle, \
              patch.object(coding_bench, "infer_with_budget",
                           side_effect=[first, second]) as model:
             result = coding_bench.run_task(task, provider="ollama", infer_fn=model)
@@ -254,19 +254,19 @@ class CodingBenchmarkContracts(unittest.TestCase):
         self.assertEqual(oracle.call_count, 2)
 
     def test_v7_public_source_feedback_detects_signature_and_syntax(self):
-        task = {"starter_files": {"solution.py": "def f(x):\\n    return x\\n"}}
+        task = {"starter_files": {"solution.py": "def f(x):\n    return x\n"}}
         changed_signature = coding_bench._public_repair_feedback(
-            task, {"solution.py": "def f(y):\\n    return y\\n"})
+            task, {"solution.py": "def f(y):\n    return y\n"})
         self.assertIn("original public signature", changed_signature)
         syntax_error = coding_bench._public_repair_feedback(
-            task, {"solution.py": "def f(:\\n    return x\\n"})
+            task, {"solution.py": "def f(:\n    return x\n"})
         self.assertIn("Candidate syntax error", syntax_error)
         self.assertNotIn("AssertionError", syntax_error)
 
     def test_v7_ast_unchanged_guard_keeps_meaningful_changes_and_ts(self):
         self.assertFalse(coding_bench._same_python_structure(
-            {"solution.py": "def f(x): return x\\n"},
-            [("solution.py", "def f(x): return x + 1\\n")]))
+            {"solution.py": "def f(x): return x\n"},
+            [("solution.py", "def f(x): return x + 1\n")]))
         self.assertFalse(coding_bench._same_python_structure(
             {"file.ts": "const value = 1;"},
             [("file.ts", "const value = 1;")]))
