@@ -645,3 +645,8 @@ Next dependency order: improve temporal/episode recall using existing owner/thre
 - Keep `START.bat` self-healing after code pulls: compare the installed frontend dependency fingerprint with `ultron/frontend/package-lock.json`, install from the lockfile when stale, and rebuild only after dependency synchronization succeeds.
 - Acceptance: the dependency sync contract test passes, frontend `npm ci` + production build passes, Scene Build CI passes on the exact commit, and the owner's Windows `START.bat` no longer reports missing frontend packages.
 - Current limitation: Windows hardware verification depends on the owner's laptop and remains pending until the fix is pulled and started there.
+## Native desktop backend startup — 2026-10-15
+
+- Ensure the launcher-provided Python environment makes the repository package `ultron.cloud_service` importable when the backend process uses `ultron/backend` as its working directory.
+- Acceptance: a real subprocess import from the backend cwd passes while preserving caller `PYTHONPATH`; Scene Build CI and the Windows PowerShell validation pass; the owner reruns `START.bat` on Windows.
+- The local Qwen model, Piper TTS and Render health already passed the owner's doctor check, so the observed startup failure is an import-path issue, separate from provider readiness.

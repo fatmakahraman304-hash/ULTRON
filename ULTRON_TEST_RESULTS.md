@@ -787,3 +787,9 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 - Added lockfile-hash synchronization before rebuilding. Dependency-sync contract tests **2 passed**; `npm ci --no-audit --no-fund` installed the locked packages and `npm run build` passed (1,706 modules). Earth math tests **6 passed** and lazy-bundle contract **1 passed**. `git diff --check` and workflow YAML parsing passed.
 - PowerShell parser and physical Windows `START.bat` validation: **NOT RUN** locally (no PowerShell or Windows host in this environment); a Windows GitHub Actions parser check is included in the PR. The contract tests do not simulate the Windows process itself.
 - Immediate workaround: run `npm ci` in `ultron/frontend`, then rerun `START.bat` from the project root.
+## 2026-10-15 — Windows backend import failure regression
+
+- Owner's `logs/backend.log` fatal stack ends at `merged_api.py` importing `ultron.cloud_service.conversation_persona` from a backend child whose path lacked the repository root. The same-directory-only import setup was reproduced on Linux: **FAIL** with `ModuleNotFoundError: No module named 'ultron'`.
+- Added a subprocess regression that starts in the backend directory with `PYTHONPATH` set only to that directory and imports the exact merged API persona module through the launcher's environment builder. The regression failed before the fix and now passes: **2 passed**. Existing startup import-order tests: **4 passed**; `py_compile` passed.
+- Scene Build and Windows PowerShell workflow results are pending until the PR runs on its exact head.
+- Owner's separate live Qwen test is **PASS** (`qwen2.5-coder:7b`, real synthetic analysis, 6.3 s); Render `/health` **PASS** HTTP 200. DOCTOR confirms local Ollama/Piper configured; actual desktop bridge startup and physical mic/TTS playback remain pending until the new fix is pulled and tested.
