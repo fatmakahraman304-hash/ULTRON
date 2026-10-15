@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -15,7 +16,8 @@ import coding_bench
 class CodingBenchmarkContracts(unittest.TestCase):
     def test_v7_local_benchmark_requests_structured_json_without_oracle_data(self):
         prompt = coding_bench.build_prompt(coding_bench.TASKS[0])
-        with patch("engine.infer", return_value='{"files": []}') as local:
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "schema"}), \
+             patch("engine.infer", return_value='{"files": []}') as local:
             result = coding_bench.infer_with_budget(prompt, "ollama")
         self.assertEqual(result, '{"files": []}')
         self.assertEqual(local.call_args.kwargs["max_output_tokens"], coding_bench.MAX_OUTPUT_TOKENS)
@@ -27,6 +29,41 @@ class CodingBenchmarkContracts(unittest.TestCase):
         with patch("engine.infer", return_value="{}") as cloud:
             coding_bench.infer_with_budget(prompt, "gemini")
         self.assertNotIn("response_schema", cloud.call_args.kwargs)
+
+    def test_v7_default_local_json_and_explicit_schema_opt_in(self):
+        prompt = coding_bench.build_prompt(coding_bench.TASKS[0])
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "json"}), \
+             patch("engine.infer", return_value='{"files": []}') as mock:
+            coding_bench.infer_with_budget(prompt, "ollama")
+        self.assertNotIn("response_schema", mock.call_args.kwargs)
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "schema"}), \
+             patch("engine.infer", return_value='{"files": []}') as mock:
+            coding_bench.infer_with_budget(prompt, "ollama")
+        self.assertEqual(
+            mock.call_args.kwargs["response_schema"], coding_bench.LOCAL_PATCH_RESPONSE_SCHEMA
+        )
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "invalid"}), \
+             patch("engine.infer") as mock:
+            report = coding_bench.run_benchmark(
+                provider="ollama", max_cases=1, max_calls=1)
+        self.assertEqual(report["model_status"], "BLOCKED")
+        self.assertEqual(report["tasks"][0]["reason"], "invalid_local_patch_format")
+        self.assertIsNone(report["ollama_patch_format"])
+        mock.assert_not_called()
+
+    def test_v7_benchmark_reports_requested_output_format_for_comparison(self):
+        fake = lambda prompt, provider: "unused"
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "json"}):
+            dry = coding_bench.run_benchmark(provider=None)
+            self.assertIsNone(dry["ollama_patch_format"])
+            blocked = coding_bench.run_benchmark(
+                provider="ollama", max_cases=1, max_calls=0, infer_fn=fake)
+            self.assertEqual(blocked["ollama_patch_format"], "json")
+        with patch.dict(os.environ, {"GOLGE_AUTODEV_OLLAMA_PATCH_FORMAT": "schema"}):
+            blocked_schema = coding_bench.run_benchmark(
+                provider="ollama", max_cases=1, max_calls=0, infer_fn=fake)
+        self.assertEqual(blocked_schema["ollama_patch_format"], "schema")
+
 
     def test_v7_local_schema_does_not_replace_allowlist_or_secret_gates(self):
         task = coding_bench.TASKS[0]
