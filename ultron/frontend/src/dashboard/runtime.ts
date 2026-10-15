@@ -79,7 +79,7 @@ export function useUltron(){
   return next.slice(-300);
  });
  useEffect(()=>{if(system)setHistory(p=>[...p,system].slice(-40));},[system]);
- useEffect(()=>{let active=true;const ctl=new AbortController();const poll=()=>{if(location.protocol==='file:')return;request('/api/merged/health',undefined,ctl.signal).then(h=>{if(active)setHealth(h);}).catch(()=>{if(active)setHealth(null);});};poll();const t=setInterval(poll,8000);return()=>{active=false;ctl.abort();clearInterval(t);};},[]);
+ useEffect(()=>{let active=true;const ctl=new AbortController();const poll=()=>{if(location.protocol==='file:')return;fetch('/api/merged/health',{signal:ctl.signal}).then(async response=>{if(!response.ok)throw Error(String(response.status));return response.json();}).then(h=>{if(active)setHealth(h);}).catch(()=>{if(active)setHealth(null);});};poll();const t=setInterval(poll,8000);return()=>{active=false;ctl.abort();clearInterval(t);};},[]);
  useEffect(()=>{
   let stopped=false,ws:WebSocket|null=null,retry:ReturnType<typeof setTimeout>|undefined,delay=1000;
   const open=()=>{if(stopped||!location.host)return;ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws`);

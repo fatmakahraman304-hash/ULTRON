@@ -18,7 +18,7 @@ Improve ULTRON through real, tested, incremental code changes. Preserve function
 - Native Windows cockpit uses `ultron/frontend/dist`; `START.bat` builds frontend when necessary.
 - Preserve phone Gemini Live → cloud device queue → desktop CloudRemote → local agent/tool → cloud result → phone.
 - Do not steal microphone ownership while live voice is active or re-enable browser speech synthesis during live audio.
-- Maintain ULTRON naming in user-visible surfaces. Maintain low-GPU defaults for i5-13450HX/RTX 2050/24GB hardware.
+- Use GÖLGE as the user-visible product name across chat and interface surfaces, following the owner’s current naming request; retain legacy ULTRON identifiers only where protocol/API compatibility requires them. Maintain low-GPU defaults for i5-13450HX/RTX 2050/24GB hardware.
 
 ## Safety and operation limits
 - Never turn off Approval Gate, audit logging, permissions, sandbox, or task boundaries.

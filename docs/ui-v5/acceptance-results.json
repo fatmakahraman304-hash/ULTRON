@@ -1,0 +1,39 @@
+{
+  "environment": "Chromium WebGL/SwiftShader with CPU compositor (headless resize capture workaround); isolated real backend, not physical Windows/iPhone",
+  "checks": {
+    "real_auth_and_origin_boundary": "PASS",
+    "real_backend_telemetry": "PASS",
+    "desktop_empty_layouts": "PASS",
+    "filled_chat_demo": "PASS (synthetic model responses, labeled)",
+    "globe_focus_and_wheel": "PASS",
+    "workspace_state_and_single_websocket": "PASS",
+    "canvas_mount_cleanup_cycles": "PASS (DOM and reviewed GPU disposal, not physical GPU memory measurement)",
+    "mobile_photo_fixed_scroll_and_reduced_viewport": "PASS (keyboard-height simulation, not iPhone keyboard)",
+    "shader_and_react_errors": "PASS"
+  },
+  "errors": [],
+  "real_model": "BLOCKED",
+  "microphone": "NOT RUN",
+  "tts_sync": "NOT RUN",
+  "visual_acceptance": "REVIEW_REQUIRED; human comparison with supplied reference",
+  "telemetry": {
+    "platform": "Linux",
+    "cpu": {
+      "percent": 51.8,
+      "freq_mhz": 2596.0
+    },
+    "ram": {
+      "percent": 11.2,
+      "used_gb": 1.1,
+      "total_gb": 9.7
+    },
+    "gpu": null
+  },
+  "cloud_configured": false,
+  "real_chat_response": {
+    "ok": false,
+    "status": "UNAVAILABLE",
+    "error": "Ollama veya yerel model yok. INSTALL.bat model kurulumunu deneyebilir."
+  },
+  "recording": "Actual idle WebGL with real backend; no microphone or TTS synchronization claim"
+}

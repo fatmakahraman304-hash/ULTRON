@@ -30,10 +30,13 @@ class FrontendStageLoadingTests(unittest.IsolatedAsyncioTestCase):
         self.page=await self.context.new_page()
         self.requests=[]
         self.errors=[]
+        self.shader_errors=[]
         self.stage_chunk_requested=asyncio.Event()
         self.release_stage_chunk=asyncio.Event()
         self.page.on('request',lambda request:self.requests.append(request.url))
         self.page.on('pageerror',lambda error:self.errors.append(str(error)))
+        self.page.on('console',lambda message:self.shader_errors.append(message.text)
+                    if 'THREE.WebGLProgram: Shader Error' in message.text else None)
         for chunk in self.webgl_chunks():
             await self.page.route(f'**/{chunk}',self.hold_stage_chunk)
 
@@ -80,6 +83,19 @@ class FrontendStageLoadingTests(unittest.IsolatedAsyncioTestCase):
         await self.page.locator('.center-stage canvas').wait_for(timeout=15000)
         self.assertTrue(any(any(chunk in url for chunk in webgl_chunks) for url in self.requests),
                         'the 3D renderer should load after the short shell-first delay')
+        await self.page.wait_for_timeout(500)
+        self.assertEqual(self.shader_errors,[],
+                         'the real Three.js CORE shader must compile in Chromium WebGL')
+        gl_error=await self.page.locator('.center-stage canvas').evaluate(
+            '(canvas)=>canvas.getContext("webgl2")?.getError()??0')
+        self.assertEqual(gl_error,0,'the rendered CORE canvas must not retain a WebGL error')
+
+        await self.page.get_by_role('button',name='Kontrol Merkezi').click()
+        await self.page.locator('.control-center-view').wait_for(timeout=10000)
+        await self.page.locator('.cc-map-card canvas').wait_for(timeout=10000)
+        await self.page.get_by_role('button',name='Normal sohbete dön').first.click()
+        await self.page.locator('.center-stage canvas').wait_for(timeout=10000)
+        self.assertEqual(self.shader_errors,[])
         self.assertEqual(self.errors,[])
 
 
