@@ -29,6 +29,7 @@ class LauncherPythonPathTests(unittest.TestCase):
                     "ok": True, "service": "mark-ultron"
                 }
                 with patch.object(Services, "spawn") as spawn:
+                    spawn.return_value.poll.return_value = None
                     service = Services()
                     service.start()
         spawn.assert_called_once()
