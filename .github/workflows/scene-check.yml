@@ -13,6 +13,8 @@ on:
       - "mark_app.py"
       - "integration/**"
       - "scripts/tests/test_listening_browser.py"
+      - "scripts/bootstrap.ps1"
+      - "scripts/tests/test_bootstrap_frontend_dependency_sync.py"
       - "ui.py"
       - "tests/test_setup_overlay.py"
       - ".github/workflows/scene-check.yml"
@@ -41,6 +43,21 @@ on:
       - ".github/workflows/scene-check.yml"
 
 jobs:
+  windows-bootstrap-syntax:
+    runs-on: windows-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Parse Windows startup script with PowerShell
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/bootstrap.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
+          Write-Host 'bootstrap.ps1 syntax valid'
+
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 12
@@ -116,6 +133,8 @@ jobs:
         run: python -m unittest discover -s ultron/backend/tests -p 'test_earth*.py' -v
       - name: Removed legacy hologram and intro presets cannot be restored
         run: python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v
+      - name: Windows startup frontend dependency synchronization contract
+        run: python -m unittest discover -s scripts/tests -p 'test_bootstrap_frontend_dependency_sync.py' -v
       - name: SSRF-bounded source reading and 100-case memory research evaluation
         env:
           PYTHONPATH: ultron/backend:ultron/cloud_service
