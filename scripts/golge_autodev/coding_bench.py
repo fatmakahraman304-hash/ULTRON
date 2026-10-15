@@ -9,6 +9,7 @@ as simulated.
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import os
 import re
@@ -124,7 +125,7 @@ def build_prompt(task: dict, *, current_files: dict[str, str] | None = None,
     ]
     if diagnostics:
         safe = _sanitize(diagnostics)
-        payload["untrusted_test_diagnostics"] = safe
+        payload["public_repair_feedback"] = safe
     prompt = json.dumps(payload, ensure_ascii=False)
     if len(prompt) > MAX_PROMPT_CHARS:
         raise BenchmarkError("prompt_too_large")
@@ -167,6 +168,60 @@ def _sanitize(value: str) -> str:
     value = SECRET.sub("[REDACTED]", str(value or ""))
     value = re.sub(r"(?i)(authorization\s*[:=]\s*bearer\s+)\S+", r"\1[REDACTED]", value)
     return value[-4_000:]
+
+
+def _public_signatures(source: str) -> dict[str, str]:
+    """Public callable contracts extracted solely from the supplied source."""
+    tree = ast.parse(source)
+    return {
+        node.name: ast.dump(node.args, include_attributes=False)
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_")
+    }
+
+
+def _public_repair_feedback(task: dict, current_files: dict[str, str]) -> str:
+    """Give source-grounded hints, never raw withheld acceptance output."""
+    messages = [
+        "The candidate failed independent behavioral verification; exact private assertions are withheld.",
+        "Recheck each requirement in the public task against your implementation, including",
+        "data representation, boundary inputs, error paths, and return contracts.",
+    ]
+    for path, content in sorted(current_files.items()):
+        if not path.endswith(".py"):
+            continue
+        try:
+            ast.parse(content, filename=path)
+        except SyntaxError as exc:
+            messages.append(
+                f"Candidate syntax error in {path}, line {exc.lineno}, column {exc.offset or 0}."
+            )
+            continue
+        baseline = task["starter_files"].get(path, "")
+        try:
+            old = _public_signatures(baseline)
+            new = _public_signatures(content)
+        except SyntaxError:
+            continue
+        for name, signature in sorted(old.items()):
+            if new.get(name) != signature:
+                messages.append(f"Candidate changes the original public signature: {path}:{name}.")
+    return _sanitize("\n".join(messages))[:4000]
+
+
+def _same_python_structure(current_files: dict[str, str],
+                           changed: list[tuple[str, str]]) -> bool:
+    """Skip an oracle rerun after edits that change only Python trivia."""
+    if not changed or any(not path.endswith(".py") for path, _ in changed):
+        return False
+    try:
+        return all(
+            ast.dump(ast.parse(current_files[path]), include_attributes=False)
+            == ast.dump(ast.parse(content), include_attributes=False)
+            for path, content in changed
+        )
+    except (KeyError, SyntaxError, ValueError):
+        return False
 
 
 def _decode_patch(response: str) -> dict:
@@ -306,12 +361,18 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
                 changed = validate_patch(task, patch)
                 # A repeated failed patch cannot fix an observed test failure.
                 # Stop rather than spending another sandbox run on identical code.
-                if previous_test_failed and all(current[path] == content for path, content in changed):
+                unchanged_reason = None
+                if previous_test_failed:
+                    if all(current[path] == content for path, content in changed):
+                        unchanged_reason = "unchanged_patch_after_repair"
+                    elif _same_python_structure(current, changed):
+                        unchanged_reason = "structurally_unchanged_patch_after_repair"
+                if unchanged_reason:
                     return {"id": task["id"], "category": task["category"], "status": "FAIL",
                             "attempts": attempt, "provider_calls": calls,
                             "elapsed_ms": int((time.perf_counter()-start)*1000),
                             "model_ms": model_ms, "test_ms": test_ms,
-                            "reason": "unchanged_patch_after_repair"}
+                            "reason": unchanged_reason}
                 current = dict(current)
                 for path, content in changed:
                     current[path] = content
@@ -343,14 +404,17 @@ def run_task(task: dict, *, provider: str, infer_fn: Callable[[str, str], str] |
                         "attempts": attempt, "provider_calls": calls,
                         "elapsed_ms": int((time.perf_counter()-start)*1000),
                         "model_ms": model_ms, "test_ms": test_ms}
-            last_diagnostics = diagnostics
+            # The withheld oracle's stdout/stderr can contain assertion source,
+            # expected values and private fixtures. It must not reach a model
+            # or the benchmark report, even after regex secret redaction.
+            last_diagnostics = _public_repair_feedback(task, current)
             previous_test_failed = True
         return {"id": task["id"], "category": task["category"], "status": "FAIL",
                 "attempts": max_attempts, "provider_calls": calls,
                 "elapsed_ms": int((time.perf_counter()-start)*1000),
                 "model_ms": model_ms, "test_ms": test_ms,
                 "reason": "independent_oracle_failed_after_bounded_repair",
-                "oracle_diagnostics": _sanitize(last_diagnostics)}
+                "repair_feedback": _sanitize(last_diagnostics)}
 
 
 def run_benchmark(*, provider: str | None, max_cases: int = MAX_TASKS,
