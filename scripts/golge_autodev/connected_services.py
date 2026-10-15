@@ -69,11 +69,11 @@ def _render_get(path: str) -> object:
 def render_service_status() -> dict:
     """Return safe, preselected fields: never the Render environment or secrets."""
     data = _render_get(f"services/{RENDER_SERVICE_ID}")
-    if not isinstance(data, dict) or (
+    repo = data.get("repo") if isinstance(data, dict) else None
+    if not isinstance(data, dict) or not isinstance(repo, str) or (
         data.get("id") != RENDER_SERVICE_ID
         or data.get("ownerId") != RENDER_WORKSPACE_ID
-        or data.get("repo", "").removesuffix(".git")
-        != "https://github.com/" + REPOSITORY
+        or repo.removesuffix(".git") != "https://github.com/" + REPOSITORY
         or data.get("branch") != RENDER_DEPLOY_BRANCH
     ):
         raise ConnectorUnavailable("render_service_identity_mismatch")
@@ -112,7 +112,8 @@ def render_recent_events() -> dict:
         events.append({
             "type": kind,
             "timestamp": timestamp,
-            "status": status if status in {"succeeded", "failed", "canceled", "cancelled"} else None,
+            "status": (status if isinstance(status, str) and status in
+                       {"succeeded", "failed", "canceled", "cancelled"} else None),
         })
     return {"service_id": RENDER_SERVICE_ID, "events": events, "read_only": True}
 
