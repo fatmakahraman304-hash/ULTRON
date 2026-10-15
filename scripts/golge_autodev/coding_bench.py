@@ -112,6 +112,7 @@ def _public_candidate_delta(task: dict, current_files: dict[str, str]) -> str:
     """Bounded starter-to-candidate diff; never inspect acceptance-oracle fields."""
     original_files = task["starter_files"]
     sections: list[str] = []
+    remaining = 2_800
     for path, candidate in sorted(current_files.items()):
         original = original_files.get(path)
         if original is None or original == candidate:
@@ -120,12 +121,16 @@ def _public_candidate_delta(task: dict, current_files: dict[str, str]) -> str:
             original.splitlines(), candidate.splitlines(),
             fromfile=f"starter/{path}", tofile=f"candidate/{path}", lineterm=""
         )
-        sections.extend(delta)
-        if sum(len(line) + 1 for line in sections) > 2_800:
+        for line in delta:
+            if remaining <= 0:
+                break
+            sections.append(line[:remaining])
+            remaining -= len(line) + 1
+        if remaining <= 0:
             break
     if not sections:
         return "Candidate has no source changes relative to the original starter."
-    return "\\n".join(sections)[:2_800]
+    return "\n".join(sections)[:2_800]
 
 
 def build_prompt(task: dict, *, current_files: dict[str, str] | None = None,
