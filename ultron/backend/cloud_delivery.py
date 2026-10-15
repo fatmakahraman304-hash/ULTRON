@@ -28,6 +28,7 @@ class RemoteLeaseGuard:
         request_timeout: float = 8.0,
         max_unconfirmed: float = 15.0,
         log: Callable[[str], None] | None = None,
+        interrupt_on_lost: Callable[[], None] | None = None,
     ) -> None:
         if command_id <= 0 or delivery_attempt <= 0:
             raise ValueError("Agent task requires a positive command ID and delivery attempt")
@@ -38,6 +39,7 @@ class RemoteLeaseGuard:
         self.request_timeout = max(0.01, float(request_timeout))
         self.max_unconfirmed = max(self.interval, float(max_unconfirmed))
         self.log = log
+        self.interrupt_on_lost = interrupt_on_lost
         self.lost = asyncio.Event()
         self.reason = ""
         self._last_confirmed = time.monotonic()
@@ -62,6 +64,11 @@ class RemoteLeaseGuard:
                 if stop.is_set():
                     return
                 self.reason = f"Cloud rejected attempt {self.delivery_attempt}: {exc}"
+                if self.interrupt_on_lost:
+                    try:
+                        self.interrupt_on_lost()
+                    except Exception:
+                        pass
                 if self.log:
                     self.log(self.reason)
                 loop.call_soon_threadsafe(self.lost.set)
@@ -76,6 +83,11 @@ class RemoteLeaseGuard:
                     )
                 if elapsed >= self.max_unconfirmed:
                     self.reason = f"Cloud lease unconfirmed for {elapsed:.1f} seconds"
+                    if self.interrupt_on_lost:
+                        try:
+                            self.interrupt_on_lost()
+                        except Exception:
+                            pass
                     if self.log:
                         self.log(self.reason)
                     loop.call_soon_threadsafe(self.lost.set)

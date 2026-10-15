@@ -805,3 +805,12 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 
 - Episodic PostgreSQL/API/security tests: **13 passed**; Evidence V4 deterministic/evaluation tests: **109 passed**. Day-window bounds and connector-word search have explicit regressions. Device/provider tests remain **NOT RUN**.
 - Exact current GitHub Actions after the review fix: **PENDING** (new head `fece4ef`). Earlier synchronized head checks were green but do not validate this last patch.
+
+## 2026-10-15 — PR #36 dependency synchronization
+
+- Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
+- PR #37 cancellation contracts are present via dependency commit 61f3e02; rerun the combined exact-head Actions before merging.
+
+## 2026-10-15 — PR #34 post-interruption merge validation
+
+- Full Cloud API unittest discovery with disposable PostgreSQL: **387 passed, 7 skipped**. Skips are reported, not counted as passes. Current GitHub Actions for the synchronized PR head: **PENDING**.

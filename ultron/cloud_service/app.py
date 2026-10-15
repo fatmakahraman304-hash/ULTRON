@@ -15,6 +15,7 @@ import hmac
 import json
 import os
 import random
+import secrets
 import time
 import uuid
 from pathlib import Path
@@ -32,6 +33,7 @@ from verified_research import (append_research_sources,
 from personal_context_focus import load_focused_owner_context, memory_focus_question
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
+from chat_cancellation import ChatCancellationRegistry
 from response_quality import finalize_response
 from live_voice_policy import (build_live_voice_instruction,
                                explicit_memory_save_requested,
@@ -718,6 +720,24 @@ async def append_device_command_progress(request: web.Request) -> web.Response:
                 content_type="application/json",
             )
         return web.json_response({"ok": True, "command": dict(row)}, dumps=_json_dumps)
+
+    if stage == "cancelled":
+        row = await request.app["db"].fetchrow(
+            "UPDATE local_chat_requests l SET provider_stopped=TRUE "
+            "FROM device_commands c WHERE l.command_id=$1 AND l.user_id=$2 "
+            "AND c.id=l.command_id AND c.user_id=$2 AND c.target='desktop' "
+            "AND c.command='agent_task' AND c.payload->>'mode'='local_brain' "
+            "AND c.status='cancelled' AND c.delivery_attempt=$3 "
+            "AND l.cancellation_requested=TRUE RETURNING l.command_id,l.provider_stopped",
+            command_id, request["user_id"], attempt,
+        )
+        if not row:
+            raise web.HTTPNotFound(
+                text=json.dumps({"error": "cancelled_local_chat_not_found"}),
+                content_type="application/json",
+            )
+        return web.json_response({"ok": True, "provider_stopped": True,
+                                  "command_id": command_id})
 
     entry = {
         "stage": stage or "progress",
@@ -1550,12 +1570,38 @@ async def chat(request: web.Request) -> web.Response:
     if len(text) > 16000:
         raise web.HTTPRequestEntityTooLarge(max_size=16000, actual_size=len(text))
 
+    raw_request_id = body.get("request_id")
+    try:
+        request_id = str(uuid.UUID(str(raw_request_id))) if raw_request_id else str(uuid.uuid4())
+    except (TypeError, ValueError):
+        raise web.HTTPBadRequest(text='{"error":"invalid_request_id"}', content_type="application/json")
+    request_key = body.get("request_key")
+    has_cancel_key = isinstance(request_key, str) and len(request_key) == 64 \
+        and all(ch in "0123456789abcdef" for ch in request_key)
+    if request_key is not None and not has_cancel_key:
+        raise web.HTTPBadRequest(text='{"error":"invalid_request_key"}', content_type="application/json")
+    if not has_cancel_key:
+        request_key = secrets.token_hex(32)
+    cancel_registry = request.app.get("chat_cancellations")
+    if cancel_registry is None:
+        cancel_registry = request.app.setdefault("chat_cancellations", ChatCancellationRegistry())
+    try:
+        cancel_record = cancel_registry.begin(
+            request["user_id"], request["device_id"], request_id, request_key)
+    except ValueError:
+        raise web.HTTPConflict(text='{"error":"request_identity_conflict"}',
+                               content_type="application/json")
+    if cancel_record["cancel_requested"]:
+        return web.json_response({"request_id": request_id,
+            "status": "cancelled", "provider_stopped": False})
+
     pool = request.app["db"]
     conversation_id = str(body.get("conversation_id", "")).strip()
     try:
         conv_uuid = uuid.UUID(conversation_id) if conversation_id else uuid.uuid4()
     except ValueError:
         raise web.HTTPBadRequest(text=json.dumps({"error": "invalid_conversation_id"}), content_type="application/json")
+    cancel_record["conversation_id"] = str(conv_uuid)
 
     claimed = await pool.fetchval(
         """
@@ -1624,11 +1670,27 @@ async def chat(request: web.Request) -> web.Response:
             content_type="application/json",
         )
 
-    assistant_message_id = await pool.fetchval(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini') RETURNING id",
-        conv_uuid, request["user_id"], reply,
-    )
-    await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
+    if cancel_record["cancel_requested"]:
+        # The synchronous Gemini SDK call above has no confirmed cancel handle.
+        # Suppress the late answer and do not store an assistant turn.
+        return web.json_response({"request_id": request_id,
+            "status": "output_suppressed", "provider": "gemini-cloud",
+            "provider_stopped": False, "conversation_id": str(conv_uuid)})
+
+    # Serialize the final cancellation check with /api/chat/cancel. This
+    # closes the race where cancellation arrives during the database insert.
+    async with cancel_registry.completion_lock:
+        if cancel_record["cancel_requested"]:
+            return web.json_response({"request_id": request_id,
+                "status": "output_suppressed", "provider": "gemini-cloud",
+                "provider_stopped": False, "conversation_id": str(conv_uuid)})
+        assistant_message_id = await pool.fetchval(
+            "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini') RETURNING id",
+            conv_uuid, request["user_id"], reply,
+        )
+        await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
+        cancel_registry.mark_completed(request["user_id"], request["device_id"],
+                                       request_id, request_key)
     # Owner opted in to learning explicit facts from their own text only.
     # Learning failure must never block a successful assistant response.
     if request.get("auth_kind") == "web":
@@ -1639,7 +1701,25 @@ async def chat(request: web.Request) -> web.Response:
 
 
     return web.json_response({"conversation_id": str(conv_uuid), "reply": reply,
+        "request_id": request_id,
         "user_message_id":current_message_id, "assistant_message_id":assistant_message_id})
+
+
+async def cancel_chat(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+        request_id = str(body.get("request_id", ""))
+        request_key = body.get("request_key", "")
+    except (TypeError, ValueError, AttributeError):
+        return web.json_response({"error": "invalid_payload"}, status=400)
+    registry = request.app.get("chat_cancellations")
+    if registry is None:
+        registry = request.app.setdefault("chat_cancellations", ChatCancellationRegistry())
+    async with registry.completion_lock:
+        result = registry.cancel(request["user_id"], request["device_id"],
+                                 request_id, request_key)
+    return web.json_response({**result, "request_id": request_id,
+        "provider": "gemini-cloud", "provider_stopped": False})
 
 
 
@@ -2543,6 +2623,7 @@ async def prevent_stale_chat_assets(request, response):
 
 def build_app() -> web.Application:
     app = web.Application(middlewares=[auth_middleware], client_max_size=18 * 1024 * 1024)
+    app["chat_cancellations"] = ChatCancellationRegistry()
     app.router.add_get("/", index)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
     add_world_routes(app)
@@ -2561,6 +2642,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/personal-briefing", personal_briefing_api)
     app.router.add_get("/api/messages", list_messages)
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
+    app.router.add_post("/api/chat/cancel", cancel_chat)
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/scene-design", scene_design)
     from scene_assets import register as register_scene_assets

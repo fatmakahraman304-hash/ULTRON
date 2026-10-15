@@ -1,19 +1,51 @@
 """Authenticated additions to the original ULTRON HTTP service."""
 import asyncio
 import hmac
+import hashlib
 import os
 import copy
+import secrets
+import uuid
 from pathlib import Path
 from aiohttp import web
 
 from cloud_client import CloudClient, safe_cloud_error
 from ultron.cloud_service.conversation_persona import classify_intent
+from app.core.request_cancellation import (
+    ProviderRequestCancelled, RequestCancellationRegistry,
+    valid_request_id, valid_request_key,
+)
 
 
 def install(app, hub):
     token = os.environ.get('MARK_ULTRON_TOKEN', '')
     gate = asyncio.Lock()
     cloud = CloudClient()
+    cancellations = RequestCancellationRegistry()
+
+    def request_owner(req):
+        # Existing desktop auth remains authoritative. Hash credentials before
+        # using them as in-memory map keys; never put bearer values in records.
+        credential = req.headers.get('X-MARK-Token', '') or req.cookies.get('mark_session', '')
+        if credential:
+            return 'mark:' + hashlib.sha256(credential.encode('utf-8')).hexdigest()
+        return 'local-anonymous'
+
+    async def await_until_cancelled(awaitable, record):
+        """Detach a non-cancellable executor-backed provider on UI interruption."""
+        provider_task = asyncio.create_task(awaitable)
+        cancel_task = asyncio.create_task(record.cancel_event.wait())
+        try:
+            done, _ = await asyncio.wait((provider_task, cancel_task),
+                                         return_when=asyncio.FIRST_COMPLETED)
+            if cancel_task in done and record.cancel_event.is_set():
+                provider_task.cancel()
+                await asyncio.gather(provider_task, return_exceptions=True)
+                return None, True
+            return await provider_task, False
+        finally:
+            cancel_task.cancel()
+            await asyncio.gather(cancel_task, return_exceptions=True)
 
     @web.middleware
     async def boundary(req, handler):
@@ -58,121 +90,246 @@ def install(app, hub):
             text = str(body.get('text', '')).strip()
             mode = body.get('mode', 'auto')
             selected_model = body.get('model')
+            request_id = body.get('request_id') or str(uuid.uuid4())
+            request_key = body.get('request_key') or secrets.token_hex(32)
         except (ValueError, AttributeError):
             return web.json_response({'ok': False, 'error': 'bad request'}, status=400)
         if not text or len(text) > 50000 or mode not in ('auto', 'coding', 'general', 'fast', 'agent', 'task', 'multi'):
             return web.json_response({'ok': False, 'error': 'invalid input'}, status=400)
-        if gate.locked():
-            return web.json_response({'ok': False, 'error': 'motor meşgul'}, status=409)
-        async with gate:
-            rt = hub.bridge.runtime if hub.bridge and hub.bridge.available else None
-            if rt is None:
-                return web.json_response({'ok': False, 'status': 'UNAVAILABLE', 'error': 'runtime yok'})
-            intent = classify_intent(text)
-            # General/coding/fast are presentation/model preferences. An
-            # explicit computer operation still belongs to the existing local
-            # approval-gated agent, never the read-only Cloud chat path.
-            if intent.kind == 'computer_task' and mode in ('auto', 'general', 'coding', 'fast'):
-                mode = 'agent'
-            if mode == 'agent':
-                # Server-owned approval boundary; no caller can pass approved=True.
+        if not valid_request_id(request_id) or not valid_request_key(request_key):
+            return web.json_response({'ok': False, 'error': 'invalid request identity'}, status=400)
+        try:
+            record = cancellations.register(request_owner(req), request_id, request_key)
+        except ValueError:
+            return web.json_response({'ok': False, 'error': 'request identity conflict'}, status=409)
+        rt = hub.bridge.runtime if hub.bridge and hub.bridge.available else None
+        if rt is None:
+            cancellations.finish(record, 'failed')
+            return web.json_response({'ok': False, 'status': 'UNAVAILABLE', 'error': 'runtime yok',
+                                      'request_id': request_id})
+        if record.cancel_event.is_set():
+            cancellations.finish(record, 'cancelled_before_start')
+            return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                                      'request_id': request_id, 'provider_stopped': False,
+                                      'text': ''})
+        intent = classify_intent(text)
+        # General/coding/fast are presentation/model preferences. An
+        # explicit computer operation still belongs to the existing local
+        # approval-gated agent, never the read-only Cloud chat path.
+        if intent.kind == 'computer_task' and mode in ('auto', 'general', 'coding', 'fast'):
+            mode = 'agent'
+        if mode == 'agent':
+            cancellations.set_provider(record, 'computer-task', cancellable=False, started=False)
+            if record.cancel_event.is_set():
+                cancellations.finish(record, 'cancelled_before_start')
+                return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                    'request_id': request_id, 'provider_stopped': False, 'text': ''})
+            # Stop only the conversational delivery. Once started, computer
+            # work remains under its own approval/task lifecycle.
+            async with gate:
+                if record.cancel_event.is_set():
+                    cancellations.finish(record, 'cancelled_before_start')
+                    return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                        'request_id': request_id, 'provider_stopped': False, 'text': ''})
+                cancellations.set_provider(record, 'computer-task', cancellable=False, started=True)
                 result = await hub.agent.run(text, approved=False)
-                result = result if isinstance(result, dict) else {}
-                state = str(getattr(hub.agent, 'state', 'UNKNOWN'))
-                message = str(getattr(hub.agent, 'message', '') or '').strip()
-                waiting = state == 'WAITING_APPROVAL' or result.get('result') == 'waiting-approval'
-                partial = state == 'DONE' and message.startswith('PLAN PARTIAL ')
-                no_intent = result.get('result') == 'no-intent'
-                completed = (state == 'DONE' and result.get('ok') is True
-                             and not partial and not no_intent)
-                if waiting:
-                    pending = getattr(hub, 'pending_task', None)
-                    task_id = pending.get('id') if isinstance(pending, dict) else result.get('task_id')
-                    response_text = 'İşlem güvenlik onayı bekliyor.'
-                    if task_id:
-                        response_text += f' Onay isteği: {task_id}.'
-                elif completed:
-                    response_text = message or str(result.get('output') or '').strip()
-                    if not response_text:
-                        response_text = 'İşlem tamamlandı ve agent sonucu doğruladı.'
-                elif state == 'ERROR':
-                    response_text = message or 'İşlem başarısız oldu.'
-                elif state == 'DONE' and message:
-                    response_text = message
-                else:
-                    response_text = 'İşlemin sonucu doğrulanamadı; tamamlandı diyemem.'
-                return web.json_response({
-                    'ok': waiting or completed, 'text': response_text, 'state': state,
-                    'result': result, 'completed': completed,
-                    'pending_approval': waiting,
-                    'intent': intent.kind,
-                })
-            if mode == 'task':
-                task = await hub.supervisor.submit(text, budgets={}, spawn=True)
-                return web.json_response({'ok': True, 'task_id': task['id'], 'status': task['status']})
+            if record.cancel_requested:
+                cancellations.finish(record, 'output_suppressed')
+                return web.json_response({'ok': False, 'status': 'output_suppressed',
+                    'request_id': request_id, 'provider_stopped': False,
+                    'operation_continues': True, 'text': ''})
+            result = result if isinstance(result, dict) else {}
+            state = str(getattr(hub.agent, 'state', 'UNKNOWN'))
+            message = str(getattr(hub.agent, 'message', '') or '').strip()
+            waiting = state == 'WAITING_APPROVAL' or result.get('result') == 'waiting-approval'
+            partial = state == 'DONE' and message.startswith('PLAN PARTIAL ')
+            no_intent = result.get('result') == 'no-intent'
+            completed = (state == 'DONE' and result.get('ok') is True
+                         and not partial and not no_intent)
+            if waiting:
+                pending = getattr(hub, 'pending_task', None)
+                task_id = pending.get('id') if isinstance(pending, dict) else result.get('task_id')
+                response_text = 'İşlem güvenlik onayı bekliyor.'
+                if task_id:
+                    response_text += f' Onay isteği: {task_id}.'
+            elif completed:
+                response_text = message or str(result.get('output') or '').strip()
+                if not response_text:
+                    response_text = 'İşlem tamamlandı ve agent sonucu doğruladı.'
+            elif state == 'ERROR':
+                response_text = message or 'İşlem başarısız oldu.'
+            elif state == 'DONE' and message:
+                response_text = message
+            else:
+                response_text = 'İşlemin sonucu doğrulanamadı; tamamlandı diyemem.'
+            cancellations.finish(record, 'completed' if completed or waiting else 'failed')
+            return web.json_response({
+                'ok': waiting or completed, 'text': response_text, 'state': state,
+                'result': result, 'completed': completed,
+                'pending_approval': waiting,
+                'intent': intent.kind,
+                'request_id': request_id,
+            })
+        if mode == 'task':
+            cancellations.set_provider(record, 'task-queue', cancellable=False, started=False)
+            if record.cancel_event.is_set():
+                cancellations.finish(record, 'cancelled_before_start')
+                return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                    'request_id': request_id, 'provider_stopped': False, 'text': ''})
+            cancellations.set_provider(record, 'task-queue', cancellable=False, started=True)
+            task = await hub.supervisor.submit(text, budgets={}, spawn=True)
+            cancellations.finish(record, 'completed')
+            return web.json_response({'ok': True, 'task_id': task['id'], 'status': task['status'],
+                                      'request_id': request_id})
 
-            effective_mode = mode
-            if effective_mode == 'auto':
-                effective_mode = 'coding' if any(
-                    w in text.lower() for w in ('kod', 'code', 'python', 'debug', 'program')
-                ) else 'general'
+        effective_mode = mode
+        if effective_mode == 'auto':
+            effective_mode = 'coding' if any(
+                w in text.lower() for w in ('kod', 'code', 'python', 'debug', 'program')
+            ) else 'general'
 
-            # Desktop chat uses the exact same Render/Supabase brain as the phone.
-            # Explicit local model selection, coding/multi modes and agent/task tools stay local.
-            if cloud.enabled and selected_model is None and effective_mode in ('general', 'fast'):
-                try:
-                    await hub.broadcast({'type': 'agent', 'state': 'THINKING'})
-                    data = await cloud.chat(text)
-                    answer = str(data.get('reply', '')).strip()
-                    if not answer:
-                        raise RuntimeError('ULTRON Cloud returned an empty reply')
-                    hub.memory.add_session('assistant', answer)
-                    await hub.on_activity('Desktop chat answered by shared ULTRON Cloud', 'success')
-                    return web.json_response({
-                        'ok': True,
-                        'text': answer,
-                        'model': 'cloud-gemini',
-                        'source': 'cloud',
-                        'conversation_id': data.get('conversation_id'),
-                    })
-                except Exception as exc:
-                    # Cloud outage must never disable the desktop; fall back to local Ollama.
-                    await hub.on_activity(
-                        f'Cloud unavailable; local Ollama fallback ({safe_cloud_error(exc)})', 'warn')
-                finally:
-                    await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
-
-            check = await hub.check_ollama()
-            hub.ai_status = check['status']
-            models = hub.ai_status.get('models', [])
-            models = [m if isinstance(m, str) else m.get('name') for m in models]
-            models = [m for m in models if m]
-            if not models:
-                return web.json_response({'ok': False, 'status': 'UNAVAILABLE',
-                    'error': 'Ollama veya yerel model yok. INSTALL.bat model kurulumunu deneyebilir.'})
-            mode = effective_mode
-            from app.core.model_router import ModelRouter, safe_provider_error
-            settings = copy.deepcopy(rt.settings)
-            if selected_model:
-                if not isinstance(selected_model, str) or selected_model not in models:
-                    return web.json_response({'ok': False, 'error': 'MODEL NOT AVAILABLE'}, status=400)
-                settings['llm'].setdefault('routing', {})[mode.lower()] = selected_model
-            settings['llm'].setdefault('local_multi_model', {})['enabled'] = mode == 'multi'
-            router = ModelRouter(rt.brain, settings, get_models=lambda: models)
+        # Desktop chat uses the exact same Render/Supabase brain as the phone.
+        # Explicit local model selection, coding/multi modes and agent/task tools stay local.
+        if cloud.enabled and selected_model is None and effective_mode in ('general', 'fast'):
+            def request_cloud_cancel():
+                cancel_chat = getattr(cloud, 'cancel_chat', None)
+                if callable(cancel_chat):
+                    async def send_cancel():
+                        try:
+                            await cancel_chat(request_id, request_key)
+                        except Exception:
+                            pass
+                    asyncio.create_task(send_cancel())
+            cancellations.set_provider(record, 'gemini-cloud', cancellable=False,
+                                        cancel_callback=request_cloud_cancel, started=False)
+            if record.cancel_event.is_set():
+                cancellations.finish(record, 'cancelled_before_start')
+                return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                    'request_id': request_id, 'provider_stopped': False, 'text': ''})
             try:
                 await hub.broadcast({'type': 'agent', 'state': 'THINKING'})
-                answer = await asyncio.to_thread(router.ask, mode.upper(), text)
-                return web.json_response({'ok': True, 'text': answer,
-                                          'model': router.resolve(mode.upper()), 'source': 'local'})
+                if record.cancel_event.is_set():
+                    cancellations.finish(record, 'cancelled_before_start')
+                    return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                        'request_id': request_id, 'provider_stopped': False, 'text': ''})
+                cancellations.set_provider(record, 'gemini-cloud', cancellable=False,
+                    cancel_callback=request_cloud_cancel, started=True)
+                data, cancelled = await await_until_cancelled(
+                    cloud.chat(text, request_id=request_id, request_key=request_key), record)
+                if cancelled or record.cancel_event.is_set():
+                    cancellations.finish(record, 'output_suppressed')
+                    return web.json_response({'ok': False, 'status': 'output_suppressed',
+                        'request_id': request_id, 'provider': 'gemini-cloud',
+                        'provider_stopped': False, 'text': ''})
+                answer = str(data.get('reply', '')).strip()
+                if not answer:
+                    raise RuntimeError('ULTRON Cloud returned an empty reply')
+                hub.memory.add_session('assistant', answer)
+                await hub.on_activity('Desktop chat answered by shared ULTRON Cloud', 'success')
+                cancellations.finish(record, 'completed')
+                return web.json_response({
+                    'ok': True,
+                    'text': answer,
+                    'model': 'cloud-gemini',
+                    'source': 'cloud',
+                    'conversation_id': data.get('conversation_id'),
+                    'request_id': request_id,
+                })
             except Exception as exc:
-                error_code = safe_provider_error(exc)
-                message = ('Yerel model şu anda erişilemiyor; biraz sonra yeniden deneyin.'
-                           if error_code == 'provider_temporarily_unavailable'
-                           else 'Yerel model isteği tamamlanamadı.')
-                return web.json_response({'ok': False, 'status': 'UNAVAILABLE',
-                                          'error': message, 'error_code': error_code}, status=503)
+                if record.cancel_event.is_set():
+                    cancellations.finish(record, 'output_suppressed')
+                    return web.json_response({'ok': False, 'status': 'output_suppressed',
+                        'request_id': request_id, 'provider': 'gemini-cloud',
+                        'provider_stopped': False, 'text': ''})
+                # Cloud outage must never disable the desktop; fall back to local Ollama.
+                await hub.on_activity(
+                    f'Cloud unavailable; local Ollama fallback ({safe_cloud_error(exc)})', 'warn')
             finally:
                 await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
+
+        check = await hub.check_ollama()
+        hub.ai_status = check['status']
+        models = hub.ai_status.get('models', [])
+        models = [m if isinstance(m, str) else m.get('name') for m in models]
+        models = [m for m in models if m]
+        if not models:
+            cancellations.finish(record, 'failed')
+            return web.json_response({'ok': False, 'status': 'UNAVAILABLE',
+                'error': 'Ollama veya yerel model yok. INSTALL.bat model kurulumunu deneyebilir.',
+                'request_id': request_id})
+        mode = effective_mode
+        from app.core.model_router import ModelRouter, safe_provider_error
+        settings = copy.deepcopy(rt.settings)
+        if selected_model:
+            if not isinstance(selected_model, str) or selected_model not in models:
+                cancellations.finish(record, 'failed')
+                return web.json_response({'ok': False, 'error': 'MODEL NOT AVAILABLE',
+                                          'request_id': request_id}, status=400)
+            settings['llm'].setdefault('routing', {})[mode.lower()] = selected_model
+        settings['llm'].setdefault('local_multi_model', {})['enabled'] = mode == 'multi'
+        router = ModelRouter(rt.brain, settings, get_models=lambda: models)
+        multi_model = router.local_multi_enabled()
+        cancellations.set_provider(record,
+            'ollama-local-multi' if multi_model else 'ollama-stream',
+            cancellable=not multi_model, started=False)
+        if record.cancel_event.is_set():
+            cancellations.finish(record, 'cancelled_before_start')
+            return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                'request_id': request_id, 'provider_stopped': False, 'text': ''})
+        try:
+            await hub.broadcast({'type': 'agent', 'state': 'THINKING'})
+            if record.cancel_event.is_set():
+                cancellations.finish(record, 'cancelled_before_start')
+                return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                    'request_id': request_id, 'provider_stopped': False, 'text': ''})
+            cancellations.set_provider(record, record.provider,
+                                        cancellable=not multi_model, started=True)
+            if multi_model:
+                answer, cancelled = await await_until_cancelled(
+                    asyncio.to_thread(router.ask, mode.upper(), text), record)
+                if cancelled or record.cancel_event.is_set():
+                    cancellations.finish(record, 'output_suppressed')
+                    return web.json_response({'ok': False, 'status': 'output_suppressed',
+                        'request_id': request_id, 'provider': 'ollama-local-multi',
+                        'provider_stopped': False, 'text': ''})
+            else:
+                answer = await router.ask_cancellable(
+                    mode.upper(), text, cancel_event=record.cancel_event)
+            if record.cancel_event.is_set():
+                # The provider already returned; a cancel racing with response
+                # delivery suppresses output but cannot be reported as stopped.
+                cancellations.finish(record, 'output_suppressed')
+                return web.json_response({'ok': False,
+                    'status': 'output_suppressed',
+                    'request_id': request_id, 'provider': record.provider,
+                    'provider_stopped': False, 'text': ''})
+            cancellations.finish(record, 'completed')
+            return web.json_response({'ok': True, 'text': answer,
+                                     'model': router.resolve(mode.upper()), 'source': 'local',
+                                     'request_id': request_id})
+        except ProviderRequestCancelled as exc:
+            cancellations.finish(record, 'provider_cancelled',
+                                 provider_stopped=exc.provider_stopped)
+            stopped = cancellations.describe(request_owner(req), request_id, request_key)
+            return web.json_response({'ok': False, 'status': stopped['status'],
+                'request_id': request_id, 'provider': 'ollama-stream',
+                'provider_stopped': stopped['provider_stopped'], 'text': ''})
+        except Exception as exc:
+            if record.cancel_event.is_set():
+                cancellations.finish(record, 'output_suppressed')
+                return web.json_response({'ok': False, 'status': 'output_suppressed',
+                    'request_id': request_id, 'provider': record.provider,
+                    'provider_stopped': False, 'text': ''})
+            cancellations.finish(record, 'failed')
+            error_code = safe_provider_error(exc)
+            message = ('Yerel model şu anda erişilemiyor; biraz sonra yeniden deneyin.'
+                       if error_code == 'provider_temporarily_unavailable'
+                       else 'Yerel model isteği tamamlanamadı.')
+            return web.json_response({'ok': False, 'status': 'UNAVAILABLE',
+                                          'error': message, 'error_code': error_code,
+                                          'request_id': request_id}, status=503)
+        finally:
+            await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
 
     async def tool(req):
         body = await req.json()
@@ -187,6 +344,27 @@ def install(app, hub):
             return web.json_response({'ok': False, 'needs_approval': True, 'error': str(exc)})
         except Exception as exc:
             return web.json_response({'ok': False, 'error': str(exc)})
+
+    async def cancel_request(req):
+        try:
+            body = await req.json()
+            request_id = body.get('request_id')
+            request_key = body.get('request_key')
+        except (ValueError, AttributeError):
+            return web.json_response({'ok': False, 'error': 'bad request'}, status=400)
+        if not valid_request_id(request_id) or not valid_request_key(request_key):
+            return web.json_response({'ok': False, 'error': 'invalid request identity'}, status=400)
+        owner = request_owner(req)
+        result = cancellations.cancel(owner, request_id, request_key)
+        record = cancellations.lookup(owner, request_id, request_key)
+        if record is not None and result.get('status') == 'cancellation_requested' \
+                and record.provider_cancellable and record.provider_started:
+            # Give Ollama's streaming request a short chance to observe the
+            # cancellation and close its transport. If it does not, report the
+            # request as pending instead of claiming it stopped.
+            await cancellations.wait_terminal(record, 0.35)
+            result = cancellations.describe(owner, request_id, request_key)
+        return web.json_response({'ok': result.get('status') != 'not_found', **result})
 
     async def shutdown(req):
         def stop():
@@ -306,6 +484,7 @@ location.replace(showHologram ? '/hologram/hologram.html' : '/frontend/index.htm
 
     app.router.add_get('/api/merged/health', health)
     app.router.add_post('/api/merged/invoke', invoke)
+    app.router.add_post('/api/merged/cancel', cancel_request)
     app.router.add_post('/api/merged/tool', tool)
     app.router.add_post('/api/merged/shutdown', shutdown)
     app.router.add_post('/api/merged/document', document)

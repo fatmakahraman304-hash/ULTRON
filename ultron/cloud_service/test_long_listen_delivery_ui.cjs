@@ -10,10 +10,11 @@ if(start<0||end<start)throw new Error('ULTRON UI send() was not found');
 const fn=html.slice(start,end);
 
 function makeUI({message='Sesli oturumdan önemli talimat',fail=false,voiceError=false}={}){
-  const box={value:message},busy={textContent:''},button={disabled:false};
+  const box={value:message},busy={textContent:''},button={disabled:false,
+    classList:{add(){},remove(){}},setAttribute(){}};
   const logs={api:0,panel:0,dev:0,direct:0,toast:[],messages:[]};
   const sandbox={
-    console,chatSending:false,chatSendVersion:0,
+    console,AbortController,chatSending:false,chatSendVersion:0,chatRequestGeneration:0,activeChatRequest:null,
     pendingImage:null,pendingPdf:null,voiceEnabled:true,
     document:{hidden:false},conversationId:'thread-test',
     longListenController:{hasSession:()=>false,active:()=>false},
@@ -40,6 +41,8 @@ function makeUI({message='Sesli oturumdan önemli talimat',fail=false,voiceError
     scrollChatToBottom(){},
     toast(msg){logs.toast.push(msg);}
   };
+  sandbox.newChatIdentity=()=>({request_id:'test-request',request_key:'a'.repeat(64)});
+  sandbox.mayFinalizeChatSend=generation=>generation===sandbox.chatRequestGeneration;
   vm.createContext(sandbox);
   vm.runInContext(fn+'\nthis.__send=send;',sandbox);
   return {send:sandbox.__send,box,busy,button,logs,sandbox};

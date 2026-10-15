@@ -206,8 +206,24 @@ CREATE INDEX IF NOT EXISTS idx_local_chat_requests_user ON local_chat_requests(u
 ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS request_id UUID;
 ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS user_message_id BIGINT;
 ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS assistant_message_id BIGINT;
+ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS cancellation_requested BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS provider_stopped BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE local_chat_requests ADD COLUMN IF NOT EXISTS request_key_hash TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_local_chat_request_id
   ON local_chat_requests(user_id, request_id) WHERE request_id IS NOT NULL;
+-- A cancel may reach Cloud just before its queue POST. This owner/request
+-- tombstone prevents that later POST from starting inference. Key material is
+-- never stored; expired rows can be replaced on the next cancellation.
+CREATE TABLE IF NOT EXISTS local_chat_cancellations (
+  user_id TEXT NOT NULL,
+  request_id UUID NOT NULL,
+  request_key_hash CHAR(64) NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '10 minutes'),
+  PRIMARY KEY (user_id, request_id)
+);
+CREATE INDEX IF NOT EXISTS idx_local_chat_cancellations_expiry
+  ON local_chat_cancellations(expires_at);
 
 
 

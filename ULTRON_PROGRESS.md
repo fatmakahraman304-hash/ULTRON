@@ -712,3 +712,13 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Excluded English `for` and Turkish `hakkında` from mandatory lexical groups; added regression tests for both languages and date limits.
 - Real disposable-PostgreSQL episodic API/security suite: **13 passed**. Evidence engine and 100-case evaluation: **109 passed**. Python compilation passed.
 - All four resume documents now record V4 implementation, exact test evidence, limits, and the next merge step. The GitHub review's stale V4 next-task note is addressed in the branch tracking files.
+
+## 2026-10-15 — PR #36 dependency synchronization
+
+- Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
+- PR #37 true interruption changes merged into this dependency branch at 61f3e02; synchronize and validate before production merge.
+
+## 2026-10-15 — PR #36 production merge and PR #34 resync
+
+- PR #36/#37 merged to production at squash SHA `378e3b3e6c36b81306e0a9383a18aa84ae4d00a4`; all seven exact-head GitHub Actions checks passed. Render deploy SHA remains subject to a separate health/deploy check.
+- PR #34/#35 was rebased by a merge commit onto the new production SHA. Cloud API test discovery against disposable PostgreSQL: **387 passed, 7 skipped**. The latest GitHub Actions must validate the synchronized exact head before PR #34 can merge.

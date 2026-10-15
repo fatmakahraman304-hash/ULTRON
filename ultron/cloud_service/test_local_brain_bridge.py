@@ -1,5 +1,9 @@
 """Safety contracts for default-free ULTRON local text chat from iPhone."""
 import unittest
+import asyncio
+import hashlib
+import json
+import uuid
 import sys
 from pathlib import Path
 
@@ -12,9 +16,120 @@ PWA=(ROOT/"static"/"index.html").read_text(encoding="utf-8")
 SCHEMA=(ROOT/"schema.sql").read_text(encoding="utf-8")
 sys.path.insert(0, str(ROOT))
 from local_reply_validation import _validated_local_reply
+import local_brain_bridge
+
+
+class _AsyncScope:
+    async def __aenter__(self): return self
+    async def __aexit__(self, *_args): return False
+
+
+class _LocalCancelConnection:
+    def __init__(self, *, command_status, no_request=False, foreign_request=False):
+        self.command_status = command_status
+        self.no_request = no_request
+        self.foreign_request = foreign_request
+        self.calls = []
+    def transaction(self): return _AsyncScope()
+    async def fetchrow(self, sql, *args):
+        self.calls.append((sql, args))
+        if "FROM local_chat_requests" in sql:
+            if self.no_request:
+                return None
+            return {"command_id": 91, "conversation_id": uuid.UUID("56e1b7da-999e-4a77-9d79-102fd6b923c0"),
+                    "reply_saved": False, "cancellation_requested": False,
+                    "provider_stopped": False, "request_key_hash": hashlib.sha256(
+                        b"b" * 64 if self.command_status == "queued" else b"c" * 64
+                    ).hexdigest(), "command_status": self.command_status}
+        raise AssertionError(sql)
+    async def execute(self, sql, *args):
+        self.calls.append((sql, args))
+        return "UPDATE 1"
+    async def fetchval(self, sql, *args):
+        self.calls.append((sql, args))
+        if "SELECT EXISTS" in sql:
+            return self.foreign_request
+        return "cancelled" if self.command_status in ("queued", "delivered") else None
+
+
+class _LocalCancelPool:
+    def __init__(self, *, command_status, no_request=False, foreign_request=False):
+        self.conn = _LocalCancelConnection(command_status=command_status,
+                                           no_request=no_request,
+                                           foreign_request=foreign_request)
+    def acquire(self): return _AsyncScopeWithValue(self.conn)
+    async def fetchval(self, *_args): return False
+
+
+class _AsyncScopeWithValue(_AsyncScope):
+    def __init__(self, value): self.value = value
+    async def __aenter__(self): return self.value
 
 
 class LocalFirstBridgeTests(unittest.TestCase):
+    def test_local_chat_cancel_scopes_owner_and_never_claims_provider_stopped(self):
+        request_id, request_key = str(uuid.uuid4()), "b" * 64
+        request = {
+            "auth_kind": "web", "user_id": "owner-a",
+            "app": {"db": _LocalCancelPool(command_status="queued")},
+            "body": {"request_id": request_id, "request_key": request_key},
+        }
+        class MockRequest(dict):
+            app = request["app"]
+            async def json(self): return self["body"]
+
+        response = asyncio.run(local_brain_bridge.cancel_local_chat(MockRequest(request)))
+        payload = json.loads(response.text)
+        self.assertEqual(payload["status"], "cancelled_before_start")
+        self.assertTrue(payload["prevented_start"])
+        self.assertFalse(payload["provider_stopped"])
+        conn = request["app"]["db"].conn
+        select_sql, select_args = next(
+            call for call in conn.calls if "FROM local_chat_requests" in call[0]
+        )
+        self.assertIn("WHERE l.user_id=$1 AND l.request_id=$2", select_sql)
+        self.assertIn("l.request_key_hash", select_sql)
+        self.assertEqual(select_args[0], "owner-a")
+        self.assertEqual(select_args[1], uuid.UUID(request_id))
+        self.assertIn("jsonb_build_object", conn.calls[-1][0])
+
+    def test_delivered_local_qwen_reports_cancellation_pending_not_stopped(self):
+        request = {
+            "auth_kind": "web", "user_id": "owner-b",
+            "app": {"db": _LocalCancelPool(command_status="delivered")},
+            "body": {"request_id": str(uuid.uuid4()), "request_key": "c" * 64},
+        }
+        class MockRequest(dict):
+            app = request["app"]
+            async def json(self): return self["body"]
+        payload = json.loads(asyncio.run(local_brain_bridge.cancel_local_chat(MockRequest(request))).text)
+        self.assertEqual(payload["status"], "cancellation_requested")
+        self.assertFalse(payload["provider_stopped"])
+
+    def test_local_chat_cancel_does_not_probe_foreign_owner_request(self):
+        request = {
+            "auth_kind": "web", "user_id": "owner-b",
+            "app": {"db": _LocalCancelPool(command_status="queued", no_request=True,
+                                           foreign_request=True)},
+            "body": {"request_id": str(uuid.uuid4()), "request_key": "b" * 64},
+        }
+        class MockRequest(dict):
+            app = request["app"]
+            async def json(self): return self["body"]
+        response = asyncio.run(local_brain_bridge.cancel_local_chat(MockRequest(request)))
+        self.assertEqual(response.status, 404)
+        calls = request["app"]["db"].conn.calls
+        self.assertFalse(any("INSERT INTO local_chat_cancellations" in sql for sql, _ in calls))
+
+    def test_local_chat_cancel_rejects_non_web_session(self):
+        class MockRequest(dict):
+            app = {}
+            async def json(self): return {}
+        with self.assertRaises(Exception) as raised:
+            asyncio.run(local_brain_bridge.cancel_local_chat(MockRequest(auth_kind="device")))
+        from aiohttp import web
+        self.assertIsInstance(raised.exception, web.HTTPForbidden)
+
     def test_completed_reply_origin_is_factual_and_not_raw_json(self):
         ollama = _validated_local_reply({
             "assistant_reply": "  Tamam, devam ediyorum.  ",
@@ -125,7 +240,7 @@ class LocalFirstBridgeTests(unittest.TestCase):
         self.assertIn("await api('/api/device-presence',{timeoutMs:6000})",PWA)
         self.assertIn("window.ULTRONAutoBrain.select(response.devices)",PWA)
         self.assertIn("const preferred=await refreshAutoBrain(true)",PWA)
-        self.assertIn("await localBrainAnswer(text,userBubble)",PWA)
+        self.assertIn("await localBrainAnswer(text,userBubble,chatIdentity,requestController.signal)",PWA)
         self.assertIn("await cloud()",PWA)
         self.assertIn("window.ULTRONAutoBrain.safeToFallback(e)",PWA)
         self.assertIn("localVoiceController?.toggle()",PWA)
