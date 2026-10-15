@@ -40,6 +40,27 @@ class AutonomousPatchContracts(unittest.TestCase):
             ],
         }
 
+    def test_v6_qwen3_requests_json_without_thinking_budget(self):
+        requests = []
+
+        def fake_request(url, body, headers):
+            requests.append((url, dict(body)))
+            return {"response": '{"files": []}'}
+
+        with patch.object(engine, "_json_request", side_effect=fake_request):
+            with patch.dict("os.environ", {"GOLGE_AUTODEV_OLLAMA_MODEL": "qwen3:8b"}):
+                self.assertEqual(engine.infer("test", "ollama", max_output_tokens=1400),
+                                 '{"files": []}')
+            with patch.dict("os.environ", {"GOLGE_AUTODEV_OLLAMA_MODEL": "qwen2.5-coder:7b"}):
+                engine.infer("test", "ollama", max_output_tokens=1400)
+
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(requests[0][0], "http://127.0.0.1:11434/api/generate")
+        self.assertIs(requests[0][1]["think"], False)
+        self.assertEqual(requests[0][1]["options"]["num_predict"], 1400)
+        self.assertNotIn("think", requests[1][1])
+        self.assertEqual(requests[1][1]["format"], "json")
+
     def test_goal_registry_is_valid(self):
         goals = engine.load_goals()
         self.assertGreaterEqual(len(goals), 2)
