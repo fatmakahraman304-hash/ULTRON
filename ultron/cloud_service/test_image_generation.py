@@ -65,6 +65,7 @@ class FakeDB:
         if "INSERT INTO uploaded_images" in sql:
             self.uploaded_rows[(args[0], args[2])] = {
                 "mime_type": args[3], "image_data": args[4],
+                "conversation_id": args[1],
             }
 
 
@@ -242,6 +243,91 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(missing.status, 404)
             invalid = await client.get("/api/image/uploaded/not-an-id", headers=headers)
             self.assertEqual(invalid.status, 404)
+        finally:
+            await client.close()
+
+
+    async def test_vision_provider_failure_keeps_uploaded_photo(self):
+        """A failing model must not cancel an otherwise valid photo upload."""
+        headers = {"Authorization": "Bearer image_test_only"}
+        app = web.Application(middlewares=[cloud.auth_middleware])
+        app["db"] = self.db
+        app.router.add_post("/api/vision", cloud.vision)
+        app.router.add_get("/api/image/uploaded/{id}", cloud.get_uploaded_image)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        form = FormData()
+        form.add_field("image", b"photo data", filename="photo.jpg", content_type="image/jpeg")
+        try:
+            with patch.object(cloud, "_memory_context", return_value=""), \\
+                 patch.object(cloud, "_recent_context", return_value=""), \\
+                 patch.object(cloud, "_gemini_image_reply", side_effect=RuntimeError("offline")):
+                response = await client.post("/api/vision", data=form, headers=headers)
+            self.assertEqual(response.status, 200)
+            data = await response.json()
+            self.assertEqual(data["analysis_status"], "failed")
+            self.assertIn("kaydedildi", data["reply"])
+            self.assertEqual(len(self.db.uploaded_rows), 1)
+            photo = await client.get(data["uploaded_image_url"], headers=headers)
+            self.assertEqual(photo.status, 200)
+            self.assertEqual(await photo.read(), b"photo data")
+        finally:
+            await client.close()
+
+    async def test_image_followup_reuses_owner_stored_bytes_without_reupload(self):
+        headers = {"Authorization": "Bearer image_test_only"}
+        app = web.Application(middlewares=[cloud.auth_middleware])
+        app["db"] = self.db
+        app.router.add_post("/api/vision", cloud.vision)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        photo = FormData()
+        photo.add_field("image", b"stored photo", filename="photo.jpg", content_type="image/jpeg")
+        question = FormData()
+        question.add_field("image_id", "1")
+        question.add_field("question", "Fotoğrafta ne var?")
+        try:
+            with patch.object(cloud, "_memory_context", return_value=""), \\
+                 patch.object(cloud, "_recent_context", return_value=""), \\
+                 patch.object(cloud, "_gemini_image_reply", return_value="Fotoğraf mevcut.") as analyze:
+                first = await client.post("/api/vision", data=photo, headers=headers)
+                self.assertEqual(first.status, 200)
+                first_data = await first.json()
+                second = await client.post(
+                    "/api/vision?conversation_id=" + first_data["conversation_id"],
+                    data=question, headers=headers,
+                )
+            self.assertEqual(second.status, 200)
+            data = await second.json()
+            self.assertEqual(data["analysis_status"], "completed")
+            self.assertIsNone(data["uploaded_image_url"])
+            self.assertEqual(data["conversation_id"], first_data["conversation_id"])
+            self.assertEqual(analyze.call_count, 2)
+            self.assertEqual(analyze.call_args.args[0], b"stored photo")
+            self.assertEqual(len(self.db.uploaded_rows), 1)
+        finally:
+            await client.close()
+
+    async def test_foreign_conversation_fails_before_upload_or_model_call(self):
+        headers = {"Authorization": "Bearer image_test_only"}
+        app = web.Application(middlewares=[cloud.auth_middleware])
+        app["db"] = self.db
+        app.router.add_post("/api/vision", cloud.vision)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        foreign_id = uuid.uuid4()
+        self.db.conversations[foreign_id] = "not-the-current-owner"
+        form = FormData()
+        form.add_field("image", b"photo", filename="photo.png", content_type="image/png")
+        try:
+            with patch.object(cloud, "_gemini_image_reply") as analyze:
+                response = await client.post(
+                    "/api/vision?conversation_id=" + str(foreign_id),
+                    data=form, headers=headers,
+                )
+            self.assertEqual(response.status, 404)
+            analyze.assert_not_called()
+            self.assertEqual(self.db.uploaded_rows, {})
         finally:
             await client.close()
 
