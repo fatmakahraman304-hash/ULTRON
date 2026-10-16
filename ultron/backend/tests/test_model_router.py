@@ -460,3 +460,134 @@ def test_fit_messages_context_limit():
     assert out[0]["role"] == "system"
     assert out[-1]["content"].startswith("z")
     assert sum(len(m["content"]) for m in out) <= 700 or len(out) == 2
+
+
+def test_local_system_facts_router_matches_real_owner_requests_not_generic_research():
+    from merged_api import _requested_local_system_facts, _format_local_system_facts
+
+    request = ("Windows sürümümü, işlemci modelimi, toplam RAM miktarımı, "
+               "saat dilimimi ve varsayılan mikrofonumu söyle. "
+               "Bilmediğin hiçbir bilgiyi tahmin etme.")
+    assert _requested_local_system_facts(request) == (
+        "windows", "cpu", "ram", "timezone", "microphone"
+    )
+    assert _requested_local_system_facts(
+        "Bilgisayarımın RAM kapasitesini ve işlemci modelini söyle."
+    ) == ("cpu", "ram")
+    assert _requested_local_system_facts(
+        "Toplam RAM miktarımı söyle"
+    ) == ("ram",)
+    for generic in (
+        "RAM nedir?", "Windows 11 sistem gereksinimleri nedir?",
+        "Windows sürümü nasıl öğrenilir?", "İşlemci nasıl çalışır?",
+        "Varsayılan mikrofon nasıl seçilir?", "Dünya saat dilimleri kaç tane?",
+        "Bilgisayarımın dosyalarını sil.",
+    ):
+        assert _requested_local_system_facts(generic) == (), generic
+
+    machine = {
+        "os_name": "Windows 11 Pro", "os_version": "26100",
+        "cpu_model": "Test CPU 123", "ram_total_gb": 23.8,
+        "timezone": "Turkey Standard Time", "default_microphone": None,
+        "active_windows": ["PRIVATE WINDOW TITLE"],
+        "running_processes": ["PRIVATE PROCESS"],
+        "network_interface": "PRIVATE NETWORK",
+    }
+    answer = _format_local_system_facts(machine, _requested_local_system_facts(request))
+    assert "Windows 11 Pro (derleme 26100)" in answer
+    assert "Test CPU 123" in answer
+    assert "23.8 GB" in answer
+    assert "Turkey Standard Time" in answer
+    assert "Varsayılan mikrofon: Bilgi okunamadı" in answer
+    assert "PRIVATE" not in answer
+
+
+def test_local_system_facts_router_stays_on_desktop_and_respects_modes(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from aiohttp import web
+    from aiohttp.test_utils import TestClient, TestServer
+    import merged_api
+    from actions import system_monitor
+
+    monkeypatch.setenv("MARK_ULTRON_TOKEN", "")
+    models = []
+    system_calls = []
+
+    def real_local_facts(*, include_details):
+        system_calls.append(include_details)
+        return {
+            "os_name": "Windows 11", "os_version": "26100",
+            "cpu_model": "Local Test CPU", "ram_total_gb": 24.0,
+            "timezone": "Turkey Standard Time",
+            "default_microphone": "Local Test Microphone",
+            "active_windows": ["TOP-SECRET WINDOW"],
+        }
+    monkeypatch.setattr(system_monitor, "get_system_status", real_local_facts)
+
+    class FakeCloud:
+        enabled = True
+        def __init__(self):
+            self.calls = []
+            models.append(self)
+        async def chat(self, text, **_):
+            self.calls.append(text)
+            return {"reply": "Cloud answer (cannot see hardware)."}
+
+    monkeypatch.setattr(merged_api, "CloudClient", FakeCloud)
+
+    async def run():
+        hub = SimpleNamespace(
+            bridge=SimpleNamespace(runtime=object(), available=True),
+            agent=SimpleNamespace(state="IDLE"),
+            memory=SimpleNamespace(add_session=lambda *_: None),
+        )
+        async def broadcast(*_):
+            pass
+        async def on_activity(*_):
+            pass
+        hub.broadcast = broadcast
+        hub.on_activity = on_activity
+        app = web.Application()
+        merged_api.install(app, hub)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            query = ("Windows sürümümü, işlemci modelimi, toplam RAM miktarımı, "
+                     "saat dilimimi ve varsayılan mikrofonumu söyle. "
+                     "Bilmediğin hiçbir bilgiyi tahmin etme.")
+            response = await client.post("/api/merged/invoke",
+                json={"text": query, "mode": "auto"})
+            result = await response.json()
+            assert response.status == 200
+            assert result["source"] == "desktop-local-read-only"
+            assert result["request_id"]
+            assert "Windows 11" in result["text"]
+            assert "24.0 GB" in result["text"]
+            assert "Local Test Microphone" in result["text"]
+            assert "TOP-SECRET" not in str(result)
+            assert system_calls == [True]
+            assert models[0].calls == []
+
+            response = await client.post("/api/merged/invoke",
+                json={"text": "RAM nedir?", "mode": "general"})
+            result = await response.json()
+            assert result["source"] == "cloud"
+            assert models[0].calls == ["RAM nedir?"]
+            assert system_calls == [True]
+
+            def failed_read(*, include_details):
+                raise RuntimeError("secret system exception with private details")
+            monkeypatch.setattr(system_monitor, "get_system_status", failed_read)
+            response = await client.post("/api/merged/invoke", json={
+                "text": "Saat dilimimi söyle", "mode": "general",
+            })
+            result = await response.json()
+            assert response.status == 503
+            assert result["error_code"] == "local_system_facts_unavailable"
+            assert "private details" not in str(result)
+            assert models[0].calls == ["RAM nedir?"]
+        finally:
+            await client.close()
+
+    asyncio.run(run())
