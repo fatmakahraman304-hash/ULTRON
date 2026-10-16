@@ -28,9 +28,11 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq libportaudio2 libasound2t64 libegl1 libopengl0 libxcb-cursor0 libpulse0 libgl1
-      - name: Install desktop, backend and test dependencies
+      # openwakeword is optional and currently has no Python 3.12 Linux tflite-runtime wheel.
+      # The owner Windows DOCTOR checks the actual wake model independently.
+      - name: Install portable desktop, backend and test dependencies
         run: |
-          python -m pip install --disable-pip-version-check -r requirements.txt -r ultron/backend/requirements.txt "pytest>=8,<9" "asyncpg>=0.30,<1"
+          python -m pip install --disable-pip-version-check -r requirements.txt "pytest>=8,<9" "asyncpg>=0.30,<1" "aiohttp>=3.9,<4" "pypdf>=5" "pytesseract>=0.3"
       - name: Compile all Python source
         run: python -m compileall -q integration core tests ultron/backend ultron/cloud_service scripts
       - name: Run complete root and backend pytest collection
@@ -102,7 +104,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq libportaudio2 libasound2t64 libegl1 libopengl0 libxcb-cursor0 libpulse0 libgl1
-          python -m pip install --disable-pip-version-check -r requirements.txt -r ultron/backend/requirements.txt "pytest>=8,<9" "asyncpg>=0.30,<1"
+          python -m pip install --disable-pip-version-check -r requirements.txt "pytest>=8,<9" "asyncpg>=0.30,<1" "aiohttp>=3.9,<4" "pypdf>=5" "pytesseract>=0.3"
           python -m playwright install --with-deps chromium
       - name: Complete helper-script pytest suite
         run: python -m pytest scripts/tests -q
