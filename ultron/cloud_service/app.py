@@ -1287,7 +1287,6 @@ async def vision(request: web.Request) -> web.Response:
     disappear. Image analysis can fail independently of chat attachment storage.
     A saved photo can also be re-analysed after Safari reload by its owner ID.
     """
-    reader = await request.multipart()
     image_bytes = b""
     mime_type = ""
     question = ""
@@ -1295,29 +1294,41 @@ async def vision(request: web.Request) -> web.Response:
     raw_image_id = ""
     has_new_image = False
 
-    while True:
-        field = await reader.next()
-        if field is None:
-            break
-        if field.name == "image":
-            has_new_image = True
-            filename = (field.filename or "görsel")[:160]
-            mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
-            chunks = []
-            total = 0
-            while True:
-                chunk = await field.read_chunk(size=64 * 1024)
-                if not chunk:
-                    break
-                total += len(chunk)
-                if total > 8 * 1024 * 1024:
-                    raise web.HTTPRequestEntityTooLarge(max_size=8 * 1024 * 1024, actual_size=total)
-                chunks.append(chunk)
-            image_bytes = b"".join(chunks)
-        elif field.name == "question":
-            question = (await field.text()).strip()[:4000]
-        elif field.name == "image_id":
-            raw_image_id = (await field.text()).strip()
+    if request.content_type == "application/x-www-form-urlencoded":
+        # Text-only photo followups have no file part. Accept ordinary forms
+        # as well as browser multipart FormData; never accept file bytes here.
+        values = await request.post()
+        question = str(values.get("question", "")).strip()[:4000]
+        raw_image_id = str(values.get("image_id", "")).strip()
+    elif request.content_type.startswith("multipart/"):
+        reader = await request.multipart()
+        while True:
+            field = await reader.next()
+            if field is None:
+                break
+            if field.name == "image":
+                has_new_image = True
+                filename = (field.filename or "görsel")[:160]
+                mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
+                chunks = []
+                total = 0
+                while True:
+                    chunk = await field.read_chunk(size=64 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > 8 * 1024 * 1024:
+                        raise web.HTTPRequestEntityTooLarge(max_size=8 * 1024 * 1024, actual_size=total)
+                    chunks.append(chunk)
+                image_bytes = b"".join(chunks)
+            elif field.name == "question":
+                question = (await field.text()).strip()[:4000]
+            elif field.name == "image_id":
+                raw_image_id = (await field.text()).strip()
+    else:
+        raise web.HTTPUnsupportedMediaType(
+            text='{"error":"multipart_or_form_required"}', content_type="application/json"
+        )
 
     if has_new_image == bool(raw_image_id):
         raise web.HTTPBadRequest(
