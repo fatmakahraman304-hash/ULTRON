@@ -940,6 +940,8 @@ async function sendPdf(){
     toast('PDF analiz edildi. Sesli modda bu belge hakkında soru sorabilirsin.');
     return true;
   }catch(e){
+    // A failed upload must not hijack every subsequent ordinary chat turn.
+    clearPendingPdf();
     addMessage('assistant','PDF analizi başarısız: '+(e.message||'Bilinmeyen hata'));return false;
   }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;$('#pdfBtn').disabled=false}
 }
@@ -1047,17 +1049,31 @@ function clearPendingImage(){
 }
 function chooseImage(file){
   clearPendingImage();if(!file)return;
+  if(!file.type.startsWith('image/')){toast('Lütfen fotoğraf dosyası seç.');return}
+  if(file.size>8*1024*1024){toast('Fotoğraf en fazla 8 MB olabilir.');return}
   pendingImage=file;pendingImageUrl=URL.createObjectURL(file);
   $('#imageThumb').src=pendingImageUrl;$('#imageName').textContent=file.name||'Fotoğraf';$('#imagePreview').classList.add('show');
+}
+// The original photo should appear in its sent message, not only in the
+// transient selection preview. Never persist the user's photo without consent.
+function showSubmittedPhoto(bubble,file){
+  const img=document.createElement('img');
+  const url=URL.createObjectURL(file);
+  img.alt='Gönderilen fotoğraf';img.loading='lazy';
+  img.style.cssText='display:block;max-width:min(100%,280px);max-height:260px;object-fit:contain;border-radius:12px;margin-top:8px';
+  img.onload=()=>URL.revokeObjectURL(url);
+  img.onerror=()=>URL.revokeObjectURL(url);
+  img.src=url;bubble.appendChild(img);
 }
 async function sendImage(){
   const file=pendingImage;if(!file)return false;
   const question=$('#message').value.trim();
   $('#busy').textContent='GÖLGE görseli inceliyor…';$('#sendBtn').disabled=true;$('#plusBtn').disabled=true;
   const userBubble=addMessage('user','📷 '+(question||'Bu görseli analiz et.'));
+  showSubmittedPhoto(userBubble,file);
   try{
-    lastImageFile=file;
     const d=await visionApi(file,question);
+    lastImageFile=file;
     conversationId=d.conversation_id||conversationId;if(conversationId)localStorage.setItem('ultronConversationId',conversationId);
     lastImageConversationId=conversationId;
     if(d.user_message_id){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
@@ -1066,6 +1082,9 @@ async function sendImage(){
     toast('Görsel analiz edildi. Sesli modda bu fotoğraf hakkında soru sorabilirsin.');
     return true;
   }catch(e){
+    // A stale pending image used to force the next plain-text message through
+    // visionApi() again; clear it even when the server rejected the upload.
+    clearPendingImage();
     addMessage('assistant','Görsel analizi başarısız: '+(e.message||'Bilinmeyen hata'));return false;
   }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;$('#plusBtn').disabled=false}
 }
