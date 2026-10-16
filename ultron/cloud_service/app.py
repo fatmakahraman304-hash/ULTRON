@@ -140,14 +140,31 @@ async def init_db(app: web.Application) -> None:
     app["listening_cleanup_task"] = asyncio.create_task(
         listening_cleanup_loop(app["db"])
     )
+    app["uploaded_image_cleanup_task"] = asyncio.create_task(
+        uploaded_image_cleanup_loop(app["db"])
+    )
+
+
+async def uploaded_image_cleanup_loop(pool: asyncpg.Pool) -> None:
+    """Enforce photo-byte expiry without waiting for another user upload."""
+    while True:
+        try:
+            await pool.execute(
+                "DELETE FROM uploaded_images WHERE created_at < NOW() - INTERVAL '30 days'"
+            )
+        except Exception:
+            # Database reconnects are handled by the next bounded cleanup pass.
+            pass
+        await asyncio.sleep(86400)
 
 
 async def close_db(app: web.Application) -> None:
-    task = app.get("listening_cleanup_task")
-    if task is not None:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+    for key in ("listening_cleanup_task", "uploaded_image_cleanup_task"):
+        task = app.get(key)
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
     await app["db"].close()
 
 
