@@ -1084,22 +1084,50 @@ def _gemini_reply(prompt: str, system_instruction: str, turns=None, *, include_m
     raise RuntimeError("Gemini request failed")
 
 
+def _vision_fallback_allowed(exc: Exception) -> bool:
+    """Retry only safe provider/model failures, not permissions or bad input.
+
+    Do not log or return exception bodies: provider errors may contain private
+    user prompts or credentials.
+    """
+    try:
+        status = int(getattr(exc, "code", 0) or 0)
+    except (ValueError, TypeError):
+        status = 0
+    if status in (400, 401, 403, 413, 415, 422):
+        return False
+    if status in (404, 408, 429, 500, 502, 503, 504):
+        return True
+    if isinstance(exc, (TimeoutError, ConnectionError)):
+        return True
+    if isinstance(exc, RuntimeError) and str(exc) == "Gemini vision returned an empty response":
+        return True
+    return _is_transient_gemini_error(exc)
+
+
 def _gemini_image_reply(image_bytes: bytes, mime_type: str, question: str, system_instruction: str) -> str:
+    """Vision call with one bounded, configured fallback for recoverable errors."""
     client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
-    model = os.getenv("GEMINI_VISION_MODEL", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")).strip() or "gemini-3.8-flash"
+    primary = os.getenv("GEMINI_VISION_MODEL", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")).strip() or "gemini-3.8-flash"
+    fallback = os.getenv("GEMINI_VISION_FALLBACK_MODEL",
+                         os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite")).strip()
     prompt = question.strip() or "Bu görseli ayrıntılı ama kısa şekilde analiz et. Kullanıcının sonra sesli soru sorabilmesi için önemli nesneleri, yazıları ve bağlamı belirt."
-    response = client.models.generate_content(
-        model=model,
-        contents=[
-            prompt,
-            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
-        ],
-        config=types.GenerateContentConfig(system_instruction=system_instruction),
-    )
-    text = (response.text or "").strip()
-    if not text:
-        raise RuntimeError("Gemini vision returned an empty response")
-    return text
+    contents = [prompt, types.Part.from_bytes(data=image_bytes, mime_type=mime_type)]
+    config = types.GenerateContentConfig(system_instruction=system_instruction)
+    models = [primary] + ([fallback] if fallback and fallback != primary else [])
+    for index, model in enumerate(models):
+        try:
+            response = client.models.generate_content(
+                model=model, contents=contents, config=config,
+            )
+            answer = (response.text or "").strip()
+            if not answer:
+                raise RuntimeError("Gemini vision returned an empty response")
+            return answer
+        except Exception as exc:
+            if index == len(models) - 1 or not _vision_fallback_allowed(exc):
+                raise
+    raise RuntimeError("Gemini vision provider returned no answer")
 
 
 def _gemini_generate_image(prompt: str, image_bytes: bytes | None = None,
