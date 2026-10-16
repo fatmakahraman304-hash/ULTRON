@@ -1,0 +1,174 @@
+name: GÖLGE Unified Full Test Sweep
+
+on:
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+    paths:
+      - "**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-root-backend:
+    name: Root and backend pytest suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PYTHONPATH: ".:ultron/backend"
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install headless Linux runtime dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libportaudio2 libasound2t64 libegl1 libopengl0 libxcb-cursor0 libpulse0 libgl1
+      - name: Install desktop, backend and test dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -r requirements.txt -r ultron/backend/requirements.txt "pytest>=8,<9" "asyncpg>=0.30,<1"
+      - name: Compile all Python source
+        run: python -m compileall -q integration core tests ultron/backend ultron/cloud_service scripts
+      - name: Run complete root and backend pytest collection
+        run: |
+          python -m pytest -q --ignore=ultron/cloud_service --ignore=scripts/tests --ignore=ios/ULTRONMobile/tests
+
+  cloud-real-postgres:
+    name: Cloud full suite with real disposable PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ultron_test
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: ultron_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ultron_test -d ultron_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PYTHONPATH: ".:ultron/backend"
+      ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_test
+      ULTRON_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Cloud test dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -r ultron/cloud_service/requirements.txt "pytest>=8,<9" "Pillow>=10" "psutil>=5" "cryptography>=42" "playwright>=1.40" "requests>=2.31"
+      - name: Complete Cloud Python suite against isolated PostgreSQL
+        run: python -m pytest ultron/cloud_service -q
+
+  scripts-real-postgres:
+    name: Scripts complete pytest suite with isolated PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ultron_test
+          POSTGRES_PASSWORD: local_ci_only
+          POSTGRES_DB: ultron_scripts_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ultron_test -d ultron_scripts_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PYTHONPATH: ".:ultron/backend"
+      QT_QPA_PLATFORM: offscreen
+      ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_scripts_test
+      ULTRON_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_scripts_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install script test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libportaudio2 libasound2t64 libegl1 libopengl0 libxcb-cursor0 libpulse0 libgl1
+          python -m pip install --disable-pip-version-check -r requirements.txt -r ultron/backend/requirements.txt "pytest>=8,<9" "asyncpg>=0.30,<1"
+          python -m playwright install --with-deps chromium
+      - name: Complete helper-script pytest suite
+        run: python -m pytest scripts/tests -q
+
+  frontend:
+    name: Frontend TypeScript, full Node tests, audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: ultron/frontend/package-lock.json
+      - name: npm ci
+        working-directory: ultron/frontend
+        run: npm ci
+      - name: TypeScript and production build
+        working-directory: ultron/frontend
+        run: npm run build
+      - name: All frontend JavaScript test files
+        working-directory: ultron/frontend
+        run: node --experimental-strip-types --test tests/*.test.mjs
+      - name: Frontend asset split contract
+        working-directory: ultron/frontend
+        run: npm run test:bundle
+      - name: Production dependency audit
+        working-directory: ultron/frontend
+        run: npm audit --omit=dev --audit-level=high
+
+  ios-source:
+    name: iOS source contracts (not Xcode/device validation)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PYTHONPATH: ".:ultron/backend"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install "pytest>=8,<9"
+      - name: iOS source contract checks
+        run: python -m pytest ios/ULTRONMobile/tests -q
+
+  windows-contract:
+    name: Real Windows runner smoke (not owner hardware)
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Parse Windows launcher script
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD 'scripts/bootstrap.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
+      - name: Windows pure desktop chat contracts
+        shell: pwsh
+        run: |
+          python -m pip install "pytest>=8,<9" "aiohttp>=3.9,<4" "asyncpg>=0.30,<1" "google-genai>=1,<2"
+          $env:PYTHONPATH = ".;ultron/backend"
+          python -m pytest -q ultron/backend/tests/test_desktop_chat_intents.py
