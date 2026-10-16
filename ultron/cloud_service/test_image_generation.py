@@ -27,6 +27,7 @@ class FakeDB:
     def __init__(self):
         self.messages = []
         self.image_rows = {}
+        self.uploaded_rows = {}
         self.next_id = 0
         self.conversations = {}
         self.conversation_writes = []
@@ -52,11 +53,17 @@ class FakeDB:
     async def fetchrow(self, sql, *args):
         if "FROM generated_images" in sql:
             return self.image_rows.get((args[0], args[1]))
+        if "FROM uploaded_images" in sql:
+            return self.uploaded_rows.get((args[0], args[1]))
         return None
 
     async def execute(self, sql, *args):
         if "INSERT INTO generated_images" in sql:
             self.image_rows[(args[0], args[2])] = {
+                "mime_type": args[3], "image_data": args[4],
+            }
+        if "INSERT INTO uploaded_images" in sql:
+            self.uploaded_rows[(args[0], args[2])] = {
                 "mime_type": args[3], "image_data": args[4],
             }
 
@@ -70,6 +77,7 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         app["db"] = self.db
         app.router.add_post("/api/image/generate", cloud.generate_image)
         app.router.add_get("/api/image/generated/{id}", cloud.get_generated_image)
+        app.router.add_get("/api/image/uploaded/{id}", cloud.get_uploaded_image)
         self.client = TestClient(TestServer(app))
         await self.client.start_server()
 
@@ -203,6 +211,7 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         app = web.Application(middlewares=[cloud.auth_middleware])
         app["db"] = self.db
         app.router.add_post("/api/vision", cloud.vision)
+        app.router.add_get("/api/image/uploaded/{id}", cloud.get_uploaded_image)
         client = TestClient(TestServer(app))
         await client.start_server()
         form = FormData()
@@ -221,6 +230,16 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(recent.call_args.kwargs["conversation_id"], uuid.UUID(thread))
             self.assertEqual(payload["user_message_id"], 1)
             self.assertEqual(payload["assistant_message_id"], 2)
+            self.assertEqual(payload["uploaded_image_url"], "/api/image/uploaded/1")
+            stored = await client.get(payload["uploaded_image_url"], headers=headers)
+            self.assertEqual(stored.status, 200)
+            self.assertEqual(await stored.read(), b"photo")
+            self.assertEqual(stored.headers["Cache-Control"], "private, no-store, max-age=0")
+            self.assertEqual(stored.headers["X-Content-Type-Options"], "nosniff")
+            anonymous = await client.get(payload["uploaded_image_url"])
+            self.assertNotEqual(anonymous.status, 200)
+            other_owner = self.db.uploaded_rows.pop((1, "owner"), None)
+            self.assertTrue(self.db.uploaded_rows)
         finally:
             await client.close()
 
