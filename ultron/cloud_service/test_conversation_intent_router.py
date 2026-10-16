@@ -1,6 +1,8 @@
 """Regression tests for the zero-extra-call shared conversational router."""
 import sys
 import unittest
+import os
+import subprocess
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -18,6 +20,30 @@ from ultron.backend.app.core.fast_brain import FastBrainPolicy, classify_text
 
 
 class ConversationIntentRouterTests(unittest.TestCase):
+    def test_lightweight_intent_router_does_not_require_aiohttp(self):
+        # Desktop Fast Brain uses persona routing but must not depend on the
+        # cloud HTTP server framework merely to classify a user message.
+        script = r'''
+import importlib.abc
+import sys
+class BlockAiohttp(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "aiohttp" or fullname.startswith("aiohttp."):
+            raise ModuleNotFoundError("aiohttp intentionally unavailable")
+sys.meta_path.insert(0, BlockAiohttp())
+from conversation_persona import classify_intent
+assert classify_intent("Geçen hafta ne konuşmuştuk?").kind == "episode_recall"
+'''
+        env = dict(os.environ)
+        env["PYTHONPATH"] = os.pathsep.join(
+            [str(HERE), str(ROOT), env.get("PYTHONPATH", "")]
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", script], cwd=ROOT, env=env,
+            capture_output=True, text=True, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_route_priority_and_elliptical_turns(self):
         cases = [
             ("Selam, nasılsın?", "chat"),
@@ -29,6 +55,13 @@ class ConversationIntentRouterTests(unittest.TestCase):
             ("Let's go back to the previous project", "topic_return"),
             ("Az önce ne demiştim?", "history_recall"),
             ("What did I just say?", "history_recall"),
+            ("Geçen hafta ne konuşmuştuk?", "episode_recall"),
+            ("Geçen hafta neler konuşmuştuk?", "episode_recall"),
+            ("Geçen hafta hangi konuları ele aldık?", "episode_recall"),
+            ("Dün hangi görevi tamamlamıştık?", "episode_recall"),
+            ("Geçen sefer verdiğim son kararı hatırla.", "episode_recall"),
+            ("What did we work on last week?", "episode_recall"),
+            ("What was my last project decision?", "episode_recall"),
             ("Hafızanda benim tercihlerimden ne var?", "memory_recall"),
             ("What do you remember about my preferences?", "memory_recall"),
             ("Kaynakları kontrol ederek güncel araştırma yap", "research"),
@@ -80,6 +113,8 @@ class ConversationIntentRouterTests(unittest.TestCase):
         self.assertTrue(memory.requires_context)
         self.assertIn("same conversation", dialogue_guidance(
             "Önceki mesajım neydi?", has_prior_turns=True).lower())
+        self.assertIn("owner-confirmed episodic records", dialogue_guidance(
+            "Geçen hafta ne konuşmuştuk?", has_prior_turns=True).lower())
 
     def test_research_uses_reasoning_route_without_affecting_fast_chat(self):
         self.assertEqual(classify_text("Selam, nasılsın?"), "FAST")

@@ -1,5 +1,11 @@
 ## 2026-10-16 — Güncel kapsam ve devam
 
+## 2026-10-15 — Current merge queue and Memory V4 status
+
+- PR #34 now contains PR #35 and is synchronized with production through `c66b5dae`; its latest implementation adds bounded 1–365 day recall and bilingual connector-word filtering. Exact-head Actions for `fece4ef` are pending.
+- The older “Next tasks — Memory and Verified Research V3” section below is historical. Episodic Memory V4 and Evidence V4 implementation are present in PR #34; remaining limits are semantic retrieval/verification, PDF support, live providers, and physical device testing.
+- Next: wait for all PR #34 checks; merge only if they pass. Then verify Render's production SHA and continue with PR #36's synchronized interruption flow. PR #40 scheduler remains blocked on its upstream rollout and independent credentials/cost review.
+
 1. PR #44'te üç eski özelliğin kaldırılmasını incele: GÖLGE intro render, Dünya hologramı, enerji hologramı. Ana CORE ve ayrı harita kullanıcı talimatıyla kalır.
 2. Yeni kaldırma commit'inin GitHub Actions kontrollerini tamamla; başarısız job varsa düzelt. Test: `python -m unittest discover -s scripts/tests -p 'test_removed_stage_presets.py' -v`, frontend build, `python scripts/tests/test_frontend_stage_loading.py`.
 3. Üretime merge veya Render deploy için ayrıca açık onay gerekir; bu görev yayın yetkisi vermez.
@@ -805,3 +811,8 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 - After merge, on the owner's PC run `git pull --ff-only origin feat/ultron-cloud-shared-memory` from a clean production branch and `START.bat`. Confirm it prints `ULTRON hazır` without degraded-mode warning. Then test a short local Qwen chat, microphone input and Piper playback.
 - Do not interpret `[WinError 10054]` during a closed health-check connection or malformed-PDF fixture messages as the fatal startup cause; use the final `Traceback` when diagnosing.
 - Follow-up log on the owner laptop: backend reports ready; desktop then exits at `mark_app.py:52` because `memory` resolved to a non-package module. PR #51 has been extended with import-order fix and Python safe-path subprocess regression. Re-run `START.bat` after merging/pulling the reviewed fix; check for `ULTRON hazır` and a still-running desktop before microphone/TTS testing.
+
+## Outstanding PR merge sequence — 2026-10-16
+
+- PR #51 merged as `c66b5dae03a007e3b7674e1f627aaf3569911b4c`. PR #35 was merged into its Memory V4 dependency branch as `7b9fb812c3f9144b0313ca5e479710adc517ca8c`; PR #37 was merged into its interruption dependency branch as `61f3e02f3eaf18dc39a0c3931d23778735f72c5f`.
+- Next synchronize PR #34 and #36 with current production, preserving both sides' workflow/doc changes, run checks on exact heads, and only then merge them. PR #47 has content conflicts; PR #48 duplicates the production Windows fix. PR #49 has no Actions checks. Scheduler PR #40 requires its upstream V2 rollout and explicit cost/secrets review.
