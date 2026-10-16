@@ -118,7 +118,9 @@ jobs:
     timeout-minutes: 8
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16
+        # Public ECR returned 'toomanyrequests: Data limit exceeded' on 2026-10-16.
+        # Use the official PostgreSQL image while preserving the version/healthcheck.
+        image: postgres:16
         env:
           POSTGRES_USER: ultron_test
           POSTGRES_PASSWORD: local_ci_only
