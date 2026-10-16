@@ -105,5 +105,75 @@ class GeneratedImagePostgresTests(unittest.IsolatedAsyncioTestCase):
         )
 
 
+    async def _insert_uploaded_photo(self, cid, owner, label=b"photo"):
+        mid = await self.pool.fetchval(
+            "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+            "VALUES($1,$2,'user','[Görsel: test.jpg]','uploaded-vision') RETURNING id",
+            cid, owner,
+        )
+        await self.pool.execute(
+            "INSERT INTO uploaded_images(message_id,conversation_id,user_id,mime_type,image_data) "
+            "VALUES($1,$2,$3,'image/jpeg',$4)",
+            mid, cid, owner, label,
+        )
+        return mid
+
+    async def test_uploaded_image_owner_isolation_and_delete_cascade(self):
+        mid = await self._insert_uploaded_photo(self.cid, self.owner, b"private owner photo")
+        actual = await self.pool.fetchrow(
+            "SELECT mime_type,image_data FROM uploaded_images "
+            "WHERE message_id=$1 AND user_id=$2 "
+            "AND created_at >= NOW() - INTERVAL '30 days'",
+            mid, self.owner,
+        )
+        self.assertEqual(bytes(actual["image_data"]), b"private owner photo")
+        self.assertIsNone(await self.pool.fetchrow(
+            "SELECT mime_type,image_data FROM uploaded_images "
+            "WHERE message_id=$1 AND user_id=$2 "
+            "AND created_at >= NOW() - INTERVAL '30 days'",
+            mid, self.other,
+        ))
+        await self.pool.execute("DELETE FROM conversations WHERE id=$1", self.cid)
+        self.assertIsNone(await self.pool.fetchval(
+            "SELECT message_id FROM uploaded_images WHERE message_id=$1", mid
+        ))
+
+    async def test_uploaded_image_quota_and_expiration(self):
+        other_id = await self._insert_uploaded_photo(self.foreign_cid, self.other)
+        ids = [await self._insert_uploaded_photo(self.cid, self.owner, b"x") for _ in range(15)]
+        await self.pool.execute(
+            "UPDATE uploaded_images SET created_at=NOW()-INTERVAL '32 days' "
+            "WHERE message_id=$1", ids[0],
+        )
+        await self.pool.execute(
+            "DELETE FROM uploaded_images WHERE user_id=$1 AND "
+            "(created_at < NOW() - INTERVAL '30 days' OR message_id NOT IN "
+            "(SELECT message_id FROM uploaded_images WHERE user_id=$1 "
+            "ORDER BY created_at DESC, message_id DESC LIMIT 12))", self.owner,
+        )
+        remaining = await self.pool.fetch(
+            "SELECT message_id FROM uploaded_images WHERE user_id=$1 "
+            "ORDER BY message_id", self.owner,
+        )
+        self.assertEqual([row["message_id"] for row in remaining], ids[-12:])
+        self.assertEqual(await self.pool.fetchval(
+            "SELECT COUNT(*) FROM uploaded_images WHERE message_id=$1 AND user_id=$2",
+            other_id, self.other,
+        ), 1)
+
+    async def test_uploaded_photo_size_limit(self):
+        mid = await self.pool.fetchval(
+            "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+            "VALUES($1,$2,'user','test','uploaded-vision') RETURNING id",
+            self.cid, self.owner,
+        )
+        with self.assertRaises(asyncpg.CheckViolationError):
+            await self.pool.execute(
+                "INSERT INTO uploaded_images(message_id,conversation_id,user_id,mime_type,image_data) "
+                "VALUES($1,$2,$3,'image/jpeg',$4)",
+                mid, self.cid, self.owner, b"x" * (8 * 1024 * 1024 + 1),
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
