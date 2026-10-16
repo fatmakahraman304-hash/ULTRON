@@ -78,6 +78,30 @@ class LocalQwenRecoveryTests(unittest.TestCase):
             self.run_chat(["qwen3:8b", "qwen3:4b"], fake)
         self.assertEqual(calls, ["qwen3:8b", "qwen3:4b"])
 
+    def test_exhausted_primary_length_can_use_installed_backup(self):
+        calls = []
+        def fake(path, payload, timeout):
+            calls.append(payload)
+            if len(calls) <= 2:
+                return completion("qwen3:8b", "Unfinished content", done_reason="length")
+            return completion("qwen3:4b", "Tamamlanmış cevap.")
+        reply = self.run_chat(["qwen3:8b", "qwen3:4b"], fake)
+        self.assertEqual(reply["reply"], "Tamamlanmış cevap.")
+        self.assertEqual(reply["model"], "qwen3:4b")
+        self.assertEqual([p["model"] for p in calls], ["qwen3:8b", "qwen3:8b", "qwen3:4b"])
+        self.assertEqual(calls[0]["messages"], calls[2]["messages"])
+        self.assertNotIn("tools", calls[2])
+        self.assertLessEqual(calls[2]["options"]["num_predict"], 768)
+
+    def test_exhausted_length_without_backup_still_fails_closed(self):
+        calls = []
+        def fake(path, payload, timeout):
+            calls.append(payload["model"])
+            return completion("qwen3:8b", "Unfinished", done_reason="length")
+        with self.assertRaisesRegex(worker.LocalBrainUnavailable, "uzunluk sınırında"):
+            self.run_chat(["qwen3:8b"], fake)
+        self.assertEqual(calls, ["qwen3:8b", "qwen3:8b"])
+
     def test_backup_length_cutoff_is_not_published(self):
         calls = []
         def fake(path, payload, timeout):
