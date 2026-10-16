@@ -10,6 +10,16 @@ test('spoken interruption phrases have an explicit deterministic route',()=>{
   for(const phrase of ['Biraz durumu anlat','Dünya durmadan dönüyor','Susamlı tarif'])assert.equal(isStopCommand(phrase),false,phrase);
 });
 
+test('typed Dur bypasses the busy lock and the composer remains available for it',()=>{
+  const dashboard=fs.readFileSync(new URL('../src/dashboard/Dashboard.tsx',import.meta.url),'utf8');
+  const start=dashboard.indexOf('const send=async(text=input)');
+  const end=dashboard.indexOf("useEffect(()=>{if(u.state!==",start);
+  const send=dashboard.slice(start,end);
+  assert.ok(start>=0&&end>start);
+  assert.ok(send.indexOf('if(isStopCommand(text))')<send.indexOf('if(busy)return'));
+  assert.match(dashboard,/busy&&!isStopCommand\(input\)/);
+});
+
 test('satellite natural-language variants route to the licensed layer gate',()=>{
   for(const phrase of ['Uydu modunu aç','Uydu moduna geç','Uydu görünümünü aç','Uydu haritasını göster']){
     assert.deepEqual(resolveEarthIntent(phrase,true),{operation:'earth_layer',args:{layer:'SATELLITE'}},phrase);
