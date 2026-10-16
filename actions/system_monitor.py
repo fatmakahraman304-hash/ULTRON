@@ -196,7 +196,7 @@ def _windows_system_facts() -> dict:
     try:
         names = {p.info["name"] for p in psutil.process_iter(["name"])
                  if p.info.get("name")}
-        facts["running_processes"] = sorted(names, key=str.casefold)[:300]
+        facts["running_processes"] = sorted(names, key=str.casefold)[:120]
     except (OSError, ValueError):
         pass
     try:
@@ -215,7 +215,7 @@ def _windows_system_facts() -> dict:
             user32.GetWindowTextW(hwnd, buf, length + 1)
             if buf.value:
                 windows.append(buf.value)
-            return len(windows) < 80
+            return len(windows) < 40
 
         user32.EnumWindows(collect, 0)
         facts["active_windows"] = windows
@@ -233,7 +233,7 @@ def _windows_system_facts() -> dict:
     return facts
 
 
-def get_system_status() -> dict:
+def get_system_status(*, include_details: bool = False) -> dict:
     """Snapshot of current system metrics for the system_status tool."""
     cpu  = psutil.cpu_percent(interval=0.2)
     ram  = psutil.virtual_memory()
@@ -256,7 +256,7 @@ def get_system_status() -> dict:
         "process_count": len(psutil.pids()),
         # Facts used by speech/chat must come from the owner's actual Windows
         # session rather than the language model's guesses.
-        **_windows_system_facts(),
+        **(_windows_system_facts() if include_details else {}),
     }
 
 
