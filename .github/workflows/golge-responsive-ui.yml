@@ -5,6 +5,7 @@ on:
     branches:
       - feat/golge-minimal-responsive-ui-20261013
       - feat/golge-render-release-20261013
+      - fix/golge-real-use-100tests-20261016
   pull_request:
     branches:
       - feat/golge-qwen-goal-routing-20261013
