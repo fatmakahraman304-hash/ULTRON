@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - fix/cloud-qwen-empty-reply-20261011
+      - fix/golge-real-use-100tests-20261016
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
@@ -25,7 +26,36 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install test runtime dependency
-        run: python -m pip install 'aiohttp>=3.10,<4'
+        run: python -m pip install 'aiohttp>=3.10,<4' psutil
+      - name: Compile modified GÖLGE Python code
+        run: |
+          python -m py_compile actions/send_message.py actions/system_monitor.py mark_app.py integration/local_cloud_brain.py ultron/cloud_service/app.py tests/test_integration.py
+      - name: Verify fail-closed desktop messaging
+        run: |
+          python - <<'PY'
+          from unittest.mock import patch
+          from actions.send_message import send_message
+          with patch("core.confirm.request", return_value="CONFIRMATION_PENDING") as approval, patch("actions.send_message._send_whatsapp") as sender:
+              result = send_message({"receiver":"Test contact","message_text":"Hi","platform":"WhatsApp"})
+              assert result == "CONFIRMATION_PENDING"
+              approval.assert_called_once()
+              sender.assert_not_called()
+              assert "Test contact" in approval.call_args.kwargs["detail"]
+              assert "Hi" in approval.call_args.kwargs["detail"]
+          with patch("core.confirm.request") as approval:
+              result = send_message({"receiver":"Test","message_text":"Hi","platform":"Telegram"})
+              assert "gönderilmedi" in result
+              approval.assert_not_called()
+          PY
+      - name: Validate phone inline JavaScript syntax and attachment safety
+        run: |
+          node - <<'JS'
+          const fs = require('fs'); const vm = require('vm');
+          const html = fs.readFileSync('ultron/cloud_service/static/index.html','utf8');
+          for (const [,src] of html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)) new vm.Script(src);
+          if (!html.includes('showSubmittedPhoto(userBubble,file)')) throw Error('photo preview missing');
+          if (!html.includes('clearPendingImage();') || !html.includes('clearPendingPdf();')) throw Error('recovery missing');
+          JS
       - name: Python syntax
         run: |
           python -m py_compile integration/local_cloud_brain.py
@@ -39,3 +69,17 @@ jobs:
             ultron.cloud_service.test_conversation_turns \
             ultron.cloud_service.test_response_quality \
             ultron.cloud_service.test_local_brain_bridge
+
+  windows-facts:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install read-only telemetry dependency
+        run: python -m pip install psutil
+      - name: Probe real Windows facts on GitHub runner
+        run: |
+          python -c "from actions.system_monitor import get_system_status; s=get_system_status(include_details=True); assert s['os_name']; assert s['cpu_model']; assert s['timezone']; assert isinstance(s['drive_letters'], list); assert isinstance(s['running_processes'], list); print('Windows read-only fact providers: OK')"
