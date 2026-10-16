@@ -53,10 +53,22 @@ def test_accessibility_result_readback(display, number, correct):
     assert calc._result_matches(display, number) is correct
 
 
+@pytest.fixture(autouse=True)
+def pretend_calculator_process_names(monkeypatch):
+    """UIA child controls on the user's PC belong to CalculatorApp.exe."""
+    names = {91: "applicationframehost.exe", 92: "calculatorapp.exe",
+             93: "notepad.exe"}
+    monkeypatch.setattr(calc, "_process_name", lambda pid: names.get(pid, ""))
+
+
 class FakeButton:
-    def __init__(self, window, button_id):
+    def __init__(self, window, button_id, *, pid=92):
         self.window = window
         self.button_id = button_id
+        self.element_info = SimpleNamespace(
+            automation_id=button_id, process_id=pid,
+            control_type="Text" if button_id == "CalculatorResults" else "Button"
+        )
         self.iface_invoke = self
     def Invoke(self):
         self.window.pressed.append(self.button_id)
@@ -67,16 +79,56 @@ class FakeButton:
 
 
 class FakeWindow:
+    """Real Desktop().windows() returns a wrapper with NO child_window method."""
     def __init__(self, trusted=True):
         self.trusted = trusted
         self.pressed = []
         self.display = "Display is 0"
-    def child_window(self, *, auto_id, control_type=None):
-        if auto_id == "CalculatorResults":
-            return SimpleNamespace(wrapper_object=lambda: FakeButton(self, auto_id))
-        if auto_id not in calc._BUTTONS.values():
-            raise LookupError(auto_id)
-        return SimpleNamespace(wrapper_object=lambda: FakeButton(self, auto_id))
+        self.element_info = SimpleNamespace(process_id=91)
+        self._children = [FakeButton(self, "CalculatorResults")]
+        self._children += [FakeButton(self, key) for key in calc._BUTTONS.values()]
+    def descendants(self):
+        return list(self._children)
+    def is_visible(self):
+        return True
+    def window_text(self):
+        return "Hesap Makinesi"
+
+
+def test_real_desktop_windows_wrapper_is_located_without_child_window(monkeypatch):
+    window = FakeWindow()
+    assert not hasattr(window, "child_window")
+    monkeypatch.setitem(sys.modules, "pywinauto", SimpleNamespace(
+        Desktop=lambda backend: SimpleNamespace(windows=lambda: [window])
+    ))
+    assert calc._locate_calculator_window() is window
+    assert calc._verified_calculator(window) is True
+
+
+def test_foreign_process_button_is_never_invoked(monkeypatch):
+    window = FakeWindow()
+    for child in window._children:
+        if child.button_id == "num1Button":
+            child.element_info.process_id = 93
+    assert calc._verified_calculator(window) is True
+    with pytest.raises(calc.CalculatorUnavailable, match="calculator_control_not_verified"):
+        calc._invoke_button(window, "num1Button")
+    assert window.pressed == []
+
+
+def test_duplicate_calculator_buttons_are_not_accepted():
+    window = FakeWindow()
+    window._children.append(FakeButton(window, "num1Button"))
+    with pytest.raises(calc.CalculatorUnavailable, match="calculator_control_not_verified"):
+        calc._invoke_button(window, "num1Button")
+    assert window.pressed == []
+
+
+def test_unknown_automation_id_cannot_be_invoked():
+    window = FakeWindow()
+    with pytest.raises(calc.CalculatorUnavailable, match="calculator_button_not_allowed"):
+        calc._invoke_button(window, "unsafeButton")
+    assert window.pressed == []
 
 
 def test_real_ui_buttons_invoke_only_a_verified_calculator_and_read_screen(monkeypatch):
