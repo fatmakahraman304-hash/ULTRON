@@ -103,7 +103,7 @@ export function useUltron(){
   request('/api/stage',undefined,ctl.signal).then(s=>{if(s?.mode)setStage(s);}).catch(()=>{});
   return()=>{stopped=true;ctl.abort();clearTimeout(retry);if(ws){ws.onclose=null;ws.close();}};
  },[]);
- useEffect(()=>{if(!window.qt)return;let active=true,bridge:Native|undefined;const receive=(raw:string)=>{if(!active)return;let e:any;try{e=JSON.parse(raw);}catch{return;}if(e.kind==='video_notice'){setNotice(String(e.text||'MARK video işlemi tamamlandı.'));}
+ useEffect(()=>{if(!window.qt)return;let active=true,bridge:Native|undefined;const receive=(raw:string)=>{if(!active)return;let e:any;try{e=JSON.parse(raw);}catch{return;}if(e.kind==='video_notice'){setNotice(String(e.text||'Video işlemi tamamlandı.'));}
    if(e.kind==='dev_requests')setDevRequests(Array.isArray(e.data)?e.data:[]);
    if(e.kind==='dev_request_created'&&e.data){setDevRequests(prev=>[e.data,...prev.filter(t=>t.id!==e.data.id)]);setNotice('Geliştirme isteği kaydedildi. GELİŞTİR ekranından ChatGPT’ye gönder.');}
    if(e.kind==='dev_verified'&&e.data){setDevRequests(prev=>prev.map(t=>t.id===e.data.id?e.data:t));if(e.data.status==='completed'){setNotice('Tamam efendim, doğrulanmış güncelleme tamamlandı.');add('assistant','Tamam efendim, güncelleme tamamlandı.');}else setNotice('Güncelleme durumu: '+String(e.data.status));}

@@ -48,7 +48,7 @@ if Agent is not None and not getattr(Agent, "_ultron_cloud_patch", False):
                 cloud = getattr(self, "cloud", None)
                 if cloud is not None and cloud.enabled:
                     try:
-                        await self.set_state("THINKING", "ULTRON Cloud ile düşünüyor…")
+                        await self.set_state("THINKING", "GÖLGE Cloud ile düşünüyor…")
                         data = await cloud.chat(text)
                         reply = str(data.get("reply", "")).strip()
                         if reply:
@@ -132,7 +132,7 @@ def _shared_cloud_memory_text() -> str:
         if not isinstance(rows, list) or not rows:
             return ""
         lines = [
-            "[SHARED ULTRON CLOUD MEMORY — persistent across phone, typed desktop and voice]",
+            "[SHARED GÖLGE CLOUD MEMORY — persistent across phone, typed desktop and voice]",
             "These facts are authoritative persistent memory for this user.",
             "If the user asks about a fact listed below, answer from it directly.",
             "Never say a listed fact is unknown or unsaved.",

@@ -30,7 +30,7 @@ from app.voice.voice_stack_v2 import VoiceStackV2
 
 def _vlog(msg: str) -> None:
     if os.environ.get("ULTRON_VISION_DEBUG", "1") != "0":
-        print(f"[ULTRON-VISION] {msg}", flush=True)
+        print(f"[GÖLGE-VISION] {msg}", flush=True)
 
 
 def _have(mod: str) -> bool:

@@ -16,10 +16,10 @@ def is_local(endpoint:str)->bool:
     return host in _LOCAL_HOSTS or host.endswith(".local")
 def assert_local(endpoint:str)->None:
     if state["sovereign_mode"] and not is_local(endpoint):
-        state["denied"].append({"ts":time.time(),"endpoint":endpoint}); msg=f"Sovereign mode aktif, dış çağrı reddedildi: {endpoint}"; print(f"[ULTRON-SOVEREIGN] {msg}",flush=True); raise SovereignViolation(msg)
+        state["denied"].append({"ts":time.time(),"endpoint":endpoint}); msg=f"Sovereign mode aktif, dış çağrı reddedildi: {endpoint}"; print(f"[GÖLGE-SOVEREIGN] {msg}",flush=True); raise SovereignViolation(msg)
 def assert_vision_residency(dest:str)->None:
     if not is_local(dest):
-        msg=f"Sovereign: ekran verisi yerel dışına çıkamaz: {dest}"; print(f"[ULTRON-SOVEREIGN] {msg}",flush=True); raise SovereignViolation(msg)
+        msg=f"Sovereign: ekran verisi yerel dışına çıkamaz: {dest}"; print(f"[GÖLGE-SOVEREIGN] {msg}",flush=True); raise SovereignViolation(msg)
 CLOUD_TTS=("edge","azure","google","amazon","polly","openai","eleven")
 def _tts_is_local(backend:str|None)->bool:
     if not backend:return False

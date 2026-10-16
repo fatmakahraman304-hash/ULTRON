@@ -146,7 +146,7 @@ class IntegrationContractTests(unittest.TestCase):
     def test_frontend_binds_native_typed_commands(self):
         dash = (ROOT / "ultron/frontend/src/dashboard/Dashboard.tsx").read_text(encoding="utf-8")
         runtime = (ROOT / "ultron/frontend/src/dashboard/runtime.ts").read_text(encoding="utf-8")
-        self.assertIn("markVideoIntent(text)", dash)
+        self.assertIn("mediaVideoIntent(text)", dash)
         self.assertIn("u.native.videoRequest('open_file','')", dash)
         self.assertIn("videoRequest?:(action:string,source:string)=>void", runtime)
 

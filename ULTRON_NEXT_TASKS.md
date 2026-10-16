@@ -821,3 +821,10 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 
 - PR #51 merged as `c66b5dae03a007e3b7674e1f627aaf3569911b4c`. PR #35 was merged into its Memory V4 dependency branch as `7b9fb812c3f9144b0313ca5e479710adc517ca8c`; PR #37 was merged into its interruption dependency branch as `61f3e02f3eaf18dc39a0c3931d23778735f72c5f`.
 - Next synchronize PR #34 and #36 with current production, preserving both sides' workflow/doc changes, run checks on exact heads, and only then merge them. PR #47 has content conflicts; PR #48 duplicates the production Windows fix. PR #49 has no Actions checks. Scheduler PR #40 requires its upstream V2 rollout and explicit cost/secrets review.
+## 2026-10-16 — GÖLGE görünür ad temizliği
+
+1. `codex/golge-brand-cleanup` değişikliklerini incele; test başı `f88eec1`.
+2. Kullanıcıya görünen video/API/not metinleri ve yerel modelin aktif kimlik yönergeleri GÖLGE olarak düzenlendi. Teknik auth/protokol anahtarları ve kayıtlı kullanıcı geçmişi uyumluluk için korundu; eski sohbet rolü okunuyor.
+3. Sonraki doğrulama: Windows masaüstünde video oynatma/durdurma bildirimi ve mobil sohbet notu boş durumunu kontrol et.
+4. Eski `ultron/backend/test_v2_modules.py` health şeması ve `reload_config` beklentilerini güncel runtime ile eşleştir; bu eski harness'te kalan başarısız kontroldür.
+5. PR/merge/deploy henüz yapılmadı; üretim SHA değiştirilmedi.

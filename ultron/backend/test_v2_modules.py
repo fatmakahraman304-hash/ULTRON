@@ -101,7 +101,7 @@ check("guard tone ok", rep2["score"] >= 0.9 and not rep2["violations"])
 chk = g.check("Üzgünüm, size nasıl yardımcı olabilirim?")
 check("guard arms on violation", chk["anchored_next"] is True)
 sys_prompt = g.compose("Sen Ultron'sın.", 3)
-check("guard anchor injected", "Hatırlatma: Sen Ultron'sun" in sys_prompt)
+check("guard GÖLGE anchor injected", "Sen GÖLGE'sin" in sys_prompt)
 rf = PersonaGuard.reframe("Üzgünüm, bunu yapamam. 😊")
 check("guard reframe strips", not rf.lower().startswith("üzgünüm") and "😊" not in rf)
 
@@ -129,24 +129,24 @@ class DummyMem:
 class DummyAudit:
     def write(self, *a, **k): pass
 class FakeBrain:
-    def ask(self, prompt, system=""): return "REWRITTEN-ULTRON"
+    def ask(self, prompt, system=""): return "REWRITTEN-GÖLGE"
     def chat(self, *a, **k): return {}
 def mk_agent(mode):
     return Agent(FakeBrain(), None, DummyMem(), None, {"persona_guard_mode": mode}, DummyAudit(), None)
 bad = "Üzgünüm, size nasıl yardımcı olabilirim? 😊"
 a = mk_agent("reframe")
 out = a._persona_finalize(bad)
-check("v21 mode reframe", "üzgün" not in out.lower() and out != "REWRITTEN-ULTRON")
+check("v21 mode reframe", "üzgün" not in out.lower() and out != "REWRITTEN-GÖLGE")
 
 # 29) persona regenerate mode (violation_score>0.8 → LLM rewrite)
 a = mk_agent("regenerate")
 out = a._persona_finalize(bad)
-check("v21 mode regenerate", out == "REWRITTEN-ULTRON")
+check("v21 mode regenerate", out == "REWRITTEN-GÖLGE")
 
 # 30) persona hybrid mode (low violation → reframe, not regenerate)
 a = mk_agent("hybrid")
 out = a._persona_finalize("Elbette, hemen yapıyorum.")  # 1 violation ≈0.34
-check("v21 mode hybrid low→reframe", out != "REWRITTEN-ULTRON" and not out.lower().startswith("elbette"))
+check("v21 mode hybrid low→reframe", out != "REWRITTEN-GÖLGE" and not out.lower().startswith("elbette"))
 
 # 31) drift log written in every mode
 rows = sqlite3.connect(a.persona.log_path).execute("SELECT COUNT(*) FROM drift").fetchone()[0]
@@ -281,7 +281,7 @@ sov.configure({"sovereign_mode": False})
 check("p4 sovereign cloud block", cloud_blocked is True)
 
 ag = mk_agent("reframe")
-check("p4 boss hitap", ag._persona_finalize("Sonuç: 12").startswith("Boss,"))
+check("p4 no forced boss greeting", ag._boss_hitap("Sonuç: 12") == "Sonuç: 12")
 check("p4 forbidden size", len(analyze("Size bunu sunmaktan mutluluk duyarım.")["violations"]) >= 1)
 
 # ================= PHASE-5 — 12 SMART VISION TESTS =================

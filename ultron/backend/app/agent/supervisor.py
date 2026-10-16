@@ -59,7 +59,7 @@ class ReportWorker(Worker):
 
     @staticmethod
     def _base_report(goal, outputs):
-        lines = ["ULTRON FINAL REPORT", f"GOAL: {goal}"]
+        lines = ["GÖLGE FINAL REPORT", f"GOAL: {goal}"]
         ca = outputs.get("code_analysis")
         if ca:
             lines.append(f"CODE: {ca.get('files')} files · {ca.get('issues')} issues ({ca.get('high')} high) · {ca.get('duplicates')} dup · {ca.get('todo')} todo")
@@ -81,7 +81,7 @@ class ReportWorker(Worker):
             try:
                 chosen, results = self.router.race_local_and_judge(
                     messages=[
-                        {"role": "system", "content": "Türkçe, kısa, net, kanıta dayalı ULTRON final raporu yaz. Boss diye hitap et. Gerçekleşmeyen işi yapılmış gösterme. GOAL, CODE, TESTS, DIAGNOSTIC, VERIFICATION, EVIDENCE ve NEXT bilgilerini koru."},
+                        {"role": "system", "content": "Türkçe, kısa, net, kanıta dayalı GÖLGE final raporu yaz. Gerçekleşmeyen işi yapılmış gösterme. GOAL, CODE, TESTS, DIAGNOSTIC, VERIFICATION, EVIDENCE ve NEXT bilgilerini koru."},
                         {"role": "user", "content": report[:6000]},
                     ],
                     system="Aday raporlarını doğruluk, açıklık, eksiksizlik ve kanıt kullanımı açısından değerlendir. En iyi raporu doğrudan döndür; yeni olgu uydurma.",
