@@ -1267,6 +1267,13 @@ async def vision(request: web.Request) -> web.Response:
             question = (await field.text()).strip()[:4000]
 
     allowed = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+    if mime_type in {"", "application/octet-stream"}:
+        # iOS Files/Safari can omit the MIME type for a genuine HEIC/JPEG.
+        # Infer only from a small allowlisted filename suffix, never arbitrary data.
+        suffix = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
+        mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+                     "png": "image/png", "webp": "image/webp",
+                     "heic": "image/heic", "heif": "image/heif"}.get(suffix, "")
     if not image_bytes or mime_type not in allowed:
         raise web.HTTPBadRequest(
             text=json.dumps({"error": "supported_image_required"}),
