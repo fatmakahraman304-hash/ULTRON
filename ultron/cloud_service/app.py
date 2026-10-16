@@ -1105,6 +1105,29 @@ def _vision_fallback_allowed(exc: Exception) -> bool:
     return _is_transient_gemini_error(exc)
 
 
+def _safe_vision_failure_category(exc: Exception) -> str:
+    """Expose only a fixed error label, never the provider's private details."""
+    try:
+        status = int(getattr(exc, "code", 0) or 0)
+    except (ValueError, TypeError):
+        status = 0
+    if status in (401, 403):
+        return "vision_permission_denied"
+    if status == 429:
+        return "vision_quota_or_rate_limit"
+    if status == 404:
+        return "vision_model_unavailable"
+    if status in (400, 413, 415, 422):
+        return "vision_input_rejected"
+    if status in (408, 500, 502, 503, 504):
+        return "vision_provider_temporarily_unavailable"
+    if isinstance(exc, (TimeoutError, ConnectionError)):
+        return "vision_timeout_or_connection"
+    if _is_transient_gemini_error(exc):
+        return "vision_provider_temporarily_unavailable"
+    return "vision_request_failed"
+
+
 def _gemini_image_reply(image_bytes: bytes, mime_type: str, question: str, system_instruction: str) -> str:
     """Vision call with one bounded, configured fallback for recoverable errors."""
     client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
@@ -1449,6 +1472,7 @@ async def vision(request: web.Request) -> web.Response:
                 )
 
     analysis_status = "completed"
+    analysis_error_code = None
     try:
         memory = await _memory_context(pool, request["user_id"], query=question)
         recent = await _recent_context(pool, request["user_id"], limit=12, conversation_id=conv_uuid)
@@ -1461,6 +1485,7 @@ async def vision(request: web.Request) -> web.Response:
         )
     except Exception as exc:
         analysis_status = "failed"
+        analysis_error_code = _safe_vision_failure_category(exc)
         error_code = _safe_provider_error(exc)
         await pool.execute(
             "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_vision_error',$2,$3)",
@@ -1489,6 +1514,7 @@ async def vision(request: web.Request) -> web.Response:
         "filename": filename if has_new_image else "",
         "mime_type": mime_type,
         "analysis_status": analysis_status,
+        "analysis_error_code": analysis_error_code,
     })
 
 
