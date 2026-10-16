@@ -162,7 +162,7 @@ async def health(request: web.Request) -> web.Response:
     }
     return web.json_response({
         "ok": all(config.values()),
-        "service": "ultron-cloud",
+        "service": "GÖLGE",
         "config": config,
         "deploy": {
             "commit": os.getenv("RENDER_GIT_COMMIT", ""),
