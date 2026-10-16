@@ -8,7 +8,7 @@ import sys
 import urllib.error
 import pytest
 from integration.paths import ROOT, BACKEND
-from integration.launcher import Services, stop_process
+from integration.launcher import Services, stop_process, _is_healthy_local_service
 from integration.bridge import Bridge
 
 
@@ -74,6 +74,20 @@ def test_missing_bridge_fails_promptly():
     with pytest.raises(RuntimeError):Bridge(url='',token='').health()
 
 
+@pytest.mark.parametrize('service_name', ['GÖLGE', 'mark-ultron'])
+def test_launcher_recognizes_current_and_legacy_healthy_backend(service_name):
+    assert _is_healthy_local_service({'ok': True, 'service': service_name})
+
+
+@pytest.mark.parametrize('status', [
+    {'ok': False, 'service': 'GÖLGE'},
+    {'ok': True, 'service': 'another-service'},
+    {},
+])
+def test_launcher_rejects_unhealthy_or_unrecognized_backend(status):
+    assert not _is_healthy_local_service(status)
+
+
 def test_owned_child_cleanup():
     process=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'])
     stop_process(process)
@@ -89,8 +103,12 @@ def service():
 
 def test_http_health_and_core_components(service):
     health=service.bridge.health()
-    assert health['ok'] and all(health['components'].values())
-    assert health['audio_owner']=='mark'
+    assert health['ok']
+    # Cloud inference is optional for desktop startup; all local runtime
+    # components must be ready, while cloud availability is reported separately.
+    assert all(value for name, value in health['components'].items() if name != 'cloud')
+    assert isinstance(health['components']['cloud'], bool)
+    assert health['audio_owner']=='desktop'
 
 
 def test_service_rejects_bad_token(service):
