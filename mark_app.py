@@ -346,13 +346,16 @@ TOOL_DECLARATIONS = [
     {
         "name": "system_status",
         "description": (
-            "Returns real-time system metrics: CPU usage, RAM, GPU load, CPU temperature, "
-            "uptime, and process count. Use when the user asks about computer performance, "
-            "temperature, memory, or resource usage."
+            "READS ACTUAL WINDOWS FACTS. Use scope='details' whenever the user asks for "
+            "Windows version, processor/CPU model, RAM capacity, drives, time zone, "
+            "default browser, running processes, open windows, Wi-Fi/Ethernet, or "
+            "microphone device. Use scope='summary' for CPU/RAM/GPU utilization. "
+            "If a returned fact is null or missing, explicitly say it cannot be "
+            "verified: NEVER infer it from conversation or guess."
         ),
         "parameters": {
             "type": "OBJECT",
-            "properties": {},
+            "properties": {"scope": {"type": "STRING", "description": "summary or details"}},
         }
     },
     {
@@ -1308,7 +1311,10 @@ class UltronLive:
                 result = "Camera closed."
 
             elif name == "system_status":
-                r = await loop.run_in_executor(None, get_system_status)
+                details = str(args.get("scope", "summary")).lower() == "details"
+                r = await loop.run_in_executor(
+                    None, lambda: get_system_status(include_details=details)
+                )
                 result = str(r)
 
             elif name == "manage_monitor":
