@@ -52,7 +52,9 @@ jobs:
           node - <<'JS'
           const fs = require('fs'); const vm = require('vm');
           const html = fs.readFileSync('ultron/cloud_service/static/index.html','utf8');
-          for (const [,src] of html.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/g)) new vm.Script(src);
+          const start = html.indexOf('<script>'), end = html.indexOf('</script>', start);
+          if (start < 0 || end < 0) throw Error('inline phone code missing');
+          new vm.Script(html.slice(start + 8, end));
           if (!html.includes('showSubmittedPhoto(userBubble,file)')) throw Error('photo preview missing');
           if (!html.includes('clearPendingImage();') || !html.includes('clearPendingPdf();')) throw Error('recovery missing');
           JS
