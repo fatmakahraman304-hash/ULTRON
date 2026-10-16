@@ -361,19 +361,23 @@ TOOL_DECLARATIONS = [
     {
         "name": "open_calculator_and_calculate",
         "description": (
-            "Use when the user requests BOTH opening Windows Calculator and doing "
-            "an arithmetic operation. Opens the real Calculator application and "
-            "returns the verified numeric result in chat; never claims the result "
-            "was typed into the Calculator window."
+            "When asked to open Windows Calculator and calculate, enter the actual "
+            "arithmetic into the verified Calculator UI accessibility buttons and "
+            "read its displayed result. Use expression for multi-step expressions "
+            "such as '125*8+40'; simple two-number operations may use a,b,operation. "
+            "No global keyboard input. If Calculator cannot be verified, report "
+            "failure; never claim the operation was entered."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "a": {"type": "NUMBER", "description": "First number"},
-                "b": {"type": "NUMBER", "description": "Second number"},
-                "operation": {"type": "STRING", "description": "multiply, add, subtract, or divide"},
+                "expression": {"type": "STRING",
+                               "description": "Integer expression, e.g. 125*8+40"},
+                "a": {"type": "NUMBER", "description": "First integer"},
+                "b": {"type": "NUMBER", "description": "Second integer"},
+                "operation": {"type": "STRING",
+                              "description": "multiply, add, subtract, divide"},
             },
-            "required": ["a", "b", "operation"],
         }
     },
     {
@@ -1336,39 +1340,43 @@ class UltronLive:
                 result = str(r)
 
             elif name == "open_calculator_and_calculate":
-                # A deterministic two-step tool: verify opening the actual app,
-                # then calculate without blindly typing into some other window.
                 from decimal import Decimal, InvalidOperation
-                from actions.open_app import open_app
-                try:
-                    a = Decimal(str(args.get("a")))
-                    b = Decimal(str(args.get("b")))
-                    operation = str(args.get("operation", "")).lower()
-                    if not (a.is_finite() and b.is_finite()) or max(abs(a), abs(b)) > 10**12:
-                        raise ValueError("Sayılar desteklenen aralıkta değil.")
-                    operations = {
-                        "multiply": lambda: a * b,
-                        "add": lambda: a + b,
-                        "subtract": lambda: a - b,
-                        "divide": lambda: a / b,
-                    }
-                    if operation not in operations:
-                        raise ValueError("Desteklenmeyen hesaplama işlemi.")
-                    if operation == "divide" and b == 0:
-                        raise ValueError("Sıfıra bölme yapılamaz.")
-                    opened = await loop.run_in_executor(
-                        None, lambda: open_app({"app_name": "calculator"}, player=self.ui)
-                    )
-                    if not opened.startswith("Opened "):
-                        result = f"Hesap makinesi açılamadı: {opened}"
-                    else:
-                        answer = operations[operation]()
-                        result = (
-                            f"Hesap Makinesi açıldı. Sonuç: {format(answer, 'f')}. "
-                            "Sonuç sohbet ekranındadır; hesap makinesine yazılmadı."
-                        )
-                except (ValueError, InvalidOperation, OverflowError, ZeroDivisionError) as exc:
-                    result = f"Hesaplama yapılamadı: {exc}"
+                from app.tools.calculator_gui import run_calculator_expression
+                expression = str(args.get("expression") or "").strip()
+                if not expression:
+                    try:
+                        a = Decimal(str(args.get("a")))
+                        b = Decimal(str(args.get("b")))
+                        operation = str(args.get("operation", "")).lower()
+                        operators = {"multiply": "*", "add": "+",
+                                     "subtract": "-", "divide": "/"}
+                        if (not a.is_finite() or not b.is_finite()
+                                or a != a.to_integral_value()
+                                or b != b.to_integral_value()
+                                or operation not in operators):
+                            raise ValueError("Yalnızca tam sayılı işlemler destekleniyor.")
+                        expression = (f"{int(a)}{operators[operation]}{int(b)}")
+                    except (ValueError, InvalidOperation, TypeError):
+                        expression = ""
+                expression = (expression.replace("×", "*").replace("÷", "/")
+                              .replace("−", "-").replace("x", "*")
+                              .replace("X", "*").replace(" ", ""))
+                if not expression:
+                    result = "Hesaplama ifadesi anlaşılamadı; işlem yapılmadı."
+                else:
+                    try:
+                        outcome = await loop.run_in_executor(
+                            None, lambda: run_calculator_expression(expression))
+                        if outcome.get("ok") and outcome.get("verified"):
+                            result = ("Hesap Makinesi'nde işlem tuşlarla girildi "
+                                      "ve ekrandaki sonuç doğrulandı: "
+                                      + str(outcome["result"]))
+                        else:
+                            result = ("Hesap Makinesi işlemi doğrulanamadı; başka "
+                                      "pencereye tuş gönderilmedi. Kod: "
+                                      + str(outcome.get("error_code", "unknown")))
+                    except ValueError:
+                        result = "Desteklenmeyen aritmetik ifade; tuş gönderilmedi."
 
             elif name == "manage_monitor":
                 action = args.get("action", "").lower().strip()
