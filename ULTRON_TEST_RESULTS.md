@@ -818,6 +818,10 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 
 - Prior PR #4 exact-head checks: `local-qwen-safety` **FAIL** (missing `aiohttp` in runner); other five check families **PASS**. Added the explicit dependency install before the workflow's unit tests. Updated-head CI is **PENDING** until pushed.
 
+## 2026-10-15 — PR #5 post-sync status
+
+- Continuation and PostgreSQL conversation tests: **27 passed** on the prior synchronized head. Exact Actions for this latest production merge are pending; device/model tests **NOT RUN**.
+
 ## 2026-10-15 — PR #34 post-interruption merge validation
 
 - Full Cloud API unittest discovery with disposable PostgreSQL: **387 passed, 7 skipped**. Skips are reported, not counted as passes. Current GitHub Actions for the synchronized PR head: **PENDING**.

@@ -1,0 +1,41 @@
+name: ULTRON Long Conversation Regression
+
+on:
+  push:
+    branches:
+      - feat/cloud-long-continuation-context-20261011
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+    paths:
+      - 'ultron/cloud_service/conversation_turns.py'
+      - 'ultron/cloud_service/test_long_continuation_context.py'
+      - 'ultron/cloud_service/test_conversation_turns.py'
+      - '.github/workflows/ultron-long-conversation-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  long-dialogue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Syntax check
+        run: |
+          python -m py_compile ultron/cloud_service/conversation_turns.py
+          python -m py_compile ultron/cloud_service/test_long_continuation_context.py
+      - name: Bounded conversation continuity tests
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m unittest -q \
+            ultron.cloud_service.test_long_continuation_context \
+            ultron.cloud_service.test_conversation_turns \
+            ultron.cloud_service.test_conversation_persona

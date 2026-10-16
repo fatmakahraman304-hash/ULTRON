@@ -726,6 +726,10 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - PR #4's exact-head `local-qwen-safety` workflow failed before tests because it imported the Cloud bridge without installing `aiohttp`. Added the declared runtime dependency to that focused workflow; other jobs remain unchanged.
 - Live desktop import-path correction PR #51 is already merged into production at `c66b5dae`; current production has advanced through PR #36 and PR #34.
 
+## 2026-10-15 — PR #5 synchronized with current production
+
+- The current bounded owner/thread paging implementation preserves the original goal and latest correction across bare continuations. Disposable-PostgreSQL conversation suites passed **27/27** on the preceding synchronized base; rerun exact-head CI after this production merge.
+
 ## 2026-10-15 — PR #36 production merge and PR #34 resync
 
 - PR #36/#37 merged to production at squash SHA `378e3b3e6c36b81306e0a9383a18aa84ae4d00a4`; all seven exact-head GitHub Actions checks passed. Render deploy SHA remains subject to a separate health/deploy check.
