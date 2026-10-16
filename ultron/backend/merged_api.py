@@ -115,6 +115,62 @@ def install(app, hub):
             return web.json_response({'ok': False, 'status': 'cancelled_before_start',
                                       'request_id': request_id, 'provider_stopped': False,
                                       'text': ''})
+        # Runtime model identity is a backend fact, not a language-model guess.
+        # This diagnostic answer does not invoke either Ollama or Gemini.
+        from app.core.desktop_intents import safe_app_open_alias, asks_live_model_status
+        if asks_live_model_status(text):
+            status = hub.ai_status if isinstance(getattr(hub, 'ai_status', None), dict) else {}
+            primary = str(status.get('primary') or '').strip()[:96]
+            local_info = (f"Yerel Ollama birincil modeli: {primary}."
+                          if primary else "Yerel Ollama birincil modeli henüz doğrulanmadı.")
+            cloud_info = ("Bulut sohbet yapılandırması etkin."
+                          if cloud.enabled else "Bulut sohbet yapılandırması kapalı.")
+            answer = ("Ben GÖLGE, kişisel masaüstü asistanınım. "
+                      "Bu yanıt doğrudan sistem durumundan üretildi; bir dil modeli kullanılmadı. "
+                      f"{local_info} {cloud_info} "
+                      "Bir sohbetin gerçekten hangi sağlayıcıda çalıştığı, isteğin "
+                      "sunucu tarafından döndürülen source/model alanlarıyla doğrulanır.")
+            cancellations.finish(record, 'completed')
+            return web.json_response({'ok': True, 'text': answer, 'source': 'runtime',
+                                      'model': None, 'request_id': request_id})
+
+        # A narrow, read-only-intent allowlist: opening Notepad is executed by
+        # the existing registered tool, never by a model claim or shell text.
+        # Every other computer operation remains on the approval-gated agent.
+        app_alias = safe_app_open_alias(text)
+        if app_alias and mode in ('auto', 'general', 'fast', 'coding', 'agent'):
+            cancellations.set_provider(record, 'desktop-app', cancellable=False, started=False)
+            async with gate:
+                if record.cancel_event.is_set():
+                    cancellations.finish(record, 'cancelled_before_start')
+                    return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                        'request_id': request_id, 'provider_stopped': False, 'text': ''})
+                cancellations.set_provider(record, 'desktop-app', cancellable=False, started=True)
+                try:
+                    result = await asyncio.to_thread(
+                        rt.executor.execute,
+                        [('open_application', {'name': app_alias})],
+                        approved=False,
+                    )
+                    if not isinstance(result, list) or not result or not result[0]:
+                        raise RuntimeError('empty desktop tool result')
+                except Exception:
+                    cancellations.finish(record, 'failed')
+                    return web.json_response({'ok': False,
+                        'text': 'Not Defteri başlatılamadı. Windows araç kaydını kontrol et.',
+                        'source': 'desktop-tool', 'request_id': request_id,
+                        'completed': False})
+            if record.cancel_event.is_set():
+                cancellations.finish(record, 'output_suppressed')
+                return web.json_response({'ok': False, 'status': 'output_suppressed',
+                    'request_id': request_id, 'provider_stopped': False,
+                    'operation_continues': True, 'text': ''})
+            cancellations.finish(record, 'completed')
+            return web.json_response({'ok': True,
+                'text': 'Not Defteri başlatma isteği Windows\\'a iletildi. Pencerenin açıldığını kontrol et.',
+                'source': 'desktop-tool', 'tool': 'open_application',
+                'request_id': request_id, 'completed': False, 'dispatched': True})
+
         intent = classify_intent(text)
         # General/coding/fast are presentation/model preferences. An
         # explicit computer operation still belongs to the existing local
