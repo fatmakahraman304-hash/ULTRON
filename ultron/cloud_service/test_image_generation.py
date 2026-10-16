@@ -259,8 +259,8 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         form = FormData()
         form.add_field("image", b"photo data", filename="photo.jpg", content_type="image/jpeg")
         try:
-            with patch.object(cloud, "_memory_context", return_value=""), \\
-                 patch.object(cloud, "_recent_context", return_value=""), \\
+            with patch.object(cloud, "_memory_context", return_value=""), \
+                 patch.object(cloud, "_recent_context", return_value=""), \
                  patch.object(cloud, "_gemini_image_reply", side_effect=RuntimeError("offline")):
                 response = await client.post("/api/vision", data=form, headers=headers)
             self.assertEqual(response.status, 200)
@@ -287,8 +287,8 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         question.add_field("image_id", "1")
         question.add_field("question", "Fotoğrafta ne var?")
         try:
-            with patch.object(cloud, "_memory_context", return_value=""), \\
-                 patch.object(cloud, "_recent_context", return_value=""), \\
+            with patch.object(cloud, "_memory_context", return_value=""), \
+                 patch.object(cloud, "_recent_context", return_value=""), \
                  patch.object(cloud, "_gemini_image_reply", return_value="Fotoğraf mevcut.") as analyze:
                 first = await client.post("/api/vision", data=photo, headers=headers)
                 self.assertEqual(first.status, 200)
