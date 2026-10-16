@@ -20,6 +20,7 @@ on:
       - feat/ultron-cloud-shared-memory
       - feat/golge-temporal-memory-20261013
       - feat/golge-memory-focus-continuity-20261013
+      - fix/golge-real-use-100tests-20261016
     paths:
       - "ultron/cloud_service/**"
       - "integration/local_cloud_brain.py"
