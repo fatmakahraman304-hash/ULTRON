@@ -294,6 +294,29 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
                         cloud._gemini_image_reply(b"x", "image/jpeg", "Bu nedir?", "System")
                 self.assertEqual(calls, ["gemini-3.8-flash"])
 
+    def test_vision_error_categories_are_bounded_and_never_echo_secrets(self):
+        samples = (
+            (401, "vision_permission_denied"),
+            (403, "vision_permission_denied"),
+            (404, "vision_model_unavailable"),
+            (429, "vision_quota_or_rate_limit"),
+            (503, "vision_provider_temporarily_unavailable"),
+            (400, "vision_input_rejected"),
+        )
+        for status, expected in samples:
+            with self.subTest(status=status):
+                error = RuntimeError("Private photo request and API key")
+                error.code = status
+                result = cloud._safe_vision_failure_category(error)
+                self.assertEqual(result, expected)
+                self.assertNotIn("Private", result)
+                self.assertNotIn("key", result)
+        self.assertEqual(
+            cloud._safe_vision_failure_category(
+                RuntimeError("PRIVATE-REQUEST-VALUE")),
+            "vision_request_failed",
+        )
+
     def test_vision_fallback_is_bounded_and_same_model_is_not_retried(self):
         class ProviderOutage(Exception):
             code = 429
