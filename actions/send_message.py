@@ -174,18 +174,17 @@ def _send_whatsapp(receiver: str, message: str) -> str:
     try:
         from plugins import _whatsapp_core as wa
     except Exception as e:
-        print(f"[SendMessage] WhatsApp driver unavailable ({e}) — typing blind.")
-        return _desktop_send("WhatsApp", receiver, message)
+        return ("WhatsApp gönderimi yapılmadı: doğrulanmış mesaj sürücüsü "
+                f"kullanılamıyor ({type(e).__name__}).")
 
     try:
         transport, why = wa.get()
     except Exception as e:
-        print(f"[SendMessage] WhatsApp driver failed to start ({e}) — typing blind.")
-        return _desktop_send("WhatsApp", receiver, message)
+        return ("WhatsApp gönderimi yapılmadı: mesaj sürücüsü başlatılamadı "
+                f"({type(e).__name__}).")
 
     if transport is None:
-        print(f"[SendMessage] {why} — typing blind.")
-        return _desktop_send("WhatsApp", receiver, message)
+        return f"WhatsApp gönderimi yapılmadı: {why}"
 
     sent, failure = transport.send_message_to(receiver, message)
     if sent:
@@ -287,29 +286,36 @@ def send_message(
         return "Please specify a recipient."
     if not message_text:
         return "Please specify the message content."
-    if not _PYAUTOGUI:
-        return "PyAutoGUI is not installed — cannot control the desktop."
+    # Unverified keyboard-only drivers can type into the wrong conversation.
+    # Until a platform provides a recipient-verified driver, fail closed.
+    if platform.casefold() not in {"whatsapp", "wa"}:
+        return f"{platform} için doğrulanmış mesaj sürücüsü yok; mesaj gönderilmedi."
 
     preview = message_text[:50] + ("…" if len(message_text) > 50 else "")
     print(f"[SendMessage] 📨 {platform} → {receiver}: {preview}")
     if player:
         player.write_log(f"[msg] {platform} → {receiver}")
 
-    try:
-        handler = _resolve_platform(platform)
-        result  = handler(receiver, message_text)
-    except Exception as e:
-        result = f"Could not send message: {e}"
+    # A model-supplied recipient is not user approval. Park the exact recipient
+    # and body on the desktop CONFIRM/CANCEL UI; only its human-driven callback
+    # may invoke the verified transport. Headless mode refuses by default.
+    from core import confirm as confirm_gate
 
-    # "NOT sent" contains "sent". The old test read that as a success and put a
-    # tick next to a message that never went.
-    lowered = result.lower()
-    ok = "sent" in lowered and "not sent" not in lowered
-    print(f"[SendMessage] {'✅' if ok else '❌'} {result}")
-    if player:
-        player.write_log(f"[msg] {result}")
+    def _send_after_approval() -> str:
+        try:
+            result = _send_whatsapp(receiver, message_text)
+        except Exception as exc:
+            result = f"WhatsApp gönderimi yapılmadı: {type(exc).__name__}."
+        if player:
+            player.write_log(f"[msg] {result}")
+        return result
 
-    return result
+    return confirm_gate.request(
+        key="send_message",
+        title=f"WhatsApp mesajı • {receiver}",
+        detail=f"Alıcı: {receiver}\nPlatform: WhatsApp\nMesaj:\n{message_text}",
+        run=_send_after_approval,
+    )
 
 
 # ── Tool declaration (auto-discovered by core/action_loader.py) ──────────────
