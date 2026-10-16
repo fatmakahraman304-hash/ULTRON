@@ -415,6 +415,7 @@ def local_chat(prompt:str,system:str,turns=None,*,cancellation:LocalChatCancella
         lambda payload: _get_json("/api/chat",payload,timeout=70)
     )
     result=get_result(request)
+    length_exhausted = False
     for attempt in range(2):
         # A malformed or interrupted Ollama response is not a successful answer.
         # Do not stringify arbitrary JSON as model-generated prose or trust
@@ -432,9 +433,10 @@ def local_chat(prompt:str,system:str,turns=None,*,cancellation:LocalChatCancella
         # append the truncated model text to conversation history or report
         # a partial answer as completed.
         if attempt:
-            raise LocalBrainUnavailable(
-                "Yerel yanıt daha geniş uzunluk sınırında da kesildi; tamamlanmış sayılmadı."
-            )
+            # Never publish the partial reply. A different already-installed
+            # Qwen may finish the same turn without exhausting its budget.
+            length_exhausted = True
+            break
         expanded=min(768,max(512,int(runtime["num_predict"])*2))
         retry={**request,"options":{**runtime,"num_predict":expanded}}
         result=get_result(retry)
@@ -443,13 +445,17 @@ def local_chat(prompt:str,system:str,turns=None,*,cancellation:LocalChatCancella
         raise LocalBrainUnavailable("Ollama yanıtının metin biçimi geçersiz.")
     answer=strip_qwen_thinking(message["content"])
     answered_by=choice.model
-    if not answer:
+    if length_exhausted or not answer:
         # HTTP 200 may contain only an incomplete Qwen thinking channel.
         # Recover once with another *installed* Qwen model, preserving the
         # exact same trusted system prompt and bounded conversation turns.
         # No Gemini, downloads, public Ollama endpoint or desktop tools.
         candidates=[name for name in chat_models if name != choice.model]
         if not candidates:
+            if length_exhausted:
+                raise LocalBrainUnavailable(
+                    "Yerel yanıt daha geniş uzunluk sınırında da kesildi; tamamlanmış sayılmadı."
+                )
             raise LocalBrainUnavailable(
                 "Yerel model yalnızca tamamlanmamış düşünme metni döndürdü."
             )
@@ -459,14 +465,15 @@ def local_chat(prompt:str,system:str,turns=None,*,cancellation:LocalChatCancella
             raise LocalBrainUnavailable("Yedek Qwen modeli güvenilir değil.")
         backup_config=policy.runtime_options(backup,tools=False)
         backup_options={**backup_config.get("options",{}), **runtime,
-                        "num_predict":min(512,max(384,int(runtime["num_predict"])))}
+                        "num_predict":min(768,max(512,int(runtime["num_predict"])*2))
+                        if length_exhausted else min(512,max(384,int(runtime["num_predict"])))}
         backup_request={
             "model":backup,
             "messages":request["messages"],
             **backup_config,
             "options":backup_options,
         }
-        retry_result=_get_json("/api/chat",backup_request,timeout=70)
+        retry_result=get_result(backup_request)
         actual=retry_result.get("model")
         if actual is not None and actual != backup:
             raise LocalBrainUnavailable("Yedek Ollama beklenmeyen modelden yanıt döndürdü.")
