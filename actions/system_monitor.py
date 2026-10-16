@@ -121,7 +121,7 @@ def _windows_system_facts() -> dict:
         "os_name": None, "os_version": None, "cpu_model": None,
         "timezone": None, "drive_letters": [], "default_browser": None,
         "network_interface": None, "network_type": None,
-        "active_windows": [], "running_processes": [],
+        "active_windows": [], "open_applications": [], "running_processes": [],
         "default_microphone": None,
     }
     try:
@@ -165,11 +165,11 @@ def _windows_system_facts() -> dict:
     except (OSError, ValueError):
         pass
     try:
-        partitions = psutil.disk_partitions(all=False)
-        facts["drive_letters"] = sorted({
-            p.mountpoint[:2].upper() for p in partitions
-            if len(p.mountpoint) >= 2 and p.mountpoint[1] == ":"
-        })
+        # GetLogicalDrives includes currently present removable/optical drives;
+        # psutil partitions alone can silently omit drives without media.
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        facts["drive_letters"] = [f"{chr(65 + idx)}:" for idx in range(26)
+                                  if mask & (1 << idx)]
     except (OSError, ValueError):
         pass
     try:
@@ -177,6 +177,15 @@ def _windows_system_facts() -> dict:
         interfaces = psutil.net_if_stats()
         addresses = psutil.net_if_addrs()
         candidates = []
+        # UDP connect only selects a local route; it does not send a packet.
+        # Prefer the actual outbound interface over arbitrary active virtual NICs.
+        local_route_ip = None
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as route:
+                route.connect(("1.1.1.1", 53))
+                local_route_ip = route.getsockname()[0]
+        except OSError:
+            pass
         for name, stat in interfaces.items():
             if not stat.isup or name not in addresses:
                 continue
@@ -187,10 +196,14 @@ def _windows_system_facts() -> dict:
             kind = ("Wi-Fi" if any(token in lower for token in ("wi-fi", "wifi", "wlan"))
                     else "Ethernet" if "ethernet" in lower else None)
             if kind:
-                candidates.append((name, kind))
-        # Multiple active adapters: cannot infer the default internet route.
-        if len(candidates) == 1:
-            facts["network_interface"], facts["network_type"] = candidates[0]
+                has_route = any(a.family == socket.AF_INET and a.address == local_route_ip
+                                for a in addresses[name])
+                candidates.append((name, kind, has_route))
+        routed = [c for c in candidates if c[2]]
+        if len(routed) == 1:
+            facts["network_interface"], facts["network_type"] = routed[0][:2]
+        elif len(candidates) == 1:
+            facts["network_interface"], facts["network_type"] = candidates[0][:2]
     except (OSError, ValueError):
         pass
     try:
@@ -202,6 +215,7 @@ def _windows_system_facts() -> dict:
     try:
         user32 = ctypes.windll.user32
         windows = []
+        applications = set()
         callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
 
         @callback_type
@@ -215,10 +229,18 @@ def _windows_system_facts() -> dict:
             user32.GetWindowTextW(hwnd, buf, length + 1)
             if buf.value:
                 windows.append(buf.value)
+                pid = ctypes.c_ulong()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                if pid.value:
+                    try:
+                        applications.add(psutil.Process(pid.value).name())
+                    except (psutil.Error, OSError):
+                        pass
             return len(windows) < 40
 
         user32.EnumWindows(collect, 0)
         facts["active_windows"] = windows
+        facts["open_applications"] = sorted(applications, key=str.casefold)
     except (AttributeError, OSError, ValueError):
         pass
     try:
