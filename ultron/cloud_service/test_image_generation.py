@@ -247,6 +247,114 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
             await client.close()
 
 
+    def test_pdf_document_falls_back_without_changing_private_contents(self):
+        class ModelUnavailable(Exception):
+            code = 404
+        records = []
+        def generate_content(*, model, contents, config):
+            records.append((model, contents, config))
+            if len(records) == 1:
+                raise ModelUnavailable("private API key and PDF text")
+            return SimpleNamespace(text="Belge özeti tamamlandı.")
+        client = SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
+        with patch.object(cloud.genai, "Client", return_value=client), \
+             patch.object(cloud, "required_env", return_value="fake"), \
+             patch.dict(os.environ, {
+                 "GEMINI_DOCUMENT_MODEL": "gemini-3.8-flash",
+                 "GEMINI_DOCUMENT_FALLBACK_MODEL": "gemini-3.5-flash-lite",
+             }):
+            reply = cloud._gemini_pdf_reply(b"%PDF-1.7 fake bytes", "Özetle", "system")
+        self.assertEqual(reply, "Belge özeti tamamlandı.")
+        self.assertEqual([row[0] for row in records],
+                         ["gemini-3.8-flash", "gemini-3.5-flash-lite"])
+        self.assertIs(records[0][1], records[1][1])
+        self.assertIs(records[0][2], records[1][2])
+        self.assertEqual(records[0][1][1].inline_data.mime_type, "application/pdf")
+        self.assertEqual(records[0][1][1].inline_data.data, b"%PDF-1.7 fake bytes")
+
+    def test_document_unauthorized_or_invalid_input_is_never_retried(self):
+        for code in (400, 401, 403, 415):
+            with self.subTest(code=code):
+                class AccessOrInputError(Exception):
+                    pass
+                calls=[]
+                def generate_content(**kwargs):
+                    calls.append(kwargs["model"])
+                    error=AccessOrInputError("private document contents")
+                    error.code=code
+                    raise error
+                client=SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
+                with patch.object(cloud.genai, "Client", return_value=client), \
+                     patch.object(cloud, "required_env", return_value="fake"), \
+                     patch.dict(os.environ, {
+                         "GEMINI_DOCUMENT_MODEL": "gemini-3.8-flash",
+                         "GEMINI_DOCUMENT_FALLBACK_MODEL": "gemini-3.5-flash-lite",
+                     }):
+                    with self.assertRaises(AccessOrInputError):
+                        cloud._gemini_pdf_reply(b"%PDF-1.7 bytes", "Özetle", "system")
+                self.assertEqual(calls, ["gemini-3.8-flash"])
+
+    def test_document_fallback_is_bounded_and_safe_error_labels(self):
+        class ModelOutage(Exception):
+            code=503
+        calls=[]
+        def generate_content(**kwargs):
+            calls.append(kwargs["model"])
+            raise ModelOutage("private info")
+        client=SimpleNamespace(models=SimpleNamespace(generate_content=generate_content))
+        with patch.object(cloud.genai, "Client", return_value=client), \
+             patch.object(cloud, "required_env", return_value="fake"), \
+             patch.dict(os.environ, {
+                 "GEMINI_DOCUMENT_MODEL": "gemini-3.8-flash",
+                 "GEMINI_DOCUMENT_FALLBACK_MODEL": "gemini-3.5-flash-lite",
+             }):
+            with self.assertRaises(ModelOutage) as result:
+                cloud._gemini_text_document_reply("Private student content", "Summarize", "system")
+        self.assertEqual(calls, ["gemini-3.8-flash", "gemini-3.5-flash-lite"])
+        self.assertEqual(cloud._safe_document_error_category(result.exception),
+                         "document_provider_temporarily_unavailable")
+        self.assertEqual(cloud._safe_document_error_category(
+            RuntimeError("User name and API key 123")), "document_request_failed")
+
+    async def test_pdf_document_endpoint_reports_success_and_safe_errors(self):
+        from aiohttp import FormData
+        app = web.Application(middlewares=[cloud.auth_middleware])
+        app["db"] = self.db
+        app.router.add_post("/api/document", cloud.document)
+        client=TestClient(TestServer(app))
+        await client.start_server()
+        headers={"Authorization":"Bearer image_test_only"}
+        def make_form(content=b"%PDF-1.7\nvalid",filename="test.pdf"):
+            form=FormData()
+            form.add_field("document",content,filename=filename,content_type="application/pdf")
+            form.add_field("question","Bu PDF'yi özetle")
+            return form
+        try:
+            with patch.object(cloud,"_memory_context",return_value=""), \
+                 patch.object(cloud,"_recent_context",return_value=""), \
+                 patch.object(cloud,"_gemini_pdf_reply",return_value="Başarıyla özetlendi.") as analyze:
+                ok=await client.post("/api/document",data=make_form(),headers=headers)
+            self.assertEqual(ok.status,200)
+            self.assertEqual((await ok.json())["reply"],"Başarıyla özetlendi.")
+            analyze.assert_called_once()
+            malformed=await client.post("/api/document",data=make_form(b"NOT A PDF"),headers=headers)
+            self.assertEqual(malformed.status,400)
+            self.assertEqual((await malformed.json())["error"],"invalid_pdf_header")
+            class ProviderIssue(Exception):
+                code=429
+            with patch.object(cloud,"_memory_context",return_value=""), \
+                 patch.object(cloud,"_recent_context",return_value=""), \
+                 patch.object(cloud,"_gemini_pdf_reply",
+                              side_effect=ProviderIssue("PRIVATE FILE CONTENT API KEY")):
+                fail=await client.post("/api/document",data=make_form(),headers=headers)
+            self.assertEqual(fail.status,502)
+            details=await fail.json()
+            self.assertEqual(details["error_code"],"document_quota_or_rate_limit")
+            self.assertNotIn("PRIVATE",str(details))
+            self.assertNotIn("API KEY",str(details))
+        finally:
+            await client.close()
+
     def test_vision_recovers_with_alternate_model_for_transient_failure(self):
         """Retry an image once with an installed/configured multimodal model."""
         class ProviderOutage(Exception):
