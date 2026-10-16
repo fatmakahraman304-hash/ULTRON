@@ -31,8 +31,8 @@ def _requested_local_system_facts(text: str) -> tuple[str, ...]:
         ("cpu", r"\b(?:islemci(?:\s+model)?|cpu(?:\s+model)?)m(?:i)?\b|"
          r"\b(?:islemci|cpu)\s+modelim(?:i)?\b",
          r"\b(?:islemci|cpu)(?:\s+model\w*)?\b"),
-        ("ram", r"\b(?:ram|bellek)(?:\s+(?:miktarim|kapasitem))?(?:i)?\b|"
-         r"\b(?:ram|bellek)\s+(?:miktarim|kapasitem)(?:i)?\b",
+        ("ram", r"\b(?:ramim(?:i)?|bellegim(?:i)?|"
+         r"(?:ram|bellek)\s+(?:miktarim|kapasitem)(?:i)?)\b",
          r"\b(?:ram|bellek)\b"),
         ("timezone", r"\bsaat\s+dilimim(?:i)?\b",
          r"\bsaat\s+dilim\w*\b"),
