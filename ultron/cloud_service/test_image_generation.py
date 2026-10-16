@@ -247,6 +247,72 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
             await client.close()
 
 
+    def test_vision_recovers_with_alternate_model_for_transient_failure(self):
+        """Retry an image once with an installed/configured multimodal model."""
+        class ProviderOutage(Exception):
+            code = 503
+        observed = []
+        client = SimpleNamespace(models=SimpleNamespace())
+        def generate_content(*, model, contents, config):
+            observed.append((model, contents, config))
+            if len(observed) == 1:
+                raise ProviderOutage("503 unavailable; PRIVATE-DATA-MUST-NOT-LOG")
+            return SimpleNamespace(text="Görselde bir ağaç var.")
+        client.models.generate_content = generate_content
+        with patch.object(cloud.genai, "Client", return_value=client), \
+             patch.object(cloud, "required_env", return_value="test-key"), \
+             patch.dict(os.environ, {
+                 "GEMINI_VISION_MODEL": "gemini-3.8-flash",
+                 "GEMINI_VISION_FALLBACK_MODEL": "gemini-3.5-flash-lite",
+             }):
+            result = cloud._gemini_image_reply(
+                b"photo bytes", "image/jpeg", "Fotoğrafta ne var?", "Trusted system")
+        self.assertEqual(result, "Görselde bir ağaç var.")
+        self.assertEqual([item[0] for item in observed],
+                         ["gemini-3.8-flash", "gemini-3.5-flash-lite"])
+        self.assertIs(observed[0][1], observed[1][1])
+        self.assertIs(observed[0][2], observed[1][2])
+
+    def test_vision_auth_and_bad_image_fail_closed_without_retry(self):
+        for status in (400, 401, 403, 415):
+            with self.subTest(status=status):
+                class ProviderDenied(Exception):
+                    code = status
+                calls = []
+                client = SimpleNamespace(models=SimpleNamespace())
+                def generate_content(**kwargs):
+                    calls.append(kwargs["model"])
+                    raise ProviderDenied("private request details")
+                client.models.generate_content = generate_content
+                with patch.object(cloud.genai, "Client", return_value=client), \
+                     patch.object(cloud, "required_env", return_value="test-key"), \
+                     patch.dict(os.environ, {
+                         "GEMINI_VISION_MODEL": "gemini-3.8-flash",
+                         "GEMINI_VISION_FALLBACK_MODEL": "gemini-3.5-flash-lite",
+                     }):
+                    with self.assertRaises(ProviderDenied):
+                        cloud._gemini_image_reply(b"x", "image/jpeg", "Bu nedir?", "System")
+                self.assertEqual(calls, ["gemini-3.8-flash"])
+
+    def test_vision_fallback_is_bounded_and_same_model_is_not_retried(self):
+        class ProviderOutage(Exception):
+            code = 429
+        calls = []
+        client = SimpleNamespace(models=SimpleNamespace())
+        def generate_content(**kwargs):
+            calls.append(kwargs["model"])
+            raise ProviderOutage("429 temporarily limited")
+        client.models.generate_content = generate_content
+        with patch.object(cloud.genai, "Client", return_value=client), \
+             patch.object(cloud, "required_env", return_value="test-key"), \
+             patch.dict(os.environ, {
+                 "GEMINI_VISION_MODEL": "gemini-3.8-flash",
+                 "GEMINI_VISION_FALLBACK_MODEL": "gemini-3.8-flash",
+             }):
+            with self.assertRaises(ProviderOutage):
+                cloud._gemini_image_reply(b"x", "image/jpeg", "", "System")
+        self.assertEqual(calls, ["gemini-3.8-flash"])
+
     async def test_vision_provider_failure_keeps_uploaded_photo(self):
         """A failing model must not cancel an otherwise valid photo upload."""
         headers = {"Authorization": "Bearer image_test_only"}
