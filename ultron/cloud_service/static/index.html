@@ -1050,7 +1050,7 @@ function clearPendingImage(){
 }
 function chooseImage(file){
   clearPendingImage();if(!file)return;
-  if(!file.type.startsWith('image/')){toast('Lütfen fotoğraf dosyası seç.');return}
+  if(!file.type.startsWith('image/')&&!/\.(jpe?g|png|webp|heic|heif)$/i.test(String(file.name||''))){toast('Lütfen fotoğraf dosyası seç.');return}
   if(file.size>8*1024*1024){toast('Fotoğraf en fazla 8 MB olabilir.');return}
   pendingImage=file;pendingImageUrl=URL.createObjectURL(file);
   $('#imageThumb').src=pendingImageUrl;$('#imageName').textContent=file.name||'Fotoğraf';$('#imagePreview').classList.add('show');
