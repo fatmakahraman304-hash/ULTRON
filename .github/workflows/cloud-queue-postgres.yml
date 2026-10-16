@@ -4,10 +4,16 @@ on:
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
+      - feat/golge-episodic-memory-v4-20261014
       - feat/golge-qwen-goal-routing-20261013
       - feat/golge-natural-conversation-voice-20261014
     paths:
       - "ultron/cloud_service/**"
+      - "ultron/backend/app/cognitive/research_engine.py"
+      - "ultron/backend/app/cognitive/research_context.py"
+      - "ultron/backend/tests/test_evidence_engine_v4.py"
+      - "ultron/cloud_service/verified_research.py"
+      - "ultron/cloud_service/test_verified_research_integration.py"
       - ".github/workflows/cloud-queue-postgres.yml"
   push:
     branches:
@@ -55,6 +61,7 @@ jobs:
         run: |
           python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
           python -m unittest discover -s ultron/cloud_service -p 'test_verified_research_integration.py' -v
+          python -m unittest discover -s ultron/cloud_service -p 'test_episodic_memory_v4.py' -v
       - name: Local 4GB Qwen natural dialogue request and safe sampling
         run: python -m unittest discover -s ultron/cloud_service -p 'test_local_dialogue_runtime.py' -v
       - name: Context-aware natural dialogue and no-hallucinated-history contracts
@@ -130,8 +137,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install disposable DB driver
-        run: python -m pip install "asyncpg>=0.29,<1" "aiohttp>=3.9,<4" "google-genai>=1,<2"
+      - name: Install Cloud API and disposable DB test dependencies
+        run: python -m pip install -r ultron/cloud_service/requirements.txt
       - name: ULTRON personality and memory boundary tests
         run: python -m unittest discover -s ultron/cloud_service -p 'test_conversation_persona.py' -v
       - name: Real PostgreSQL delivery fencing integration
@@ -158,6 +165,10 @@ jobs:
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
         run: python -m unittest discover -s ultron/cloud_service -p 'test_memory_history_v3.py' -v
+      - name: Real PostgreSQL owner-confirmed episodic memory and full deletion
+        env:
+          ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test
+        run: python -m unittest discover -s ultron/cloud_service -p 'test_episodic_memory_v4.py' -v
       - name: Private generated images on real PostgreSQL, quota and tenant isolation
         env:
           ULTRON_QUEUE_TEST_DATABASE_URL: postgresql://ultron_test:local_ci_only@localhost:5432/ultron_queue_test

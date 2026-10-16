@@ -700,6 +700,19 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Baseline reproduction failed with `ModuleNotFoundError`; post-fix subprocess regressions **2 passed**, prior startup-import regressions **4 passed**, Python compile and diff checks passed. Owner's Qwen/Render doctor passed 3/3; physical desktop startup must still be repeated after pulling the fix.
 - Follow-up Windows log after the temporary root `PYTHONPATH` confirms backend health succeeds, then `mark_app.py:52` fails with `No module named 'memory.memory_manager'; 'memory' is not a package`. Root cause is desktop Python resolving backend `memory.py` before the desktop `memory/` package. The memory package import is now moved before UI imports; safe-path subprocess and source-order regressions bring the focused suite to **8 passed**.
 
+## 2026-10-15 — PR #34/#35 rebase on current production candidate
+
+- User authorized merging outstanding PRs. PR #35's Evidence V4 changes were first merged into its dependency branch; Memory V4 + Evidence V4 are now being synchronized against current production to resolve tracking-workflow conflicts before production merge.
+- Reconciliation keeps the current production UI/startup workflow and adds its Earth, removed-preset, frontend-lock, and Python-launcher CI checks alongside Evidence V4 tests. User-facing app/API code conflicts are not being discarded.
+- Hosted tests must rerun on the synchronized head before production merge. Real iPhone/Windows usage and live provider research remain separate device/provider verification.
+
+## 2026-10-15 — PR #34 review findings addressed
+
+- Added bounded, explicit 1–365 day recall windows so accepted retrospective phrases always apply their requested time bounds; unsupported ranges remain ordinary chat.
+- Excluded English `for` and Turkish `hakkında` from mandatory lexical groups; added regression tests for both languages and date limits.
+- Real disposable-PostgreSQL episodic API/security suite: **13 passed**. Evidence engine and 100-case evaluation: **109 passed**. Python compilation passed.
+- All four resume documents now record V4 implementation, exact test evidence, limits, and the next merge step. The GitHub review's stale V4 next-task note is addressed in the branch tracking files.
+
 ## 2026-10-15 — PR #36 dependency synchronization
 
 - Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
@@ -712,3 +725,8 @@ Added mobile-friendly download/save for generated and edited results, page-close
 
 - PR #4's exact-head `local-qwen-safety` workflow failed before tests because it imported the Cloud bridge without installing `aiohttp`. Added the declared runtime dependency to that focused workflow; other jobs remain unchanged.
 - Live desktop import-path correction PR #51 is already merged into production at `c66b5dae`; current production has advanced through PR #36 and PR #34.
+
+## 2026-10-15 — PR #36 production merge and PR #34 resync
+
+- PR #36/#37 merged to production at squash SHA `378e3b3e6c36b81306e0a9383a18aa84ae4d00a4`; all seven exact-head GitHub Actions checks passed. Render deploy SHA remains subject to a separate health/deploy check.
+- PR #34/#35 was rebased by a merge commit onto the new production SHA. Cloud API test discovery against disposable PostgreSQL: **387 passed, 7 skipped**. The latest GitHub Actions must validate the synchronized exact head before PR #34 can merge.

@@ -11,6 +11,7 @@ Bu servis iPhone ve masaüstü ULTRON'un aynı yazılı sohbet geçmişini ve ka
 - `ULTRON_SESSION_SECRET`: uzun rastgele imzalama anahtarı
 - `ULTRON_DEVICE_TOKEN`: masaüstü istemcisinin Bearer token'ı
 - `ULTRON_USER_ID`: varsayılan `murat`
+- `ULTRON_PUBLIC_ORIGIN`: isteğe bağlı CSRF/Origin izin listesi; varsayılan `https://ultron-yubh.onrender.com`. Farklı bir web origin'i kullanılırsa tam origin olarak ayarlayın.
 - `PORT`: varsayılan `10000`
 
 Anahtarları repoya yazmayın. Ana `.gitignore` dosyası `.env` ve `.env.*` dosyalarını dışlıyor.
@@ -33,6 +34,12 @@ python app.py
 - `POST /api/logout`
 - `GET /api/session`
 - `GET /api/messages`
+- `GET /api/episodes`: yalnızca bu kullanıcının güncel, açıkça onaylanmış olayları
+- `POST /api/episodes`: `owner_confirmed: true` ile sınırlı olay kaydı
+- `PUT /api/episodes/{id}` ve `GET /api/episodes/{id}/history`: olay düzeltme/sürüm geçmişi
+- `DELETE /api/episodes/{id}`: olayın tüm sürümlerini silme
+
+Episode yazma işlemleri oturum çerezi, aynı-origin `Origin` ve `Sec-Fetch-Site` kontrolleri ister. Cloud Gemini ve telefondan eşleştirilmiş yerel Qwen bağlamı aynı sahibi kullanır; episodic kayıtlar yalnızca “geçen hafta ne konuşmuştuk?” gibi açık geçmiş sorularında aranır. Arama tarih ve PostgreSQL sözcüksel eşleşmesini kullanır; anlamsal/vector arama değildir.
 - `POST /api/chat`
 - `GET /api/memories`
 - `PUT /api/memories`
