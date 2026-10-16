@@ -961,11 +961,16 @@ async def list_messages(request: web.Request) -> web.Response:
         """
         SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at,
                (gi.message_id IS NOT NULL) AS has_generated_image,
-               (m.device_id='gemini-image' AND gi.message_id IS NULL) AS image_unavailable
+               (ui.message_id IS NOT NULL) AS has_uploaded_image,
+               (m.device_id='gemini-image' AND gi.message_id IS NULL) AS image_unavailable,
+               (m.device_id='uploaded-vision' AND ui.message_id IS NULL) AS uploaded_image_unavailable
         FROM messages m
         LEFT JOIN generated_images gi
           ON gi.message_id=m.id AND gi.user_id=$1
              AND gi.created_at >= NOW() - INTERVAL '30 days'
+        LEFT JOIN uploaded_images ui
+          ON ui.message_id=m.id AND ui.user_id=$1
+             AND ui.created_at >= NOW() - INTERVAL '30 days'
         WHERE m.user_id=$1
         ORDER BY m.id DESC LIMIT $2
         """,
@@ -1238,6 +1243,26 @@ async def get_generated_image(request: web.Request) -> web.Response:
     )
 
 
+async def get_uploaded_image(request: web.Request) -> web.Response:
+    """Serve an uploaded photo to its authenticated owner only."""
+    raw_id = request.match_info.get("id", "")
+    if not raw_id.isdecimal() or not (0 < len(raw_id) <= 19):
+        raise web.HTTPNotFound()
+    row = await request.app["db"].fetchrow(
+        "SELECT mime_type,image_data FROM uploaded_images "
+        "WHERE message_id=$1 AND user_id=$2 "
+        "AND created_at >= NOW() - INTERVAL '30 days'",
+        int(raw_id), request["user_id"],
+    )
+    if row is None:
+        raise web.HTTPNotFound()
+    return web.Response(
+        body=bytes(row["image_data"]), content_type=row["mime_type"],
+        headers={"Cache-Control":"private, no-store, max-age=0",
+                 "X-Content-Type-Options":"nosniff"},
+    )
+
+
 async def vision(request: web.Request) -> web.Response:
     reader = await request.multipart()
     image_bytes = b""
@@ -1309,22 +1334,40 @@ async def vision(request: web.Request) -> web.Response:
         )
 
     user_text = f"[Görsel: {filename}] " + (question or "Bu görseli analiz et.")
-    claimed = await pool.fetchval(
-        "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
-        "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
-        "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
-        conv_uuid, request["user_id"], user_text[:80],
-    )
-    if claimed is None:
-        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
-    user_message_id = await pool.fetchval(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4) RETURNING id",
-        conv_uuid, request["user_id"], user_text, request["device_id"],
-    )
-    assistant_message_id = await pool.fetchval(
-        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini-vision') RETURNING id",
-        conv_uuid, request["user_id"], reply,
-    )
+    # Photo and its chat turn are written atomically; failed analysis saves neither.
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            claimed = await conn.fetchval(
+                "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
+                "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
+                "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
+                conv_uuid, request["user_id"], user_text[:80],
+            )
+            if claimed is None:
+                raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
+            user_message_id = await conn.fetchval(
+                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                "VALUES($1,$2,'user',$3,'uploaded-vision') RETURNING id",
+                conv_uuid, request["user_id"], user_text,
+            )
+            await conn.execute(
+                "INSERT INTO uploaded_images(message_id,conversation_id,user_id,mime_type,image_data) "
+                "VALUES($1,$2,$3,$4,$5)",
+                user_message_id, conv_uuid, request["user_id"], mime_type, image_bytes,
+            )
+            assistant_message_id = await conn.fetchval(
+                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                "VALUES($1,$2,'assistant',$3,'cloud-gemini-vision') RETURNING id",
+                conv_uuid, request["user_id"], reply,
+            )
+            # Keep a maximum of 12 photos per owner, no longer than 30 days.
+            await conn.execute(
+                "DELETE FROM uploaded_images WHERE user_id=$1 AND "
+                "(created_at < NOW() - INTERVAL '30 days' OR message_id NOT IN "
+                "(SELECT message_id FROM uploaded_images WHERE user_id=$1 "
+                "ORDER BY created_at DESC, message_id DESC LIMIT 12))",
+                request["user_id"],
+            )
     await pool.execute(
         "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'phone_image_context',$2,$3)",
         request["user_id"], reply[:12000], request["device_id"],
@@ -1334,6 +1377,7 @@ async def vision(request: web.Request) -> web.Response:
         "reply": reply,
         "user_message_id": user_message_id,
         "assistant_message_id": assistant_message_id,
+        "uploaded_image_url": "/api/image/uploaded/" + str(user_message_id),
         "filename": filename,
         "mime_type": mime_type,
     })
@@ -2706,6 +2750,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/vision", vision)
     app.router.add_post("/api/image/generate", generate_image)
     app.router.add_get("/api/image/generated/{id}", get_generated_image)
+    app.router.add_get("/api/image/uploaded/{id}", get_uploaded_image)
     app.router.add_post("/api/document", document)
     app.router.add_post("/api/camera-frame", camera_frame)
     app.router.add_get("/api/live", live_voice)
