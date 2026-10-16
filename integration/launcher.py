@@ -35,6 +35,16 @@ def _ensure_runtime_import_paths(env):
     return env
 
 
+def _is_healthy_local_service(status):
+    """Accept the current public identity and the pre-rebrand local identity.
+
+    The desktop backend and launcher are versioned together, but a rebrand must
+    not make an otherwise healthy runtime look offline. Keep the old value for
+    installations that may still run a compatible legacy backend.
+    """
+    return bool(status.get('ok') and status.get('service') in {'GÖLGE', 'mark-ultron'})
+
+
 def stop_process(process):
     if process is None or process.poll() is not None:
         return
@@ -96,7 +106,7 @@ class Services:
                 raise RuntimeError('ULTRON başlatılamadı; logs/backend.log dosyasına bakın.')
             try:
                 status = self.bridge.health()
-                if status.get('ok') and status.get('service') == 'mark-ultron':
+                if _is_healthy_local_service(status):
                     return status
                 last_error = str(status.get('components'))
             except (OSError, ValueError) as exc:
