@@ -803,3 +803,6 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 ## 2026-10-15 — PR #4 post-sync tests
 
 - Qwen recovery contracts **5 passed**; local brain regressions **7 passed**. Real Windows Qwen call **NOT RUN** in this cloud workspace.
+## 2026-10-16 — Cloud Qwen CI dependency correction
+
+- Prior PR #4 exact-head checks: `local-qwen-safety` **FAIL** (missing `aiohttp` in runner); other five check families **PASS**. Added the explicit dependency install before the workflow's unit tests. Updated-head CI is **PENDING** until pushed.

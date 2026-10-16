@@ -651,3 +651,6 @@ Next dependency order: improve temporal/episode recall using existing owner/thre
 - Acceptance: a real subprocess import from the backend cwd passes while preserving caller `PYTHONPATH`; Scene Build CI and the Windows PowerShell validation pass; the owner reruns `START.bat` on Windows.
 - The local Qwen model, Piper TTS and Render health already passed the owner's doctor check, so the observed startup failure is an import-path issue, separate from provider readiness.
 - Follow-up Windows startup issue: once the Cloud backend becomes healthy, the desktop launcher must prioritize the root `memory/` package and import it before UI initialization, avoiding collision with `ultron/backend/memory.py`. Acceptance is the safe-path subprocess regression plus physical `START.bat` confirmation.
+## 2026-10-16 — Verification follow-up
+
+- Fix the PR #4 CI environment by installing its declared `aiohttp` dependency before the local Qwen and cancellation contract tests. Keep provider tests offline and cost-free.

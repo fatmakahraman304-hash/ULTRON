@@ -708,3 +708,7 @@ Added mobile-friendly download/save for generated and edited results, page-close
 ## 2026-10-15 — PR #4 synchronized with current production
 
 - Retained local-Qwen thinking-only fallback while merging the latest production interruption changes. Regression tests: recovery 5 passed; local brain 7 passed; Python compilation passed. Actual model inference remains device-dependent.
+## 2026-10-16 — Cloud Qwen CI dependency correction
+
+- PR #4's exact-head `local-qwen-safety` workflow failed before tests because it imported the Cloud bridge without installing `aiohttp`. Added the declared runtime dependency to that focused workflow; other jobs remain unchanged.
+- Live desktop import-path correction PR #51 is already merged into production at `c66b5dae`; current production has advanced through PR #36 and PR #34.
