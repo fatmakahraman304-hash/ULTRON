@@ -167,7 +167,7 @@ def install(app, hub):
                     'operation_continues': True, 'text': ''})
             cancellations.finish(record, 'completed')
             return web.json_response({'ok': True,
-                'text': 'Not Defteri başlatma isteği Windows\\'a iletildi. Pencerenin açıldığını kontrol et.',
+                'text': 'Not Defteri başlatma isteği Windows sistemine iletildi. Pencerenin açıldığını kontrol et.',
                 'source': 'desktop-tool', 'tool': 'open_application',
                 'request_id': request_id, 'completed': False, 'dispatched': True})
 
