@@ -1492,7 +1492,8 @@ async def vision(request: web.Request) -> web.Response:
             request["user_id"], error_code, request["device_id"],
         )
         reply = ("Fotoğraf sohbete kaydedildi ancak görsel analizi şu anda "
-                 "tamamlanamadı. Fotoğraf geçmişte duruyor; sonra tekrar sorabilirsin.")
+                 "tamamlanamadı. Fotoğraf geçmişte duruyor; sonra tekrar sorabilirsin. "
+                 f"Hata kodu: {analysis_error_code}.")
 
     assistant_message_id = await pool.fetchval(
         "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
