@@ -432,7 +432,7 @@
         
         <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="GÖLGE mikrofonu" title="Konuşmak için dokun">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="GÖLGE'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
         <input id="imageInput" type="file" accept="image/*" class="hidden" />
-        <input id="pdfInput" type="file" accept="application/pdf,.pdf" class="hidden" />
+        <input id="pdfInput" type="file" accept="application/pdf,.pdf,text/plain,.txt,.md,.csv" class="hidden" />
         <div id="imagePreview" class="image-preview"><img id="imageThumb" alt="Seçilen görsel"/><span id="imageName"></span><button id="clearImage" type="button">Kaldır</button></div>
         <div id="pdfPreview" class="image-preview"><span style="font-size:22px">📄</span><span id="pdfName"></span><button id="clearPdf" type="button">Kaldır</button></div>
         <div id="cameraPanel" class="camera-panel">
@@ -924,25 +924,26 @@ function clearPendingPdf(){
 }
 function choosePdf(file){
   clearPendingPdf();if(!file)return;
-  if(file.type!=='application/pdf'&&!String(file.name||'').toLowerCase().endsWith('.pdf')){toast('Lütfen PDF dosyası seç.');return}
+  if(!/\.(pdf|txt|md|csv)$/i.test(String(file.name||''))){toast('PDF, TXT, MD veya CSV belge seç.');return}
+  if(file.size>8*1024*1024){toast('Belge en fazla 8 MB olabilir.');return}
   pendingPdf=file;$('#pdfName').textContent=file.name||'Belge.pdf';$('#pdfPreview').classList.add('show');
 }
 async function sendPdf(){
   const file=pendingPdf;if(!file)return false;
   const question=$('#message').value.trim();
-  $('#busy').textContent='GÖLGE PDF’yi inceliyor…';$('#sendBtn').disabled=true;$('#pdfBtn').disabled=true;
-  addMessage('user','📄 '+(question||('PDF analizi: '+(file.name||'belge.pdf'))));
+  $('#busy').textContent='GÖLGE belgeyi inceliyor…';$('#sendBtn').disabled=true;$('#pdfBtn').disabled=true;
+  addMessage('user','📄 '+(question||('Belge analizi: '+(file.name||'belge'))));
   try{
     const d=await documentApi(file,question);
     conversationId=d.conversation_id||conversationId;if(conversationId)localStorage.setItem('ultronConversationId',conversationId);
     addMessage('assistant',d.reply);messageSignature='';clearPendingPdf();$('#message').value='';
     if(voiceEnabled&&!voiceListening)speakUltron(d.reply);
-    toast('PDF analiz edildi. Sesli modda bu belge hakkında soru sorabilirsin.');
+    toast('Belge analiz edildi. Sesli modda bu belge hakkında soru sorabilirsin.');
     return true;
   }catch(e){
     // A failed upload must not hijack every subsequent ordinary chat turn.
     clearPendingPdf();
-    addMessage('assistant','PDF analizi başarısız: '+(e.message||'Bilinmeyen hata'));return false;
+    addMessage('assistant','Belge analizi başarısız: '+(e.message||'Bilinmeyen hata'));return false;
   }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;$('#pdfBtn').disabled=false}
 }
 async function cameraFrameApi(blob,question=''){
