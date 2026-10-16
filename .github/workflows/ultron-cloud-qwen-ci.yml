@@ -5,6 +5,7 @@ on:
     branches:
       - fix/cloud-qwen-empty-reply-20261011
       - fix/golge-real-use-100tests-20261016
+      - fix/golge-calculator-uia-wrapper-20261016
   pull_request:
     branches:
       - feat/ultron-cloud-shared-memory
