@@ -1000,8 +1000,16 @@ async function flipPhoneCamera(){
   cameraFacing=cameraFacing==='environment'?'user':'environment';
   const wasOn=!!cameraStream;if(wasOn)await stopPhoneCamera();await startPhoneCamera();
 }
-async function visionApi(file,question=''){
-  const form=new FormData();form.append('image',file,file.name||'photo.jpg');form.append('question',question||'');
+async function visionApi(file,question='',storedImageId=null){
+  const form=new FormData();
+  if(storedImageId){
+    const id=Number(storedImageId);
+    if(!Number.isSafeInteger(id)||id<=0)throw new Error('Fotoğraf kimliği geçersiz.');
+    form.append('image_id',String(id));
+  }else if(file){
+    form.append('image',file,file.name||'photo.jpg');
+  }else throw new Error('Analiz için fotoğraf gerekli.');
+  form.append('question',question||'');
   const url='/api/vision'+(conversationId?'?conversation_id='+encodeURIComponent(conversationId):'');
   let res;
   try{res=await fetch(url,{method:'POST',credentials:'include',body:form})}
@@ -1010,7 +1018,7 @@ async function visionApi(file,question=''){
   if(!res.ok){const e=new Error(data.detail||data.error||('HTTP '+res.status));e.data=data;throw e}
   return data;
 }
-let lastImageFile=null,lastImageConversationId='';
+let lastImageFile=null,lastImageConversationId='',lastUploadedImageId=null;
 // Generated files use owner-authenticated URLs, not temporary Safari blob links.
 async function generateImageApi(prompt,image=null){
   const form=new FormData();form.append('prompt',prompt);if(conversationId)form.append('conversation_id',conversationId);
@@ -1082,13 +1090,16 @@ async function sendImage(){
       const photoId=Number(d.user_message_id);
       userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(photoId);
       if(Number.isSafeInteger(photoId)&&photoId>0){
+        lastUploadedImageId=photoId;
         photoNode.onerror=()=>{photoNode.alt='Fotoğraf geçmişinden yüklenemedi.'};
         photoNode.src='/api/image/uploaded/'+photoId;
       }
     }
     addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';clearPendingImage();$('#message').value='';
     if(voiceEnabled&&!voiceListening)speakUltron(d.reply);
-    toast('Görsel analiz edildi. Sesli modda bu fotoğraf hakkında soru sorabilirsin.');
+    toast(d.analysis_status==='failed'
+      ?'Fotoğraf kaydedildi ancak analiz tamamlanamadı.'
+      :'Görsel analiz edildi. Sesli modda bu fotoğraf hakkında soru sorabilirsin.');
     return true;
   }catch(e){
     // A stale pending image used to force the next plain-text message through
@@ -1817,6 +1828,11 @@ async function loadMessages(){
   const d=await api('/api/messages?limit=120');
   if(chatSending||seq!==messageLoadSeq||version!==chatSendVersion)return;
   const items=(d.messages||[]).filter(m=>m.role==='user'||m.role==='assistant');
+  const lastPhoto=[...items].reverse().find(m=>m.has_uploaded_image&&m.conversation_id===conversationId);
+  if(lastPhoto){
+    lastUploadedImageId=Number(lastPhoto.id);
+    lastImageConversationId=conversationId;
+  }
   const sig=items.map(m=>m.id).join(',');
   if(sig===messageSignature)return;
   const wasInitial=initialMessagesLoaded;
@@ -2213,9 +2229,9 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     const devHandled=options.forceChat?false:await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
     if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
     if(!options.forceChat&&isImageCreationRequest(text))return await sendImageCreation(text,userBubble);
-    if(!options.forceChat&&lastImageFile&&lastImageConversationId===conversationId&&isImageFollowupRequest(text)){
+    if(!options.forceChat&&(lastUploadedImageId||lastImageFile)&&lastImageConversationId===conversationId&&isImageFollowupRequest(text)){
       $('#busy').textContent='GÖLGE yüklediğin görsele bakıyor…';
-      const d=await visionApi(lastImageFile,text);
+      const d=await visionApi(lastUploadedImageId?null:lastImageFile,text,lastUploadedImageId);
       if(d.user_message_id){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
       rememberPendingVoice('assistant',d.reply);
       addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';
