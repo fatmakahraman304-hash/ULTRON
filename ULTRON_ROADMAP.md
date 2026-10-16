@@ -667,3 +667,9 @@ Next dependency order: finish exact-head CI for PR #34/#35 → merge and verify 
 - [x] Set the legacy-compatible `ultron_name` setting value to `GÖLGE`.
 - [x] Remove the retired assistant name from active local-model prompts and generated task-report headings; keep old persisted conversation roles readable.
 - [ ] Keep protocol/module/storage keys and the installed custom wake-word identity unchanged until an explicit migration can preserve existing installations and saved browser data.
+## 2026-10-16 — Test taraması sonrası gerçek cihaz doğrulaması
+
+- [x] PR #53 sağlık servisi kimlik uyumsuzluğunu düzeltti; b4086aa GitHub `verify` ve Windows bootstrap kontrolleri başarılı.
+- [x] Linux'ta tam Python/backend, Cloud, scripts ve frontend test grupları çalıştırıldı; sonuçların ayrıntısı `ULTRON_TEST_RESULTS.md` başında.
+- [ ] Windows'ta güncel `b4086aa` ile `DOCTOR.bat`, gerçek sohbet ve onay-korumalı araç smoke testini kullanıcı cihazında tamamla. Özel wake-word modeli kurulu değilse elle mikrofon aktivasyonu kullan.
+- [ ] Fiziksel iPhone Safari, gerçek mikrofon/TTS, Render ↔ laptop eşlemesi ve gerçek Qwen/Gemini fallback'ini doğrula.
