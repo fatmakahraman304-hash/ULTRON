@@ -931,7 +931,7 @@ function choosePdf(file){
 async function sendPdf(){
   const file=pendingPdf;if(!file)return false;
   const question=$('#message').value.trim();
-  $('#busy').textContent='GÖLGE belgeyi inceliyor…';$('#sendBtn').disabled=true;$('#pdfBtn').disabled=true;
+  $('#busy').textContent='GÖLGE belgeyi inceliyor…';$('#sendBtn').disabled=true;$('#plusBtn').disabled=true;
   addMessage('user','📄 '+(question||('Belge analizi: '+(file.name||'belge'))));
   try{
     const d=await documentApi(file,question);
@@ -944,7 +944,7 @@ async function sendPdf(){
     // A failed upload must not hijack every subsequent ordinary chat turn.
     clearPendingPdf();
     addMessage('assistant','Belge analizi başarısız: '+(e.message||'Bilinmeyen hata'));return false;
-  }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;$('#pdfBtn').disabled=false}
+  }finally{$('#busy').textContent='';$('#sendBtn').disabled=false;$('#plusBtn').disabled=false}
 }
 async function cameraFrameApi(blob,question=''){
   const form=new FormData();form.append('image',blob,'camera.jpg');form.append('question',question||'');
