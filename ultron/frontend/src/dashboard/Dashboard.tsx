@@ -8,6 +8,7 @@ import {conversationRequestFailure,visibleConversationState} from './conversatio
 import {createConversationRequestIdentity,isCurrentConversationResponse} from './conversationRequestIdentity';
 import {chatChannel} from './connectionStatus';
 import {resolveEarthIntent} from './earthIntent';
+import {isStopCommand} from './voiceCommand';
 import {useEarthActions} from './useEarthActions';
 import type {EarthView} from './EarthWatch';
 import './earth-engine.css';
@@ -338,7 +339,9 @@ export default function Dashboard(){
   if(w==='settings'){open('Ayarlar');return 'Ayarlar açıldı.';}
   return '';
  };
- const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
+ const send=async(text=input)=>{if(!text.trim())return;
+   if(isStopCommand(text)){typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();setInput('');setCommand('');u.add('user',text);stop();u.add('assistant','Konuşmayı durdurdum.');return;}
+   if(busy)return;setInput('');setCommand('');
    typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();
    if(/(?:^|\s)intro(?:\s|$)|(?:enerji|dünya|dunya) (?:hologram|küre|kure)/.test(text.toLocaleLowerCase('tr-TR'))&&/(?:oluştur|olustur|göster|goster|aç|render|yap)/.test(text.toLocaleLowerCase('tr-TR'))&&!/(?:nedir|nasıl|nasil|neden)/.test(text.toLocaleLowerCase('tr-TR'))){u.add('user',text);u.add('assistant','Bu hazır hologram/intro özelliği kaldırıldı.');return;}
    const earthIntent=resolveEarthIntent(text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
@@ -377,6 +380,7 @@ export default function Dashboard(){
    if(voiceRouteSeen.current===id)return;
    voiceRouteSeen.current=id;
    if(latest.text.toLocaleLowerCase('tr-TR').trim()===typedRouteSeen.current){typedRouteSeen.current='';return;}
+   if(isStopCommand(latest.text)){stop();u.add('assistant','Konuşmayı durdurdum.');return;}
    if(sceneIntent(latest.text,hologram)){setHologram(true);setModal('');setSceneRequest(prev=>({id:(prev?.id||0)+1,text:latest.text}));return;}
    const earthIntent=resolveEarthIntent(latest.text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
    if(earthIntent){void earth.command(earthIntent.operation,earthIntent.args).then(reply=>u.add('assistant',reply)).catch(e=>notify((e as Error).message));return;}
@@ -386,7 +390,7 @@ export default function Dashboard(){
  const ready=(value:unknown)=>u.connected?(value?'ONLINE':'N/A'):'OFFLINE';
  const chipsLeft=[['SYSTEM',u.connected?'ONLINE':'OFFLINE'],['MEMORY',ready(u.memory)],['TASK ENGINE',ready(u.health?.components?.task_engine)],['VISION',ready(u.ai?.vision)],['AUDIO',u.native?(u.muted?'MUTED':u.nativeState):'N/A']];
  const chipsRight=[['AI CORE',ready(u.health?.components?.brain)],['NEURAL LINK',ready(u.ai?.connected)],['TOOLS',u.connected?`${u.tools.filter(t=>t.status==='READY').length} READY`:'N/A'],['PLUGINS',u.plugins?`${u.plugins.length} LOADED`:'N/A'],['MONITOR',u.system?'LIVE':'N/A']];
- const disabledSend=busy||chatChannel(u.connected,Boolean(u.native))==='unavailable';
+ const disabledSend=chatChannel(u.connected,Boolean(u.native))==='unavailable'||(busy&&!isStopCommand(input));
  const footer=[['Web Tarayıcı',Globe,()=>open('Browser')],['Dosya İşlemleri',Files,()=>open('Dosyalar')],['Terminal',Terminal,()=>open('Terminal')],['Ekran Yakalama',Scan,()=>{open('Vizyon');void run('/api/actions/screenshot',{});}],['OCR',ScanText,()=>{open('Vizyon');void run('/api/merged/tool',{name:'screen_ocr',arguments:{}});}],['Planlayıcı',Calendar,()=>open('Görevler')],['Kod Asistanı',Code,()=>{setMode('coding');open('Kod Asistanı');}],['Sistem Monitörü',Activity,()=>open('Sistem Monitörü')]] as const;
  return <div className={'viewport '+(workspace==='control-center'?'control-center-active':'')}><div className={'ultron-app voice-first golge-minimal '+(compact?'compact':'')}>
  <header className="main-header metal-frame"><div className="golge-brand"><span className="golge-brand-mark" aria-hidden="true"/><span>GÖLGE<small>KİŞİSEL YAPAY ZEKA</small></span></div><div className="header-mode"><b>{workspace==='control-center'?'KONTROL MERKEZİ':'NORMAL SOHBET MODU'}</b><small>Kişisel yapay zekâ asistanın</small></div><nav>

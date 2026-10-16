@@ -6,6 +6,7 @@ import contextlib
 import aiohttp
 from app.core.fast_brain import FastBrainPolicy
 from app.core.request_cancellation import ProviderRequestCancelled
+from ultron.cloud_service.response_quality import strip_qwen_thinking
 
 class Brain:
     """Local Ollama chat adapter with native tool-calling support."""
@@ -58,7 +59,12 @@ class Brain:
         if self.fast_policy.enabled:
             payload.update(self.fast_policy.runtime_options(selected))
         data = self._post("/api/chat", payload)
-        return data.get("message", {}).get("content", "").strip()
+        message = data.get("message", {})
+        content = message.get("content", "") if isinstance(message, dict) else ""
+        answer = strip_qwen_thinking(content)
+        if not answer:
+            raise RuntimeError("Ollama returned no publishable answer")
+        return answer
 
     async def ask_cancellable(self, prompt: str, system: str = "", history=None,
                               model=None, *, cancel_event: asyncio.Event) -> str:
@@ -128,7 +134,7 @@ class Brain:
                 if cancel_event.is_set():
                     raise ProviderRequestCancelled("Ollama stream ended after interruption",
                                                    provider_stopped=False)
-                answer = "".join(pieces).strip()
+                answer = strip_qwen_thinking("".join(pieces))
                 if not answer:
                     raise RuntimeError("Ollama returned an empty streamed reply")
                 self.last_error = None
@@ -141,4 +147,13 @@ class Brain:
             payload.update(self.fast_policy.runtime_options(selected, tools=bool(tools)))
         if tools:
             payload["tools"] = tools
-        return self._post("/api/chat", payload)
+        response = self._post("/api/chat", payload)
+        if not isinstance(response, dict):
+            raise RuntimeError("Ollama chat returned an invalid payload")
+        message = response.get("message")
+        if isinstance(message, dict) and isinstance(message.get("content"), str):
+            visible = strip_qwen_thinking(message["content"])
+            if not visible and not message.get("tool_calls"):
+                raise RuntimeError("Ollama returned no publishable answer")
+            return {**response, "message": {**message, "content": visible}}
+        return response
