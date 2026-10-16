@@ -9,7 +9,7 @@ export function resolveEarthIntent(input:string,active=false):EarthIntent|null{
  const action=(operation:string,args:Record<string,unknown>={}):EarthIntent=>({operation,args});
  if(/^(?:(?:normal )?(?:holograma|corea|cekirdege) don|dunyadan cik)$/.test(t))return action('reset');
  if(/^(?:3d )?(?:dunya(?:yi)?|earth)(?: goruntusunu)? (?:ac|goster|open|show)$/.test(t)||/^(?:show|open) (?:the )?earth$/.test(t))return action('earth_open');
- if(/^(?:uydu(?: mod(?:una|unu|u)| haritasi(?:ni|na)?)?|satellite(?: mode| map)?) (?:ac|gec|goster|open)$/.test(t))return action('earth_layer',{layer:'SATELLITE'});
+ if(/^(?:uydu(?: mod(?:una|unu|u)| gorunumunu| haritasi(?:ni|na)?)?|satellite(?: mode| map)?) (?:ac|gec|goster|open|switch)$/.test(t))return action('earth_layer',{layer:'SATELLITE'});
  if(/^(?:2d )?harita(?:yi| modu(?:nu|na))? (?:ac|goster|gec)$/.test(t))return action('earth_layer',{layer:'MAP'});
  if(/^(?:3d gorunum(?:u)?|global(?: mod)?|kuresel gorunum) (?:ac|goster|gec)$/.test(t))return action('earth_layer',{layer:'GLOBAL'});
  if(/^(?:3d terrain|arazi(?: gorunumu)?) (?:ac|goster)$/.test(t))return action('earth_layer',{layer:'TERRAIN'});

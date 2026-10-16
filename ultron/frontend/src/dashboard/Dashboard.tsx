@@ -8,6 +8,7 @@ import {conversationRequestFailure,visibleConversationState} from './conversatio
 import {createConversationRequestIdentity,isCurrentConversationResponse} from './conversationRequestIdentity';
 import {chatChannel} from './connectionStatus';
 import {resolveEarthIntent} from './earthIntent';
+import {isStopCommand} from './voiceCommand';
 import {useEarthActions} from './useEarthActions';
 import type {EarthView} from './EarthWatch';
 import './earth-engine.css';
@@ -339,6 +340,7 @@ export default function Dashboard(){
   return '';
  };
  const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
+   if(isStopCommand(text)){typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();u.add('user',text);stop();u.add('assistant','Konuşmayı durdurdum.');return;}
    typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();
    if(/(?:^|\s)intro(?:\s|$)|(?:enerji|dünya|dunya) (?:hologram|küre|kure)/.test(text.toLocaleLowerCase('tr-TR'))&&/(?:oluştur|olustur|göster|goster|aç|render|yap)/.test(text.toLocaleLowerCase('tr-TR'))&&!/(?:nedir|nasıl|nasil|neden)/.test(text.toLocaleLowerCase('tr-TR'))){u.add('user',text);u.add('assistant','Bu hazır hologram/intro özelliği kaldırıldı.');return;}
    const earthIntent=resolveEarthIntent(text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
@@ -377,6 +379,7 @@ export default function Dashboard(){
    if(voiceRouteSeen.current===id)return;
    voiceRouteSeen.current=id;
    if(latest.text.toLocaleLowerCase('tr-TR').trim()===typedRouteSeen.current){typedRouteSeen.current='';return;}
+   if(isStopCommand(latest.text)){stop();u.add('assistant','Konuşmayı durdurdum.');return;}
    if(sceneIntent(latest.text,hologram)){setHologram(true);setModal('');setSceneRequest(prev=>({id:(prev?.id||0)+1,text:latest.text}));return;}
    const earthIntent=resolveEarthIntent(latest.text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
    if(earthIntent){void earth.command(earthIntent.operation,earthIntent.args).then(reply=>u.add('assistant',reply)).catch(e=>notify((e as Error).message));return;}
