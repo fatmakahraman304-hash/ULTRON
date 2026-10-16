@@ -82,3 +82,20 @@ test('desktop procedural 3D remains bounded and other feature stages remain func
  assert.match(skin,/@media\(max-width:840px\)/);
  assert.match(skin,/prefers-reduced-motion:reduce/);
 });
+
+
+test('iPhone uploads keep normal chat usable and display sent images',()=>{
+ const html=file('ultron/cloud_service/static/index.html');
+ const sendImage=html.split('async function sendImage(){')[1].split('function toast(')[0];
+ const sendPdf=html.split('async function sendPdf(){')[1].split('async function cameraFrameApi(')[0];
+ assert.match(sendImage,/showSubmittedPhoto\(userBubble,file\)/);
+ assert.match(sendImage,/catch\(e\)\{[\s\S]*?clearPendingImage\(\)/);
+ assert.match(sendPdf,/catch\(e\)\{[\s\S]*?clearPendingPdf\(\)/);
+ assert.match(html,/id="pdfInput"[^>]*\.txt/);
+ assert.match(html,/if\(pendingImage\)\{await sendImage\(\);return\}/);
+ assert.match(html,/if\(pendingPdf\)\{await sendPdf\(\);return\}/);
+ const backend=file('ultron/cloud_service/app.py');
+ assert.match(backend,/def _gemini_text_document_reply/);
+ assert.match(backend,/supported_document_required/);
+ assert.match(backend,/application\/octet-stream/);
+});
