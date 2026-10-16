@@ -1281,17 +1281,26 @@ async def get_uploaded_image(request: web.Request) -> web.Response:
 
 
 async def vision(request: web.Request) -> web.Response:
+    """Save owner-uploaded photos before attempting fallible vision analysis.
+
+    Previously Gemini failures made a successfully selected/uploaded photo
+    disappear. Image analysis can fail independently of chat attachment storage.
+    A saved photo can also be re-analysed after Safari reload by its owner ID.
+    """
     reader = await request.multipart()
     image_bytes = b""
     mime_type = ""
     question = ""
     filename = "görsel"
+    raw_image_id = ""
+    has_new_image = False
 
     while True:
         field = await reader.next()
         if field is None:
             break
         if field.name == "image":
+            has_new_image = True
             filename = (field.filename or "görsel")[:160]
             mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
             chunks = []
@@ -1307,19 +1316,12 @@ async def vision(request: web.Request) -> web.Response:
             image_bytes = b"".join(chunks)
         elif field.name == "question":
             question = (await field.text()).strip()[:4000]
+        elif field.name == "image_id":
+            raw_image_id = (await field.text()).strip()
 
-    allowed = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
-    if mime_type in {"", "application/octet-stream"}:
-        # iOS Files/Safari can omit the MIME type for a genuine HEIC/JPEG.
-        # Infer only from a small allowlisted filename suffix, never arbitrary data.
-        suffix = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
-        mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
-                     "png": "image/png", "webp": "image/webp",
-                     "heic": "image/heic", "heif": "image/heif"}.get(suffix, "")
-    if not image_bytes or mime_type not in allowed:
+    if has_new_image == bool(raw_image_id):
         raise web.HTTPBadRequest(
-            text=json.dumps({"error": "supported_image_required"}),
-            content_type="application/json",
+            text='{"error":"image_or_image_id_required"}', content_type="application/json"
         )
 
     pool = request.app["db"]
@@ -1327,31 +1329,54 @@ async def vision(request: web.Request) -> web.Response:
         raw_conversation_id = request.query.get("conversation_id", "")
         conv_uuid = uuid.UUID(raw_conversation_id) if raw_conversation_id else uuid.uuid4()
     except ValueError:
-        raise web.HTTPBadRequest(text='{"error":"invalid_conversation_id"}', content_type="application/json")
-    memory = await _memory_context(pool, request["user_id"], query=question)
-    recent = await _recent_context(pool, request["user_id"], limit=12, conversation_id=conv_uuid if raw_conversation_id else None)
-    system_instruction = build_system_instruction(
-        base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
-        memory=memory, recent=recent, user_message=question,
+        raise web.HTTPBadRequest(
+            text='{"error":"invalid_conversation_id"}', content_type="application/json"
+        )
+
+    if has_new_image:
+        allowed = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+        if mime_type in {"", "application/octet-stream"}:
+            # Safari's file picker occasionally omits otherwise valid MIME tags.
+            suffix = filename.lower().rsplit(".", 1)[-1] if "." in filename else ""
+            mime_type = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+                         "png": "image/png", "webp": "image/webp",
+                         "heic": "image/heic", "heif": "image/heif"}.get(suffix, "")
+        if not image_bytes or mime_type not in allowed:
+            raise web.HTTPBadRequest(
+                text='{"error":"supported_image_required"}', content_type="application/json"
+            )
+    else:
+        if not raw_image_id.isdecimal() or not (0 < len(raw_image_id) <= 19):
+            raise web.HTTPBadRequest(
+                text='{"error":"invalid_image_id"}', content_type="application/json"
+            )
+        original = await pool.fetchrow(
+            "SELECT mime_type,image_data,conversation_id FROM uploaded_images "
+            "WHERE message_id=$1 AND user_id=$2 "
+            "AND created_at >= NOW() - INTERVAL '30 days'",
+            int(raw_image_id), request["user_id"],
+        )
+        if original is None:
+            raise web.HTTPNotFound(text='{"error":"image_not_found"}', content_type="application/json")
+        image_bytes = bytes(original["image_data"])
+        mime_type = original["mime_type"]
+        photo_conversation = original["conversation_id"]
+        if raw_conversation_id and conv_uuid != photo_conversation:
+            raise web.HTTPNotFound(text='{"error":"conversation_not_found"}',
+                                   content_type="application/json")
+        conv_uuid = photo_conversation
+
+    # Never ask Gemini to process another owner's thread.
+    existing_owner = await pool.fetchval(
+        "SELECT user_id FROM conversations WHERE id=$1", conv_uuid,
     )
-
-    try:
-        reply = await asyncio.to_thread(
-            _gemini_image_reply, image_bytes, mime_type, question, system_instruction
-        )
-    except Exception as exc:
-        error_code = _safe_provider_error(exc)
-        await pool.execute(
-            "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_vision_error',$2,$3)",
-            request["user_id"], error_code, request["device_id"],
-        )
-        raise web.HTTPBadGateway(
-            text=json.dumps({"error": "vision_failed", "detail": "Görsel analizi tamamlanamadı."}, ensure_ascii=False),
-            content_type="application/json",
+    if existing_owner is not None and existing_owner != request["user_id"]:
+        raise web.HTTPNotFound(
+            text='{"error":"conversation_not_found"}', content_type="application/json"
         )
 
-    user_text = f"[Görsel: {filename}] " + (question or "Bu görseli analiz et.")
-    # Photo and its chat turn are written atomically; failed analysis saves neither.
+    user_text = (f"[Görsel: {filename}] " if has_new_image else
+                 f"[Görsel sorusu: {raw_image_id}] ") + (question or "Bu görseli analiz et.")
     async with pool.acquire() as conn:
         async with conn.transaction():
             claimed = await conn.fetchval(
@@ -1361,42 +1386,70 @@ async def vision(request: web.Request) -> web.Response:
                 conv_uuid, request["user_id"], user_text[:80],
             )
             if claimed is None:
-                raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
+                raise web.HTTPNotFound(
+                    text='{"error":"conversation_not_found"}', content_type="application/json"
+                )
+            device_id = "uploaded-vision" if has_new_image else "uploaded-vision-followup"
             user_message_id = await conn.fetchval(
                 "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
-                "VALUES($1,$2,'user',$3,'uploaded-vision') RETURNING id",
-                conv_uuid, request["user_id"], user_text,
+                "VALUES($1,$2,'user',$3,$4) RETURNING id",
+                conv_uuid, request["user_id"], user_text, device_id,
             )
-            await conn.execute(
-                "INSERT INTO uploaded_images(message_id,conversation_id,user_id,mime_type,image_data) "
-                "VALUES($1,$2,$3,$4,$5)",
-                user_message_id, conv_uuid, request["user_id"], mime_type, image_bytes,
-            )
-            assistant_message_id = await conn.fetchval(
-                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
-                "VALUES($1,$2,'assistant',$3,'cloud-gemini-vision') RETURNING id",
-                conv_uuid, request["user_id"], reply,
-            )
-            # Keep a maximum of 12 photos per owner, no longer than 30 days.
-            await conn.execute(
-                "DELETE FROM uploaded_images WHERE user_id=$1 AND "
-                "(created_at < NOW() - INTERVAL '30 days' OR message_id NOT IN "
-                "(SELECT message_id FROM uploaded_images WHERE user_id=$1 "
-                "ORDER BY created_at DESC, message_id DESC LIMIT 12))",
-                request["user_id"],
-            )
-    await pool.execute(
-        "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'phone_image_context',$2,$3)",
-        request["user_id"], reply[:12000], request["device_id"],
+            if has_new_image:
+                await conn.execute(
+                    "INSERT INTO uploaded_images(message_id,conversation_id,user_id,mime_type,image_data) "
+                    "VALUES($1,$2,$3,$4,$5)",
+                    user_message_id, conv_uuid, request["user_id"], mime_type, image_bytes,
+                )
+                await conn.execute(
+                    "DELETE FROM uploaded_images WHERE user_id=$1 AND "
+                    "(created_at < NOW() - INTERVAL '30 days' OR message_id NOT IN "
+                    "(SELECT message_id FROM uploaded_images WHERE user_id=$1 "
+                    "ORDER BY created_at DESC, message_id DESC LIMIT 12))",
+                    request["user_id"],
+                )
+
+    analysis_status = "completed"
+    try:
+        memory = await _memory_context(pool, request["user_id"], query=question)
+        recent = await _recent_context(pool, request["user_id"], limit=12, conversation_id=conv_uuid)
+        system_instruction = build_system_instruction(
+            base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
+            memory=memory, recent=recent, user_message=question,
+        )
+        reply = await asyncio.to_thread(
+            _gemini_image_reply, image_bytes, mime_type, question, system_instruction
+        )
+    except Exception as exc:
+        analysis_status = "failed"
+        error_code = _safe_provider_error(exc)
+        await pool.execute(
+            "INSERT INTO events(user_id,event_type,detail,device_id) VALUES($1,'gemini_vision_error',$2,$3)",
+            request["user_id"], error_code, request["device_id"],
+        )
+        reply = ("Fotoğraf sohbete kaydedildi ancak görsel analizi şu anda "
+                 "tamamlanamadı. Fotoğraf geçmişte duruyor; sonra tekrar sorabilirsin.")
+
+    assistant_message_id = await pool.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+        "VALUES($1,$2,'assistant',$3,'cloud-gemini-vision') RETURNING id",
+        conv_uuid, request["user_id"], reply,
     )
+    if analysis_status == "completed":
+        await pool.execute(
+            "INSERT INTO events(user_id,event_type,detail,device_id) "
+            "VALUES($1,'phone_image_context',$2,$3)",
+            request["user_id"], reply[:12000], request["device_id"],
+        )
     return web.json_response({
         "conversation_id": str(conv_uuid),
         "reply": reply,
         "user_message_id": user_message_id,
         "assistant_message_id": assistant_message_id,
-        "uploaded_image_url": "/api/image/uploaded/" + str(user_message_id),
-        "filename": filename,
+        "uploaded_image_url": ("/api/image/uploaded/" + str(user_message_id)) if has_new_image else None,
+        "filename": filename if has_new_image else "",
         "mime_type": mime_type,
+        "analysis_status": analysis_status,
     })
 
 
