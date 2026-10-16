@@ -718,6 +718,10 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
 - PR #37 true interruption changes merged into this dependency branch at 61f3e02; synchronize and validate before production merge.
 
+## 2026-10-15 — PR #5 synchronized with current production
+
+- The current bounded owner/thread paging implementation preserves the original goal and latest correction across bare continuations. Disposable-PostgreSQL conversation suites passed **27/27** on the preceding synchronized base; rerun exact-head CI after this production merge.
+
 ## 2026-10-15 — PR #36 production merge and PR #34 resync
 
 - PR #36/#37 merged to production at squash SHA `378e3b3e6c36b81306e0a9383a18aa84ae4d00a4`; all seven exact-head GitHub Actions checks passed. Render deploy SHA remains subject to a separate health/deploy check.

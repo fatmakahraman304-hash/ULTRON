@@ -260,10 +260,12 @@ def select_contextual_turns(rows, question: str, *, max_chars: int = 3200,
 # 12-16 turns are all status updates. Never make an invented task anchor.
 _BARE_CONTINUATION = folded_regex(
     r"^(?:(?:gölge|golge|ultron)[,!: ]+)?"
-    r"(?:devam(?: et)?|aynen devam et|devam o zaman|"
+    r"(?:devam(?: et)?|aynen devam et|aynı şekilde devam et|"
+    r"devam et böyle|böyle devam et|devam o zaman|"
     r"kaldığın yerden devam(?: et)?|kaldig(in)? yerden devam(?: et)?|"
     r"devam et büyük aşamaya|büyük aşamaya devam et|"
-    r"continue|go on|keep going|carry on)"
+    r"continue(?: like that)?|go on|keep going|carry on)"
+    r"(?:\s+(?:lütfen|lutfen|please))?"
     r"[.! ]*$", re.I,
 )
 
