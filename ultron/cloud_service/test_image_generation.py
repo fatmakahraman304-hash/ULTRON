@@ -238,8 +238,10 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(stored.headers["X-Content-Type-Options"], "nosniff")
             anonymous = await client.get(payload["uploaded_image_url"])
             self.assertNotEqual(anonymous.status, 200)
-            other_owner = self.db.uploaded_rows.pop((1, "owner"), None)
-            self.assertTrue(self.db.uploaded_rows)
+            missing = await client.get("/api/image/uploaded/999999", headers=headers)
+            self.assertEqual(missing.status, 404)
+            invalid = await client.get("/api/image/uploaded/not-an-id", headers=headers)
+            self.assertEqual(invalid.status, 404)
         finally:
             await client.close()
 
