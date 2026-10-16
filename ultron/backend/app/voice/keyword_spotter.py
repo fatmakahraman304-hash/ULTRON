@@ -25,7 +25,7 @@ class KeywordSpotter:
         root=Path(__file__).resolve().parents[2]/'data/voice/wake'
         custom=root/'ultron.onnx'
         if not custom.is_file():
-            raise FileNotFoundError('Custom ULTRON wake model missing: ultron.onnx')
+            raise FileNotFoundError('Özel GÖLGE uyandırma modeli bulunamadı: ultron.onnx')
         selected=str(custom)
         self._model=Model(wakeword_models=[selected],inference_framework='onnx')
         self.keyword='ultron'

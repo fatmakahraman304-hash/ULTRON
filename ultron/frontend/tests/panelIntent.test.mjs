@@ -64,3 +64,11 @@ test("visible dashboard, scene, hologram and accessibility labels use GÖLGE bra
   assert.doesNotMatch(source,/ULTRON|JARVIS|T\.O\.R\.V\.I\.S/,file);
  }
 });
+test("desktop video feedback uses GÖLGE naming, not the retired MARK label",()=>{
+ const dashboard=fs.readFileSync(new URL("../src/dashboard/Dashboard.tsx",import.meta.url),"utf8");
+ const runtime=fs.readFileSync(new URL("../src/dashboard/runtime.ts",import.meta.url),"utf8");
+ assert.match(dashboard,/const mediaVideoIntent=/);
+ assert.match(dashboard,/Video GÖLGE çalışma alanında açılıyor\./);
+ assert.doesNotMatch(dashboard,/MARK video/);
+ assert.doesNotMatch(runtime,/MARK video/);
+});

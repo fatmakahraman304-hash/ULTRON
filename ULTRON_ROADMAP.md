@@ -661,3 +661,9 @@ Next dependency order: finish exact-head CI for PR #34/#35 → merge and verify 
 
 - Memory V4 and Evidence V4 remain stacked as a single reviewable feature chain. The feature branch needs a merge commit from current production because its tracking documents and Scene workflow diverged since the original checks.
 - Acceptance: preserve existing production changes, run Memory/PostgreSQL and Evidence fixtures on the synchronized exact head, and confirm production Render deploy SHA after merge.
+## 2026-10-16 — User-visible GÖLGE naming cleanup
+
+- [x] Replace retired MARK/ULTRON product labels in visible desktop video feedback, mobile conversation-note guidance, and desktop-only API error/title copy.
+- [x] Set the legacy-compatible `ultron_name` setting value to `GÖLGE`.
+- [x] Remove the retired assistant name from active local-model prompts and generated task-report headings; keep old persisted conversation roles readable.
+- [ ] Keep protocol/module/storage keys and the installed custom wake-word identity unchanged until an explicit migration can preserve existing installations and saved browser data.

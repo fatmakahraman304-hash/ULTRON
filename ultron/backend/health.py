@@ -114,6 +114,6 @@ def log_health(health: dict) -> None:
         status, ollama, tts, wake, db_summary,
     )
     print(
-        f"[ULTRON-HEALTH] overall={status} | ollama={ollama} | tts={tts} | wake={wake}",
+        f"[GÖLGE-HEALTH] overall={status} | ollama={ollama} | tts={tts} | wake={wake}",
         flush=True,
     )

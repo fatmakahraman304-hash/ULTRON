@@ -46,7 +46,7 @@ def process_kill(pid):
     import psutil
     pid = int(pid)
     if pid == os.getpid():
-        raise PermissionError("ULTRON kendi sürecini öldüremez")
+        raise PermissionError("GÖLGE kendi sürecini kapatamaz")
     p = psutil.Process(pid)
     name = p.name()
     p.kill()

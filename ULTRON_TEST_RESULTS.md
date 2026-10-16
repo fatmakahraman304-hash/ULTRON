@@ -825,3 +825,16 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 ## 2026-10-15 — PR #34 post-interruption merge validation
 
 - Full Cloud API unittest discovery with disposable PostgreSQL: **387 passed, 7 skipped**. Skips are reported, not counted as passes. Current GitHub Actions for the synchronized PR head: **PENDING**.
+## 2026-10-16 — GÖLGE görünür ad regresyonu
+
+- **PASS:** `python -m unittest discover -s ultron/cloud_service -p 'test_golge_visible_brand_contract.py' -v` — 5 test.
+- **PASS:** `python -m unittest discover -s ultron/cloud_service -p 'test_golge_identity.py' -v` — 4 test.
+- **PASS:** Backend persona/task/cancellation/router/TTS/privacy suites — 68 passed, 1 skipped (hybrid parser fixture did not recognize its deterministic request).
+- **PASS:** `node --experimental-strip-types --test tests/*.test.mjs` — 35 test.
+- **PASS:** `npm run test:earth` — 6 test.
+- **PASS:** `npm run test:bundle` — 1 test.
+- **PASS:** `npm run build` — başarılı; Vite mevcut 575.89 kB OrbitControls chunk uyarısını bildirdi.
+- **PASS:** `python -m py_compile ultron/backend/merged_api.py` ve `python -m json.tool ultron/backend/config/settings.json`.
+- **FAIL (eski toplu harness):** `ultron/backend/test_v2_modules.py` güncel olmayan `build_health` alanlarını ve bulunmayan `UltronRuntime.reload_config()` metodunu bekliyor; persona anchor kontrolü geçti. Bu görevde runtime/harness API'si değiştirilmedi.
+- **NOT RUN:** Gerçek Chromium/Windows/iPhone arayüz testi, gerçek ses/mikrofon ve canlı model bağlantısı. Bu değişiklik yalnızca etiket ve mesaj kopyasıdır.
+- İlk build denemesi `tsc` kurulu olmadığı için çalışmadı; `npm ci --no-audit --no-fund` sonrasında build ve testler geçti.

@@ -734,3 +734,11 @@ Added mobile-friendly download/save for generated and edited results, page-close
 
 - PR #36/#37 merged to production at squash SHA `378e3b3e6c36b81306e0a9383a18aa84ae4d00a4`; all seven exact-head GitHub Actions checks passed. Render deploy SHA remains subject to a separate health/deploy check.
 - PR #34/#35 was rebased by a merge commit onto the new production SHA. Cloud API test discovery against disposable PostgreSQL: **387 passed, 7 skipped**. The latest GitHub Actions must validate the synchronized exact head before PR #34 can merge.
+## 2026-10-16 — GÖLGE görünür ad temizliği
+
+- Masaüstü video oynatma bildirimleri, mobil sohbet notu uyarısı, eski masaüstü API hata/panel metinleri ve health servisinin kullanıcıya görünen ürün etiketi GÖLGE olarak düzenlendi. Ses sahipliği durumu eski `mark` ayarından gelirse dış yanıtta nötr `desktop` olarak verilir.
+- `ultron_name` ayarının değeri GÖLGE yapıldı; anahtar geriye dönük ayar uyumluluğu için korundu.
+- Yerel Qwen sistem yönergesi, persona düzeltme yönergesi ve otomatik görev raporu kimliği GÖLGE olarak değişti. Zorunlu “Boss” hitabı kaldırıldı. Yeni yerel konuşma mesajları GÖLGE rolüyle kaydediliyor; eski ULTRON etiketli satırlar geçmiş bağlamında okunmaya devam ediyor.
+- Yerel TTS hazır mesajı, bağlantı/izin hata metinleri ve süreç sağlık/başlangıç etiketleri GÖLGE adını kullanıyor.
+- Sohbet/hafıza kayıtları, kullanıcı dosyaları ve depolama anahtarları silinmedi. `X-MARK-Token`, `X-ULTRON-DEVICE`, localStorage adları ve özel ULTRON wake-model dosyası değiştirilmedi; bunlar protokol veya kurulu kullanıcı verisi uyumluluğu taşıyor.
+- Bu dal: `codex/golge-brand-cleanup`, başlangıç üretim SHA `f88eec1`. Üretime merge/deploy yapılmadı.

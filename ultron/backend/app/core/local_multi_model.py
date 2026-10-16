@@ -137,7 +137,7 @@ class LocalMultiModel:
                       for i, r in enumerate(successful, 1)]
         judge_messages = [
             {"role": "system", "content": system or
-             "Sen ULTRON'un yerel hakemisin. Adayları doğruluk, göreve uygunluk, eksiksizlik, açıklık ve uygulanabilirlik açısından değerlendir. Yalnızca en iyi adayın numarasını CANDIDATE N biçiminde döndür. Yeni cevap yazma."},
+             "Sen GÖLGE'nin yerel hakemisin. Adayları doğruluk, göreve uygunluk, eksiksizlik, açıklık ve uygulanabilirlik açısından değerlendir. Yalnızca en iyi adayın numarasını CANDIDATE N biçiminde döndür. Yeni cevap yazma."},
             {"role": "user", "content": "\n\n".join(candidates)},
         ]
         started = time.perf_counter()

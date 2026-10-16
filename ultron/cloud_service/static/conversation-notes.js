@@ -40,7 +40,7 @@
       if(busy)return;
       enter();
       const id=thread();
-      if(!id){status("Önce ULTRON'la bir sohbet başlat.");return;}
+      if(!id){status("Önce GÖLGE ile bir sohbet başlat.");return;}
       busy=true;
       try{
         const data=await o.fetchJson("/api/conversation-notes/preview?conversation_id="+encodeURIComponent(id));

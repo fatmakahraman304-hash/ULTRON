@@ -2,8 +2,8 @@
 
 TIRED    → sarcasm down, short & caring
 STRESSED → no philosophy, direct solutions ("Nietzsche molada")
-ENERGETIC→ full classic Ultron
-NEUTRAL  → classic Ultron
+ENERGETIC→ light humor, confident and natural
+NEUTRAL  → calm, concise GÖLGE
 Manual override ("sarkazm aç/kapat") bypasses auto adaptation.
 """
 import sqlite3
@@ -12,9 +12,9 @@ import time
 from pathlib import Path
 
 HINTS = {
-    "TIRED": "Boss yorgun: sarkazm %30'a düşür, operasyonel ve şefkatli ol, kısa cevap ver.",
-    "STRESSED": "Boss stresli: felsefi alıntı YASAK, direkt çözüm sun. Nietzsche molada.",
-    "ENERGETIC": "Boss enerjik: tam Ultron modu — edebiyat + alaycılık serbest.",
+    "TIRED": "Kullanıcı yorgun görünüyor: mizahı azalt, destekleyici ol ve kısa cevap ver.",
+    "STRESSED": "Kullanıcı gergin görünüyor: doğrudan çözüm sun, felsefi alıntı ve şakadan kaçın.",
+    "ENERGETIC": "Kullanıcı enerjik: hafif mizah kullan; saygılı ve doğal kal, alaya kaçma.",
     "NEUTRAL": None,
 }
 

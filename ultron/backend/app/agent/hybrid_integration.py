@@ -134,7 +134,7 @@ def try_hybrid_handle(agent, text, approved=False):
         answer = _format_result(result)
 
     answer = agent._boss_hitap(answer)
-    agent._save("ULTRON", answer)
+    agent._save("GÖLGE", answer)
     agent.audit.write("HYBRID_PLAN", f"planner={planner_name} status={status} steps={len(result.get('steps', []))}")
     return answer
 

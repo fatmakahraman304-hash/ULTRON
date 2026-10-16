@@ -51,7 +51,7 @@ def install(app, hub):
     async def boundary(req, handler):
         if req.path.startswith('/frontend-mobile/'):
             return web.json_response({'ok': False, 'error': 'DESKTOP_ONLY',
-                'message': 'ULTRON uses the original MARK desktop interface. Start START.bat.'}, status=410)
+                'message': 'Bu özellik GÖLGE masaüstü uygulamasında kullanılabilir. START.bat ile uygulamayı başlat.'}, status=410)
         if req.path in ('/merged/hologram', '/merged/dashboard') and req.method == 'GET':
             return await handler(req)
         if token:
@@ -78,8 +78,11 @@ def install(app, hub):
         components['vault'] = bool(rt and rt.vault.health().get('available'))
         components['cloud'] = cloud.enabled
         required_ok = all(value for name, value in components.items() if name != 'cloud')
-        return web.json_response({'service': 'mark-ultron', 'ok': required_ok,
-            'components': components, 'audio_owner': os.environ.get('MARK_AUDIO_OWNER'),
+        audio_owner = os.environ.get('MARK_AUDIO_OWNER')
+        if audio_owner == 'mark':
+            audio_owner = 'desktop'
+        return web.json_response({'service': 'GÖLGE', 'ok': required_ok,
+            'components': components, 'audio_owner': audio_owner,
             'ollama': hub.ai_status, 'cloud': {
                 'enabled': cloud.enabled, 'last_ok_ts': cloud.last_ok_ts,
                 'last_error': cloud.last_error}, 'pid': os.getpid()})
@@ -223,9 +226,9 @@ def install(app, hub):
                         'provider_stopped': False, 'text': ''})
                 answer = str(data.get('reply', '')).strip()
                 if not answer:
-                    raise RuntimeError('ULTRON Cloud returned an empty reply')
+                    raise RuntimeError('GÖLGE Cloud returned an empty reply')
                 hub.memory.add_session('assistant', answer)
-                await hub.on_activity('Desktop chat answered by shared ULTRON Cloud', 'success')
+                await hub.on_activity('Desktop chat answered by shared GÖLGE Cloud', 'success')
                 cancellations.finish(record, 'completed')
                 return web.json_response({
                     'ok': True,
@@ -464,11 +467,11 @@ def install(app, hub):
     async def dashboard(req):
         # Fragment never reaches HTTP logs. Exchange it for a session-only cookie.
         return web.Response(text='''<!doctype html><html lang="tr"><meta charset="utf-8">
-<title>ULTRON</title><p id="status">Panel açılıyor…</p><script>
+<title>GÖLGE</title><p id="status">Panel açılıyor…</p><script>
 const showHologram = location.pathname.endsWith('/hologram');
 const token = location.hash.slice(1); history.replaceState(null, '', location.pathname);
 fetch('/api/merged/session', {method:'POST', headers:{'X-MARK-Token':token}})
-.then(r => {if (!r.ok) throw Error('Yetkilendirme başarısız. MARK panelinden tekrar açın.');
+.then(r => {if (!r.ok) throw Error('Yetkilendirme başarısız. GÖLGE masaüstü uygulamasından tekrar açın.');
 location.replace(showHologram ? '/hologram/hologram.html' : '/frontend/index.html');})
 .catch(e => document.getElementById('status').textContent=e.message);
 </script></html>''', content_type='text/html', headers={'Cache-Control':'no-store',

@@ -1,5 +1,5 @@
 {
-  "ultron_name": "Ultron",
+  "ultron_name": "GÖLGE",
   "wake_word": "ultron",
   "llm": {
     "provider": "ollama",

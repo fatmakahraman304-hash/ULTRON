@@ -291,7 +291,7 @@ class UltronRuntime:
             print(f"[WARN] email connector: {e}")
             self._email = _NullConnector()
 
-        print("[ULTRON-RUNTIME] Başlatma tamamlandı.", flush=True)
+        print("[GÖLGE-RUNTIME] Başlatma tamamlandı.", flush=True)
 
     # ── Internal helpers ─────────────────────────────────────────────────
     def _cached_models(self):
@@ -558,10 +558,10 @@ class UltronRuntime:
                 # Fallback: brain
         if self.brain is not None:
             try:
-                return self.brain.ask(text, system="Sen Ultron'sun, ULTRON tarzı AI asistanısın. Türkçe konuş.")
+                return self.brain.ask(text, system="Sen GÖLGE'sin. Türkçe, doğal ve kanıta dayalı konuş.")
             except Exception as e:
                 return f"İşlemi tamamlayamadım: {e}"
-        return "Ultron şu anda çevrimdışı — Ollama çalışıyor mu?"
+        return "GÖLGE şu anda çevrimdışı — yerel model bağlantısını kontrol et."
 
     # ── Live Voice control ───────────────────────────────────────────────
     def start_live_voice(self) -> dict:
@@ -569,7 +569,7 @@ class UltronRuntime:
         import os
         from app.voice.live_voice_v2 import LiveVoiceV2
         if os.environ.get("MARK_AUDIO_OWNER") == "mark":
-            return {"ok": False, "error": "Microphone owned by MARK"}
+            return {"ok": False, "error": "Mikrofon başka bir masaüstü oturumu tarafından kullanılıyor."}
         if not isinstance(self.live_voice, LiveVoiceV2):
             self.live_voice_error = "Acoustic wake-word engine unavailable"
             return {"ok": False, "error": self.live_voice_error}

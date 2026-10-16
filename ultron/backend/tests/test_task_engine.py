@@ -80,7 +80,7 @@ def test_final_report_and_evaluation_are_durable(tmp_path):
 
     async def runner(task, step, ctx):
         if step["label"] == "report":
-            ctx["final_report"] = "ULTRON FINAL REPORT\nVERIFICATION: PASS\nEVIDENCE: tests passed"
+            ctx["final_report"] = "GÖLGE FINAL REPORT\nVERIFICATION: PASS\nEVIDENCE: tests passed"
             ctx["local_evaluation"] = {"winner": "qwen3:4b", "winner_score": 91.5}
             return {"ok": True, "output": ctx["final_report"]}
         return {"ok": True, "output": "worker output"}
@@ -90,7 +90,7 @@ def test_final_report_and_evaluation_are_durable(tmp_path):
                         {"label": "report", "worker": "report"}])
     out = run(e.execute(t["id"], runner))
     assert out["status"] == "COMPLETED"
-    assert out["result"]["final_report"].startswith("ULTRON FINAL REPORT")
+    assert out["result"]["final_report"].startswith("GÖLGE FINAL REPORT")
     assert out["result"]["local_evaluation"]["winner"] == "qwen3:4b"
 
     fresh = make_engine(str(tmp_path)).get(t["id"])

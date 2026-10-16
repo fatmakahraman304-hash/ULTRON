@@ -133,7 +133,7 @@ class CloudClient:
                        json_body: dict | None = None,
                        timeout: float | None = None) -> dict[str, Any]:
         if not self.enabled:
-            raise RuntimeError("ULTRON Cloud desktop bridge is not configured")
+            raise RuntimeError("GÖLGE Cloud desktop bridge is not configured")
         try:
             loop = asyncio.get_running_loop()
             data = await loop.run_in_executor(
@@ -159,7 +159,7 @@ class CloudClient:
         sharing the Cloud request executor or the audio event loop.
         """
         if not self.enabled:
-            raise RuntimeError("ULTRON Cloud desktop bridge is not configured")
+            raise RuntimeError("GÖLGE Cloud desktop bridge is not configured")
         return self._sync_request(
             "POST", f"/api/device-commands/{int(command_id)}/progress",
             {"delivery_attempt": int(delivery_attempt), "stage": "lease",

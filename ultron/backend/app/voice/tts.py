@@ -135,7 +135,7 @@ class TextToSpeech:
 
     async def warmup(self) -> bool:
         try:
-            await self.synthesize("ULTRON hazır.")
+            await self.synthesize("GÖLGE hazır.")
             return True
         except Exception:
             return False

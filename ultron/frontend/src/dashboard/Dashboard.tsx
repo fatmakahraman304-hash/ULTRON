@@ -279,25 +279,25 @@ export default function Dashboard(){
   }
   return '';
  };
- const markVideoIntent=(text:string):string=>{
+ const mediaVideoIntent=(text:string):string=>{
   if(!u.native?.videoRequest)return '';
   const lower=text.toLocaleLowerCase('tr-TR').trim();
-  // Specific CORE animation presets stay CORE animations; MARK handles actual media.
+  // Specific CORE animation presets stay CORE animations; GÖLGE handles video playback.
   if(/(?:kuş|kus|civciv|nabız|nabiz|yörünge|yorunge|orbit|enerji).*(?:animasyon)/.test(lower))return '';
   if(/(?:video|videoyu|klip|film).*(?:durdur|kapat|kaldır|kaldir)/.test(lower)){
-   u.native.videoRequest('stop','');return 'MARK videosu kapatılıyor.';
+   u.native.videoRequest('stop','');return 'Video durduruluyor.';
   }
   if(/(?:video|videoyu|klip).*(?:duraklat|pause)/.test(lower)){
-   u.native.videoRequest('pause','');return 'MARK videosu duraklatılıyor.';
+   u.native.videoRequest('pause','');return 'Video duraklatılıyor.';
   }
   if(/(?:video|videoyu|klip).*(?:devam|resume)/.test(lower)){
-   u.native.videoRequest('resume','');return 'MARK videosu devam ediyor.';
+   u.native.videoRequest('resume','');return 'Video devam ediyor.';
   }
   if(/(?:video|videoyu|klip).*(?:sesini aç|sesi aç|ses aç)/.test(lower)){
-   u.native.videoRequest('unmute','');return 'MARK video sesi açılıyor.';
+   u.native.videoRequest('unmute','');return 'Video sesi açılıyor.';
   }
   if(/(?:video|videoyu|klip).*(?:sesini kapat|sesi kapat|sessize)/.test(lower)){
-   u.native.videoRequest('mute','');return 'MARK video sesi sessize alınıyor.';
+   u.native.videoRequest('mute','');return 'Video sesi kapatılıyor.';
   }
   const match=text.match(/(?:video(?:yu)?|klip|animasyon)\s+(?:oynat|aç|ac|göster|goster)\s*(.*)$/i)
     ||text.match(/(?:oynat|aç|ac|göster|goster)\s+(?:video|animasyon|klip)\s*(.*)$/i);
@@ -305,10 +305,10 @@ export default function Dashboard(){
   const source=match[1].trim().replace(/^[:\-–]\s*/,'');
   if(!source){
    u.native.videoRequest('open_file','');
-   return 'MARK video dosyası seçiliyor; video GÖLGE CORE içinde açılacak.';
+   return 'Video dosyası seçiliyor; GÖLGE çalışma alanında açılacak.';
   }
   u.native.videoRequest('play',source);
-  return 'MARK videosu GÖLGE CORE içinde açılıyor.';
+  return 'Video GÖLGE çalışma alanında açılıyor.';
  };
  const devIntent=(text:string)=>{
   const t=text.toLocaleLowerCase('tr-TR').replace(/\s+/g,' ').trim();
@@ -350,8 +350,8 @@ export default function Dashboard(){
      return;
    }
   if(devIntent(text)&&u.native?.devRequest){u.add('user',text);u.native.devRequest(text,devTarget(text));u.add('assistant','Geliştirme isteğin Cloud’a kaydediliyor. ChatGPT’ye aktarma ve GitHub/Render doğrulaması gerekecek. Henüz kodu değiştirmedim.');setModal('Geliştir');return;}
-  const markReply=markVideoIntent(text);
-  if(markReply){u.add('user',text);u.add('assistant',markReply);return;}
+  const mediaReply=mediaVideoIntent(text);
+  if(mediaReply){u.add('user',text);u.add('assistant',mediaReply);return;}
   if(model==='native'||chatChannel(u.connected,Boolean(u.native))==='native'){if(u.native)u.native.send(text);return;}
   u.add('user',text);
   try{const stageReply=await stageIntent(text);if(stageReply){u.add('assistant',stageReply);return;}}catch(e){notify((e as Error).message);return;}

@@ -24,7 +24,7 @@ class Agent:
         if mode in ("regenerate","hybrid") and chk["violation_score"] > 0.8:
             try:
                 rw=self.brain.ask(
-                    "Aşağıdaki metni anlamı koruyarak ULTRON'un sakin ve saygılı "
+                    "Aşağıdaki metni anlamı koruyarak GÖLGE'nin sakin ve saygılı "
                     "kişisel asistan üslubuyla yeniden yaz. Doğrudan yardımcı ol; "
                     "gereksiz resmi kalıpları ve kullanıcıyla alayı kaldır:\n"+answer,
                     system=persona_guard.ANCHOR)
@@ -37,14 +37,14 @@ class Agent:
             return PersonaGuard.reframe(answer)
         return answer
     def _boss_hitap(self, answer):
-        if "boss" not in (answer or "").lower():
-            return "Boss, " + answer
+        # Retain the method for older integrations, but do not force a title
+        # or greeting onto every concise local-assistant reply.
         return answer
     def _save(self,role,text): self.memory.add("conversation",f"{role}: {text}")
     def _history(self,limit=20):
         rows=list(reversed(self.memory.recent(limit))); out=[]
         for kind,c,_ in rows:
-            if kind=="conversation" and (c.startswith("USER: ") or c.startswith("ULTRON: ")):
+            if kind=="conversation" and (c.startswith("USER: ") or c.startswith("GÖLGE: ") or c.startswith("ULTRON: ")):
                 role="user" if c.startswith("USER: ") else "assistant"; out.append({"role":role,"content":c.split(": ",1)[1]})
         return out
     def _vision_pipeline(self,text):
@@ -247,13 +247,13 @@ class Agent:
         direct=None if research_result is not None else self._direct(text)
         if direct:
             direct=self._boss_hitap(direct)
-            self._save("ULTRON",direct); self.audit.write("ASSISTANT",direct); return direct
+            self._save("GÖLGE",direct); self.audit.write("ASSISTANT",direct); return direct
         browser=None if research_result is not None else self._browser(text)
         if browser:
-            self._save("ULTRON",browser); return browser
+            self._save("GÖLGE",browser); return browser
         history=self._history(24)
         semantic=(self.semantic_memory.context(text,5) if self.semantic_memory else "")
-        base=("Sen Ultron'sın, ULTRON tarzı Windows masaüstü agentısın. Türkçe konuş. "
+        base=("Sen GÖLGE'sin, Windows masaüstünde çalışan kişisel asistansın. Türkçe konuş. "
                 "Gerçek bir aracı çalıştırmadan bir işlemi yaptığını asla iddia etme. "
                 "Araç başarısızsa açıkça başarısız olduğunu söyle. Bağlamdaki önceki mesajları kullan. "
                 "Kısa cevap isteğinde kısa, ayrıntılı isteğinde ayrıntılı cevap ver. "
@@ -291,7 +291,7 @@ class Agent:
                 if research_result is not None:
                     from app.cognitive.research_context import append_research_sources
                     answer=append_research_sources(answer,research_result)
-                self._save("ULTRON",answer); return answer
+                self._save("GÖLGE",answer); return answer
             messages.append(msg)
             for call in calls:
                 fn=call.get("function",{}); name=fn.get("name",""); args=fn.get("arguments") or {}
@@ -309,4 +309,4 @@ class Agent:
         elif last_error: answer=f"İşlemi tamamlayamadım: {last_error[1]}"
         else: answer="Görevi güvenli adım sınırında tamamlayamadım."
         answer=self._persona_finalize(answer)
-        self._save("ULTRON",answer); return answer
+        self._save("GÖLGE",answer); return answer

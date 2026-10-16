@@ -7,7 +7,7 @@ DEBUG = os.environ.get("ULTRON_VISION_DEBUG", "1") != "0"
 
 def _log(msg: str) -> None:
     if DEBUG:
-        print(f"[ULTRON-VISION] {msg}", flush=True)
+        print(f"[GÖLGE-VISION] {msg}", flush=True)
 
 class VisionLLM:
     """Send a screenshot to a configured Ollama vision model."""
