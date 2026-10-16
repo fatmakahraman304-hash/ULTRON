@@ -86,6 +86,11 @@ jobs:
         run: |
           $env:PYTHONPATH = "$PWD;$PWD\ultron\backend"
           python -m pytest -q ultron/backend/tests/test_model_router.py -k local_system_facts
+      - name: Validate Windows Calculator UIA fail-closed contracts
+        run: |
+          $env:PYTHONPATH = "$PWD;$PWD\ultron\backend"
+          python -m py_compile ultron/backend/app/tools/calculator_gui.py ultron/backend/merged_api.py
+          python -m pytest -q ultron/backend/tests/test_calculator_gui.py
       - name: Probe real Windows facts on GitHub runner
         run: |
           python -c "from actions.system_monitor import get_system_status; s=get_system_status(include_details=True); assert s['os_name']; assert s['cpu_model']; assert s['timezone']; assert isinstance(s['drive_letters'], list); assert isinstance(s['running_processes'], list); print('Windows read-only fact providers: OK')"
