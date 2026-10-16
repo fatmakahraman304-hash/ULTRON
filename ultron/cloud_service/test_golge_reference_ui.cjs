@@ -98,4 +98,11 @@ test('iPhone uploads keep normal chat usable and display sent images',()=>{
  assert.match(backend,/def _gemini_text_document_reply/);
  assert.match(backend,/supported_document_required/);
  assert.match(backend,/application\/octet-stream/);
+ assert.match(backend,/get_uploaded_image/);
+ assert.match(backend,/analysis_status/);
+ assert.match(backend,/SELECT mime_type,image_data,conversation_id FROM uploaded_images/);
+ assert.match(html,/function attachUploadedImage\(bubble,id\)/);
+ assert.match(html,/has_uploaded_image:m\.has_uploaded_image/);
+ assert.match(html,/lastUploadedImageId/);
+ assert.match(html,/form\.append\('image_id',String\(id\)\)/);
 });
