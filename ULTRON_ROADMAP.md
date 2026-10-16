@@ -667,3 +667,8 @@ Next dependency order: finish exact-head CI for PR #34/#35 → merge and verify 
 - [x] Set the legacy-compatible `ultron_name` setting value to `GÖLGE`.
 - [x] Remove the retired assistant name from active local-model prompts and generated task-report headings; keep old persisted conversation roles readable.
 - [ ] Keep protocol/module/storage keys and the installed custom wake-word identity unchanged until an explicit migration can preserve existing installations and saved browser data.
+## Follow-up — owner-reported runtime defects
+
+- Completed in development code: deterministic stop command handling, honest licensed-satellite failure, provider-backed weather chat result, and native desktop file-byte transfer into existing vision/document handlers.
+- Remaining acceptance work: pull the fix onto Windows and repeat the four manual interactions on the actual Qt/native audio path. Confirm local vision model availability separately. No new map provider is configured, so satellite imagery remains unavailable; ordinary street map and the separate Globe remain intact.
+- Release gate: review CI and manual Windows evidence before merging. Do not deploy to Render for this desktop bridge change unless separately required and explicitly authorized.

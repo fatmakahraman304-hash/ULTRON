@@ -828,3 +828,9 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 3. Sonraki doğrulama: Windows masaüstünde video oynatma/durdurma bildirimi ve mobil sohbet notu boş durumunu kontrol et.
 4. Eski `ultron/backend/test_v2_modules.py` health şeması ve `reload_config` beklentilerini güncel runtime ile eşleştir; bu eski harness'te kalan başarısız kontroldür.
 5. PR/merge/deploy henüz yapılmadı; üretim SHA değiştirilmedi.
+## Current task — fix owner-reported GÖLGE manual-use failures (2026-10-16)
+
+1. Review isolated branch `fix/golge-manual-test-failures` and its draft PR. It is based on production `b4086aa`; do not merge/deploy without release authorization.
+2. After the branch is available on Windows, rerun `START.bat`, then manually speak “Dur” during TTS and confirm playback stops; test satellite mode and confirm the unavailable-provider message does not claim the map changed; ask for weather and verify chat repeats provider values; use paperclip and verify an image reaches the vision route. A missing local vision model should show a clear error, not a successful analysis.
+3. Test an approved small PDF/text file as well as an image. The Qt picker transfer is capped at 8 MiB; supported suffixes only. Do not send private test files to Cloud.
+4. The code-runner cannot exercise the owner’s physical microphone, speaker, Windows Qt file dialog or installed vision models. These checks remain NOT RUN until owner repeats them on the laptop. No production merge or Render deploy was done.
