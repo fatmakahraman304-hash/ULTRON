@@ -106,3 +106,61 @@ test('iPhone uploads keep normal chat usable and display sent images',()=>{
  assert.match(html,/lastUploadedImageId/);
  assert.match(html,/form\.append\('image_id',String\(id\)\)/);
 });
+
+test('PDF submit targets real iPhone controls and cannot crash on missing pdfBtn',async()=>{
+ const vm=require('node:vm');
+ const html=file('ultron/cloud_service/static/index.html');
+ const fn=html.split('async function sendPdf(){')[1]?.split('async function cameraFrameApi(')[0];
+ assert.ok(fn,'PDF submission function missing');
+ assert.doesNotMatch(fn,/#pdfBtn/,'removed pdfBtn must not be referenced');
+ for(const id of ['busy','sendBtn','plusBtn','pdfInput','pdfPreview','pdfName','message']){
+   assert.match(html,new RegExp('id="'+id+'"'),'required real PDF control missing: '+id);
+ }
+ async function scenario(documentApi){
+   const elements={
+     '#busy':{textContent:''},'#sendBtn':{disabled:false},
+     '#plusBtn':{disabled:false},'#message':{value:'Belgeyi özetle'},
+     '#pdfInput':{value:'selected'},
+     '#pdfPreview':{classList:{remove(){}}},
+     '#pdfName':{textContent:'example.pdf'},
+   };
+   const notes=[],alerts=[];
+   const context={
+     pendingPdf:{name:'example.pdf'},conversationId:'',messageSignature:'old',
+     voiceEnabled:false,voiceListening:false,
+     $:selector=>elements[selector]||null,
+     documentApi:(...args)=>documentApi(elements,...args),
+     addMessage:(role,content)=>notes.push({role,content}),
+     localStorage:{setItem(){}},toast:msg=>alerts.push(msg),
+   };
+   context.clearPendingPdf=()=>{
+     context.pendingPdf=null;
+     elements['#pdfInput'].value='';
+     elements['#pdfPreview'].classList.remove('show');
+     elements['#pdfName'].textContent='';
+   };
+   const sendPdf=vm.runInNewContext('async function sendPdf(){'+fn+'\n sendPdf',context);
+   const value=await sendPdf();
+   return {value,context,notes,alerts,elements};
+ }
+ let busyWasDisabled=false;
+ const ok=await scenario(async (elements,file,question)=>{
+   busyWasDisabled=elements['#sendBtn'].disabled&&elements['#plusBtn'].disabled;
+   assert.equal(file.name,'example.pdf');
+   assert.equal(question,'Belgeyi özetle');
+   return {reply:'PDF özeti hazır',conversation_id:'test-conversation'};
+ });
+ assert.equal(ok.value,true);
+ assert.equal(busyWasDisabled,true,'real send and attachment buttons must disable during send');
+ assert.equal(ok.elements['#sendBtn'].disabled,false);
+ assert.equal(ok.elements['#plusBtn'].disabled,false);
+ assert.equal(ok.elements['#busy'].textContent,'');
+ assert.equal(ok.context.pendingPdf,null);
+ assert.ok(ok.notes.some(x=>x.role==='assistant'&&x.content==='PDF özeti hazır'));
+ const fail=await scenario(async ()=>{throw new Error('Sunucuya bağlanılamadı')});
+ assert.equal(fail.value,false);
+ assert.equal(fail.context.pendingPdf,null,'failed PDF must not hijack future chat');
+ assert.equal(fail.elements['#sendBtn'].disabled,false);
+ assert.equal(fail.elements['#plusBtn'].disabled,false);
+ assert.ok(fail.notes.some(x=>x.role==='assistant'&&x.content.includes('Sunucuya bağlanılamadı')));
+});
