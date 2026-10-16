@@ -32,6 +32,22 @@ CREATE TABLE IF NOT EXISTS generated_images (
 CREATE INDEX IF NOT EXISTS idx_generated_images_owner_recent
   ON generated_images(user_id, created_at DESC, message_id DESC);
 
+-- User-submitted photos are scoped to the owner's own chat message.
+-- Keep at most 12 photos per owner for up to 30 days, like generated images.
+-- Never expose uploaded bytes via public static paths.
+CREATE TABLE IF NOT EXISTS uploaded_images (
+  message_id BIGINT PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  mime_type TEXT NOT NULL CHECK (mime_type IN (
+    'image/jpeg','image/png','image/webp','image/heic','image/heif'
+  )),
+  image_data BYTEA NOT NULL CHECK (octet_length(image_data) BETWEEN 1 AND 8388608),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_uploaded_images_owner_recent
+  ON uploaded_images(user_id, created_at DESC, message_id DESC);
+
 CREATE TABLE IF NOT EXISTS memories (
   user_id TEXT NOT NULL,
   category TEXT NOT NULL DEFAULT 'FACT',
