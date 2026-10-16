@@ -11,6 +11,71 @@ from aiohttp import web
 
 from cloud_client import CloudClient, safe_cloud_error
 from ultron.cloud_service.conversation_persona import classify_intent
+from ultron.cloud_service.text_normalization import fold_turkish
+import re
+
+
+def _requested_local_system_facts(text: str) -> tuple[str, ...]:
+    """Recognize explicit questions about THIS computer, never generic OS advice.
+
+    Do not send device details to a chat model just to interpret the request.
+    """
+    t = fold_turkish(text)
+    personal = bool(re.search(
+        r"\b(?:benim|bilgisayarim(?:in|daki|da)?|laptopum(?:un|daki|da)?|"
+        r"cihazim(?:in|daki|da)?|pc(?:m|min))\b", t,
+    ))
+    patterns = (
+        ("windows", r"\b(?:windows|isletim sistemi)(?:\s+\w+)?\s+surumum(?:u)?\b",
+         r"\b(?:windows|isletim sistemi)(?:\s+\w+)?\s+surum\w*\b"),
+        ("cpu", r"\b(?:islemci(?:\s+model)?|cpu(?:\s+model)?)m(?:i)?\b|"
+         r"\b(?:islemci|cpu)\s+modelim(?:i)?\b",
+         r"\b(?:islemci|cpu)(?:\s+model\w*)?\b"),
+        ("ram", r"\b(?:ram|bellek)(?:\s+(?:miktarim|kapasitem))?(?:i)?\b|"
+         r"\b(?:ram|bellek)\s+(?:miktarim|kapasitem)(?:i)?\b",
+         r"\b(?:ram|bellek)\b"),
+        ("timezone", r"\bsaat\s+dilimim(?:i)?\b",
+         r"\bsaat\s+dilim\w*\b"),
+        ("microphone", r"\b(?:varsayilan\s+)?mikrofonum(?:u)?\b",
+         r"\b(?:mikrofon|microphone)\w*\b"),
+    )
+    fields = []
+    for name, owned_pattern, general_pattern in patterns:
+        if re.search(owned_pattern, t) or (
+            personal and re.search(general_pattern, t)
+        ):
+            fields.append(name)
+    # Clear ownership and at least one specific machine fact are required.
+    # "Windows 11'in özellikleri" or "RAM nedir?" remain normal chat.
+    if not fields:
+        return ()
+    # A generic question with no ownership isn't a request for local data.
+    if not personal and not any(re.search(p[1], t) for p in patterns):
+        return ()
+    return tuple(fields)
+
+
+def _format_local_system_facts(status: dict, fields: tuple[str, ...]) -> str:
+    """Only display the requested fields, never process/window/network inventory."""
+    labels = {
+        "windows": "Windows sürümü", "cpu": "İşlemci modeli",
+        "ram": "Toplam RAM", "timezone": "Saat dilimi",
+        "microphone": "Varsayılan mikrofon",
+    }
+    results = {
+        "windows": (f"{status.get('os_name')} (derleme {status.get('os_version')})"
+                    if status.get("os_name") and status.get("os_version")
+                    else status.get("os_name")),
+        "cpu": status.get("cpu_model"),
+        "ram": (f"{status['ram_total_gb']} GB"
+                if isinstance(status.get("ram_total_gb"), (float, int))
+                and status["ram_total_gb"] > 0 else None),
+        "timezone": status.get("timezone"),
+        "microphone": status.get("default_microphone"),
+    }
+    return "\n".join(f"{labels[field]}: {results[field] or 'Bilgi okunamadı'}"
+                     for field in fields)
+
 from app.core.request_cancellation import (
     ProviderRequestCancelled, RequestCancellationRegistry,
     valid_request_id, valid_request_key,
@@ -115,6 +180,39 @@ def install(app, hub):
             return web.json_response({'ok': False, 'status': 'cancelled_before_start',
                                       'request_id': request_id, 'provider_stopped': False,
                                       'text': ''})
+        # A locally-owned machine fact question is read on the laptop, never
+        # answered by Cloud Gemini or guessed by a text-only Ollama model.
+        # It is strictly read-only and does not invoke arbitrary tools.
+        local_facts = (_requested_local_system_facts(text)
+                       if mode in ('auto', 'general', 'fast') else ())
+        if local_facts:
+            cancellations.set_provider(record, 'desktop-system-facts',
+                                       cancellable=False, started=False)
+            if record.cancel_event.is_set():
+                cancellations.finish(record, 'cancelled_before_start')
+                return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                    'request_id': request_id, 'provider_stopped': False, 'text': ''})
+            try:
+                from actions.system_monitor import get_system_status
+                cancellations.set_provider(record, 'desktop-system-facts',
+                                           cancellable=False, started=True)
+                facts = await asyncio.to_thread(get_system_status, include_details=True)
+                if record.cancel_event.is_set():
+                    cancellations.finish(record, 'output_suppressed')
+                    return web.json_response({'ok': False, 'status': 'output_suppressed',
+                        'request_id': request_id, 'provider_stopped': False, 'text': ''})
+                answer = _format_local_system_facts(facts, local_facts)
+                cancellations.finish(record, 'completed')
+                return web.json_response({'ok': True, 'text': answer,
+                                          'source': 'desktop-local-read-only',
+                                          'request_id': request_id})
+            except Exception:
+                # Fail closed: don't invent facts or reveal raw local exceptions.
+                cancellations.finish(record, 'failed')
+                return web.json_response({'ok': False,
+                    'text': 'Bilgisayarın sistem bilgileri şu anda okunamadı.',
+                    'error_code': 'local_system_facts_unavailable',
+                    'request_id': request_id}, status=503)
         intent = classify_intent(text)
         # General/coding/fast are presentation/model preferences. An
         # explicit computer operation still belongs to the existing local
