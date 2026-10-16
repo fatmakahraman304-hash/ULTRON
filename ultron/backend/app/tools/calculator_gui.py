@@ -130,6 +130,33 @@ def _verified_calculator(window) -> bool:
     return False
 
 
+def _calculator_control(window, automation_id: str, *, button: bool = False):
+    """Resolve a descendant of a UIAWrapper by AutomationId.
+
+    Desktop(backend='uia').windows() gives UIAWrapper objects, NOT a
+    WindowSpecification. UIAWrapper has descendants() but no child_window().
+    Only actual CalculatorApp/Calculator process-owned descendants qualify.
+    """
+    if not _verified_calculator(window):
+        raise CalculatorUnavailable("calculator_identity_changed")
+    try:
+        matches = []
+        for child in window.descendants():
+            info = child.element_info
+            if info.automation_id != automation_id:
+                continue
+            if button and str(info.control_type).casefold() != "button":
+                continue
+            if _process_name(info.process_id) not in _TRUSTED_CALCULATOR_PROCESSES:
+                continue
+            matches.append(child)
+    except Exception as exc:
+        raise CalculatorUnavailable("calculator_control_not_verified") from exc
+    if len(matches) != 1:
+        raise CalculatorUnavailable("calculator_control_not_verified")
+    return matches[0]
+
+
 def _locate_calculator_window():
     from pywinauto import Desktop
     matches = []
@@ -137,9 +164,10 @@ def _locate_calculator_window():
         if not _verified_calculator(window):
             continue
         try:
-            window.child_window(auto_id="CalculatorResults").wrapper_object()
-            window.child_window(auto_id="clearButton", control_type="Button").wrapper_object()
-        except (AttributeError, LookupError, RuntimeError):
+            _calculator_control(window, "CalculatorResults")
+            _calculator_control(window, "clearButton", button=True)
+            _calculator_control(window, "equalButton", button=True)
+        except CalculatorUnavailable:
             continue
         matches.append(window)
     # Do not choose arbitrarily among multiple or unverified windows.
@@ -147,12 +175,10 @@ def _locate_calculator_window():
 
 
 def _invoke_button(window, automation_id: str) -> None:
-    if not _verified_calculator(window):
-        raise CalculatorUnavailable("calculator_identity_changed")
+    if automation_id not in _BUTTONS.values():
+        raise CalculatorUnavailable("calculator_button_not_allowed")
     try:
-        button = window.child_window(
-            auto_id=automation_id, control_type="Button"
-        ).wrapper_object()
+        button = _calculator_control(window, automation_id, button=True)
         pattern = button.iface_invoke
         if pattern is None:
             raise CalculatorUnavailable("calculator_button_not_invokable")
@@ -184,10 +210,10 @@ def _result_matches(actual: str, expected: int) -> bool:
 
 
 def _read_result(window) -> str:
-    if not _verified_calculator(window):
-        raise CalculatorUnavailable("calculator_identity_changed")
     try:
-        return window.child_window(auto_id="CalculatorResults").wrapper_object().window_text()
+        return _calculator_control(window, "CalculatorResults").window_text()
+    except CalculatorUnavailable:
+        raise
     except Exception as exc:
         raise CalculatorUnavailable("calculator_result_unavailable") from exc
 
