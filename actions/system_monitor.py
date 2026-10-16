@@ -110,6 +110,129 @@ def _get_cpu_temp() -> float:
     return -1.0
 
 
+
+def _windows_system_facts() -> dict:
+    """Read-only Windows facts. Unknown values remain None, never guessed."""
+    if platform.system() != "Windows":
+        return {}
+    import os
+    import sys
+    facts = {
+        "os_name": None, "os_version": None, "cpu_model": None,
+        "timezone": None, "drive_letters": [], "default_browser": None,
+        "network_interface": None, "network_type": None,
+        "active_windows": [], "running_processes": [],
+        "default_microphone": None,
+    }
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"HARDWARE\DESCRIPTION\System\CentralProcessor\0") as key:
+            facts["cpu_model"] = str(winreg.QueryValueEx(key, "ProcessorNameString")[0]).strip()
+    except (OSError, ValueError):
+        pass
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion") as key:
+            name = str(winreg.QueryValueEx(key, "ProductName")[0])
+            build = int(winreg.QueryValueEx(key, "CurrentBuildNumber")[0])
+            if build >= 22000 and name.lower().startswith("windows 10"):
+                name = name.replace("Windows 10", "Windows 11", 1)
+            facts["os_name"] = name
+            facts["os_version"] = str(build)
+    except (OSError, ValueError, TypeError):
+        pass
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SYSTEM\CurrentControlSet\Control\TimeZoneInformation") as key:
+            facts["timezone"] = str(winreg.QueryValueEx(key, "TimeZoneKeyName")[0])
+    except (OSError, ValueError):
+        pass
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice") as key:
+            progid = str(winreg.QueryValueEx(key, "ProgId")[0])
+            identifiers = {"chromehtml": "Google Chrome", "msedgehtm": "Microsoft Edge",
+                           "firefoxurl": "Mozilla Firefox", "bravehtml": "Brave",
+                           "operastable": "Opera"}
+            lowered = progid.casefold()
+            facts["default_browser"] = next(
+                (label for prefix, label in identifiers.items() if prefix in lowered), None
+            )
+    except (OSError, ValueError):
+        pass
+    try:
+        partitions = psutil.disk_partitions(all=False)
+        facts["drive_letters"] = sorted({
+            p.mountpoint[:2].upper() for p in partitions
+            if len(p.mountpoint) >= 2 and p.mountpoint[1] == ":"
+        })
+    except (OSError, ValueError):
+        pass
+    try:
+        import socket
+        interfaces = psutil.net_if_stats()
+        addresses = psutil.net_if_addrs()
+        candidates = []
+        for name, stat in interfaces.items():
+            if not stat.isup or name not in addresses:
+                continue
+            if not any(a.family == socket.AF_INET and
+                       not a.address.startswith("169.254.") for a in addresses[name]):
+                continue
+            lower = name.casefold()
+            kind = ("Wi-Fi" if any(token in lower for token in ("wi-fi", "wifi", "wlan"))
+                    else "Ethernet" if "ethernet" in lower else None)
+            if kind:
+                candidates.append((name, kind))
+        # Multiple active adapters: cannot infer the default internet route.
+        if len(candidates) == 1:
+            facts["network_interface"], facts["network_type"] = candidates[0]
+    except (OSError, ValueError):
+        pass
+    try:
+        names = {p.info["name"] for p in psutil.process_iter(["name"])
+                 if p.info.get("name")}
+        facts["running_processes"] = sorted(names, key=str.casefold)[:300]
+    except (OSError, ValueError):
+        pass
+    try:
+        user32 = ctypes.windll.user32
+        windows = []
+        callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+        @callback_type
+        def collect(hwnd, _):
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            length = user32.GetWindowTextLengthW(hwnd)
+            if not 0 < length <= 512:
+                return True
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            if buf.value:
+                windows.append(buf.value)
+            return len(windows) < 80
+
+        user32.EnumWindows(collect, 0)
+        facts["active_windows"] = windows
+    except (AttributeError, OSError, ValueError):
+        pass
+    try:
+        import sounddevice as sd
+        index = sd.default.device[0]
+        if index is not None and int(index) >= 0:
+            device = sd.query_devices(int(index))
+            if device.get("max_input_channels", 0) > 0:
+                facts["default_microphone"] = str(device["name"])
+    except (ImportError, OSError, ValueError, TypeError, IndexError):
+        pass
+    return facts
+
+
 def get_system_status() -> dict:
     """Snapshot of current system metrics for the system_status tool."""
     cpu  = psutil.cpu_percent(interval=0.2)
@@ -131,6 +254,9 @@ def get_system_status() -> dict:
         "gpu_percent":   round(gpu,  1) if gpu  >= 0 else None,
         "uptime":        f"{uptime_h}h {uptime_m}m",
         "process_count": len(psutil.pids()),
+        # Facts used by speech/chat must come from the owner's actual Windows
+        # session rather than the language model's guesses.
+        **_windows_system_facts(),
     }
 
 
