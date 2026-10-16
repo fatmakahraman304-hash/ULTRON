@@ -31,12 +31,17 @@ class ProviderErrorPrivacyTests(unittest.IsolatedAsyncioTestCase):
                 self.assertNotIn("private", label)
 
     async def test_vision_failure_does_not_store_or_return_raw_provider_error(self):
-        class FakeDB:
+        from test_image_generation import FakeDB as ImageFakeDB
+
+        class FakeDB(ImageFakeDB):
             def __init__(self):
+                super().__init__()
                 self.events = []
 
             async def execute(self, sql, *args):
-                self.events.append((sql, args))
+                await super().execute(sql, *args)
+                if "INSERT INTO events" in sql:
+                    self.events.append((sql, args))
 
         secret = "AIzaSyD-PRIVATE-REQUEST-CONTENT"
         db = FakeDB()
@@ -62,9 +67,14 @@ class ProviderErrorPrivacyTests(unittest.IsolatedAsyncioTestCase):
             body = await response.text()
         finally:
             await client.close()
-        self.assertEqual(response.status, 502)
+        # Analysis may fail, but the user-uploaded image is retained and the
+        # response accurately says analysis did not complete.
+        self.assertEqual(response.status, 200)
+        self.assertIn('"analysis_status": "failed"', body)
+        self.assertIn("kaydedildi", body)
         self.assertNotIn(secret, body)
         self.assertNotIn("private prompt", body)
+        self.assertEqual(len(db.uploaded_rows), 1)
         self.assertEqual(len(db.events), 1)
         detail = db.events[0][1][1]
         self.assertEqual(detail, "provider_request_failed")
