@@ -66,6 +66,10 @@ def test_ollama_offline_bounded_attempts():
 
 def test_mark_core_preserved():
     # Core voice/UI implementations remain available in the MARK namespace.
+    try:
+        import sounddevice  # noqa: F401
+    except (ImportError, OSError) as exc:
+        pytest.skip(f'Audio native dependency unavailable in this runner: {exc}')
     result=subprocess.run([sys.executable,'-m','integration.doctor','--probe','MARK imports'],cwd=ROOT,capture_output=True,text=True,timeout=60)
     assert result.returncode==0,result.stderr
 
@@ -169,6 +173,8 @@ def test_caller_cannot_self_approve_write(service,tmp_path):
 
 
 def test_second_instance_does_not_spawn(service):
+    if os.name != 'nt':
+        pytest.skip('The launcher instance lock uses the Windows msvcrt file lock')
     with pytest.raises(RuntimeError,match='zaten'):
         with Services():
             pytest.fail('second instance acquired lock')

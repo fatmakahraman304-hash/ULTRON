@@ -828,3 +828,10 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 3. Sonraki doğrulama: Windows masaüstünde video oynatma/durdurma bildirimi ve mobil sohbet notu boş durumunu kontrol et.
 4. Eski `ultron/backend/test_v2_modules.py` health şeması ve `reload_config` beklentilerini güncel runtime ile eşleştir; bu eski harness'te kalan başarısız kontroldür.
 5. PR/merge/deploy henüz yapılmadı; üretim SHA değiştirilmedi.
+## 2026-10-16 — Sıradaki doğrulama adımları
+
+1. Windows laptop güncel `b4086aa` sürümünde `DOCTOR.bat` çalıştır; tüm temel kontrolleri ve `Backend/bridge` sonucunu paylaş. Kullanıcının ekran görüntüsü `START.bat` masaüstünün açıldığını ve servis/backend bağlantısını gösteriyor; gerçek chat/model/araç sonucu henüz yok.
+2. Arayüzde kısa bir Qwen sohbeti dene; sonra yalnızca izinli, geri alınabilir bir işlemle gerçek araç/Approval Gate akışını kontrol et. `Chrome'u aç` için araç sonucu oluşmadan başarı sayma.
+3. `Wake word` doktoru özel model bulunamadığını bildiriyor. Model kurulana dek mikrofonu elle başlat; sürekli uyandırma desteği varmış gibi kabul etme.
+4. Fiziksel iPhone Safari'de giriş, geçmiş, klavye/safe-area, mikrofon izni ve ağ kesintisi testleri. Bu Linux test ortamında cihaz testi yapılamaz.
+5. Render `https://ultron-yubh.onrender.com/health` son taramada HTTP 200 ve SHA `c554d64` verdi. PR #53 sadece masaüstü başlatıcı/test katmanını değiştirdi; Render'da yeni deploy beklenmiyor.

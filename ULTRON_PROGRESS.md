@@ -742,3 +742,10 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Yerel TTS hazır mesajı, bağlantı/izin hata metinleri ve süreç sağlık/başlangıç etiketleri GÖLGE adını kullanıyor.
 - Sohbet/hafıza kayıtları, kullanıcı dosyaları ve depolama anahtarları silinmedi. `X-MARK-Token`, `X-ULTRON-DEVICE`, localStorage adları ve özel ULTRON wake-model dosyası değiştirilmedi; bunlar protokol veya kurulu kullanıcı verisi uyumluluğu taşıyor.
 - Bu dal: `codex/golge-brand-cleanup`, başlangıç üretim SHA `f88eec1`. Üretime merge/deploy yapılmadı.
+## 2026-10-16 — Tam otomatik test taraması ve Windows açılış düzeltmesi
+
+- PR #53 `b4086aa` ile birleştirildi. Windows başlatıcısı mevcut `GÖLGE` sağlık kimliğini ve eski uyumlu kimliği tanıyor; kullanıcının ekran görüntüsünde masaüstü arayüzü açılmış ve servis/backend bağlı görünüyordu.
+- Tam yerel tarama: kök + backend **1.301 geçti / 5 atlandı**; cloud service **326 geçti / 75 PostgreSQL testi atlandı / 344 subtest**; scripts **73 geçti / 6 PostgreSQL testi atlandı / 20 subtest**; frontend **42 JS testi geçti**, TypeScript/Vite build başarılı; `npm audit --omit=dev` sıfır açık.
+- Test bakımı: araştırma kaynağı fikstürü bağımsız içerik eşiğini gerçekçi karşılayacak şekilde genişletildi. PortAudio ve Windows `msvcrt` sınırları Linux runner'da koşul-bağımlı skip olarak gösteriliyor; ürün doğrulaması iddiası değildir.
+- PR #53 `verify` ve `windows-bootstrap-syntax` başarılı. Render `/health` HTTP 200, hâlâ `c554d64`; bu masaüstü başlatıcı değişikliği Render servisi için yeni runtime kodu değildir.
+- Fiziksel iPhone, gerçek Windows mikrofon/TTS/GPU ve Gemini canlı çıkarımı bu taramada çalıştırılmadı. Kullanıcının Windows ekranı masaüstü açılışını gösteriyor; `Chrome'u aç` araç sonucunu göstermiyor. Wake-word modeli hâlâ ayrıca kurulmalı.

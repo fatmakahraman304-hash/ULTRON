@@ -840,3 +840,11 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 - **FAIL (eski toplu harness):** `ultron/backend/test_v2_modules.py` güncel olmayan `build_health` alanlarını ve bulunmayan `UltronRuntime.reload_config()` metodunu bekliyor; persona anchor kontrolü geçti. Bu görevde runtime/harness API'si değiştirilmedi.
 - **NOT RUN:** Gerçek Chromium/Windows/iPhone arayüz testi, gerçek ses/mikrofon ve canlı model bağlantısı. Bu değişiklik yalnızca etiket ve mesaj kopyasıdır.
 - İlk build denemesi `tsc` kurulu olmadığı için çalışmadı; `npm ci --no-audit --no-fund` sonrasında build ve testler geçti.
+## 2026-10-16 — Tam test taraması (HEAD b4086aa)
+
+- Kök + backend: `PYTHONPATH=ultron/backend python -m pytest -q` → **1.301 passed, 5 skipped, 6 subtests passed**. Atlananlar: PortAudio native library yok, Windows'a özel `msvcrt` kilidi Linux'ta yok, deterministik parser örneği tanınmadı, kullanıcı Picovoice anahtarı yok, fiziksel Windows/audio/screen E2E gerekli.
+- Cloud: `PYTHONPATH=ultron/backend python -m pytest ultron/cloud_service -q` → **326 passed, 75 skipped, 344 subtests passed**. PostgreSQL isteyenler için bu ortamda disposable test veritabanı yok; uyarı: 13 aiohttp AppKey/RequestKey bildirimi.
+- Yardımcı scriptler: `PYTHONPATH=ultron/backend python -m pytest scripts/tests -q` → **73 passed, 6 skipped, 20 subtests passed**; atlananlar disposable PostgreSQL gerektiriyor.
+- Frontend: `npm ci`; `npm run build` PASS (TypeScript + Vite); Earth **6/6**, lazy bundle **1/1**, tüm `tests/*.test.mjs` **35/35**: toplam **42 JS testi geçti**. Mevcut OrbitControls chunk uyarısı 575.89 kB minified / 146.14 kB gzip.
+- Güvenlik: `npm audit --omit=dev` → **0 vulnerabilities**. GitHub merge SHA `b4086aa`: Scene Build Check run `38873071534` SUCCESS; PR #53 exact-head `verify` ve `windows-bootstrap-syntax` SUCCESS.
+- Canlı servis: Render `/health` HTTP 200, `ok=true`, commit `c554d64`. Yeni değişiklik yerel launcher/test kapsamındadır; Render'a yeni deploy yapılmadı. Gerçek Gemini, iPhone, Windows GPU/mikrofon/TTS ve 3D FPS testleri bu ortamda NOT RUN.
