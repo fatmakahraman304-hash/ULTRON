@@ -433,7 +433,7 @@
         <div class="row"><button id="voiceBtn" class="voice-btn" aria-label="GÖLGE mikrofonu" title="Konuşmak için dokun">◉</button><div class="attach-wrap"><button id="plusBtn" class="plus-btn" aria-label="Dosya ve kamera menüsü" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 11.8 20.2a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 1 1 5 5l-9.3 9.3a2 2 0 1 1-2.8-2.8l8.5-8.5"/></svg></button><div id="attachMenu" class="attach-menu"><button id="photoOption" type="button"><span>🖼️</span><span>Fotoğraf<small>Galeriden görsel seç</small></span></button><button id="pdfOption" type="button"><span>📄</span><span>PDF<small>Belge ekle ve analiz et</small></span></button><button id="cameraOption" type="button"><span>◉</span><span>Canlı kamera<small>Kamerayı aç ve göster</small></span></button></div></div><textarea id="message" class="grow" placeholder="GÖLGE'a yaz..."></textarea><button id="sendBtn" aria-label="Gönder">Gönder</button></div>
         <input id="imageInput" type="file" accept="image/*" class="hidden" />
         <input id="pdfInput" type="file" accept="application/pdf,.pdf,text/plain,.txt,.md,.csv" class="hidden" />
-        <div id="imagePreview" class="image-preview"><img id="imageThumb" alt="Seçilen görsel"/><span id="imageName"></span><button id="clearImage" type="button">Kaldır</button></div>
+        <div id="imagePreview" class="image-preview"><img id="imageThumb" alt="Seçilen görsel"/><span id="imageName"></span><button id="clearImage" type="button">Kaldır</button><small>Gönderilen fotoğraf sohbet geçmişinde en fazla 30 gün, son 12 fotoğraf sınırıyla saklanır.</small></div>
         <div id="pdfPreview" class="image-preview"><span style="font-size:22px">📄</span><span id="pdfName"></span><button id="clearPdf" type="button">Kaldır</button></div>
         <div id="cameraPanel" class="camera-panel">
           <div class="camera-wrap"><video id="cameraVideo" autoplay muted playsinline></video><div class="camera-hud"></div></div>
@@ -1055,8 +1055,8 @@ function chooseImage(file){
   pendingImage=file;pendingImageUrl=URL.createObjectURL(file);
   $('#imageThumb').src=pendingImageUrl;$('#imageName').textContent=file.name||'Fotoğraf';$('#imagePreview').classList.add('show');
 }
-// The original photo should appear in its sent message, not only in the
-// transient selection preview. Never persist the user's photo without consent.
+// Show the selected photo immediately; after a successful send, replace the
+// transient blob with its authenticated, owner-scoped chat-history URL.
 function showSubmittedPhoto(bubble,file){
   const img=document.createElement('img');
   const url=URL.createObjectURL(file);
@@ -1065,19 +1065,27 @@ function showSubmittedPhoto(bubble,file){
   img.onload=()=>URL.revokeObjectURL(url);
   img.onerror=()=>URL.revokeObjectURL(url);
   img.src=url;bubble.appendChild(img);
+  return img;
 }
 async function sendImage(){
   const file=pendingImage;if(!file)return false;
   const question=$('#message').value.trim();
   $('#busy').textContent='GÖLGE görseli inceliyor…';$('#sendBtn').disabled=true;$('#plusBtn').disabled=true;
   const userBubble=addMessage('user','📷 '+(question||'Bu görseli analiz et.'));
-  showSubmittedPhoto(userBubble,file);
+  const photoNode=showSubmittedPhoto(userBubble,file);
   try{
     const d=await visionApi(file,question);
     lastImageFile=file;
     conversationId=d.conversation_id||conversationId;if(conversationId)localStorage.setItem('ultronConversationId',conversationId);
     lastImageConversationId=conversationId;
-    if(d.user_message_id){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
+    if(d.user_message_id){
+      const photoId=Number(d.user_message_id);
+      userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(photoId);
+      if(Number.isSafeInteger(photoId)&&photoId>0){
+        photoNode.onerror=()=>{photoNode.alt='Fotoğraf geçmişinden yüklenemedi.'};
+        photoNode.src='/api/image/uploaded/'+photoId;
+      }
+    }
     addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';clearPendingImage();$('#message').value='';
     if(voiceEnabled&&!voiceListening)speakUltron(d.reply);
     toast('Görsel analiz edildi. Sesli modda bu fotoğraf hakkında soru sorabilirsin.');
@@ -1772,11 +1780,23 @@ function attachGeneratedImage(bubble,id){
   img.src=url;
   bubble.append(img,link,error);
 }
+function attachUploadedImage(bubble,id){
+  // Never accept a URL or a filename from the model; use an integer DB ID.
+  const messageId=Number(id);
+  if(!Number.isSafeInteger(messageId)||messageId<=0)return;
+  const img=document.createElement('img');
+  img.alt='Gönderilen fotoğraf';img.loading='lazy';img.decoding='async';
+  img.style.cssText='display:block;max-width:min(100%,280px);max-height:260px;object-fit:contain;border-radius:12px;margin-top:8px';
+  img.onerror=()=>{img.alt='Fotoğraf bulunamadı veya saklama süresi doldu.'};
+  img.src='/api/image/uploaded/'+messageId;
+  bubble.appendChild(img);
+}
 function addMessage(role,content,meta={}){
   const d=document.createElement('div');d.className='msg '+role;
   const body=document.createElement('span');body.textContent=cleanChatText(content);d.appendChild(body);
   if(meta.has_generated_image&&meta.id!=null)attachGeneratedImage(d,meta.id);
-  else if(meta.image_unavailable){
+  else if(meta.has_uploaded_image&&meta.id!=null)attachUploadedImage(d,meta.id);
+  else if(meta.image_unavailable||meta.uploaded_image_unavailable){
     const note=document.createElement('small');
     note.textContent='Eski görsel kaydı bulunamadı. Yeniden oluşturabilirsin.';
     note.style.cssText='display:block;margin-top:8px;color:#b8d0d9';
@@ -1815,9 +1835,9 @@ async function loadMessages(){
           match.dataset.cloudId=String(m.id);
           const later=[...$('#messages').children].find(x=>x!==match&&x.dataset.cloudId&&Number(x.dataset.cloudId)>id);
           $('#messages').insertBefore(match,later||null);
-        }else addMessage(m.role,m.content,{id:m.id,created_at:m.created_at,has_generated_image:m.has_generated_image,image_unavailable:m.image_unavailable});
+        }else addMessage(m.role,m.content,{id:m.id,created_at:m.created_at,has_generated_image:m.has_generated_image,has_uploaded_image:m.has_uploaded_image,image_unavailable:m.image_unavailable,uploaded_image_unavailable:m.uploaded_image_unavailable});
       }else{
-        addMessage(m.role,m.content,{id:m.id,created_at:m.created_at,has_generated_image:m.has_generated_image,image_unavailable:m.image_unavailable});
+        addMessage(m.role,m.content,{id:m.id,created_at:m.created_at,has_generated_image:m.has_generated_image,has_uploaded_image:m.has_uploaded_image,image_unavailable:m.image_unavailable,uploaded_image_unavailable:m.uploaded_image_unavailable});
         if(m.role==='assistant')appendedAssistant++;
       }
     }
