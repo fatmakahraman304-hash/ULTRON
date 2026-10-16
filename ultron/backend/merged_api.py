@@ -213,6 +213,49 @@ def install(app, hub):
                     'text': 'Bilgisayarın sistem bilgileri şu anda okunamadı.',
                     'error_code': 'local_system_facts_unavailable',
                     'request_id': request_id}, status=503)
+        # Explicit arithmetic in the Windows Calculator uses only its verified
+        # accessibility button controls. No global key presses and no Cloud LLM.
+        if mode in ('auto', 'general', 'fast'):
+            from app.tools.calculator_gui import extract_calculator_expression
+            calculator_expression = extract_calculator_expression(text)
+            if calculator_expression:
+                cancellations.set_provider(record, 'desktop-calculator-ui',
+                                           cancellable=False, started=False)
+                if record.cancel_event.is_set():
+                    cancellations.finish(record, 'cancelled_before_start')
+                    return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                        'request_id': request_id, 'provider_stopped': False, 'text': ''})
+                async with gate:
+                    if record.cancel_event.is_set():
+                        cancellations.finish(record, 'cancelled_before_start')
+                        return web.json_response({'ok': False, 'status': 'cancelled_before_start',
+                            'request_id': request_id, 'provider_stopped': False, 'text': ''})
+                    from app.tools.calculator_gui import run_calculator_expression
+                    cancellations.set_provider(record, 'desktop-calculator-ui',
+                                               cancellable=False, started=True)
+                    outcome = await asyncio.to_thread(
+                        run_calculator_expression, calculator_expression)
+                if record.cancel_event.is_set():
+                    cancellations.finish(record, 'output_suppressed')
+                    return web.json_response({'ok': False, 'status': 'output_suppressed',
+                        'request_id': request_id, 'provider_stopped': False,
+                        'operation_continues': True, 'text': ''})
+                ok = bool(outcome.get('ok') and outcome.get('verified'))
+                code = str(outcome.get('error_code', 'calculator_not_verified'))
+                reply = (
+                    'Hesap Makinesi tuşlarına işlem girildi; ekrandaki sonuç '
+                    + str(outcome.get('result')) + ' olarak doğrulandı.'
+                    if ok else
+                    'Hesap Makinesi işlemi doğrulanamadı. '
+                    'Başka pencereye tuş gönderilmedi. Hata kodu: ' + code
+                )
+                cancellations.finish(record, 'completed' if ok else 'failed')
+                return web.json_response({
+                    'ok': ok, 'text': reply, 'verified': ok,
+                    'source': 'desktop-calculator-ui',
+                    'request_id': request_id,
+                    **({'error_code': code} if not ok else {}),
+                })
         intent = classify_intent(text)
         # General/coding/fast are presentation/model preferences. An
         # explicit computer operation still belongs to the existing local
