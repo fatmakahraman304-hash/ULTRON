@@ -157,6 +157,9 @@ def test_real_ui_buttons_invoke_only_a_verified_calculator_and_read_screen(monke
 
 def test_window_switch_stops_without_sending_any_button(monkeypatch):
     window = FakeWindow(trusted=False)
+    # A previously selected window is no longer verified at invocation time.
+    monkeypatch.setattr(calc, "_verified_calculator",
+                        lambda candidate: candidate.trusted)
     monkeypatch.setattr(calc, "sys", SimpleNamespace(platform="win32"))
     monkeypatch.setitem(sys.modules, "pythoncom", SimpleNamespace(
         CoInitialize=lambda: None, CoUninitialize=lambda: None))
