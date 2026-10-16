@@ -102,4 +102,3 @@ class ChatCancellationRegistry:
             return
         row["completed"] = True
         row["updated"] = time.monotonic()
-

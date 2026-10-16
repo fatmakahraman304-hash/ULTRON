@@ -795,6 +795,17 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 - Owner's separate live Qwen test is **PASS** (`qwen2.5-coder:7b`, real synthetic analysis, 6.3 s); Render `/health` **PASS** HTTP 200. DOCTOR confirms local Ollama/Piper configured; actual desktop bridge startup and physical mic/TTS playback remain pending until the new fix is pulled and tested.
 - Follow-up owner log: backend starts after the temporary repository-root `PYTHONPATH`, but `mark_app.py:52` fails with `No module named 'memory.memory_manager'; 'memory' is not a package`. Moved desktop `memory.memory_manager` import before UI import and added safe-path (`python -P`) subprocess and import-order regressions. Focused startup suite: **8 passed**; physical Windows relaunch remains NOT RUN.
 
+## 2026-10-15 — Production merge tracking
+
+- PR #51 production fix merged: squash SHA `c66b5dae03a007e3b7674e1f627aaf3569911b4c`; its exact-head 3 GitHub checks passed before merge. Render was not yet updated at the first post-merge check (still reported `bab1b760`), so live deployment SHA requires recheck.
+- PR #35 Evidence V4 was merged into the PR #34 dependency branch; PR #37 interruption code was merged into the PR #36 dependency branch. Neither parent feature PR is yet in production.
+- PR #34 branch synchronization with current production is in progress; preserve both current production CI and V4 research/memory checks. Run the exact new head's complete Actions before merging.
+
+## 2026-10-15 — PR #34 review regressions
+
+- Episodic PostgreSQL/API/security tests: **13 passed**; Evidence V4 deterministic/evaluation tests: **109 passed**. Day-window bounds and connector-word search have explicit regressions. Device/provider tests remain **NOT RUN**.
+- Exact current GitHub Actions after the review fix: **PENDING** (new head `fece4ef`). Earlier synchronized head checks were green but do not validate this last patch.
+
 ## 2026-10-15 — PR #36 dependency synchronization
 
 - Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
@@ -803,3 +814,7 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 ## 2026-10-15 — PR #5 post-sync status
 
 - Continuation and PostgreSQL conversation tests: **27 passed** on the prior synchronized head. Exact Actions for this latest production merge are pending; device/model tests **NOT RUN**.
+
+## 2026-10-15 — PR #34 post-interruption merge validation
+
+- Full Cloud API unittest discovery with disposable PostgreSQL: **387 passed, 7 skipped**. Skips are reported, not counted as passes. Current GitHub Actions for the synchronized PR head: **PENDING**.

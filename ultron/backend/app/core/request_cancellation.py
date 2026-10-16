@@ -215,4 +215,3 @@ class RequestCancellationRegistry:
             "operation_continues": record.cancel_requested and not record.provider_cancellable
                 and record.provider_started and record.provider not in {"gemini-cloud"},
         }
-

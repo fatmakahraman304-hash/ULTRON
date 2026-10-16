@@ -11,6 +11,10 @@ from datetime import date
 from memory_safety import explicit_style_slots, normalized_value
 from live_voice_policy import safe_manual_memory_value
 from text_normalization import fold_turkish
+if __package__:
+    from .episodic_memory_v4 import load_episode_recall_context
+else:
+    from episodic_memory_v4 import load_episode_recall_context
 from conversation_turns import (
     bounded_user_request, is_bare_continuation_request,
     is_explicit_turn_correction, is_topic_switch_request,
@@ -232,8 +236,9 @@ def memory_focus_question(question: str, turns) -> str:
 async def load_focused_owner_context(pool, user_id: str, query: str = "") -> str:
     """Read from the *authenticated user's* saved memory and unfinished plans.
 
-    Excludes private plan notes and user-created conversation notes. Used by
-    both cloud Gemini and the paired local Qwen queue with the same filtering.
+Excludes private plan notes and user-created conversation notes. Episodic rows
+are loaded only for an explicit retrospective request. Used by both cloud
+Gemini and the paired local Qwen queue with the same owner scoping.
     """
     # Fixed-size recent + standing preferences + indexed lexical retrieval.
     # Tokens come from the current request, never arbitrary SQL/tsquery syntax.
@@ -270,6 +275,12 @@ async def load_focused_owner_context(pool, user_id: str, query: str = "") -> str
     context = select_personal_context(
         rows, plans, query, max_chars=3400, today=reference_today
     )
+    # Episodic rows are loaded only for an explicit retrospective question.
+    # Keep the small, source-labelled event slice first for local Qwen's tighter
+    # context budget; ordinary chat performs no episodic query.
+    episodes = await load_episode_recall_context(pool, user_id, query)
+    if episodes:
+        context = (episodes + ("\n" + context[:2200] if context else ""))[:3400]
     if is_memory_history_request(query):
         terms = sorted(_terms(query))[:8]
         search = " | ".join(term for term in terms if term.isalnum())
