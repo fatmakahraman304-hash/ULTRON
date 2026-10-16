@@ -845,7 +845,7 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 | Check | Result | Evidence / limits |
 |---|---|---|
 | Frontend TypeScript/Vite production build | PASS | `npm run build`; Vite reports the existing 575.89 kB OrbitControls chunk advisory. |
-| Frontend test suite | PASS | `node --experimental-strip-types --test tests/*.test.mjs`: 39 passed, 0 failed. New contracts cover stop phrases, satellite intent variants, provider-derived weather wording and native file data routing. |
+| Frontend test suite | PASS | `node --experimental-strip-types --test tests/*.test.mjs`: 40 passed, 0 failed. New contracts cover spoken and typed stop commands, satellite intent variants, provider-derived weather wording and native file data routing. |
 | Cloud JavaScript test suite | PASS | `node --test *.cjs`: 167 passed, 0 failed. Includes WebAudio queue cancellation on a final spoken stop without an active typed-chat request. |
 | Desktop stop command helper / bridge source contracts | PASS | 3 Python unit tests; syntax compilation succeeded. Actual QWebChannel microphone timing was not exercised here. |
 | Earth provider/layer safety | PASS | 5 tests: unconfigured satellite remains unavailable, street map is not satellite, geocoding remains valid. |
