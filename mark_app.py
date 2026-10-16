@@ -359,6 +359,24 @@ TOOL_DECLARATIONS = [
         }
     },
     {
+        "name": "open_calculator_and_calculate",
+        "description": (
+            "Use when the user requests BOTH opening Windows Calculator and doing "
+            "an arithmetic operation. Opens the real Calculator application and "
+            "returns the verified numeric result in chat; never claims the result "
+            "was typed into the Calculator window."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "a": {"type": "NUMBER", "description": "First number"},
+                "b": {"type": "NUMBER", "description": "Second number"},
+                "operation": {"type": "STRING", "description": "multiply, add, subtract, or divide"},
+            },
+            "required": ["a", "b", "operation"],
+        }
+    },
+    {
         "name": "screen_process",
         "description": (
             "Captures the screen or webcam image and lets you analyze it. "
@@ -1316,6 +1334,41 @@ class UltronLive:
                     None, lambda: get_system_status(include_details=details)
                 )
                 result = str(r)
+
+            elif name == "open_calculator_and_calculate":
+                # A deterministic two-step tool: verify opening the actual app,
+                # then calculate without blindly typing into some other window.
+                from decimal import Decimal, InvalidOperation
+                from actions.open_app import open_app
+                try:
+                    a = Decimal(str(args.get("a")))
+                    b = Decimal(str(args.get("b")))
+                    operation = str(args.get("operation", "")).lower()
+                    if not (a.is_finite() and b.is_finite()) or max(abs(a), abs(b)) > 10**12:
+                        raise ValueError("Sayılar desteklenen aralıkta değil.")
+                    operations = {
+                        "multiply": lambda: a * b,
+                        "add": lambda: a + b,
+                        "subtract": lambda: a - b,
+                        "divide": lambda: a / b,
+                    }
+                    if operation not in operations:
+                        raise ValueError("Desteklenmeyen hesaplama işlemi.")
+                    if operation == "divide" and b == 0:
+                        raise ValueError("Sıfıra bölme yapılamaz.")
+                    opened = await loop.run_in_executor(
+                        None, lambda: open_app({"app_name": "calculator"}, player=self.ui)
+                    )
+                    if not opened.startswith("Opened "):
+                        result = f"Hesap makinesi açılamadı: {opened}"
+                    else:
+                        answer = operations[operation]()
+                        result = (
+                            f"Hesap Makinesi açıldı. Sonuç: {format(answer, 'f')}. "
+                            "Sonuç sohbet ekranındadır; hesap makinesine yazılmadı."
+                        )
+                except (ValueError, InvalidOperation, OverflowError, ZeroDivisionError) as exc:
+                    result = f"Hesaplama yapılamadı: {exc}"
 
             elif name == "manage_monitor":
                 action = args.get("action", "").lower().strip()
