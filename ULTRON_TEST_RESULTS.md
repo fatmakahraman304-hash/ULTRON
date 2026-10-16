@@ -811,6 +811,13 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 - Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
 - PR #37 cancellation contracts are present via dependency commit 61f3e02; rerun the combined exact-head Actions before merging.
 
+## 2026-10-15 — PR #4 post-sync tests
+
+- Qwen recovery contracts **5 passed**; local brain regressions **7 passed**. Real Windows Qwen call **NOT RUN** in this cloud workspace.
+## 2026-10-16 — Cloud Qwen CI dependency correction
+
+- Prior PR #4 exact-head checks: `local-qwen-safety` **FAIL** (missing `aiohttp` in runner); other five check families **PASS**. Added the explicit dependency install before the workflow's unit tests. Updated-head CI is **PENDING** until pushed.
+
 ## 2026-10-15 — PR #5 post-sync status
 
 - Continuation and PostgreSQL conversation tests: **27 passed** on the prior synchronized head. Exact Actions for this latest production merge are pending; device/model tests **NOT RUN**.

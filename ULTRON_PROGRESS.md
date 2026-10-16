@@ -718,6 +718,14 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Current production UI, Earth view, launcher fixes, and CI checks are preserved while the request-scoped interruption state from PR #36/#37 is retained.
 - PR #37 true interruption changes merged into this dependency branch at 61f3e02; synchronize and validate before production merge.
 
+## 2026-10-15 — PR #4 synchronized with current production
+
+- Retained local-Qwen thinking-only fallback while merging the latest production interruption changes. Regression tests: recovery 5 passed; local brain 7 passed; Python compilation passed. Actual model inference remains device-dependent.
+## 2026-10-16 — Cloud Qwen CI dependency correction
+
+- PR #4's exact-head `local-qwen-safety` workflow failed before tests because it imported the Cloud bridge without installing `aiohttp`. Added the declared runtime dependency to that focused workflow; other jobs remain unchanged.
+- Live desktop import-path correction PR #51 is already merged into production at `c66b5dae`; current production has advanced through PR #36 and PR #34.
+
 ## 2026-10-15 — PR #5 synchronized with current production
 
 - The current bounded owner/thread paging implementation preserves the original goal and latest correction across bare continuations. Disposable-PostgreSQL conversation suites passed **27/27** on the preceding synchronized base; rerun exact-head CI after this production merge.

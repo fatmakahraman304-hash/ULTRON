@@ -811,6 +811,11 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 - After merge, on the owner's PC run `git pull --ff-only origin feat/ultron-cloud-shared-memory` from a clean production branch and `START.bat`. Confirm it prints `ULTRON hazır` without degraded-mode warning. Then test a short local Qwen chat, microphone input and Piper playback.
 - Do not interpret `[WinError 10054]` during a closed health-check connection or malformed-PDF fixture messages as the fatal startup cause; use the final `Traceback` when diagnosing.
 - Follow-up log on the owner laptop: backend reports ready; desktop then exits at `mark_app.py:52` because `memory` resolved to a non-package module. PR #51 has been extended with import-order fix and Python safe-path subprocess regression. Re-run `START.bat` after merging/pulling the reviewed fix; check for `ULTRON hazır` and a still-running desktop before microphone/TTS testing.
+## 2026-10-16 — Immediate next checks
+
+- Push the PR #4 workflow dependency fix, then require exact-head GitHub Actions to pass before considering merge.
+- Recheck PR #5 continuation CI after synchronizing it with PR #34's new production merge. Do not mark desktop/iPhone device checks as passed from CI.
+
 
 ## Outstanding PR merge sequence — 2026-10-16
 

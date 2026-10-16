@@ -1,0 +1,41 @@
+name: ULTRON Cloud Qwen Regression
+
+on:
+  push:
+    branches:
+      - fix/cloud-qwen-empty-reply-20261011
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+    paths:
+      - integration/local_cloud_brain.py
+      - ultron/cloud_service/test_local_qwen_recovery.py
+      - .github/workflows/ultron-cloud-qwen-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  local-qwen-safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test runtime dependency
+        run: python -m pip install 'aiohttp>=3.10,<4'
+      - name: Python syntax
+        run: |
+          python -m py_compile integration/local_cloud_brain.py
+          python -m py_compile ultron/cloud_service/test_local_qwen_recovery.py
+      - name: Qwen offline regression and conversation contracts
+        env:
+          PYTHONPATH: ultron/cloud_service:.
+        run: |
+          python -m unittest -q \
+            ultron.cloud_service.test_local_qwen_recovery \
+            ultron.cloud_service.test_conversation_turns \
+            ultron.cloud_service.test_response_quality \
+            ultron.cloud_service.test_local_brain_bridge
