@@ -225,3 +225,55 @@ def test_hologram_is_available_without_alternate_desktop(service):
     assert assets
     with urlopen(Request(service.bridge.url+'/hologram/assets/'+assets[0].name,headers=headers)) as response:
         assert "connect-src 'self'" in response.headers.get('Content-Security-Policy','')
+
+
+def test_live_message_sender_requires_real_ui_confirmation(monkeypatch):
+    """A model tool call cannot execute an external send by itself."""
+    from actions import send_message as sender
+    from core import confirm as gate
+
+    requested = []
+    sent = []
+    monkeypatch.setattr(gate, "request", lambda **kwargs: requested.append(kwargs) or "CONFIRMATION_PENDING")
+    monkeypatch.setattr(sender, "_send_whatsapp", lambda receiver, body: sent.append((receiver, body)) or "sent")
+    response = sender.send_message({
+        "receiver": "Test User", "message_text": "Hello", "platform": "WhatsApp"
+    })
+    assert response == "CONFIRMATION_PENDING"
+    assert not sent
+    assert requested[0]["title"].endswith("Test User")
+    assert "Hello" in requested[0]["detail"]
+    assert requested[0]["run"]() == "sent"
+    assert sent == [("Test User", "Hello")]
+
+
+def test_live_message_sender_refuses_missing_recipient_and_blind_platform(monkeypatch):
+    from actions import send_message as sender
+    from core import confirm as gate
+
+    monkeypatch.setattr(gate, "request", lambda **kwargs: pytest.fail("No approval should be requested"))
+    assert "recipient" in sender.send_message({
+        "receiver": "", "message_text": "Hi", "platform": "WhatsApp"
+    }).lower()
+    assert "gönderilmedi" in sender.send_message({
+        "receiver": "Test", "message_text": "Hi", "platform": "Telegram"
+    }).lower()
+
+
+def test_mobile_attachment_failures_do_not_hijack_chat():
+    """A failed upload must release the pending image/PDF for ordinary chat."""
+    source = (ROOT / "ultron" / "cloud_service" / "static" / "index.html").read_text(encoding="utf-8")
+    image_catch = source.split("async function sendImage(){", 1)[1].split("function toast(", 1)[0]
+    pdf_catch = source.split("async function sendPdf(){", 1)[1].split("async function cameraFrameApi(", 1)[0]
+    assert "clearPendingImage();" in image_catch.split("}catch(e){", 1)[1]
+    assert "clearPendingPdf();" in pdf_catch.split("}catch(e){", 1)[1]
+    assert "showSubmittedPhoto(userBubble,file)" in image_catch
+    assert "if(pendingImage){await sendImage();return}" in source
+
+
+def test_windows_system_info_is_only_collected_when_requested(monkeypatch):
+    from actions import system_monitor as monitor
+    monkeypatch.setattr(monitor, "_windows_system_facts", lambda: pytest.fail("Unexpected full inventory"))
+    status = monitor.get_system_status()
+    assert "ram_total_gb" in status
+    assert "running_processes" not in status
