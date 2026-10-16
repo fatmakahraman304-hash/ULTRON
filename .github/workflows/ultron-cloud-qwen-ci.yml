@@ -80,8 +80,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Install read-only telemetry dependency
-        run: python -m pip install psutil
+      - name: Install read-only telemetry and HTTP test dependencies
+        run: python -m pip install psutil aiohttp pytest
+      - name: Verify desktop hardware questions never go to Cloud or guess values
+        run: |
+          $env:PYTHONPATH = "$PWD;$PWD\ultron\backend"
+          python -m pytest -q ultron/backend/tests/test_model_router.py -k local_system_facts
       - name: Probe real Windows facts on GitHub runner
         run: |
           python -c "from actions.system_monitor import get_system_status; s=get_system_status(include_details=True); assert s['os_name']; assert s['cpu_model']; assert s['timezone']; assert isinstance(s['drive_letters'], list); assert isinstance(s['running_processes'], list); print('Windows read-only fact providers: OK')"
