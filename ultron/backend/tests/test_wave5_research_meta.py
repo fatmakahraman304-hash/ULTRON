@@ -17,7 +17,10 @@ class _ReadFixture:
     def read(self, url):
         return {"ok": True, "url": url.split("#", 1)[0],
                 "title": "Quantum computing source",
-                "text": "Quantum computing survey: quantum computing has important limits. " * 3,
+                "text": ("Quantum computing survey: researchers measured error correction under "
+                         "controlled laboratory conditions using distinct qubit configurations. "
+                         "The report discusses scaling, cooling, calibration, measurement fidelity "
+                         "and independently documented experimental limitations in detail."),
                 "accessed_at": "2026-10-14T00:00:00Z",
                 "content_type": "text/html"}
 

@@ -13,6 +13,7 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtWidgets import QStackedWidget, QToolBar, QFileDialog
 from .paths import ROOT
+from .golge_ui_commands import is_stop_command
 
 
 def prepare():
@@ -493,6 +494,12 @@ class NativeBridge(QObject):
     def send(self, text):
         if not text.strip() or len(text)>50000:
             return
+        if is_stop_command(text):
+            # Stop goes straight to the already-tested native interrupt path;
+            # don't wait for Gemini/Qwen to understand a control command.
+            self.ui._win._do_interrupt()
+            self.emit(kind='log',role='user',text=text)
+            return
         if self.ui.on_text_command:
             threading.Thread(target=self.ui.on_text_command,args=(text,),daemon=True).start()
         else:
@@ -556,11 +563,30 @@ class NativeBridge(QObject):
         elif name=='shutdown':
             win.close()  # Normal Qt exit; Services performs authenticated graceful backend shutdown.
         elif name=='file':
-            filename,_=QFileDialog.getOpenFileName(win,'Dosya ekle')
+            filename,_=QFileDialog.getOpenFileName(
+                win,'GÖLGE dosya veya görsel ekle','',
+                'Desteklenen dosyalar (*.png *.jpg *.jpeg *.webp *.gif *.pdf *.txt *.md *.json *.csv *.py *.js *.ts *.tsx *.html *.css);;Tüm Dosyalar (*)'
+            )
             if filename:
-                win._drop_zone._set_file(filename)
                 file=Path(filename)
-                self.emit(kind='file',name=file.name,size=file.stat().st_size)
+                try:
+                    size=file.stat().st_size
+                    if not file.is_file() or not size:
+                        raise ValueError('Dosya boş veya okunamıyor.')
+                    if size>8*1024*1024:
+                        raise ValueError('Dosya 8 MB sınırını aşıyor.')
+                    import base64
+                    import mimetypes
+                    suffix=file.suffix.lower()
+                    allowed={'.png','.jpg','.jpeg','.webp','.gif','.pdf','.txt','.md','.json','.csv','.py','.js','.ts','.tsx','.html','.css'}
+                    if suffix not in allowed:
+                        raise ValueError('Bu dosya türü desteklenmiyor.')
+                    payload=base64.b64encode(file.read_bytes()).decode('ascii')
+                    self.emit(kind='file',name=file.name,size=size,
+                              mime=mimetypes.guess_type(file.name)[0] or 'application/octet-stream',
+                              data=payload)
+                except Exception as exc:
+                    self.emit(kind='error',text=str(exc)[:180] if isinstance(exc,ValueError) else 'Seçilen dosya okunamadı.')
 
 
 class LocalPage(QWebEnginePage):

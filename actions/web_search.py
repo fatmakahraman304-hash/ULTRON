@@ -43,7 +43,7 @@ def _log_gemini_failure(context: str, exc: Exception) -> None:
     """Log a Gemini failure — silently when it is just the expected cooldown."""
     if isinstance(exc, _QuotaCooldown):
         return          # announced once when the breaker tripped; not a warning
-    print(f"[WebSearch] \u26a0\ufe0f {context} failed ({exc}) — using DDG instead")
+    print(f"[WebSearch] {context}: provider unavailable")
 
 
 def _run_bounded(fn, timeout: float, label: str = "task"):
@@ -79,32 +79,22 @@ def _get_api_key() -> str:
 
 
 def _gemini_search(query: str) -> str:
-    if not _gemini_available():
-        raise _QuotaCooldown("Gemini grounding is in quota cooldown")
-
-    from core import gemini
-
-    # Grounded search reads a live page, so it gets a longer deadline than the
-    # default — but it still HAS one, and it still walks the fallback ladder.
+    from ultron.backend.app.cognitive.research_engine import ResearchEngine
+    from ultron.backend.app.cognitive.research_context import append_research_sources
+    engine = ResearchEngine(db_path=":memory:")
     try:
-        response = gemini.call(query, tier=gemini.SEARCH,
-                               config={"tools": [{"google_search": {}}]},
-                               timeout_ms=30_000)
-        if response is None:
-            raise RuntimeError("every Gemini model on the ladder failed")
-    except Exception as e:
-        _note_gemini_error(e)
-        raise
-
-    text = ""
-    for part in response.candidates[0].content.parts:
-        if hasattr(part, "text") and part.text:
-            text += part.text
-
-    text = text.strip()
-    if not text:
-        raise ValueError("Gemini returned an empty response.")
-    return text
+        result = engine.research(query, store=False)
+    finally:
+        engine.close()
+    if result.get('answer'):
+        return result['answer']
+    if result.get('status') == 'research_blocked_sensitive_input':
+        return 'Özel bilgi içeren sorgu internete gönderilmedi. Özel bilgileri kaldırıp yeniden sorabilirsin.'
+    findings = (result.get('synthesis') or {}).get('findings') or []
+    if not findings:
+        return 'Güncel kaynaklara erişemedim; bu bilgiyi doğrulayamıyorum.'
+    excerpts = '\n\n'.join(str(row.get('excerpt', ''))[:600] for row in findings[:3])
+    return append_research_sources('Okunan kaynak bölümleri:\n' + excerpts, result)
 
 
 def _get_ddgs():
@@ -128,6 +118,8 @@ def _get_ddgs():
 
 
 def _ddg_search(query: str, max_results: int = 6) -> list[dict]:
+    from ultron.backend.app.cognitive.research_context import safe_public_query
+    if not safe_public_query(query): return []
     DDGS = _get_ddgs()
     results = []
     try:
@@ -139,12 +131,14 @@ def _ddg_search(query: str, max_results: int = 6) -> list[dict]:
                     "url":     r.get("href",   ""),
                 })
     except Exception as e:
-        print(f"[WebSearch] ⚠️ DDG text() failed: {e}")
+        print("[WebSearch] DDG text unavailable")
     return results
 
 
 def _ddg_news(query: str, max_results: int = 8) -> list[dict]:
     """DDG news search — returns actual articles, not website homepages."""
+    from ultron.backend.app.cognitive.research_context import safe_public_query
+    if not safe_public_query(query): return []
     DDGS = _get_ddgs()
     results = []
     try:
@@ -157,7 +151,7 @@ def _ddg_news(query: str, max_results: int = 8) -> list[dict]:
                     "source":  r.get("source", ""),
                 })
     except Exception as e:
-        print(f"[WebSearch] ⚠️ DDG news() failed ({e}) — falling back to text search")
+        print("[WebSearch] DDG news unavailable; trying text search")
     # Also covers the legacy-package case, where news() returns an empty list
     # instead of raising.
     if not results:
@@ -206,21 +200,7 @@ def _gemini_headlines(n: int = 5) -> tuple[list[str], str]:
     Returns (headline_list, raw_text_for_display).
     """
     import re
-    from core import gemini
-
-    response = gemini.call(
-        f"Current world news: {n} headlines. Numbered list, titles only.",
-        tier=gemini.SEARCH,
-        config={"tools": [{"google_search": {}}]},
-        timeout_ms=30_000,
-    )
-    if response is None:
-        return [], ""
-
-    raw = ""
-    for part in response.candidates[0].content.parts:
-        if hasattr(part, "text") and part.text:
-            raw += part.text
+    raw = _gemini_search(f"Güncel dünya haberleri: {max(1, min(n, 5))} başlık")
 
     headlines = []
     for line in raw.strip().split("\n"):

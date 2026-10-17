@@ -1,0 +1,18 @@
+[
+ {"message":"Bugün dolar kaç TL?","task":"RESEARCH","reason":"Güncel döviz kuru kaynak gerektirir."},
+ {"message":"En son teknoloji haberleri neler?","task":"RESEARCH","reason":"Yeni haberler güncel kaynak gerektirir."},
+ {"message":"What is the current EUR exchange rate?","task":"RESEARCH","reason":"Current financial information."},
+ {"message":"Bugünkü maç sonucu ne?","task":"RESEARCH","reason":"Güncel spor sonucu."},
+ {"message":"iPhone 17 güncel fiyatı ne kadar?","task":"RESEARCH","reason":"Ürün fiyatının zamanı önemli."},
+ {"message":"Araştır: yeni pil teknolojileri","task":"RESEARCH","reason":"Açık araştırma talebi."},
+ {"message":"Merhaba","task":"FAST","reason":"Gündelik sohbet; web çağrısı gerekmez."},
+ {"message":"Döviz kuru nedir?","task":"FAST","reason":"Güncel veri değil kavram açıklaması."},
+ {"message":"Python nedir?","task":"FAST","reason":"Kod üretimi değil öğrenme sorusu."},
+ {"message":"Python öğreniyorum","task":"FAST","reason":"Programlama hakkında sohbet."},
+ {"message":"What is Python commonly used for?","task":"FAST","reason":"Programming explanation, not code generation."},
+ {"message":"Bugün çok yoruldum","task":"FAST","reason":"Bugün kelimesi tek başına araştırma nedeni değildir."},
+ {"message":"2 kere 7 kaç?","task":"FAST","reason":"Temel hesaplama web gerektirmez."},
+ {"message":"Python fonksiyon yaz","task":"CODING","reason":"Açık kod üretimi."},
+ {"message":"Write Python code to parse JSON","task":"CODING","reason":"Explicit coding task."},
+ {"message":"Refactor this Python function","task":"CODING","reason":"Existing code modification."}
+]

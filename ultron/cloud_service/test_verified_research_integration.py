@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -120,7 +121,8 @@ class VerifiedResearchIntegrationTests(unittest.TestCase):
         async def research(message):
             return evidence
 
-        with patch.object(cloud, "load_contextual_thread_turns", new=AsyncMock(return_value=[])), \
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-fixture-not-a-real-key"}), \
+             patch.object(cloud, "load_contextual_thread_turns", new=AsyncMock(return_value=[])), \
              patch.object(cloud, "_memory_context", new=AsyncMock(return_value="owner memory")), \
              patch.object(cloud, "_gemini_reply", new=gemini), \
              patch.object(cloud, "research_for_chat", new=AsyncMock(side_effect=research)) as run:

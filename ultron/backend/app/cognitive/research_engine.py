@@ -810,7 +810,8 @@ def match_claim_to_evidence(claim: str, findings: list[dict], *,
 class ResearchEngine:
     def __init__(self, db_path: str = "data/cognitive/research.db",
                  search_fn=None, domain_reliability: dict | None = None,
-                 source_reader: SourceReader | None = None):
+                 source_reader: SourceReader | None = None, allow_grounding: bool = False):
+        self.allow_grounding = allow_grounding
         self.path = Path(db_path)
         if db_path != ":memory:":
             self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -843,7 +844,15 @@ class ResearchEngine:
     # ---------------------------------------------------- pipeline
     def research(self, query: str, max_sources: int = 5,
                  store: bool = True) -> dict:
+        from .research_context import safe_public_query
+        from ultron.cloud_service.grounded_search import google_search, unavailable
+        if not safe_public_query(query):
+            return unavailable('research_blocked_sensitive_input')
         query = str(query or "").strip()[:1000]
+        grounding = google_search(query) if self.allow_grounding else unavailable("grounding_surface_unavailable")
+        if grounding.get('ok'):
+            # Grounded results are ephemeral; never write web content into memory.
+            return grounding
         max_sources = max(1, min(int(max_sources), 5))
         if not query:
             return {"ok": False, "status": "invalid_query", "query": "",

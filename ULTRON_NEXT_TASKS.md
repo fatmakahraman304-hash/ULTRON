@@ -1,3 +1,17 @@
+## PR #59 — CI düzeltmesi (17 Ekim 2026)
+
+[Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.
+
+## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
+
+Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
+
+1. Yeni taslak PR'ın exact-head Actions sonuçlarını kontrol et; başarısızlık varsa testleri atlamadan düzelt. Bu dal PR #56 düzeltmelerini içerir; diğer açık PR'ları izinsiz birleştirme.
+2. Google için yalnızca kullanıcı bütçe/kota onayından sonra mevcut güvenli anahtarla `scripts/golge_research_doctor.py --list-models` çalıştır. Hesaba açık modelin Google Search desteğini resmî belgelerden doğrula; bir sınırlı gerçek sorgu, kaynak/widget gösterimi, follow-up, iptal, yenileme ve iki yetkili cihaz senaryosunu test et. Anahtar/izin olmadan BLOCKED koru.
+3. Windows native ses ve Gemini Live doğrudan ses yolu bu sürümde Google grounding kullanmıyor; native kaynak listesi mevcut güvenli okuyucudadır. Widget/atıf zorunluluğunu kaybetmeden ses yüzeyi entegrasyonu tasarla; gerçek fiziksel testi ayrıca yap.
+4. Bu ortamda pinned source reader dış sayfa okuyamadı (`request_failed`), Render `/health` 15 sn timeout. Dağıtım ortamındaki gerçek ağ erişimini, DNS/TLS ve proxy politikasını kontrol et; SSRF sınırını aşma/gevşetme.
+5. Üretim birleştirme/Render yayını ve ücretli model etkinliği için ayrı kullanıcı onayı gerekiyor. Onaydan önce açık taslak olarak bırak; bu oturum dışında otonom çalışmanın devam ettiğini iddia etme.
+
 ## 2026-10-16 — Güncel kapsam ve devam
 
 ## 2026-10-15 — Current merge queue and Memory V4 status
@@ -828,3 +842,9 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 3. Sonraki doğrulama: Windows masaüstünde video oynatma/durdurma bildirimi ve mobil sohbet notu boş durumunu kontrol et.
 4. Eski `ultron/backend/test_v2_modules.py` health şeması ve `reload_config` beklentilerini güncel runtime ile eşleştir; bu eski harness'te kalan başarısız kontroldür.
 5. PR/merge/deploy henüz yapılmadı; üretim SHA değiştirilmedi.
+## Current task — fix owner-reported GÖLGE manual-use failures (2026-10-16)
+
+1. Review isolated branch `fix/golge-manual-test-failures` and its draft PR. It is based on production `b4086aa`; do not merge/deploy without release authorization.
+2. After the branch is available on Windows, rerun `START.bat`, then manually speak “Dur” during TTS and confirm playback stops; test satellite mode and confirm the unavailable-provider message does not claim the map changed; ask for weather and verify chat repeats provider values; use paperclip and verify an image reaches the vision route. A missing local vision model should show a clear error, not a successful analysis.
+3. Test an approved small PDF/text file as well as an image. The Qt picker transfer is capped at 8 MiB; supported suffixes only. Do not send private test files to Cloud.
+4. The code-runner cannot exercise the owner’s physical microphone, speaker, Windows Qt file dialog or installed vision models. These checks remain NOT RUN until owner repeats them on the laptop. No production merge or Render deploy was done.

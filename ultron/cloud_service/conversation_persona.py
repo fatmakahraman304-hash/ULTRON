@@ -170,16 +170,27 @@ _MEMORY_RECALL = folded_regex(
 )
 
 
+_CURRENT_INFORMATION = folded_regex(
+    r"(?:\b(?:bugün(?:kü)?|şu an|güncel|son dakika|en son|latest|current|today|right now)\b"
+    r".{0,65}\b(?:dolar|euro|döviz|kur|fiyat\w*|haber\w*|maç|sonuç\w*|ürün\w*|"
+    r"teknoloji|news|price|exchange|rate|match|score|release)\b|"
+    r"\b(?:dolar|euro|döviz|fiyat\w*|news|price|rate|score)\b.{0,55}"
+    r"\b(?:bugün|güncel|şu an|today|current|latest)\b)", re.I)
+
+
 def classify_model_task(message: str) -> str:
     """Select an existing single-pass model capability without a model call."""
     text = fold_turkish(str(message or "").strip())
     if _MODEL_VISION.search(text):
         return "VISION"
-    if _MODEL_RESEARCH.search(text):
+    if _MODEL_RESEARCH.search(text) or _CURRENT_INFORMATION.search(text):
         return "RESEARCH"
     if _COMPUTER_ACTION.search(text):
         return "CODING"
     if _MODEL_CODE.search(text):
+        # Learning ABOUT programming does not require the heavier code generator.
+        if folded_regex(r"(?:nedir|hangi amaç|nasıl öğren|öğreniyorum|what is|commonly used for|learning)").search(text) and not re.search(r"(?:kod(?:u)? yaz|fonksiyon yaz|write.{0,15}(?:code|function)|debug|refactor|implement|```)", text):
+            return "GENERAL" if _MODEL_DEEP.search(text) else "FAST"
         return "CODING"
     if _MODEL_DEEP.search(text):
         return "GENERAL"

@@ -29,12 +29,14 @@ from local_listening_bridge import register_local_listening_analysis_routes, lis
 from conversation_persona import build_system_instruction, classify_intent
 from verified_research import (append_research_sources,
                                build_research_prompt_block,
-                               research_for_chat)
+                               research_for_chat, research_message_for_turn)
+from ultron.backend.app.cognitive.research_context import is_research_followup
 from personal_context_focus import load_focused_owner_context, memory_focus_question
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
 from chat_cancellation import ChatCancellationRegistry
 from response_quality import finalize_response
+from reply_policy import classify_reply_mode
 from live_voice_policy import (build_live_voice_instruction,
                                explicit_memory_save_requested,
                                safe_manual_memory_value)
@@ -976,7 +978,7 @@ async def list_messages(request: web.Request) -> web.Response:
     limit = min(max(int(request.query.get("limit", "80")), 1), 200)
     rows = await request.app["db"].fetch(
         """
-        SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at,
+        SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at, m.research_metadata,
                (gi.message_id IS NOT NULL) AS has_generated_image,
                (ui.message_id IS NOT NULL) AS has_uploaded_image,
                (m.device_id='gemini-image' AND gi.message_id IS NULL) AS image_unavailable,
@@ -1047,7 +1049,9 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str,
     response = client.models.generate_content(
         model=model,
         contents=content,
-        config=types.GenerateContentConfig(system_instruction=system_instruction),
+        config=types.GenerateContentConfig(system_instruction=system_instruction,
+            max_output_tokens=8192 if classify_intent(prompt).model_task == 'CODING' else
+                (8192 if classify_reply_mode(prompt) == 'detailed' else 4096)),
     )
     text = (response.text or "").strip()
     if not text:
@@ -1056,32 +1060,38 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str,
 
 
 def _gemini_reply(prompt: str, system_instruction: str, turns=None, *, include_model: bool = False) -> str | tuple[str, str]:
-    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
-    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
-    fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip() or "gemini-3.5-flash-lite"
-    max_retries = max(1, min(int(os.getenv("GEMINI_MAX_RETRIES", "3")), 5))
-
-    models = [primary_model]
-    if fallback_model != primary_model:
-        models.append(fallback_model)
-
-    last_exc: Exception | None = None
-    for model in models:
-        for attempt in range(max_retries):
+    from ultron.cloud_service.grounded_search import provider_failure, RETRYABLE
+    from ultron.cloud_service.conversation_persona import classify_model_task
+    # Optional stronger task models require an explicit, separate cost policy.
+    task = classify_model_task(prompt)
+    primary = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+    if os.getenv("GEMINI_TASK_MODELS_APPROVED", "").lower() == "true":
+        primary = os.getenv("GEMINI_" + task + "_MODEL", "").strip() or primary
+    fallback = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip()
+    models = list(dict.fromkeys(filter(None, [primary, fallback])))[:2]
+    from google.genai import types as sdk_types
+    client = genai.Client(api_key=required_env("GEMINI_API_KEY"),
+        http_options=sdk_types.HttpOptions(timeout=15000,
+            retry_options=sdk_types.HttpRetryOptions(attempts=1)))
+    last_exc = None
+    try:
+        for model in models:
             try:
                 answer = _generate_with_model(client, model, prompt, system_instruction, turns=turns)
                 return (answer, model) if include_model else answer
             except Exception as exc:
                 last_exc = exc
-                if not _is_transient_gemini_error(exc):
+                if provider_failure(exc) not in RETRYABLE:
                     raise
-                if attempt < max_retries - 1:
-                    base_delay = min(8.0, 1.25 * (2 ** attempt))
-                    time.sleep(base_delay + random.uniform(0.0, 0.75))
-
-    if last_exc is not None:
-        raise RuntimeError(f"GEMINI_TEMPORARY_UNAVAILABLE: {last_exc}") from last_exc
-    raise RuntimeError("Gemini request failed")
+        if last_exc is not None:
+            # Preserve typed provider status without including its body in logs.
+            raise last_exc
+        raise RuntimeError("Gemini model is not configured")
+    finally:
+        close = getattr(client, 'close', None)
+        if callable(close):
+            try: close()
+            except Exception: pass
 
 
 def _vision_fallback_allowed(exc: Exception) -> bool:
@@ -1891,11 +1901,14 @@ async def chat(request: web.Request) -> web.Response:
     focus_query = memory_focus_question(text, turns)
     memory = await _memory_context(pool, request["user_id"], query=focus_query)
     research_result = None
-    if classify_intent(text).kind == "research":
+    research_message = research_message_for_turn(text, turns)
+    if research_message is not None:
         # This outbound read is limited to the user's explicit current research
         # request. Personal memory/history are deliberately not added to the
         # query or persisted in the research store.
-        research_result = await research_for_chat(text)
+        research_result = await research_for_chat(research_message if research_message == text else 'Araştır: ' + research_message)
+    if research_message is None and is_research_followup(text):
+        research_result = {"ok": False, "status": "research_topic_missing", "synthesis": {"findings": []}}
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
@@ -1904,11 +1917,28 @@ async def chat(request: web.Request) -> web.Response:
     if research_result is not None:
         system_instruction += build_research_prompt_block(research_result)
     prompt = text
+    if cancel_record["cancel_requested"]:
+        return web.json_response({"request_id": request_id, "status": "output_suppressed",
+            "provider_stopped": False, "conversation_id": str(conv_uuid)})
 
     try:
-        reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
-        if research_result is not None:
-            reply = append_research_sources(reply, research_result)
+        if research_result and research_result.get("answer"):
+            # Google already generated a grounded response; no second model call.
+            reply = research_result["answer"]
+        elif research_result and not (research_result.get("synthesis") or {}).get("findings"):
+            reply = ("Hangi konudaki araştırmaya devam edelim? Bu konuşmada bağlı bir araştırma isteği bulamadım."
+                     if research_result.get("status") == "research_topic_missing" else
+                     "Bu sorgu özel bilgi içeriyor. Özel bilgileri kaldırıp yeniden sorabilirsin."
+                     if research_result.get("status") == "research_blocked_sensitive_input" else
+                     "Güncel kaynaklara erişemedim; bu bilgiyi doğrulayamıyorum. Daha sonra yeniden deneyebilirsin.")
+        elif research_result and not os.getenv("GEMINI_API_KEY"):
+            excerpts = "\n\n".join(str(row.get("excerpt", ""))[:600]
+                for row in (research_result.get("synthesis") or {}).get("findings", [])[:3])
+            reply = append_research_sources("Model özeti kullanılamıyor. Okunan kaynak bölümleri:\n" + excerpts, research_result)
+        else:
+            reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
+            if research_result is not None:
+                reply = append_research_sources(reply, research_result)
     except Exception as exc:
         error_code = _safe_provider_error(exc)
         await pool.execute(
@@ -1919,7 +1949,7 @@ async def chat(request: web.Request) -> web.Response:
             raise web.HTTPServiceUnavailable(
                 text=json.dumps({
                     "error": "gemini_temporarily_unavailable",
-                    "detail": "Gemini şu anda yoğun. GÖLGE iki modeli de otomatik olarak denedi; birkaç saniye sonra yeniden dene.",
+                    "detail": "Model yanıt veremedi; izinli deneme sınırında sonuç alınamadı. Biraz sonra yeniden dene.",
                 }, ensure_ascii=False),
                 content_type="application/json",
             )
@@ -1945,9 +1975,17 @@ async def chat(request: web.Request) -> web.Response:
             return web.json_response({"request_id": request_id,
                 "status": "output_suppressed", "provider": "gemini-cloud",
                 "provider_stopped": False, "conversation_id": str(conv_uuid)})
+        research_metadata = None
+        if research_result and research_result.get("status") == "google_grounded":
+            research_metadata = json.dumps({
+                "sources": research_result.get("sources", []),
+                "search_suggestions_html": research_result.get("search_suggestions_html", ""),
+                "provider": "google_search",
+            }, ensure_ascii=False)
         assistant_message_id = await pool.fetchval(
-            "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini') RETURNING id",
-            conv_uuid, request["user_id"], reply,
+            "INSERT INTO messages(conversation_id,user_id,role,content,device_id,research_metadata) "
+            "VALUES($1,$2,'assistant',$3,'cloud-gemini',$4::jsonb) RETURNING id",
+            conv_uuid, request["user_id"], reply, research_metadata,
         )
         await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
         cancel_registry.mark_completed(request["user_id"], request["device_id"],
@@ -1963,6 +2001,9 @@ async def chat(request: web.Request) -> web.Response:
 
     return web.json_response({"conversation_id": str(conv_uuid), "reply": reply,
         "request_id": request_id,
+        "research": ({"sources": research_result.get("sources", []),
+                      "search_suggestions_html": research_result.get("search_suggestions_html", ""),
+                      "status": research_result.get("status")} if research_result else None),
         "user_message_id":current_message_id, "assistant_message_id":assistant_message_id})
 
 

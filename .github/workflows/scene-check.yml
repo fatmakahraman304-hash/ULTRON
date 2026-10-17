@@ -20,6 +20,7 @@ on:
       - "ultron/frontend/src/dashboard/**"
       - "ultron/frontend/tests/conversationRequestFailure.test.mjs"
       - "ultron/frontend/tests/conversationRequestIdentity.test.mjs"
+      - "ultron/frontend/tests/manualFailures.test.mjs"
       - "mark_app.py"
       - "integration/**"
       - "scripts/tests/test_listening_browser.py"
@@ -149,6 +150,8 @@ jobs:
         run: python -m unittest discover -s scripts/tests -p 'test_bootstrap_frontend_dependency_sync.py' -v
       - name: Backend launcher exposes repository package imports
         run: python -m pytest -q scripts/tests/test_launcher_pythonpath.py
+      - name: GÖLGE manual voice-stop and native file-picker contracts
+        run: python -m unittest discover -s scripts/tests -p 'test_golge_ui_commands.py' -v
       - name: SSRF-bounded source reading and 100-case Evidence V4 evaluation
         env:
           PYTHONPATH: ultron/backend:ultron/cloud_service
@@ -269,7 +272,7 @@ jobs:
         run: npm ci
       - name: Conversation interruption state contracts
         working-directory: ultron/frontend
-        run: node --experimental-strip-types --test tests/conversationRequestFailure.test.mjs tests/conversationRequestIdentity.test.mjs
+        run: node --experimental-strip-types --test tests/conversationRequestFailure.test.mjs tests/conversationRequestIdentity.test.mjs tests/sourceLinks.test.mjs
       - name: TypeScript and Vite build
         working-directory: ultron/frontend
         run: npm run build
@@ -297,6 +300,7 @@ jobs:
           PYTHONPATH=. python scripts/tests/test_scene_desktop_api.py
           python scripts/tests/test_scene_browser.py
           python scripts/tests/test_frontend_stage_loading.py
+          python scripts/tests/test_research_source_ui.py
       - name: Mobile listening consent and full-summary browser interaction
         run: python scripts/tests/test_listening_browser.py
       - name: GÖLGE private generated-image reload and download UI contract

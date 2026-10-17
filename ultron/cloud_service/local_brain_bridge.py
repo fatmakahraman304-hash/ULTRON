@@ -102,6 +102,13 @@ async def post_local_chat(request: web.Request) -> web.Response:
                     return web.json_response({"status":"queued", "command_id":previous["command_id"],
                         "conversation_id":str(previous["conversation_id"]), "provider":"local",
                         "user_message_id":previous["user_message_id"], "replayed":True}, status=202)
+            from conversation_persona import classify_model_task
+            from ultron.backend.app.cognitive.research_context import is_research_followup
+            if classify_model_task(text) == 'RESEARCH' or is_research_followup(text):
+                # Reject BEFORE creating a queue task; automatic transport may
+                # safely route this read-only public query to the research API.
+                return web.json_response({"error": "research_requires_cloud",
+                    "detail": "Güncel bilgi için kaynak araştırma yolu kullanılıyor."}, status=409)
             online = await conn.fetchval(
                 "SELECT COALESCE(last_seen > NOW() - INTERVAL '15 seconds' "
                 "AND state->'local_chat_ready' = 'true'::jsonb, FALSE) "

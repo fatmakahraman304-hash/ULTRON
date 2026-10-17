@@ -1,3 +1,31 @@
+## PR #59 — CI düzeltmesi (17 Ekim 2026)
+
+[Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.
+
+## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
+
+Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
+
+| Doğrulama | Gerçek sonuç |
+|---|---|
+| Cloud tüm pytest + geçici PostgreSQL 16 | **443 PASS**, 0 FAIL, 0 SKIP; 368 subtest ayrıca geçti; 13,88 sn |
+| İlgili backend/model/iptal/research/Evidence/approval/Calculator | **376 PASS**, 0 FAIL; 6,51 sn |
+| React/TS tüm Node test dosyaları | **43 PASS**, 0 FAIL |
+| PWA tüm `test_*.cjs` | **169 PASS**, 0 FAIL |
+| Gerçek Chromium, kaynak/PWA/Desktop CORE regresyonu | **4 PASS**, 0 FAIL; kontrollü API/model fixture; 28,16 sn |
+| PR #56 komut regresyonları | **3 PASS**, 10 subtest |
+| SDK 1.75.0 / bağımsız venv SDK 2.31.0 | Yeni 21 grounding/router sözleşmesi PASS; gerçek üretim çağrısı yapılmadı |
+| npm ci/build, Python compile, zorunlu Earth unittest | PASS; Earth 6 test (backend sayısında zaten dahil) |
+| Eski bağımsız 100 niyet senaryosu | Önce 100/100, sonra 100/100; model kalitesi değildir |
+| Yeni açıklamalı 16 yönlendirme vakası | Önce **8/16**, sonra **16/16**; p50 0,00583→0,00714 ms; p95 0,01241→0,01660 ms |
+| Gerçek Gemini/Google ve Qwen | **BLOCKED**; anahtar/bütçe/model seçimi yok; yerel Ollama erişilemiyor |
+| Gerçek Windows/iPhone mikrofon/TTS/JARVIS kalite karşılaştırması | **NOT_RUN** |
+| Canlı pinned kaynak okuma / Render health | **BLOCKED**; request_failed 5,23 sn / 15 sn timeout |
+
+Başlangıç yeni regresyonları eski davranışta başarısızdı; düzeltildi. Mevcut research_meta kısa/kopya fixture hatası üretim baseline'ında da yeniden üretildi, assertion değiştirilmeden kaynak fixture'ı düzeltildi. Bir yerel birleşik pytest komutu Cloud `app.py` ile backend `app` paketinin ad çakışmasına takıldı; ayrı süreçler kullanıldı. Yeni PostgreSQL testinde yanlış fixture tablo adı `commands` → gerçek `device_commands` düzeltildi; final tüm Cloud testleri geçti. Başarısız denemeler PASS olarak sayılmadı.
+
+Uyarılar: aiohttp test fixture AppKey/deprecation ve mevcut Vite 500 kB chunk uyarısı. Sentetik kaynak fiyatı/konuşma içeriği yalnızca etiketli test verisidir. Gerçek para/kalite/cihaz başarısı çıkarımı yapılmaz. GitHub exact-head CI henüz bu yerel rapora dahil değil; PR sonuçları ayrıca kaydedilecek.
+
 ## 2026-10-16 — Legacy intro / Dünya hologramı / enerji hologramı kaldırma
 
 - Test-first: eski kod kaldırılan presetleri create/update/add/import/video yollarında kabul etti; yeni regresyonlar beklenen şekilde başarısız oldu.
@@ -840,3 +868,18 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 - **FAIL (eski toplu harness):** `ultron/backend/test_v2_modules.py` güncel olmayan `build_health` alanlarını ve bulunmayan `UltronRuntime.reload_config()` metodunu bekliyor; persona anchor kontrolü geçti. Bu görevde runtime/harness API'si değiştirilmedi.
 - **NOT RUN:** Gerçek Chromium/Windows/iPhone arayüz testi, gerçek ses/mikrofon ve canlı model bağlantısı. Bu değişiklik yalnızca etiket ve mesaj kopyasıdır.
 - İlk build denemesi `tsc` kurulu olmadığı için çalışmadı; `npm ci --no-audit --no-fund` sonrasında build ve testler geçti.
+## 2026-10-16 — Manual-use regression fixes (development branch)
+
+| Check | Result | Evidence / limits |
+|---|---|---|
+| Frontend TypeScript/Vite production build | PASS | `npm run build`; Vite reports the existing 575.89 kB OrbitControls chunk advisory. |
+| Frontend test suite | PASS | `node --experimental-strip-types --test tests/*.test.mjs`: 40 passed, 0 failed. New contracts cover spoken and typed stop commands, satellite intent variants, provider-derived weather wording and native file data routing. |
+| Cloud JavaScript test suite | PASS | `node --test *.cjs`: 167 passed, 0 failed. Includes WebAudio queue cancellation on a final spoken stop without an active typed-chat request. |
+| Desktop stop command helper / bridge source contracts | PASS | 3 Python unit tests; syntax compilation succeeded. Actual QWebChannel microphone timing was not exercised here. |
+| Earth provider/layer safety | PASS | 5 tests: unconfigured satellite remains unavailable, street map is not satellite, geocoding remains valid. |
+| Live weather provider result | NOT RUN | Formatter contract passed with a provider-shaped fixture; no live weather fetch was performed in this runner. |
+| Native Windows file chooser and local image vision model | NOT RUN | Selected-byte transfer/API routing is code-tested; physical Qt dialog and owner's local vision provider require Windows. A missing vision provider returns a visible error. |
+| Windows voice/TTS “Dur” and satellite UI retest | NOT RUN | Must be repeated by owner after pulling the development fix. Existing prior manual evidence: ESC stopped speech; spoken “Dur” did not. |
+| Render / production | NOT RUN | No deploy or merge; production code remains unchanged. |
+
+Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0ddcf8c8672`. This result does not claim device acceptance or model-generation cancellation for Cloud Gemini; Cloud live TTS buffers are cancelled locally while provider completion may continue.

@@ -1,3 +1,15 @@
+## PR #59 — CI düzeltmesi (17 Ekim 2026)
+
+[Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.
+
+## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
+
+Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
+
+Tamamlanan uygulama: mevcut araştırma hattında isteğe bağlı resmî Google grounding; gerçek metadata atfı, çapraz yüzey kaynak gösterimi, owner-bound atomik kayıt, sınırlı yedek model ve sorgu mahremiyeti. Yeni konuşma motoru/özel JARVIS kodu eklenmedi. Gündelik sohbet web açmıyor; programlama sohbeti ile gerçek kod işi ayrılıyor.
+
+Sıradaki kabul: onaylı anahtar/model/kota ile gerçek araştırma ve Google widget kurallarının doğrulanması; gerçek Windows/iPhone ses/kaynak okuma; canlı kaynak çelişki değerlendirmesi. JARVIS'e karşı konuşma kalitesi veya gerçek Gemini/Qwen performans üstünlüğü henüz ölçülmedi. Native ses Google Search ve Gemini Live grounding bu sürümün doğrulanmış özellikleri değildir. Üretim yayın kapısı kapalı tutulur.
+
 ## 2026-10-16 — Kullanıcının seçtiği üç eski özelliğin kaldırılması (PR #44)
 
 - GÖLGE intro render, hazır Dünya hologramı ve enerji hologramı; düğmeler, presetler, prosedürel çizim ve araç tanımlarından kaldırıldı.
@@ -667,3 +679,8 @@ Next dependency order: finish exact-head CI for PR #34/#35 → merge and verify 
 - [x] Set the legacy-compatible `ultron_name` setting value to `GÖLGE`.
 - [x] Remove the retired assistant name from active local-model prompts and generated task-report headings; keep old persisted conversation roles readable.
 - [ ] Keep protocol/module/storage keys and the installed custom wake-word identity unchanged until an explicit migration can preserve existing installations and saved browser data.
+## Follow-up — owner-reported runtime defects
+
+- Completed in development code: deterministic stop command handling, honest licensed-satellite failure, provider-backed weather chat result, and native desktop file-byte transfer into existing vision/document handlers.
+- Remaining acceptance work: pull the fix onto Windows and repeat the four manual interactions on the actual Qt/native audio path. Confirm local vision model availability separately. No new map provider is configured, so satellite imagery remains unavailable; ordinary street map and the separate Globe remain intact.
+- Release gate: review CI and manual Windows evidence before merging. Do not deploy to Render for this desktop bridge change unless separately required and explicitly authorized.

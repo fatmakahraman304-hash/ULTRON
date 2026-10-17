@@ -16,15 +16,26 @@ test('an interrupted older send cannot clear a newer send state',()=>{
  assert.equal(ctx.mayFinalizeChatSend(8),false);
  assert.equal(ctx.mayFinalizeChatSend(9),true);
 });
-test('spoken stop phrases interrupt only an active chat request',()=>{
+test('spoken stop phrases interrupt voice output even without an active chat request',()=>{
  const helper=html.match(/function isSpokenStopCommand\(text\)\{[\s\S]*?\n\}/);
  assert.ok(helper);const ctx={};vm.createContext(ctx);vm.runInContext(helper[0],ctx);
- for(const phrase of ['Dur','Gölge dur.','Sus','Konuşmayı kes','konusmayi kes','Yanıtı durdur','Stop speaking'])
+ for(const phrase of ['Dur','Gölge dur.','Sus','Konuşmayı durdur','Konuşmayı kes','konusmayi kes','Yanıtı durdur','Stop speaking'])
   assert.equal(ctx.isSpokenStopCommand(phrase),true,phrase);
  for(const phrase of ['Durumu açıkla','Lütfen durumu kontrol et','devam et'])
   assert.equal(ctx.isSpokenStopCommand(phrase),false,phrase);
  const finalTurn=html.slice(html.indexOf("if(d.type==='turn_complete')"),html.indexOf("if(d.type==='error')"));
- assert.match(finalTurn,/activeChatRequest&&isSpokenStopCommand\(input\)/);
+ assert.match(finalTurn,/if\(isSpokenStopCommand\(input\)\)/);
+ assert.doesNotMatch(finalTurn,/activeChatRequest&&isSpokenStopCommand\(input\)/);
+ assert.match(finalTurn,/cancelLiveOutput\(\)/);
+ const cancel=html.match(/function cancelLiveOutput\(\)\{[\s\S]*?\n\}/);
+ assert.ok(cancel);const output={cancelled:0};
+ const stopContext={suppressOutput:false,liveSpeaking:true,bargeBlocks:4,
+   livePlaybackState:{cancel(){output.cancelled++}},stopPlayback(){output.stopped=true},
+   resetRemoteResultSpeech(){output.remoteReset=true},resetVoiceGateSegment(){output.gateReset=true}};
+ vm.createContext(stopContext);vm.runInContext(cancel[0]+'\ncancelLiveOutput()',stopContext);
+ assert.equal(stopContext.suppressOutput,true);assert.equal(stopContext.liveSpeaking,false);
+ assert.equal(stopContext.bargeBlocks,0);assert.equal(output.cancelled,1);assert.equal(output.stopped,true);
+ assert.equal(output.remoteReset,true);assert.equal(output.gateReset,true);
  assert.doesNotMatch(html.slice(html.indexOf("if(d.type==='input_transcript'"),html.indexOf("if(d.type==='output_transcript'")),/isSpokenStopCommand/);
 });
 test('late cancel acknowledgement cannot replace the conversation of a newer request',()=>{

@@ -79,3 +79,19 @@ def test_ordinary_local_chat_does_not_start_research():
     assert len(brain.calls) == 1
     assert "RESEARCH EVIDENCE POLICY" not in brain.calls[0][0][0]["content"]
     assert "Araştırma notu:" not in answer
+
+
+def test_private_tail_never_reaches_web_or_a_hallucinated_model_answer():
+    agent, brain, research = _agent()
+    answer = agent.handle("Araştır: " + "public " * 180 + "my password is private-fixture")
+    assert research.calls == []
+    assert brain.calls == []
+    assert "özel bilgi" in answer
+
+
+def test_offline_research_never_invents_current_price():
+    agent, brain, research = _agent()
+    research.research = lambda *args, **kwargs: {"ok": False, "status": "search_unavailable"}
+    answer = agent.handle("Bugün dolar kaç TL?")
+    assert brain.calls == []
+    assert "doğrulayamıyorum" in answer

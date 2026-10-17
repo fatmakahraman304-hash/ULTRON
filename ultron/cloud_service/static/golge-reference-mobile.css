@@ -117,3 +117,5 @@ body:before,body:after{content:none!important;background:none!important}
  #chatView .msg.user{background:linear-gradient(140deg,#09578bdc,#063759e6)!important;border:1px solid #2399c6aa!important}
  #chatView .composer{background:#061524ed!important;border-color:#246e90!important;backdrop-filter:blur(14px)}
 }
+
+.msg a{color:#7adfff;text-decoration:underline;overflow-wrap:anywhere}.msg a:focus-visible{outline:2px solid #7adfff}

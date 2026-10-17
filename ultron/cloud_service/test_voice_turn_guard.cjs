@@ -46,7 +46,7 @@ test("stale Qwen reply stays in chat but never speaks after cancelled voice turn
  assert.match(html,/const voiceToken=voiceTurnGuard\.begin\(\)/);
  assert.match(html,/await send\(true,voiceToken\)/);
  assert.match(html,/async function send\(fromVoice=false,voiceToken=null(?:,options=\{\})?\)/);
- assert.match(html,/rememberPendingVoice\('assistant',d\.reply\);addMessage\('assistant',d\.reply,\{id:d\.assistant_message_id\}\);/);
+ assert.match(html,/rememberPendingVoice\('assistant',d\.reply\);addMessage\('assistant',d\.reply,\{id:d\.assistant_message_id,research:d\.research\}\);/);
  assert.match(html,/voiceTurnGuard\.current\(voiceToken\)/);
  assert.match(html,/!fromVoice\|\|!document\.hidden/);
  assert.match(html,/if\(!fromVoice\)voiceTurnGuard\.cancel\(\)/);
