@@ -7,7 +7,7 @@ new vm.Script(inline[1]);
 const start = inline[1].indexOf('function isImageCreationRequest');
 const end = inline[1].indexOf('async function sendImageCreation', start);
 if (start < 0 || end < 0) throw new Error('image intent handlers missing');
-const context = { lastImageFile: null };
+const context = { lastImageFile: null, GolgeImages: require('./static/image-intents.js') };
 vm.runInNewContext(inline[1].slice(start, end), context);
 for (const prompt of ['Resim oluştur', 'Bir kedi resmi çiz', 'Mavi bir daire oluştur', 'Create an image of a red car']) {
   if (!context.isImageCreationRequest(prompt)) throw new Error('image request was not recognized: ' + prompt);

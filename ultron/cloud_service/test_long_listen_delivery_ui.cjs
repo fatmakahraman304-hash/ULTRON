@@ -21,6 +21,7 @@ function makeUI({message='Sesli oturumdan önemli talimat',fail=false,voiceError
     knownMessageIds:new Set(),messageSignature:'',brainMode:'gemini',brainLastCheck:0,
     localStorage:{setItem(){}},voiceTurnGuard:{cancel(){},current:()=>true},
     $:selector=>selector==='#message'?box:selector==='#busy'?busy:selector==='#sendBtn'?button:undefined,
+    isImageCreationRequest:text=>!!require('./static/image-intents.js').resolve(text),
     clearDraft(){},
     rememberPendingVoice(){},
     consumePendingVoice(){},

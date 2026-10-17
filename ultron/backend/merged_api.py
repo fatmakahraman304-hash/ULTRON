@@ -10,7 +10,7 @@ from pathlib import Path
 from aiohttp import web
 
 from cloud_client import CloudClient, safe_cloud_error
-from ultron.cloud_service.conversation_persona import classify_intent
+from ultron.cloud_service.conversation_persona import classify_intent, classify_image_request
 from ultron.cloud_service.text_normalization import fold_turkish
 import re
 
@@ -164,6 +164,8 @@ def install(app, hub):
             return web.json_response({'ok': False, 'error': 'bad request'}, status=400)
         if not text or len(text) > 50000 or mode not in ('auto', 'coding', 'general', 'fast', 'agent', 'task', 'multi'):
             return web.json_response({'ok': False, 'error': 'invalid input'}, status=400)
+        if classify_image_request(text):
+            return web.json_response({'error':'image_studio_required','detail':'Görsel üretimi için sohbet ekranındaki ayrı maliyet onayı gerekir. Görsel henüz üretilmedi.'},status=409)
         if not valid_request_id(request_id) or not valid_request_key(request_key):
             return web.json_response({'ok': False, 'error': 'invalid request identity'}, status=400)
         try:
@@ -613,6 +615,22 @@ def install(app, hub):
             return web.json_response({'ok': False, 'error': message,
                                       'error_code': error_code}, status=502)
 
+    async def image_studio_proxy(req):
+        if not token:
+            return web.json_response({'error':'desktop_auth_required','detail':'Görsel servisi için kimlik doğrulamalı GÖLGE masaüstü oturumu gerekir.'},status=503)
+        endpoint = req.match_info['endpoint']
+        body = await req.json() if req.method == 'POST' else None
+        try:
+            status, data, mime = await cloud.image_request(req.method, '/api/image/'+endpoint, body)
+            headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}
+            if endpoint.startswith('generated/') and mime in {'image/png','image/jpeg','image/webp'}:
+                suffix={'image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[mime]
+                headers['Content-Disposition']=f'inline; filename="golge-gorsel-{endpoint.split("/")[-1]}.{suffix}"'
+            return web.Response(status=status,body=data,content_type=mime,headers=headers)
+        except Exception:
+            return web.json_response({'error':'image_cloud_unavailable',
+                'detail':'Görsel servisine ulaşılamadı. Tekrar ücretlendirmemek için otomatik tekrar yapılmadı.'},status=502)
+
     async def frontend(req):
         root = Path(__file__).resolve().parents[1] / req.match_info.get('surface', 'frontend') / 'dist'
         relative = req.match_info.get('asset') or 'index.html'
@@ -653,6 +671,8 @@ location.replace(showHologram ? '/hologram/hologram.html' : '/frontend/index.htm
         response.set_cookie('mark_session', token, httponly=True, samesite='Strict', path='/')
         return response
 
+    app.router.add_get('/api/merged/image-studio/{endpoint:status|generated/[0-9]{1,19}}', image_studio_proxy)
+    app.router.add_post('/api/merged/image-studio/{endpoint:generate|cancel}', image_studio_proxy)
     app.router.add_get('/api/merged/health', health)
     app.router.add_post('/api/merged/invoke', invoke)
     app.router.add_post('/api/merged/cancel', cancel_request)

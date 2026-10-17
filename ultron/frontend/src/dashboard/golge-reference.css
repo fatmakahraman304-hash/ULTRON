@@ -62,3 +62,9 @@ html,body{overflow:hidden;overflow:clip}
 @media(max-width:1150px) and (min-width:841px){.ultron-app.voice-first.golge-minimal .main-grid{grid-template-columns:64px minmax(265px,1fr) minmax(315px,36%);gap:10px}.golge-minimal .golge-navigation button{justify-content:center;font-size:0;gap:0;padding:10px}.golge-minimal .golge-navigation button svg{width:20px;height:20px}.nav-status{display:none}.header-mode small{display:none}.golge-minimal .main-header{gap:12px}.header-mode{padding-left:12px}.golge-minimal .main-header time{display:none}}
 @media(max-width:840px){.header-mode,.core-topline,.nav-status{display:none}.golge-minimal .main-header time{display:none}.golge-minimal .golge-brand{font-size:17px;letter-spacing:.15em;margin-right:auto}.golge-minimal .golge-connection{font-size:10px}.golge-minimal .main-header{padding:0 7px;gap:10px}.golge-minimal .chat-panel .panel-body{padding:8px 4px 7px}.golge-minimal .message{font-size:13px;padding:10px 12px;max-width:88%;margin-left:26px}.golge-minimal .message.user{max-width:84%;margin-left:auto}.golge-minimal .composer input{font-size:16px}}
 @media(prefers-reduced-motion:reduce){.golge-minimal button,.core-waveform i{transition:none!important}}
+
+/* Owner-scoped Image Studio output; no additional main-screen controls. */
+.generated-image>button{padding:0;border:1px solid #245269;border-radius:12px;overflow:hidden;background:#06121c;cursor:zoom-in}
+.generated-image>div{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:8px}
+.generated-image a{color:#9fe9ff;text-decoration:underline}
+.generated-image dialog::backdrop{background:#02080de6}

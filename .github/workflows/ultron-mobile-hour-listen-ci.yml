@@ -7,6 +7,7 @@ on:
       - feat/mobile-long-listen-delivery-recovery-20261012
   pull_request:
     branches:
+      - feat/golge-grounded-research-20261017
       - feat/ultron-cloud-shared-memory
       - feat/mobile-hour-listen-consent-20261012
     paths:

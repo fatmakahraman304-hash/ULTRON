@@ -1,5 +1,7 @@
 """Image generation API contract and provider payload handling."""
 import base64
+from test_image_studio import png, result
+import json
 import os
 import unittest
 import uuid
@@ -26,6 +28,7 @@ class FakeContext:
 class FakeDB:
     def __init__(self):
         self.messages = []
+        self.requests = {}
         self.image_rows = {}
         self.uploaded_rows = {}
         self.next_id = 0
@@ -39,6 +42,8 @@ class FakeDB:
         return FakeContext(self)
 
     async def fetchval(self, sql, *args):
+        if "count(*) FROM image_requests" in sql:
+            return sum(r.get('reserved',False) for r in self.requests.values())
         if sql.startswith("SELECT user_id FROM conversations"):
             return self.conversations.get(args[0])
         if sql.startswith("INSERT INTO conversations"):
@@ -51,6 +56,8 @@ class FakeDB:
         return args[0]
 
     async def fetchrow(self, sql, *args):
+        if "FROM image_requests" in sql:
+            return self.requests.get((args[0],args[1]))
         if "FROM generated_images" in sql:
             return self.image_rows.get((args[0], args[1]))
         if "FROM uploaded_images" in sql:
@@ -58,6 +65,12 @@ class FakeDB:
         return None
 
     async def execute(self, sql, *args):
+        if "INSERT INTO image_requests" in sql:
+            self.requests[(args[0],args[1])]={'fingerprint':args[3],'status':'running','reserved':True}
+        if "UPDATE image_requests" in sql:
+            row=self.requests[(args[0],args[1])]
+            if "status='completed'" in sql:row.update(status='completed',result=args[2])
+            else:row['status']=args[2]
         if "INSERT INTO generated_images" in sql:
             self.image_rows[(args[0], args[2])] = {
                 "mime_type": args[3], "image_data": args[4],
@@ -71,7 +84,7 @@ class FakeDB:
 
 class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.env = patch.dict(os.environ, {"ULTRON_DEVICE_TOKEN": "image_test_only"})
+        self.env = patch.dict(os.environ, {"ULTRON_DEVICE_TOKEN": "image_test_only", "GOLGE_IMAGE_ENABLED":"true", "GOLGE_IMAGE_BUDGET_APPROVED":"true", "GOLGE_IMAGE_DAILY_LIMIT":"20", "GOLGE_IMAGE_DAILY_BUDGET_USD":"10", "GEMINI_API_KEY":"fixture"})
         self.env.start()
         self.db = FakeDB()
         app = web.Application(middlewares=[cloud.auth_middleware])
@@ -86,31 +99,8 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         await self.client.close()
         self.env.stop()
 
-    def test_gemini_image_parts_are_extracted_and_limited_to_supported_mime(self):
-        image = b"real generated PNG payload"
-        part = SimpleNamespace(inline_data=SimpleNamespace(data=image, mime_type="image/png"))
-        response = SimpleNamespace(candidates=[SimpleNamespace(content=SimpleNamespace(parts=[part]))])
-        class FakeModels:
-            def generate_content(self, **kwargs):
-                self.kwargs = kwargs
-                return response
-        models = FakeModels()
-        with patch.object(cloud.genai, "Client", return_value=SimpleNamespace(models=models)), \
-             patch.object(cloud, "required_env", return_value="server-only-key"), \
-             patch.dict(os.environ, {"GEMINI_IMAGE_MODEL": "test-image-model"}):
-            result = cloud._gemini_generate_image("draw a blue circle", b"source", "image/jpeg")
-        self.assertEqual(base64.b64decode(result["image_b64"]), image)
-        self.assertEqual(result["mime_type"], "image/png")
-        self.assertEqual(models.kwargs["config"].response_modalities, ["IMAGE", "TEXT"])
-        self.assertEqual(models.kwargs["contents"][1].inline_data.data, b"source")
-
-        bad_response = SimpleNamespace(candidates=[SimpleNamespace(content=SimpleNamespace(parts=[
-            SimpleNamespace(inline_data=SimpleNamespace(data=b"payload", mime_type="image/svg+xml"))]))])
-        with patch.object(cloud.genai, "Client", return_value=SimpleNamespace(models=SimpleNamespace(
-                 generate_content=lambda **_: bad_response))), \
-             patch.object(cloud, "required_env", return_value="server-only-key"):
-            with self.assertRaisesRegex(RuntimeError, "output limits"):
-                cloud._gemini_generate_image("draw", None, None)
+    def payload(self, prompt="draw a blue circle", **extra):
+        return dict(prompt=prompt,request_id=str(uuid.uuid4()),conversation_id=str(uuid.uuid4()),cost_approved=True,**extra)
 
     async def test_requires_auth_and_prompt_before_provider(self):
         with patch.object(cloud, "_gemini_generate_image") as generate:
@@ -123,14 +113,12 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_returns_real_image_payload_and_threads_request(self):
         headers = {"Authorization": "Bearer image_test_only"}
-        form = FormData({"prompt": "draw a blue circle"})
-        form._is_multipart = True
-        expected = {"mime_type": "image/png", "image_b64": base64.b64encode(b"png bytes").decode(), "model": "test"}
+        expected = result()
         with patch.object(cloud, "_gemini_generate_image", return_value=expected) as generate:
-            response = await self.client.post("/api/image/generate", data=form, headers=headers)
+            response = await self.client.post("/api/image/generate", json=self.payload(), headers=headers)
         self.assertEqual(response.status, 200)
         data = await response.json()
-        self.assertEqual(data["image_b64"], expected["image_b64"])
+        self.assertEqual(data["status"], "completed")
         self.assertTrue(data["conversation_id"])
         self.assertEqual(generate.call_args.args, ("draw a blue circle", None, None))
         self.assertEqual(len(self.db.messages), 2)
@@ -140,7 +128,7 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
             data["image_url"], headers=headers,
         )
         self.assertEqual(asset.status, 200)
-        self.assertEqual(await asset.read(), b"png bytes")
+        self.assertEqual(await asset.read(), png())
         self.assertEqual(asset.content_type, "image/png")
         self.assertIn("no-store", asset.headers["Cache-Control"])
         self.assertEqual(asset.headers["X-Content-Type-Options"], "nosniff")
@@ -157,15 +145,15 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(cross_owner.status, 404)
 
 
-    async def test_edit_sends_uploaded_image_bytes_to_provider(self):
+    async def test_legacy_edit_is_blocked_without_paid_consent(self):
         headers = {"Authorization": "Bearer image_test_only"}
         form = FormData()
         form.add_field("prompt", "improve this image")
         form.add_field("image", b"original image bytes", filename="original.png", content_type="image/png")
         with patch.object(cloud, "_gemini_generate_image", return_value={"mime_type": "image/png", "image_b64": "eA=="}) as generate:
             response = await self.client.post("/api/image/generate", data=form, headers=headers)
-        self.assertEqual(response.status, 200)
-        self.assertEqual(generate.call_args.args, ("improve this image", b"original image bytes", "image/png"))
+        self.assertEqual(response.status, 400)
+        generate.assert_not_called()
 
     async def test_invalid_image_response_does_not_claim_creation(self):
         headers = {"Authorization": "Bearer image_test_only"}
@@ -176,7 +164,7 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         ):
             with patch.object(cloud, "_gemini_generate_image", return_value=invalid):
                 response = await self.client.post(
-                    "/api/image/generate", json={"prompt": "çiz"}, headers=headers,
+                    "/api/image/generate", json=self.payload("çiz"), headers=headers,
                 )
             self.assertEqual(response.status, 502)
         self.assertEqual(self.db.messages, [])
@@ -184,10 +172,8 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_provider_failure_does_not_create_a_conversation(self):
         headers = {"Authorization": "Bearer image_test_only"}
-        form = FormData({"prompt": "draw a blue circle"})
-        form._is_multipart = True
         with patch.object(cloud, "_gemini_generate_image", side_effect=RuntimeError("provider unavailable")):
-            response = await self.client.post("/api/image/generate", data=form, headers=headers)
+            response = await self.client.post("/api/image/generate", json=self.payload(), headers=headers)
         self.assertEqual(response.status, 502)
         self.assertEqual(self.db.conversation_writes, [])
         self.assertEqual(self.db.messages, [])
@@ -196,12 +182,9 @@ class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
         headers = {"Authorization": "Bearer image_test_only"}
         thread = uuid.uuid4()
         self.db.conversations[thread] = 999
-        form = FormData()
-        form.add_field("prompt", "draw a blue circle")
-        form.add_field("conversation_id", str(thread))
-        form._is_multipart = True
+        payload=self.payload();payload['conversation_id']=str(thread)
         with patch.object(cloud, "_gemini_generate_image") as generate:
-            response = await self.client.post("/api/image/generate", data=form, headers=headers)
+            response = await self.client.post("/api/image/generate", json=payload, headers=headers)
         self.assertEqual(response.status, 404)
         generate.assert_not_called()
         self.assertEqual(self.db.conversation_writes, [])

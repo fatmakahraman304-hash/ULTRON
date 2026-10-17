@@ -1,3 +1,7 @@
+## 2026-10-17 — Image Studio continuation
+
+Branch `feat/golge-image-studio-20261017`, stacked on PR #59 `b0b4dbf`. PR #59 and production are unchanged. Finish exact-head CI on the new draft PR; no deploy/merge. Before live acceptance: securely provision a current Google image-model key and explicitly approve daily cost/count limits; then test one 1K request, billing, safety refusal and timeout reconciliation. Physical Windows Qt save dialog, microphone and iPhone Safari/PWA share/save/zoom remain NOT RUN; laptop currently unavailable. Editing is phase 2, intentionally unavailable. Do not clear image-request ledger rows to retry uncertain calls. Ledger archival/account-erasure policy remains a follow-up. See `docs/GOLGE_IMAGE_STUDIO.md` for exact environment gates and limits.
+
 ## PR #59 — CI düzeltmesi (17 Ekim 2026)
 
 [Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.

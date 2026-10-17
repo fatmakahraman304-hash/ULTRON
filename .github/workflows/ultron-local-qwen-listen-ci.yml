@@ -10,6 +10,7 @@ on:
       - feat/ultron-qwen-probe-latest-live-20261013
   pull_request:
     branches:
+      - feat/golge-grounded-research-20261017
       - feat/ultron-full-session-map-reduce-20261012
       - feat/ultron-local-qwen-long-listening-20261012
       - feat/ultron-cloud-shared-memory

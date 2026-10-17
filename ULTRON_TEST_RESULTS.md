@@ -1,3 +1,16 @@
+## 2026-10-17 — Image Studio local verification
+
+- Cloud + disposable PostgreSQL: **458 PASS**, 0 FAIL, 0 skipped; 368 additional unittest subtests (not added to the test count).
+- Backend regression: **1307 PASS**, 0 FAIL, **3 NOT RUN/skipped**: existing deterministic-parser unsupported case, missing Picovoice key, physical Windows/microphone workflow. Six additional subtests.
+- React TypeScript/Vite production build: **PASS**. Existing >500 kB bundle advisory remains.
+- Frontend Node: **59 PASS**; separate Earth command: **6 PASS**.
+- PWA Node contracts: **169 PASS**, 0 FAIL after updating the test fixture for shared image intent.
+- Chromium Image Studio: **5 PASS** (synthetic provider/PNG; native history uses fake Qt signals). Research renderer regression: **2 PASS**.
+- Native image download policy: **1 PASS**; Earth Python config: **6 PASS**; required Python compile: **PASS**.
+- Regression failures found/fixed: Turkish “resmi yap” intent; history replay accidentally treated as a new voice request; duplicate Cloud image arrivals; research browser fixture racing startup; unauthenticated Qt download path was previously rejected and now has a narrowly scoped save-dialog policy.
+- Real AI image production: **BLOCKED** (no Gemini key/cost enablement). Real iPhone/Windows/microphone/Web Share: **NOT RUN**.
+- GitHub exact-head CI: pending new draft PR. No production merge or Render deploy.
+
 ## PR #59 — CI düzeltmesi (17 Ekim 2026)
 
 [Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.

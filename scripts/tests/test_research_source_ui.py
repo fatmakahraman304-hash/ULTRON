@@ -101,8 +101,10 @@ class ResearchSourceBrowserTests(unittest.IsolatedAsyncioTestCase):
     async def test_iphone_actual_pwa_message_renderer_and_reload_metadata(self):
         await self.page.set_viewport_size({'width':390, 'height':844})
         await self.page.goto(self.url + '/phone')
+        # Wait for boot/auth to finish before injecting this renderer fixture.
+        await self.page.locator('#splash').wait_for(state='detached')
         await self.page.evaluate('''({text,meta}) => {
-            document.querySelector('#splash').classList.add('hidden');
+            document.querySelector('#splash')?.classList.add('hidden');
             document.querySelector('#login').classList.add('hidden');
             document.querySelector('#app').classList.remove('hidden');
             document.querySelector('#chatView').classList.add('active');

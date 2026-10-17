@@ -1,3 +1,7 @@
+## 2026-10-17 — Image Studio text-to-image review milestone
+
+Shared Windows/PWA text-to-image path implemented, using existing Cloud storage/auth/history. Paid activation is fail-closed; independent PostgreSQL and browser verification included. Phase 2 image editing and physical/live provider acceptance are not complete. No autonomous activation or deployment. PR #59 remains an unchanged prerequisite.
+
 ## PR #59 — CI düzeltmesi (17 Ekim 2026)
 
 [Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.

@@ -197,12 +197,49 @@ def classify_model_task(message: str) -> str:
     return "FAST"
 
 
+def classify_image_request(message: str) -> str | None:
+    """Image Studio intent; retrieval, analysis, download and code remain separate."""
+    text = fold_turkish(str(message or ""))
+    if not text or len(text) > 4000:
+        return None
+    if re.search(
+        r"\b(?:bul|ara|indir|analiz|incele|hakkinda|nedir|nasil|find|search|download|analyze|explain)\b",
+        text,
+    ):
+        return None
+    noun = re.search(
+        r"fotograf|gorsel|res(?:im|mi)|duvar kagidi|image|picture|wallpaper|photo|digital sanat",
+        text,
+    )
+    if (
+        noun
+        and re.search(r"sinematik yap|duzenle|iyilestir|degistir|edit|enhance", text)
+        and re.search(r"\b(?:bu|bunu|this|it)\b", text)
+    ):
+        return "image_edit"
+    if (
+        (
+            noun
+            and re.search(
+                r"olustur|uret|ciz|yarat|\byap\b|generate|create|draw|paint", text
+            )
+        )
+        or re.search(r"\bciz\b|\bdraw\b", text)
+        or re.search(r"^(?:bana )?(?:bir )?.{1,60}\bdaire olustur", text)
+    ):
+        return "image_generate"
+    return None
+
+
 def classify_intent(message: str) -> IntentDecision:
     """Route intent from existing lexical/context recognizers; never calls a model."""
     text = str(message or "").strip()
     task = classify_model_task(text)
     act = classify_dialogue_act(text)
-    if act == "correction":
+    image = classify_image_request(text)
+    if image:
+        kind = image
+    elif act == "correction":
         kind = "correction"
     elif is_topic_switch_request(text):
         # A current explicit topic change always supersedes recalled projects.
@@ -233,7 +270,7 @@ def classify_intent(message: str) -> IntentDecision:
             "continuation", "correction", "topic_return", "history_recall", "memory_recall",
             "episode_recall",
         },
-        requires_tool=kind in {"research", "computer_task", "scene_visual"},
+        requires_tool=kind in {"research", "computer_task", "scene_visual", "image_generate", "image_edit"},
         model_task=task,
     )
 
