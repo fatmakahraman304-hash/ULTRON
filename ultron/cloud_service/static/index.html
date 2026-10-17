@@ -657,6 +657,7 @@
 <script src="/static/owner-plans.js"></script>
 <script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
+<script src="/static/source-links.js"></script>
 <script src="/static/chat-transport.js"></script>
 <script src="/static/scene-intents.js"></script>
 <script src="/static/panel-intents.js"></script>
@@ -1100,7 +1101,7 @@ async function sendImage(){
         photoNode.src='/api/image/uploaded/'+photoId;
       }
     }
-    addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';clearPendingImage();$('#message').value='';
+    addMessage('assistant',d.reply,{id:d.assistant_message_id,research:d.research});messageSignature='';clearPendingImage();$('#message').value='';
     if(voiceEnabled&&!voiceListening)speakUltron(d.reply);
     toast(d.analysis_status==='failed'
       ?'Fotoğraf kaydedildi ancak analiz tamamlanamadı.'
@@ -1809,7 +1810,7 @@ function attachUploadedImage(bubble,id){
 }
 function addMessage(role,content,meta={}){
   const d=document.createElement('div');d.className='msg '+role;
-  const body=document.createElement('span');body.textContent=cleanChatText(content);d.appendChild(body);
+  const body=document.createElement('span');window.GolgeSourceLinks.render(body,cleanChatText(content));d.appendChild(body);window.GolgeSourceLinks.widget(d,meta.research||meta.research_metadata);
   if(meta.has_generated_image&&meta.id!=null)attachGeneratedImage(d,meta.id);
   else if(meta.has_uploaded_image&&meta.id!=null)attachUploadedImage(d,meta.id);
   else if(meta.image_unavailable||meta.uploaded_image_unavailable){
@@ -2239,7 +2240,7 @@ async function send(fromVoice=false,voiceToken=null,options={}){
       const d=await visionApi(lastUploadedImageId?null:lastImageFile,text,lastUploadedImageId);
       if(d.user_message_id){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
       rememberPendingVoice('assistant',d.reply);
-      addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';
+      addMessage('assistant',d.reply,{id:d.assistant_message_id,research:d.research});messageSignature='';
       if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
       if(voiceEnabled&&!voiceListening)try{speakUltron(d.reply)}catch{}
       return true;
@@ -2272,7 +2273,7 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(typeof d.reply!=='string'||!d.reply.trim())throw new Error('Yanıt boş geldi.');
     conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);
     if(d.user_message_id&&userBubble){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id));consumePendingVoice('user',text)}
-    rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply,{id:d.assistant_message_id});
+    rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply,{id:d.assistant_message_id,research:d.research});
     if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
     messageSignature='';
     if((!fromVoice||voiceTurnGuard.current(voiceToken))&&

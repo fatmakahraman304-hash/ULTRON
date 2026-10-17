@@ -137,3 +137,51 @@ def append_research_sources(answer: str, result: dict | None) -> str:
             )
     lines.append("Bu kaynakların okunması, iddiaların bağımsız veya anlamsal doğrulaması değildir.")
     return (text + "\n" + "\n".join(lines)).strip()
+
+
+_PRIVATE_SEARCH = re.compile(
+    r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|"
+    r"(?<!\w)(?:\+?\d[ ()-]*){10,}(?!\w)|"
+    r"(?:şifrem|parolam|tokenım|tokenim|api anahtarım|ev adresim|telefon numaram|"
+    r"my password|my api key|my home address|my phone number)|"
+    r"(?:[A-Za-z]:\\Users\\|/home/|/Users/)", re.I)
+
+
+def safe_public_query(message: str) -> bool:
+    # Check BEFORE truncation. Do not export private conversation/owner memory.
+    from ultron.cloud_service.live_voice_policy import safe_manual_memory_value
+    text = str(message or '')
+    return bool(text.strip() and len(text) <= 16000
+                and safe_manual_memory_value(text) and not _PRIVATE_SEARCH.search(text))
+
+
+def is_research_followup(message: str) -> bool:
+    return bool(re.fullmatch(
+        r'(?:peki )?(?:kaynakları karşılaştır|başka kaynak bul|araştırmaya devam et|'
+        r'compare (?:the )?sources|find another source|continue (?:the )?research)[.!? ]*',
+        str(message or '').strip(), re.I))
+
+
+def research_message_for_turn(message: str, turns=None) -> str | None:
+    """Only explicit public research follow-ups reuse a prior user query.
+
+    Never use assistant/system text or search arbitrary older threads. The caller
+    must supply owner/thread-scoped turns from the existing context manager.
+    """
+    from ultron.cloud_service.conversation_persona import classify_intent, classify_model_task
+    text = str(message or '').strip()
+    route = classify_intent(text)
+    if route.kind in {'computer_task', 'scene_visual', 'memory_recall', 'history_recall', 'episode_recall'}:
+        return None
+    if classify_model_task(text) == 'RESEARCH':
+        return text
+    if not is_research_followup(text):
+        return None
+    for turn in reversed((turns or [])[-20:]):
+        if turn.get('role') != 'user': continue
+        prior = str(turn.get('content') or '')
+        if not prior.strip() or prior.strip() == text: continue
+        if classify_model_task(prior) != 'RESEARCH' or not safe_public_query(prior):
+            return None
+        return extract_research_query(prior) + '. ' + text
+    return None

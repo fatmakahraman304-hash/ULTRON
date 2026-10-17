@@ -377,6 +377,7 @@ def install(app, hub):
                     'model': 'cloud-gemini',
                     'source': 'cloud',
                     'conversation_id': data.get('conversation_id'),
+                    'research': data.get('research'),
                     'request_id': request_id,
                 })
             except Exception as exc:
@@ -390,6 +391,24 @@ def install(app, hub):
                     f'Cloud unavailable; local Ollama fallback ({safe_cloud_error(exc)})', 'warn')
             finally:
                 await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
+
+        research_result = None
+        if intent.model_task == 'RESEARCH':
+            from ultron.cloud_service.verified_research import research_for_chat
+            from ultron.backend.app.cognitive.research_context import build_research_prompt_block, append_research_sources
+            research_result, cancelled = await await_until_cancelled(research_for_chat(text, allow_grounding=selected_model is None), record)
+            if cancelled or record.cancel_event.is_set():
+                cancellations.finish(record, 'output_suppressed')
+                return web.json_response({'ok': False, 'status': 'output_suppressed',
+                    'provider_stopped': False, 'request_id': request_id, 'text': ''})
+            if research_result and (research_result.get('answer') or not (research_result.get('synthesis') or {}).get('findings')):
+                answer = research_result.get('answer') or (
+                    'Bu sorgu özel bilgi içeriyor; özel bilgileri kaldırıp yeniden sorabilirsin.'
+                    if research_result.get('status') == 'research_blocked_sensitive_input' else
+                    'Güncel kaynaklara erişemedim; bu bilgiyi doğrulayamıyorum.')
+                cancellations.finish(record, 'completed')
+                return web.json_response({'ok': True, 'text': answer, 'source': 'research',
+                    'research': research_result, 'request_id': request_id})
 
         check = await hub.check_ollama()
         hub.ai_status = check['status']
@@ -410,7 +429,7 @@ def install(app, hub):
                 return web.json_response({'ok': False, 'error': 'MODEL NOT AVAILABLE',
                                           'request_id': request_id}, status=400)
             settings['llm'].setdefault('routing', {})[mode.lower()] = selected_model
-        settings['llm'].setdefault('local_multi_model', {})['enabled'] = mode == 'multi'
+        settings['llm'].setdefault('local_multi_model', {})['enabled'] = mode == 'multi' and not research_result
         router = ModelRouter(rt.brain, settings, get_models=lambda: models)
         multi_model = router.local_multi_enabled()
         cancellations.set_provider(record,
@@ -437,8 +456,14 @@ def install(app, hub):
                         'request_id': request_id, 'provider': 'ollama-local-multi',
                         'provider_stopped': False, 'text': ''})
             else:
-                answer = await router.ask_cancellable(
-                    mode.upper(), text, cancel_event=record.cancel_event)
+                if research_result:
+                    answer = await router.ask_cancellable(
+                        'RESEARCH', text, system=build_research_prompt_block(research_result),
+                        cancel_event=record.cancel_event)
+                    answer = append_research_sources(answer, research_result)
+                else:
+                    answer = await router.ask_cancellable(
+                        mode.upper(), text, cancel_event=record.cancel_event)
             if record.cancel_event.is_set():
                 # The provider already returned; a cancel racing with response
                 # delivery suppresses output but cannot be reported as stopped.

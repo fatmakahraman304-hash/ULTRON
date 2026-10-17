@@ -50,7 +50,7 @@ class EvaluationTests(unittest.TestCase):
                     and item.name == '_gemini_reply')
         calls = []
         class ClientFactory:
-            def Client(self, api_key):
+            def Client(self, api_key, **kwargs):
                 self.api_key = api_key
                 return object()
         def generate(client, model, prompt, instruction, turns=None):

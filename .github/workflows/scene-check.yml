@@ -269,7 +269,7 @@ jobs:
         run: npm ci
       - name: Conversation interruption state contracts
         working-directory: ultron/frontend
-        run: node --experimental-strip-types --test tests/conversationRequestFailure.test.mjs tests/conversationRequestIdentity.test.mjs
+        run: node --experimental-strip-types --test tests/conversationRequestFailure.test.mjs tests/conversationRequestIdentity.test.mjs tests/sourceLinks.test.mjs
       - name: TypeScript and Vite build
         working-directory: ultron/frontend
         run: npm run build
@@ -297,6 +297,7 @@ jobs:
           PYTHONPATH=. python scripts/tests/test_scene_desktop_api.py
           python scripts/tests/test_scene_browser.py
           python scripts/tests/test_frontend_stage_loading.py
+          python scripts/tests/test_research_source_ui.py
       - name: Mobile listening consent and full-summary browser interaction
         run: python scripts/tests/test_listening_browser.py
       - name: GÖLGE private generated-image reload and download UI contract

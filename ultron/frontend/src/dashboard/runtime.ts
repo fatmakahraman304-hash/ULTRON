@@ -52,7 +52,7 @@ export async function request(path:string,body?:unknown,signal?:AbortSignal){
  const data=await res.json();if(!res.ok||data.ok===false)throw Error(data.error||`HTTP ${res.status}`);return data;
 }
 export type DevRequest={id:string;prompt:string;target:'phone'|'desktop'|'both';status:string;handoff:string;commit_sha?:string;verified_cloud?:boolean;verified_tests?:boolean};
-export type Message={role:'user'|'assistant';text:string;id:number;time:number;cloudId?:number};
+export type Message={role:'user'|'assistant';text:string;id:number;time:number;cloudId?:number;research?:unknown};
 export function useUltron(){
  const [connected,setConnected]=useState(false),[system,setSystem]=useState<SystemSnapshot|null>(null),[ai,setAi]=useState<AIStatus|null>(null);
  const [state,setState]=useState<CoreState>('IDLE'),[nativeState,setNativeState]=useState<CoreState>('IDLE'),[amplitude,setAmplitude]=useState(0),[muted,setMuted]=useState(true),[native,setNative]=useState<Native|null>(null);
@@ -60,7 +60,7 @@ export function useUltron(){
  const [messages,setMessages]=useState<Message[]>([]),[pending,setPending]=useState<TaskProposal|null>(null),[patch,setPatch]=useState<PatchProposal|null>(null),[notice,setNotice]=useState(''),[notifications,setNotifications]=useState<any[]>([]);
  const [health,setHealth]=useState<any>(null),[tools,setTools]=useState<any[]>([]),[memory,setMemory]=useState<any>(null),[plugins,setPlugins]=useState<any[]|null>(null),[history,setHistory]=useState<SystemSnapshot[]>([]),[taskState,setTaskState]=useState<CoreState>('IDLE'),[devicePresence,setDevicePresence]=useState<any[]>([]),[stage,setStage]=useState<StageState>(defaultStage);
  const cloudKnown=useRef<Set<number>>(new Set());
- const add=(role:Message['role'],text:string)=>setMessages(p=>[...p,{role,text,id:Date.now()+Math.random(),time:Date.now()}].slice(-300));
+ const add=(role:Message['role'],text:string,research?:unknown)=>setMessages(p=>[...p,{role,text,research,id:Date.now()+Math.random(),time:Date.now()}].slice(-300));
  const mergeCloud=(rows:any[])=>setMessages(previous=>{
   const next=[...previous];
   for(const row of Array.isArray(rows)?rows:[]){
@@ -72,8 +72,8 @@ export function useUltron(){
    const parsed=Date.parse(String(row?.created_at??''));
    const time=Number.isFinite(parsed)?parsed:Date.now();
    const match=next.findIndex(m=>m.cloudId===undefined&&m.role===role&&m.text===text&&Math.abs(m.time-time)<120000);
-   if(match>=0)next[match]={...next[match],cloudId,time};
-   else next.push({role,text,id:-cloudId,time,cloudId});
+   if(match>=0)next[match]={...next[match],cloudId,time,research:row.research_metadata};
+   else next.push({role,text,id:-cloudId,time,cloudId,research:row.research_metadata});
   }
   next.sort((a,b)=>a.time-b.time||a.id-b.id);
   return next.slice(-300);

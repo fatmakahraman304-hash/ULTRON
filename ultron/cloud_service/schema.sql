@@ -298,3 +298,6 @@ CREATE TABLE IF NOT EXISTS conversation_notes (
 );
 CREATE INDEX IF NOT EXISTS idx_conversation_notes_owner_conversation
   ON conversation_notes(user_id,conversation_id,id DESC);
+
+-- Additive: retain Google source attribution with the same owner-scoped message.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS research_metadata JSONB;

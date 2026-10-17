@@ -15,7 +15,7 @@
   return desktop?.online===true&&desktop?.state?.local_chat_ready===true?"local":"gemini";
  }
  function safeToFallback(error) {
-  return error?.status===409&&error?.data?.error==="desktop_offline";
+  return error?.status===409&&["desktop_offline","research_requires_cloud"].includes(error?.data?.error);
  }
  return {select,safeToFallback};
 });

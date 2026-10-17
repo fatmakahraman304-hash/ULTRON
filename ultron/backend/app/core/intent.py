@@ -26,7 +26,8 @@ RESEARCH_RE = re.compile(
 
 def research_pattern(text: str) -> bool:
     """Cheap local guard shared with the research-only prefetch path."""
-    return bool(RESEARCH_RE.search(text or ""))
+    from ultron.cloud_service.conversation_persona import classify_intent
+    return classify_intent(text).model_task == "RESEARCH"
 
 def vision_pattern(text: str) -> bool:
     return bool(VISION_RE.search(text or ""))
