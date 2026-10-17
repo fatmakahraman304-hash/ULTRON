@@ -2,7 +2,7 @@
 
 ## Durum ve referans
 
-Bu sürüm geliştirme dalıdır; üretime alınmadı, Render dağıtımı yapılmadı. Başlangıç üretim SHA'sı `b486f13b5f70092bbf9e5a0dce4afac301573058`. PR #56'nın bekleyen ses kesme, uydu/hava durumu ve dosya seçme düzeltmeleri bu **geliştirme dalına** alındı (`48a688a`); PR #56 veya üretim birleştirilmedi. Diğer açık PR'lar değiştirilmedi.
+[Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). Bu sürüm geliştirme dalıdır; üretime alınmadı, Render dağıtımı yapılmadı. Başlangıç üretim SHA'sı `b486f13b5f70092bbf9e5a0dce4afac301573058`. PR #56'nın bekleyen ses kesme, uydu/hava durumu ve dosya seçme düzeltmeleri bu **geliştirme dalına** alındı (`48a688a`); PR #56 veya üretim birleştirilmedi. Diğer açık PR'lar değiştirilmedi.
 
 JARVIS 4.6.2'nin [resmî sürüm notlarındaki](https://github.com/alpunlu12-commits/jarvis/releases/tag/v4.6.2) güncel bilgi için Google Search ve model yedeği fikirleri bağımsız olarak uygulandı. JARVIS çalıştırılmadı; konuşma kalitesi karşılaştırması **NOT_RUN**. Yüklenen exe indirme sınırını aştığından resmî release kopyası salt statik incelendi: 73.534.559 bayt, PE32; SHA-256 `582558101b379580be715f1159a11c3f84ca441e27f7bbc70214340abf2ae2c4` verilen digest ile eşleşti. Kurulum, decompile, özel kod/anahtar kopyalama yapılmadı; exe repoya eklenmedi.
 

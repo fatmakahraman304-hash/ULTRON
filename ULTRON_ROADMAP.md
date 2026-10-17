@@ -1,3 +1,7 @@
+## PR #59 — CI düzeltmesi (17 Ekim 2026)
+
+[Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.
+
 ## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
 
 Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
