@@ -1,3 +1,11 @@
+## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
+
+Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
+
+Mevcut ResearchEngine'e resmî SDK Google Search adaptörü eklendi; kapalı varsayılan, ayrı model/bütçe/anahtar kapıları, en fazla iki model denemesi. Güncel soru yönlendirme, hassas sorguyu kısaltmadan önce denetleme, owner/thread kapsamlı ardışık araştırma devamı, güvenli kaynak yedeği ve kanıt yoksa dürüst yanıt çalışır. Grounding URL/UTF-8 support denetimi, tıklanabilir React/PWA kaynakları, sandbox öneri widget'ı, mesajla atomik PostgreSQL metadata kaydı ve iptal sonrası geç yanıtı kaydetmeme uygulandı. Eski ses/harita düzeltmeleri PR #56'dan korundu; Calculator UIA/approval sınırları değiştirilmedi.
+
+443 Cloud/gerçek geçici PostgreSQL, 376 ilgili backend/güvenlik/kanıt/Calculator sözleşmesi, 43 frontend, 169 PWA JS, 4 gerçek Chromium ve 3 manuel komut regresyonu PASS. Build/compile PASS. 100 mevcut yönlendirme senaryosu 100/100; yeni 16 vaka üretim başlangıcında 8/16, şimdi 16/16. Bunlar model zekâsı ölçümü değildir. SDK 1.75.0 ve 2.31.0 fixture sözleşmeleri geçti. Gerçek Gemini/Qwen BLOCKED; cihaz/mikrofon/TTS NOT_RUN. Render health timeout; canlı sürüm doğrulanmadı. Exact-head CI sonucu PR üzerinde ayrıca izlenecek.
+
 ## 2026-10-16 — Üç legacy preset kaldırıldı
 
 Kullanıcının açık kapsam yanıtıyla yalnızca GÖLGE intro render, Dünya hologramı ve enerji hologramı kaldırıldı; ana CORE, EarthWatch/harita ve kontrol merkezi korunur. Dashboard Araçlar düğmeleri, CenterStage presetleri/çizimleri, ilgili sahne kısayolları ve agent araç açıklamaları temizlendi. Backend artık kaldırılan türleri create/update/add, batch ve JSON import yollarında HTTP 400 ile reddeder; intro/energy video şablonları kabul edilmez. Eski snapshot'lar yalnızca desteklenen nesneleri canlı sahneye getirir; kullanıcı proje dosyaları ve hafıza silinmez.

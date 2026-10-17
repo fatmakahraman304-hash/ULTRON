@@ -1,3 +1,13 @@
+## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
+
+Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
+
+1. Yeni taslak PR'ın exact-head Actions sonuçlarını kontrol et; başarısızlık varsa testleri atlamadan düzelt. Bu dal PR #56 düzeltmelerini içerir; diğer açık PR'ları izinsiz birleştirme.
+2. Google için yalnızca kullanıcı bütçe/kota onayından sonra mevcut güvenli anahtarla `scripts/golge_research_doctor.py --list-models` çalıştır. Hesaba açık modelin Google Search desteğini resmî belgelerden doğrula; bir sınırlı gerçek sorgu, kaynak/widget gösterimi, follow-up, iptal, yenileme ve iki yetkili cihaz senaryosunu test et. Anahtar/izin olmadan BLOCKED koru.
+3. Windows native ses ve Gemini Live doğrudan ses yolu bu sürümde Google grounding kullanmıyor; native kaynak listesi mevcut güvenli okuyucudadır. Widget/atıf zorunluluğunu kaybetmeden ses yüzeyi entegrasyonu tasarla; gerçek fiziksel testi ayrıca yap.
+4. Bu ortamda pinned source reader dış sayfa okuyamadı (`request_failed`), Render `/health` 15 sn timeout. Dağıtım ortamındaki gerçek ağ erişimini, DNS/TLS ve proxy politikasını kontrol et; SSRF sınırını aşma/gevşetme.
+5. Üretim birleştirme/Render yayını ve ücretli model etkinliği için ayrı kullanıcı onayı gerekiyor. Onaydan önce açık taslak olarak bırak; bu oturum dışında otonom çalışmanın devam ettiğini iddia etme.
+
 ## 2026-10-16 — Güncel kapsam ve devam
 
 ## 2026-10-15 — Current merge queue and Memory V4 status

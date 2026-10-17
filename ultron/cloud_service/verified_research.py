@@ -13,13 +13,16 @@ if str(_REPOSITORY_ROOT) not in sys.path:
 from ultron.backend.app.cognitive.research_engine import ResearchEngine  # noqa: E402
 from ultron.backend.app.cognitive.research_context import (  # noqa: E402
     append_research_sources, build_research_prompt_block, extract_research_query, safe_public_query,
-    research_message_for_turn,
+    research_message_for_turn, is_research_followup,
 )
 
 
 async def research_for_chat(message: str, *, engine_factory=None, allow_grounding=True) -> dict | None:
     """One explicit research request runs search + page reading, no memory export."""
     if research_message_for_turn(message) is None:
+        if is_research_followup(message):
+            return {"ok": False, "status": "research_topic_missing", "citations": [],
+                    "synthesis": {"findings": []}}
         return None
     query = extract_research_query(message)
     if not safe_public_query(message):

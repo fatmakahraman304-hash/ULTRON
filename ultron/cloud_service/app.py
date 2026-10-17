@@ -30,6 +30,7 @@ from conversation_persona import build_system_instruction, classify_intent
 from verified_research import (append_research_sources,
                                build_research_prompt_block,
                                research_for_chat, research_message_for_turn)
+from ultron.backend.app.cognitive.research_context import is_research_followup
 from personal_context_focus import load_focused_owner_context, memory_focus_question
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
@@ -1049,8 +1050,8 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str,
         model=model,
         contents=content,
         config=types.GenerateContentConfig(system_instruction=system_instruction,
-            max_output_tokens=4096 if classify_intent(prompt).model_task == 'CODING' else
-                (2048 if classify_reply_mode(prompt) == 'detailed' else 1024)),
+            max_output_tokens=8192 if classify_intent(prompt).model_task == 'CODING' else
+                (8192 if classify_reply_mode(prompt) == 'detailed' else 4096)),
     )
     text = (response.text or "").strip()
     if not text:
@@ -1088,7 +1089,9 @@ def _gemini_reply(prompt: str, system_instruction: str, turns=None, *, include_m
         raise RuntimeError("Gemini model is not configured")
     finally:
         close = getattr(client, 'close', None)
-        if callable(close): close()
+        if callable(close):
+            try: close()
+            except Exception: pass
 
 
 def _vision_fallback_allowed(exc: Exception) -> bool:
@@ -1904,6 +1907,8 @@ async def chat(request: web.Request) -> web.Response:
         # request. Personal memory/history are deliberately not added to the
         # query or persisted in the research store.
         research_result = await research_for_chat(research_message if research_message == text else 'Araştır: ' + research_message)
+    if research_message is None and is_research_followup(text):
+        research_result = {"ok": False, "status": "research_topic_missing", "synthesis": {"findings": []}}
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
@@ -1921,7 +1926,9 @@ async def chat(request: web.Request) -> web.Response:
             # Google already generated a grounded response; no second model call.
             reply = research_result["answer"]
         elif research_result and not (research_result.get("synthesis") or {}).get("findings"):
-            reply = ("Bu sorgu özel bilgi içeriyor. Özel bilgileri kaldırıp yeniden sorabilirsin."
+            reply = ("Hangi konudaki araştırmaya devam edelim? Bu konuşmada bağlı bir araştırma isteği bulamadım."
+                     if research_result.get("status") == "research_topic_missing" else
+                     "Bu sorgu özel bilgi içeriyor. Özel bilgileri kaldırıp yeniden sorabilirsin."
                      if research_result.get("status") == "research_blocked_sensitive_input" else
                      "Güncel kaynaklara erişemedim; bu bilgiyi doğrulayamıyorum. Daha sonra yeniden deneyebilirsin.")
         elif research_result and not os.getenv("GEMINI_API_KEY"):

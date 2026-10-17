@@ -1,5 +1,6 @@
 """Real isolated PostgreSQL + authenticated HTTP; the Google model is a fixture."""
 import os
+import asyncio
 import json
 import uuid
 import unittest
@@ -87,3 +88,21 @@ class GroundedResearchPostgresTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual((await response.json())['error'], 'research_requires_cloud')
         self.assertEqual(await self.pool.fetchval('SELECT count(*) FROM local_chat_requests WHERE user_id=$1', self.owner), 0)
         self.assertEqual(await self.pool.fetchval('SELECT count(*) FROM device_commands WHERE user_id=$1', self.owner), 0)
+
+    async def test_cancelled_grounding_never_saves_late_answer_or_citations(self):
+        started, release = asyncio.Event(), asyncio.Event()
+        async def delayed_search(*args, **kwargs):
+            started.set()
+            await release.wait()
+            return parse_grounding(sdk_response(), model='fixture')
+        identity = {'request_id':str(uuid.uuid4()),'request_key':'c'*64}
+        with patch.object(cloud, 'research_for_chat', delayed_search), \
+             patch.object(cloud, '_memory_context', AsyncMock(return_value='')):
+            task = asyncio.create_task(self.client.post('/api/chat', json={**identity,'message':'Bugün dolar kaç TL?'}))
+            await asyncio.wait_for(started.wait(), 3)
+            cancel = await self.client.post('/api/chat/cancel', json=identity)
+            self.assertFalse((await cancel.json())['provider_stopped'])
+            release.set()
+            data = await (await task).json()
+            self.assertEqual(data['status'], 'output_suppressed')
+        self.assertEqual(await self.pool.fetchval("SELECT count(*) FROM messages WHERE user_id=$1 AND role='assistant'", self.owner), 0)

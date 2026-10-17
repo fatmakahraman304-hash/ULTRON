@@ -1,3 +1,11 @@
+## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
+
+Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
+
+Tamamlanan uygulama: mevcut araştırma hattında isteğe bağlı resmî Google grounding; gerçek metadata atfı, çapraz yüzey kaynak gösterimi, owner-bound atomik kayıt, sınırlı yedek model ve sorgu mahremiyeti. Yeni konuşma motoru/özel JARVIS kodu eklenmedi. Gündelik sohbet web açmıyor; programlama sohbeti ile gerçek kod işi ayrılıyor.
+
+Sıradaki kabul: onaylı anahtar/model/kota ile gerçek araştırma ve Google widget kurallarının doğrulanması; gerçek Windows/iPhone ses/kaynak okuma; canlı kaynak çelişki değerlendirmesi. JARVIS'e karşı konuşma kalitesi veya gerçek Gemini/Qwen performans üstünlüğü henüz ölçülmedi. Native ses Google Search ve Gemini Live grounding bu sürümün doğrulanmış özellikleri değildir. Üretim yayın kapısı kapalı tutulur.
+
 ## 2026-10-16 — Kullanıcının seçtiği üç eski özelliğin kaldırılması (PR #44)
 
 - GÖLGE intro render, hazır Dünya hologramı ve enerji hologramı; düğmeler, presetler, prosedürel çizim ve araç tanımlarından kaldırıldı.

@@ -403,6 +403,8 @@ def install(app, hub):
                     'provider_stopped': False, 'request_id': request_id, 'text': ''})
             if research_result and (research_result.get('answer') or not (research_result.get('synthesis') or {}).get('findings')):
                 answer = research_result.get('answer') or (
+                    'Hangi konudaki araştırmaya devam edelim? Konuyu belirtir misin?'
+                    if research_result.get('status') == 'research_topic_missing' else
                     'Bu sorgu özel bilgi içeriyor; özel bilgileri kaldırıp yeniden sorabilirsin.'
                     if research_result.get('status') == 'research_blocked_sensitive_input' else
                     'Güncel kaynaklara erişemedim; bu bilgiyi doğrulayamıyorum.')

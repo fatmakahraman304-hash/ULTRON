@@ -164,3 +164,21 @@ class ModelRoutingTests(unittest.TestCase):
             factory=Mock()
             self.assertEqual(google_search(text,client_factory=factory)['status'],'research_blocked_sensitive_input')
             factory.assert_not_called()
+
+
+class ResearchContinuationTests(unittest.TestCase):
+    def test_multiple_bilingual_followups_reuse_query_without_assistant_text(self):
+        turns = [{'role':'user','content':'Araştır: yeni pil teknolojileri'},
+                 {'role':'assistant','content':'UNTRUSTED_PRIVATE_PROFILE'}]
+        for followup in ('Araştırmaya devam et','Kaynakları karşılaştır','Continue research','Compare the sources'):
+            resolved = research_message_for_turn(followup, turns)
+            self.assertTrue(resolved.startswith('yeni pil teknolojileri.'))
+            self.assertNotIn('UNTRUSTED_PRIVATE_PROFILE', resolved)
+            turns.append({'role':'user','content':followup})
+
+    def test_no_topic_does_not_search_for_literal_compare_sources(self):
+        self.assertIsNone(research_message_for_turn('Kaynakları karşılaştır'))
+        factory = Mock()
+        result = asyncio.run(research_for_chat('Kaynakları karşılaştır',engine_factory=factory))
+        self.assertEqual(result['status'], 'research_topic_missing')
+        factory.assert_not_called()

@@ -1,3 +1,27 @@
+## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
+
+Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
+
+| Doğrulama | Gerçek sonuç |
+|---|---|
+| Cloud tüm pytest + geçici PostgreSQL 16 | **443 PASS**, 0 FAIL, 0 SKIP; 368 subtest ayrıca geçti; 13,88 sn |
+| İlgili backend/model/iptal/research/Evidence/approval/Calculator | **376 PASS**, 0 FAIL; 6,51 sn |
+| React/TS tüm Node test dosyaları | **43 PASS**, 0 FAIL |
+| PWA tüm `test_*.cjs` | **169 PASS**, 0 FAIL |
+| Gerçek Chromium, kaynak/PWA/Desktop CORE regresyonu | **4 PASS**, 0 FAIL; kontrollü API/model fixture; 28,16 sn |
+| PR #56 komut regresyonları | **3 PASS**, 10 subtest |
+| SDK 1.75.0 / bağımsız venv SDK 2.31.0 | Yeni 21 grounding/router sözleşmesi PASS; gerçek üretim çağrısı yapılmadı |
+| npm ci/build, Python compile, zorunlu Earth unittest | PASS; Earth 6 test (backend sayısında zaten dahil) |
+| Eski bağımsız 100 niyet senaryosu | Önce 100/100, sonra 100/100; model kalitesi değildir |
+| Yeni açıklamalı 16 yönlendirme vakası | Önce **8/16**, sonra **16/16**; p50 0,00583→0,00714 ms; p95 0,01241→0,01660 ms |
+| Gerçek Gemini/Google ve Qwen | **BLOCKED**; anahtar/bütçe/model seçimi yok; yerel Ollama erişilemiyor |
+| Gerçek Windows/iPhone mikrofon/TTS/JARVIS kalite karşılaştırması | **NOT_RUN** |
+| Canlı pinned kaynak okuma / Render health | **BLOCKED**; request_failed 5,23 sn / 15 sn timeout |
+
+Başlangıç yeni regresyonları eski davranışta başarısızdı; düzeltildi. Mevcut research_meta kısa/kopya fixture hatası üretim baseline'ında da yeniden üretildi, assertion değiştirilmeden kaynak fixture'ı düzeltildi. Bir yerel birleşik pytest komutu Cloud `app.py` ile backend `app` paketinin ad çakışmasına takıldı; ayrı süreçler kullanıldı. Yeni PostgreSQL testinde yanlış fixture tablo adı `commands` → gerçek `device_commands` düzeltildi; final tüm Cloud testleri geçti. Başarısız denemeler PASS olarak sayılmadı.
+
+Uyarılar: aiohttp test fixture AppKey/deprecation ve mevcut Vite 500 kB chunk uyarısı. Sentetik kaynak fiyatı/konuşma içeriği yalnızca etiketli test verisidir. Gerçek para/kalite/cihaz başarısı çıkarımı yapılmaz. GitHub exact-head CI henüz bu yerel rapora dahil değil; PR sonuçları ayrıca kaydedilecek.
+
 ## 2026-10-16 — Legacy intro / Dünya hologramı / enerji hologramı kaldırma
 
 - Test-first: eski kod kaldırılan presetleri create/update/add/import/video yollarında kabul etti; yeni regresyonlar beklenen şekilde başarısız oldu.

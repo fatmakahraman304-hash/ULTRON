@@ -173,14 +173,12 @@ def research_message_for_turn(message: str, turns=None) -> str | None:
     route = classify_intent(text)
     if route.kind in {'computer_task', 'scene_visual', 'memory_recall', 'history_recall', 'episode_recall'}:
         return None
-    if classify_model_task(text) == 'RESEARCH':
-        return text
     if not is_research_followup(text):
-        return None
+        return text if classify_model_task(text) == 'RESEARCH' else None
     for turn in reversed((turns or [])[-20:]):
         if turn.get('role') != 'user': continue
         prior = str(turn.get('content') or '')
-        if not prior.strip() or prior.strip() == text: continue
+        if not prior.strip() or is_research_followup(prior): continue
         if classify_model_task(prior) != 'RESEARCH' or not safe_public_query(prior):
             return None
         return extract_research_query(prior) + '. ' + text
