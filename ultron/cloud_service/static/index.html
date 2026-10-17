@@ -1657,9 +1657,13 @@ async function openLiveSocket(){
       resetRemoteResultSpeech();resetVoiceGateSegment();
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
       // input_transcript events may be partial (e.g. "dur" from "durum").
-      // Only honor stop phrases after the provider's final turn transcript.
-      if(activeChatRequest&&isSpokenStopCommand(input)){
-        cancelActiveChat();liveStatus('Yanıt kesildi.',true);return;
+      // At turn_complete the transcript is final. Stop queued Live audio even
+      // when no typed-chat request exists; previously this was gated on
+      // activeChatRequest, so voice-only TTS continued after "Dur".
+      if(isSpokenStopCommand(input)){
+        if(activeChatRequest)cancelActiveChat();
+        cancelLiveOutput();liveStatus('Yanıt kesildi.',true);
+        $('#stageVoiceText').textContent='Yanıt durduruldu';return;
       }
       if(!voiceDevToolSaved&&input){window.ULTRONDevRequests?.fromSpeech(input).catch(()=>{})}
       voiceDevToolSaved=false;
@@ -2122,7 +2126,11 @@ function newChatIdentity(){
 function isSpokenStopCommand(text){
   const value=String(text||'').toLocaleLowerCase('tr-TR').normalize('NFKC')
     .replace(/[’']/g,'').replace(/[.,!?]+/g,' ').replace(/\s+/g,' ').trim();
-  return /^(?:(?:gölge|ultron)\s+)?(?:dur|sus|konuşmayı kes|konusmayi kes|yanıtı durdur|yaniti durdur|cevabı kes|cevabi kes|stop|stop speaking|be quiet)$/iu.test(value);
+  return /^(?:(?:gölge|ultron)\s+)?(?:dur|sus|konuşmayı durdur|konusmayi durdur|konuşmayı kes|konusmayi kes|yanıtı durdur|yaniti durdur|cevabı kes|cevabi kes|stop|stop speaking|be quiet)$/iu.test(value);
+}
+function cancelLiveOutput(){
+  suppressOutput=true;liveSpeaking=false;bargeBlocks=0;
+  livePlaybackState?.cancel();stopPlayback();resetRemoteResultSpeech();resetVoiceGateSegment();
 }
 function mayApplyChatCancelResult(requestId){
   return !activeChatRequest||activeChatRequest.identity.request_id===requestId;

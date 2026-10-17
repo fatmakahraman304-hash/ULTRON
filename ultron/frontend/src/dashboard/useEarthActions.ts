@@ -1,6 +1,7 @@
 import {useRef,useState} from 'react';
 import {request,type EarthState,type StageState} from './runtime';
 import type {MapLayer} from './EarthMap';
+import {formatWeatherReply} from './weatherReply';
 export type PlaceHit={lat:number;lon:number;label:string;kind?:string};
 export type EarthSearch={query:string;source:string;hits:PlaceHit[]};
 /** One session controller shared by chat, voice, CORE and control center. */
@@ -34,7 +35,14 @@ export function useEarthActions(stage:StageState,isMobile:boolean,onNavigate?:(o
     if(!layers[layer]?.available)return layers[layer]?.reason||'Bu harita kaynağı kullanılamıyor.';
    }
    await stageCommand('earth_control',{layer,...(layer==='GLOBAL'?{camera_distance:7.4}:{})});
-   return layer==='WEATHER'||layer==='FLIGHTS'?'Kaynak sorgusu başlatıldı; gelen veri ve erişim durumu Dünya panelinde gösterilecek.':layer==='MAP'?'Sokak haritası açılıyor; uydu fotoğrafı değildir.':layer==='SATELLITE'?'Yapılandırılmış lisanslı uydu döşemeleri yükleniyor.':'Dünya görünümü seçildi.';
+   if(layer==='WEATHER'){
+    try{
+     const {focus_lat:lat,focus_lon:lon,focus_label:place}=stage.earth;
+     const data=await request(`/api/world/weather?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`,undefined,AbortSignal.timeout(12000));
+     return formatWeatherReply(data,place);
+    }catch{return 'Hava durumu görünümü açıldı ancak sağlayıcıdan veri alınamadı. Canlı hava sonucu doğrulanmadı.';}
+   }
+   return layer==='FLIGHTS'?'Uçuş verisi sorgulanıyor; yalnızca sağlayıcıdan alınan uçuşlar gösterilir.':layer==='MAP'?'Sokak haritası açılıyor; uydu fotoğrafı değildir.':layer==='SATELLITE'?'Yapılandırılmış lisanslı uydu döşemeleri yükleniyor.':'Dünya görünümü seçildi.';
   }
   if(operation==='earth_zoom'){
    const factor=Number(args.factor),earth:EarthState=stage.earth;

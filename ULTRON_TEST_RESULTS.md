@@ -840,3 +840,18 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 - **FAIL (eski toplu harness):** `ultron/backend/test_v2_modules.py` güncel olmayan `build_health` alanlarını ve bulunmayan `UltronRuntime.reload_config()` metodunu bekliyor; persona anchor kontrolü geçti. Bu görevde runtime/harness API'si değiştirilmedi.
 - **NOT RUN:** Gerçek Chromium/Windows/iPhone arayüz testi, gerçek ses/mikrofon ve canlı model bağlantısı. Bu değişiklik yalnızca etiket ve mesaj kopyasıdır.
 - İlk build denemesi `tsc` kurulu olmadığı için çalışmadı; `npm ci --no-audit --no-fund` sonrasında build ve testler geçti.
+## 2026-10-16 — Manual-use regression fixes (development branch)
+
+| Check | Result | Evidence / limits |
+|---|---|---|
+| Frontend TypeScript/Vite production build | PASS | `npm run build`; Vite reports the existing 575.89 kB OrbitControls chunk advisory. |
+| Frontend test suite | PASS | `node --experimental-strip-types --test tests/*.test.mjs`: 40 passed, 0 failed. New contracts cover spoken and typed stop commands, satellite intent variants, provider-derived weather wording and native file data routing. |
+| Cloud JavaScript test suite | PASS | `node --test *.cjs`: 167 passed, 0 failed. Includes WebAudio queue cancellation on a final spoken stop without an active typed-chat request. |
+| Desktop stop command helper / bridge source contracts | PASS | 3 Python unit tests; syntax compilation succeeded. Actual QWebChannel microphone timing was not exercised here. |
+| Earth provider/layer safety | PASS | 5 tests: unconfigured satellite remains unavailable, street map is not satellite, geocoding remains valid. |
+| Live weather provider result | NOT RUN | Formatter contract passed with a provider-shaped fixture; no live weather fetch was performed in this runner. |
+| Native Windows file chooser and local image vision model | NOT RUN | Selected-byte transfer/API routing is code-tested; physical Qt dialog and owner's local vision provider require Windows. A missing vision provider returns a visible error. |
+| Windows voice/TTS “Dur” and satellite UI retest | NOT RUN | Must be repeated by owner after pulling the development fix. Existing prior manual evidence: ESC stopped speech; spoken “Dur” did not. |
+| Render / production | NOT RUN | No deploy or merge; production code remains unchanged. |
+
+Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0ddcf8c8672`. This result does not claim device acceptance or model-generation cancellation for Cloud Gemini; Cloud live TTS buffers are cancelled locally while provider completion may continue.

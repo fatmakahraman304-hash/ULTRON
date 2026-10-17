@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import type {SystemSnapshot,AIStatus,TaskProposal,PatchProposal} from '../lib/types';
+import {isStopCommand} from './voiceCommand';
 export type CoreState='IDLE'|'LISTENING'|'THINKING'|'SPEAKING'|'WORKING'|'ERROR';
 export type StageMode='core_idle'|'hologram_lab'|'scene_lab'|'earth_watch'|'video_rendering'|'video_preview'|'task_progress'|'screen_preview'|'animation_preview'|'world_map';
 export type HologramConfig={
@@ -109,7 +110,27 @@ export function useUltron(){
    if(e.kind==='dev_verified'&&e.data){setDevRequests(prev=>prev.map(t=>t.id===e.data.id?e.data:t));if(e.data.status==='completed'){setNotice('Tamam efendim, doğrulanmış güncelleme tamamlandı.');add('assistant','Tamam efendim, güncelleme tamamlandı.');}else setNotice('Güncelleme durumu: '+String(e.data.status));}
    if(e.kind==='dev_install_result'&&e.data?.restart_required){setNotice('Güncelleme dosyaları hazır. Kurulu sürümün etkinleşmesi için GÖLGE’yi yeniden başlat.');}
    if(e.kind==='dev_notice'||e.kind==='dev_error')setNotice(String(e.text||''));
-   if(e.kind==='state'){setNativeState(coreState(e.state));setMuted(e.muted);setAmplitude(Number(e.amplitude)||0);}if(e.kind==='file')setNotice(e.name+' ses motoruna eklendi.');if(e.kind==='plugins')setPlugins(e.data);if(e.kind==='cloud_messages')mergeCloud(e.data??[]);if(e.kind==='device_presence')setDevicePresence(e.data??[]);if(e.kind==='remote_notice')setNotice(e.text);if(e.kind==='log')add(e.role,e.text);if(e.kind==='error'){setNotice(e.text);setNativeState('ERROR');}};
+   if(e.kind==='state'){setNativeState(coreState(e.state));setMuted(e.muted);setAmplitude(Number(e.amplitude)||0);}
+   if(e.kind==='file'&&typeof e.data==='string'){
+    const name=String(e.name||'dosya'),size=Number(e.size)||0,mime=String(e.mime||'');
+    if(size<1||size>8*1024*1024){setNotice('Dosya boş veya 8 MB sınırını aşıyor.');return;}
+    const image=mime.startsWith('image/'),endpoint=image?'/api/merged/image':'/api/merged/document';
+    add('user',(image?'Görsel eklendi: ':'Dosya eklendi: ')+name);
+    window.dispatchEvent(new CustomEvent('golge:file-loaded',{detail:{name,text:'Dosya seçildi; GÖLGE işliyor…',mime,data:image?`data:${mime};base64,${e.data}`:''}}));
+    setNotice(name+' GÖLGE’ye yükleniyor…');
+    void request(endpoint,{name,data:e.data}).then(result=>{
+     const text=String(result.text||'').trim();if(!text)throw Error('Dosyadan okunabilir sonuç alınamadı.');
+     window.dispatchEvent(new CustomEvent('golge:file-loaded',{detail:{name,text,mime,data:image?`data:${mime};base64,${e.data}`:''}}));
+     add('assistant',image?`Görsel analizi (${name}): ${text}`:`${name} dosyası okundu. İçeriği Dosyalar panelinde hazır; özetlemek için “İçeriği özetle”yi seçebilirsin.`);
+     setNotice(name+' yüklendi ve işlendi.');
+    }).catch(error=>{const message=error instanceof Error?error.message:'Dosya işlenemedi.';window.dispatchEvent(new CustomEvent('golge:file-loaded',{detail:{name,text:'İşleme başarısız: '+message,mime,data:image?`data:${mime};base64,${e.data}`:''}}));add('assistant',`${name} seçildi ancak işlenemedi: ${message}`);setNotice(message);});
+   }
+   if(e.kind==='plugins')setPlugins(e.data);if(e.kind==='cloud_messages')mergeCloud(e.data??[]);if(e.kind==='device_presence')setDevicePresence(e.data??[]);if(e.kind==='remote_notice')setNotice(e.text);
+   if(e.kind==='log'){
+    add(e.role,e.text);
+    if(e.role==='user'&&isStopCommand(String(e.text||'')))setNotice('Sesli durdurma komutu alındı; konuşma kesiliyor.');
+   }
+   if(e.kind==='error'){setNotice(e.text);setNativeState('ERROR');}};
   const script=document.createElement('script');script.src='qrc:///qtwebchannel/qwebchannel.js';script.onload=()=>{if(window.QWebChannel)new window.QWebChannel(window.qt!.webChannelTransport,c=>{if(!active)return;bridge=c.objects.mark;setNative(bridge);bridge.message.connect(receive);bridge.ready();});};document.head.appendChild(script);
   return()=>{active=false;bridge?.message.disconnect?.(receive);script.remove();};
  },[]);
