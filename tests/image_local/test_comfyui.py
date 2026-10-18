@@ -28,6 +28,8 @@ class ComfyContracts(unittest.TestCase):
         self.assertEqual(graph["5"]["inputs"]["steps"], 20)
         self.assertEqual(graph["6"]["class_type"], "VAEDecodeTiled")
         self.assertEqual(graph["6"]["inputs"]["tile_size"], 256)
+        self.assertEqual(graph["6"]["inputs"]["temporal_size"], 64)
+        self.assertEqual(graph["6"]["inputs"]["temporal_overlap"], 8)
         self.assertEqual(
             set(n["class_type"] for n in graph.values()),
             {
