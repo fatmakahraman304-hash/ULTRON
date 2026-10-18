@@ -550,6 +550,12 @@ async def complete_device_command(request: web.Request) -> web.Response:
     )
     if not current:
         raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
+    local_payload = current.get("payload")
+    if isinstance(local_payload, str):
+        local_payload = json.loads(local_payload)
+    if isinstance(local_payload, dict) and local_payload.get("mode") == "local_image":
+        import local_image
+        return await local_image.complete(request, command_id, delivery_attempt, status, result)
     if current["status"] == "completed" and status == "completed":
         saved_payload, saved_result = current.get("payload"), current.get("result")
         if isinstance(saved_payload, str):
@@ -1174,6 +1180,8 @@ def _gemini_generate_image(
     style="natural"
 ) -> dict[str, str]:
     """Generate or edit one image through Gemini; return only actual provider bytes."""
+    if image_studio.provider_mode() != "gemini":
+        raise RuntimeError("Paid image API forbidden in free local mode")
     if image_bytes is not None:
         raise ValueError("Image editing is not enabled")
     client = genai.Client(
@@ -2881,6 +2889,8 @@ def build_app() -> web.Application:
     app.router.add_post("/api/vision", vision)
     app.router.add_get("/api/image/status", image_studio.status)
     app.router.add_post("/api/image/cancel", image_studio.cancel)
+    import local_image
+    app.router.add_get("/api/image/requests/{request_id}", local_image.get_request)
     app.router.add_post("/api/image/generate", generate_image)
     app.router.add_get("/api/image/generated/{id}", get_generated_image)
     app.router.add_get("/api/image/uploaded/{id}", get_uploaded_image)

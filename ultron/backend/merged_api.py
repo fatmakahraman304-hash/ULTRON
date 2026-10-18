@@ -671,7 +671,7 @@ location.replace(showHologram ? '/hologram/hologram.html' : '/frontend/index.htm
         response.set_cookie('mark_session', token, httponly=True, samesite='Strict', path='/')
         return response
 
-    app.router.add_get('/api/merged/image-studio/{endpoint:status|generated/[0-9]{1,19}}', image_studio_proxy)
+    app.router.add_get('/api/merged/image-studio/{endpoint:status|requests/[0-9a-f-]{36}|generated/[0-9]{1,19}}', image_studio_proxy)
     app.router.add_post('/api/merged/image-studio/{endpoint:generate|cancel}', image_studio_proxy)
     app.router.add_get('/api/merged/health', health)
     app.router.add_post('/api/merged/invoke', invoke)

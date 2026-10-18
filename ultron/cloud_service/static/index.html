@@ -1045,14 +1045,17 @@ async function generateImageApi(prompt,image=null){
   const config=await api('/api/image/status',{signal:job.controller.signal});
   if(activeImageJob!==job||conversationId!==startingConversation)return null;
   if(!config.available)throw Error(config.detail);
-  if(!await GolgeImages.confirmCost(config.detail,job.controller.signal))return null;
+  if(config.requires_cost_approval!==false&&!await GolgeImages.confirmCost(config.detail,job.controller.signal))return null;
   if(activeImageJob!==job||job.controller.signal.aborted||conversationId!==startingConversation)return null;
   if(!conversationId){conversationId=cid;localStorage.setItem('ultronConversationId',cid)}
   const res=await fetch('/api/image/generate',{method:'POST',credentials:'include',signal:job.controller.signal,
-   headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,conversation_id:cid,request_id:job.id,cost_approved:true,...GolgeImages.options(prompt)})});
+   headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,conversation_id:cid,request_id:job.id,cost_approved:config.requires_cost_approval!==false,...GolgeImages.options(prompt)})});
   let data={};try{data=await res.json()}catch{}
   if(activeImageJob!==job||conversationId!==cid)return null;
-  if(!res.ok)throw new Error(data.detail||data.error||('HTTP '+res.status));return data;
+  if(!res.ok)throw new Error(data.detail||data.error||('HTTP '+res.status));
+  data=await GolgeImages.awaitResult(()=>api('/api/image/requests/'+job.id,{signal:job.controller.signal}),data,job.controller.signal);
+  if(activeImageJob!==job||conversationId!==cid)return null;
+  return data;
  }catch(e){if(job.controller.signal.aborted)return null;throw e}
  finally{if(activeImageJob===job){activeImageJob=null;$('#sendBtn').setAttribute('aria-label','Gönder');}}
 }
@@ -1066,6 +1069,7 @@ async function sendImageCreation(text,userBubble){
   const edit=/attığım|yüklediğim|bu\s+resim|bu\s+görsel|bu\s+fotoğraf|düzenle|iyileştir|güzelleştir|daha iyi yap|kalitesini artır|edit|improve|enhance/i.test(text);
   if(edit){addMessage('assistant','Görsel düzenleme henüz etkin değil; fotoğraf analizi kullanılabilir.');return true}
   const source=null;
+  try{
   $('#busy').textContent=source?'GÖLGE görseli düzenliyor…':'GÖLGE görseli oluşturuyor…';
   const d=await generateImageApi(text,source);
   if(!d)return true;
@@ -1080,6 +1084,7 @@ async function sendImageCreation(text,userBubble){
     addMessage('assistant','Görsel kaydedilemedi. Yeniden deneyebilirsin.',{id:d.assistant_message_id});
   }
   messageSignature='';return true;
+  }finally{$('#busy').textContent=''}
 }
 function clearPendingImage(){
   pendingImage=null;

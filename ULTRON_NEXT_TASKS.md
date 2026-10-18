@@ -1,3 +1,11 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
+## 2026-10-18 — Ücretsiz Image Studio devam kaydı
+
+Yeni `feat/golge-free-comfyui-20261018` dalı PR #60 `d690c74` üstündedir. Yeni taslak PR'ın son commit CI'sını doğrula; PR #59/#60 ve üretime yazma. Sonraki gerçek kabul laptop müsaitken: mevcut ComfyUI + güvenilir SD 1.5 safetensors kurulumunu ve CUDA/PyTorch uyumunu doğrula; dokümandaki düşük VRAM profiliyle tek 512 kare üret, VRAM/gecikme ölç; Qwen/ses birlikte kullanımını, gerçek iPhone→güvenli kuyruk→laptop→özel görsel geçmişini test et. Şimdi kullanıcıdan CMD istenmez. Yerel ortam/Cloud free flag'leri henüz uygulanmadı. Ücretli image API fallback asla açılmaz. Çalışan Comfy GPU işinde global interrupt yok, yalnız çıktı bastırma doğru raporlanır. Görsel düzenleme ayrı sonraki aşama. docs/GOLGE_FREE_IMAGE_STUDIO.md kurulum sınırlarını/NOT RUN maddelerini içerir.
+
 ## 2026-10-18 — Image Studio review and live acceptance
 
 Review draft [PR #60](https://github.com/fatmakahraman304-hash/ULTRON/pull/60), stacked on PR #59; preserve dependency order. Initial commit `dbd00a4` passed seven Actions jobs; check the final commit's checks on the PR before approval. Local non-blocking consent, ESC, conversation-switch, image/history/download tests pass (7 Chromium Image Studio + 2 research). Next: only after secure provider credentials and explicit daily budget/count approval, run one bounded real 1K image request and verify billing/safety/timeout reconciliation. No laptop commands requested; Windows Qt save dialog, native voice and physical iPhone share/zoom/save remain NOT RUN. Image editing and ledger account-erasure/archival policy remain follow-ups. Do not reset uncertain request ledger entries to retry. No merge/deploy or paid activation is authorized.

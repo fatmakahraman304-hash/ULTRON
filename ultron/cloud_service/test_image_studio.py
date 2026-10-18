@@ -22,6 +22,20 @@ def result():
 
 
 class StudioTests(unittest.TestCase):
+    def setUp(self):
+        self.mode = patch.dict(os.environ, {"GOLGE_IMAGE_PROVIDER": "gemini"})
+        self.mode.start()
+        self.addCleanup(self.mode.stop)
+
+    def test_free_mode_cannot_construct_paid_sdk_client(self):
+        with patch.dict(
+            os.environ,
+            {"GOLGE_IMAGE_PROVIDER": "comfyui_local", "GEMINI_API_KEY": "fixture"},
+        ), patch.object(cloud.genai, "Client") as sdk:
+            with self.assertRaisesRegex(RuntimeError, "forbidden"):
+                cloud._gemini_generate_image("Ferrari")
+            sdk.assert_not_called()
+
     def test_policy_requires_all_gates(self):
         env = {
             "GOLGE_IMAGE_ENABLED": "true",

@@ -31,5 +31,19 @@
    dialog.showModal();deny.focus();
   });
  }
- return {resolve,options,confirmCost};
+ async function awaitResult(poll,result,signal){
+  const deadline=Date.now()+270000;
+  while(result.status==='queued'||result.status==='running'){
+   if(signal.aborted)throw new DOMException('İptal edildi','AbortError');
+   if(Date.now()>deadline)throw Error('Yerel üretimin sonucu zamanında alınamadı. Otomatik tekrar veya ücretli geçiş yapılmadı.');
+   await new Promise((resolve,reject)=>{
+    const abort=()=>{clearTimeout(timer);reject(new DOMException('İptal edildi','AbortError'));};
+    const timer=setTimeout(()=>{signal.removeEventListener('abort',abort);resolve()},800);
+    signal.addEventListener('abort',abort,{once:true});
+   });
+   result=await poll();
+  }
+  return result;
+ }
+ return {resolve,options,confirmCost,awaitResult};
 });

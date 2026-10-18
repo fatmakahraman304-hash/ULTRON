@@ -8,6 +8,7 @@ on:
       - fix/golge-real-use-100tests-20261016
   pull_request:
     branches:
+      - feat/golge-image-studio-20261017
       - feat/golge-grounded-research-20261017
       - feat/golge-qwen-goal-routing-20261013
       - feat/ultron-cloud-shared-memory
