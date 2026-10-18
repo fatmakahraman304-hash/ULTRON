@@ -1045,7 +1045,8 @@ async function generateImageApi(prompt,image=null){
   const config=await api('/api/image/status',{signal:job.controller.signal});
   if(activeImageJob!==job||conversationId!==startingConversation)return null;
   if(!config.available)throw Error(config.detail);
-  if(!window.confirm(config.detail+' Ücretli tek görsel üretimini onaylıyor musun?'))return null;
+  if(!await GolgeImages.confirmCost(config.detail,job.controller.signal))return null;
+  if(activeImageJob!==job||job.controller.signal.aborted||conversationId!==startingConversation)return null;
   if(!conversationId){conversationId=cid;localStorage.setItem('ultronConversationId',cid)}
   const res=await fetch('/api/image/generate',{method:'POST',credentials:'include',signal:job.controller.signal,
    headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,conversation_id:cid,request_id:job.id,cost_approved:true,...GolgeImages.options(prompt)})});

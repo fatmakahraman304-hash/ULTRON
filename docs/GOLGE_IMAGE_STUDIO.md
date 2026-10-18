@@ -1,6 +1,8 @@
 # GÖLGE Image Studio — review build, 2026-10-17
 
 Text-to-image for the existing Windows React cockpit and iPhone Cloud PWA.
+Draft [PR #60](https://github.com/fatmakahraman304-hash/ULTRON/pull/60),
+branch `feat/golge-image-studio-20261017`.
 Stacked on draft PR #59 (`b0b4dbf0481c5650aa64e7cd5c63254164213f71`).
 No production merge, Render deployment, credential changes or paid API calls.
 
@@ -68,6 +70,8 @@ access. No provider API key or paired-device token enters JavaScript.
   the same intent handler; no new microphone stream or lease is opened.
 - Disabled/unconfigured service gives a clear message and makes no provider call.
 - When enabled, review the cost confirmation; refusal makes no provider call.
+  The shared HTML dialog does not block JavaScript audio callbacks. ESC refuses;
+  a conversation changed while approval is pending cannot dispatch the old job.
 - Generation status appears in chat. ESC / stop suppresses the eventual output.
 - Click the finished image to enlarge (Windows: zoom slider); use download/save
   or supported Web Share. iPhone full-size view uses the browser's image zoom.
@@ -140,6 +144,11 @@ python scripts/tests/test_research_source_ui.py
 ```
 
 Latest measured counts and CI status are recorded in `ULTRON_TEST_RESULTS.md`.
+Initial code commit `dbd00a45e7ebdfd6cda7bbfb04bb42e11af5996e` passed all seven
+Actions jobs across five workflows. Final consent/browser regression: seven
+Image Studio Chromium tests and two research-renderer tests pass. Current
+commit/check results are kept on PR #60. A live event-loop timer during consent
+does not prove physical microphone/audio success.
 Live Google image generation: **BLOCKED** (no key, enablement or spending approval).
 Windows hardware/Qt save dialog and microphone: **NOT RUN** (laptop unavailable).
 iPhone Safari/PWA physical zoom/share/save and microphone: **NOT RUN**.

@@ -10,5 +10,26 @@
   return null;
  }
  function options(text){const t=String(text).toLocaleLowerCase('tr-TR');return {aspect_ratio:/dikey|telefon.*duvar|portrait/.test(t)?'9:16':/yatay|masaüstü.*duvar|landscape/.test(t)?'16:9':'1:1',style:/sinematik|cinematic/.test(t)?'cinematic':/anime|çizim/.test(t)?'anime':/3d|3 boyut/.test(t)?'3d':/dijital sanat/.test(t)?'digital-art':/fotoğraf|gerçekçi|photo/.test(t)?'photo':'natural'};}
- return {resolve,options};
+ function confirmCost(detail,signal){
+  // Non-blocking consent: a native confirm() pauses audio/work on the JS thread.
+  return new Promise(done=>{
+   if(signal?.aborted){done(false);return;}
+   const previous=document.activeElement,dialog=document.createElement('dialog');
+   dialog.setAttribute('aria-label','Görsel üretimi maliyet onayı');
+   dialog.style.cssText='color:#dff6ff;background:#071522;border:1px solid #28758e;border-radius:16px;padding:24px;max-width:min(420px,90vw);z-index:9999';
+   const text=document.createElement('p');text.textContent=detail+' Ücretli tek görsel üretimini onaylıyor musun?';
+   const approve=document.createElement('button');approve.textContent='Ücretli üretimi onayla';approve.type='button';
+   const deny=document.createElement('button');deny.textContent='Vazgeç';deny.type='button';
+   for(const button of [approve,deny])button.style.cssText='padding:12px;margin:5px;border:1px solid #28758e;border-radius:10px;background:#10364b;color:#e1f7ff;cursor:pointer';
+   let settled=false;
+   const finish=value=>{if(settled)return;settled=true;signal?.removeEventListener('abort',abort);dialog.remove();previous?.focus?.();done(value);};
+   const abort=()=>finish(false);
+   approve.onclick=()=>finish(true);deny.onclick=()=>finish(false);
+   dialog.oncancel=e=>{e.preventDefault();finish(false)};
+   signal?.addEventListener('abort',abort,{once:true});dialog.append(text,approve,deny);document.body.append(dialog);
+   if(typeof dialog.showModal!=='function'){finish(false);return;}
+   dialog.showModal();deny.focus();
+  });
+ }
+ return {resolve,options,confirmCost};
 });

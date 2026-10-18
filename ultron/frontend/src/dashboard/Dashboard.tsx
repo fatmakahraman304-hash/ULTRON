@@ -351,7 +351,7 @@ export default function Dashboard(){
   try{
    const config=await request('/api/merged/image-studio/status',undefined,job.controller.signal);
    if(!config.available){u.add('assistant',config.detail);return;}
-   if(imageJob.current!==job||!window.confirm(config.detail+' Ücretli tek görsel üretimini onaylıyor musun?'))return;
+   if(imageJob.current!==job||!await GolgeImages.confirmCost(config.detail,job.controller.signal))return;
    localStorage.setItem('golgeImageConversation',imageConversation.current);
    setLocalState('THINKING');u.setNotice('Görsel oluşturuluyor… ESC ile sonucu iptal edebilirsin.');
    const r=await request('/api/merged/image-studio/generate',{prompt:text,conversation_id:imageConversation.current,request_id:job.id,cost_approved:true,...GolgeImages.options(text)},job.controller.signal);

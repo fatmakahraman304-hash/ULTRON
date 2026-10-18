@@ -47,12 +47,14 @@ class ImageStudioBrowserTests(harness.ResearchSourceBrowserTests):
         return await super().api(request)
 
     async def test_desktop_generation_and_download(self):
-        self.page.on("dialog", lambda d: d.accept())
         await self.page.goto(self.url)
         await self.page.get_by_role("textbox", name="Mesaj", exact=True).fill(
             "DEMO TEST — dikey Ferrari fotoğrafı oluştur"
         )
         await self.page.get_by_role("button", name="Gönder", exact=True).click()
+        await self.page.get_by_role(
+            "button", name="Ücretli üretimi onayla", exact=True
+        ).click()
         img = self.page.get_by_alt_text("GÖLGE tarafından üretilen görsel")
         await img.wait_for()
         await self.page.wait_for_function(
@@ -70,7 +72,6 @@ class ImageStudioBrowserTests(harness.ResearchSourceBrowserTests):
             await self.page.get_by_role("link", name="Görseli indir / kaydet").click()
 
     async def phone(self):
-        self.page.on("dialog", lambda d: d.accept())
         await self.page.set_viewport_size({"width": 390, "height": 844})
         await self.page.goto(self.url + "/phone")
         await self.page.locator("#splash").wait_for(state="detached")
@@ -81,8 +82,11 @@ class ImageStudioBrowserTests(harness.ResearchSourceBrowserTests):
     async def test_phone_generation_reload_and_download(self):
         await self.phone()
         await self.page.evaluate(
-            "sendImageCreation('DEMO TEST — Mersin fotoğrafı oluştur',addMessage('user','DEMO TEST — Mersin fotoğrafı oluştur'))"
+            "void sendImageCreation('DEMO TEST — Mersin fotoğrafı oluştur',addMessage('user','DEMO TEST — Mersin fotoğrafı oluştur'))"
         )
+        await self.page.get_by_role(
+            "button", name="Ücretli üretimi onayla", exact=True
+        ).click()
         await self.page.wait_for_function(
             "document.querySelector('#messages img')?.naturalWidth===768"
         )
@@ -112,6 +116,9 @@ class ImageStudioBrowserTests(harness.ResearchSourceBrowserTests):
         await self.page.evaluate(
             "void sendImageCreation('DEMO TEST fotoğraf oluştur',null)"
         )
+        await self.page.get_by_role(
+            "button", name="Ücretli üretimi onayla", exact=True
+        ).click()
         await self.page.wait_for_function("activeImageJob!==null")
         await self.page.evaluate("cancelActiveChat()")
         await self.page.wait_for_timeout(700)
@@ -119,6 +126,9 @@ class ImageStudioBrowserTests(harness.ResearchSourceBrowserTests):
         await self.page.evaluate(
             "void sendImageCreation('DEMO TEST fotoğraf oluştur',null)"
         )
+        await self.page.get_by_role(
+            "button", name="Ücretli üretimi onayla", exact=True
+        ).click()
         await self.page.wait_for_function("activeImageJob!==null")
         await self.page.evaluate("conversationId=crypto.randomUUID()")
         await self.page.wait_for_timeout(700)
@@ -152,13 +162,46 @@ class ImageStudioBrowserTests(harness.ResearchSourceBrowserTests):
         self.assertEqual(self.invocations, [])
 
     async def test_refusing_cost_never_calls_generation(self):
-        self.page.on("dialog", lambda d: d.dismiss())
         await self.page.goto(self.url)
         await self.page.get_by_role("textbox", name="Mesaj", exact=True).fill(
             "Ferrari fotoğrafı oluştur"
         )
         await self.page.get_by_role("button", name="Gönder", exact=True).click()
+        await self.page.get_by_role("button", name="Vazgeç", exact=True).click()
         await self.page.wait_for_timeout(400)
+        self.assertEqual(self.invocations, [])
+
+    async def test_pending_consent_keeps_event_loop_live_and_escape_aborts(self):
+        for phone in (False, True):
+            if phone:
+                await self.phone()
+                await self.page.evaluate(
+                    "void sendImageCreation('DEMO TEST fotoğraf oluştur',null)"
+                )
+            else:
+                await self.page.goto(self.url)
+                await self.page.get_by_role("textbox", name="Mesaj", exact=True).fill(
+                    "DEMO TEST fotoğraf oluştur"
+                )
+                await self.page.get_by_role("button", name="Gönder", exact=True).click()
+            consent = self.page.get_by_role("dialog", name="Görsel üretimi maliyet onayı")
+            await consent.wait_for()
+            # A live JS timer is necessary for audio callbacks; this is not a mic test.
+            self.assertTrue(await self.page.evaluate(
+                "new Promise(resolve=>setTimeout(()=>resolve(true),30))"
+            ))
+            await self.page.keyboard.press("Escape")
+            await consent.wait_for(state="detached")
+            self.assertEqual(self.invocations, [])
+            self.assertEqual(await self.page.locator("figure img, #messages img").count(), 0)
+
+    async def test_phone_conversation_changed_while_consent_pending_never_dispatches(self):
+        await self.phone()
+        await self.page.evaluate("void sendImageCreation('DEMO TEST fotoğraf oluştur',null)")
+        await self.page.get_by_role("dialog", name="Görsel üretimi maliyet onayı").wait_for()
+        await self.page.evaluate("conversationId=crypto.randomUUID()")
+        await self.page.get_by_role("button", name="Ücretli üretimi onayla", exact=True).click()
+        await self.page.wait_for_function("activeImageJob===null")
         self.assertEqual(self.invocations, [])
 
 

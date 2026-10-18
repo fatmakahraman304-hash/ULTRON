@@ -1,3 +1,12 @@
+## 2026-10-18 — Image Studio final UI regression
+
+- TypeScript/Vite production build: **PASS**; frontend Node **59 PASS**, PWA Node **169 PASS**.
+- Actual Chromium Image Studio: **7 PASS**, 0 FAIL. Includes desktop generation/download/zoom, phone rendering/reload, native history deduplication, late cancellation, conversation switch, cost refusal, live JS timer during consent and ESC. Provider/images/Qt signals are fixtures; this is not real AI, microphone or physical device success.
+- Research renderer Chromium: **2 PASS**, 0 FAIL. CPU compositing avoids SwiftShader screenshot corruption without replacing WebGL rendering.
+- Test-first failure: switching phone conversations during pending cost consent still dispatched a paid-generation request; after the active-job/thread recheck, the same test passes with zero provider requests.
+- Initial implementation `dbd00a45e7ebdfd6cda7bbfb04bb42e11af5996e`: **7/7 GitHub Actions jobs SUCCESS**, five workflows (Cloud/PostgreSQL, Scene, Responsive, Mobile Listening, Local Qwen Listening). These Qwen-named CI contracts are not live model inference. Final follow-up commit results are recorded on draft PR #60.
+- Previously completed whole-suite counts below remain applicable; no backend changes in this final UI follow-up. Live image generation **BLOCKED**; Windows/iPhone/microphone/TTS **NOT RUN**. No merge/deploy.
+
 ## 2026-10-17 — Image Studio local verification
 
 - Cloud + disposable PostgreSQL: **458 PASS**, 0 FAIL, 0 skipped; 368 additional unittest subtests (not added to the test count).
@@ -9,7 +18,7 @@
 - Native image download policy: **1 PASS**; Earth Python config: **6 PASS**; required Python compile: **PASS**.
 - Regression failures found/fixed: Turkish “resmi yap” intent; history replay accidentally treated as a new voice request; duplicate Cloud image arrivals; research browser fixture racing startup; unauthenticated Qt download path was previously rejected and now has a narrowly scoped save-dialog policy.
 - Real AI image production: **BLOCKED** (no Gemini key/cost enablement). Real iPhone/Windows/microphone/Web Share: **NOT RUN**.
-- GitHub exact-head CI: pending new draft PR. No production merge or Render deploy.
+- GitHub CI: draft PR #60 initial implementation passed 7/7 jobs; final follow-up commit checks are recorded on the PR. No production merge or Render deploy.
 
 ## PR #59 — CI düzeltmesi (17 Ekim 2026)
 
