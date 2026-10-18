@@ -1,3 +1,19 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
+## 2026-10-18 — Ücretsiz Image Studio devam kaydı
+
+Yeni `feat/golge-free-comfyui-20261018` dalı PR #60 `d690c74` üstündedir. Yeni taslak PR'ın son commit CI'sını doğrula; PR #59/#60 ve üretime yazma. Sonraki gerçek kabul laptop müsaitken: mevcut ComfyUI + güvenilir SD 1.5 safetensors kurulumunu ve CUDA/PyTorch uyumunu doğrula; dokümandaki düşük VRAM profiliyle tek 512 kare üret, VRAM/gecikme ölç; Qwen/ses birlikte kullanımını, gerçek iPhone→güvenli kuyruk→laptop→özel görsel geçmişini test et. Şimdi kullanıcıdan CMD istenmez. Yerel ortam/Cloud free flag'leri henüz uygulanmadı. Ücretli image API fallback asla açılmaz. Çalışan Comfy GPU işinde global interrupt yok, yalnız çıktı bastırma doğru raporlanır. Görsel düzenleme ayrı sonraki aşama. docs/GOLGE_FREE_IMAGE_STUDIO.md kurulum sınırlarını/NOT RUN maddelerini içerir.
+
+## 2026-10-18 — Image Studio review and live acceptance
+
+Review draft [PR #60](https://github.com/fatmakahraman304-hash/ULTRON/pull/60), stacked on PR #59; preserve dependency order. Initial commit `dbd00a4` passed seven Actions jobs; check the final commit's checks on the PR before approval. Local non-blocking consent, ESC, conversation-switch, image/history/download tests pass (7 Chromium Image Studio + 2 research). Next: only after secure provider credentials and explicit daily budget/count approval, run one bounded real 1K image request and verify billing/safety/timeout reconciliation. No laptop commands requested; Windows Qt save dialog, native voice and physical iPhone share/zoom/save remain NOT RUN. Image editing and ledger account-erasure/archival policy remain follow-ups. Do not reset uncertain request ledger entries to retry. No merge/deploy or paid activation is authorized.
+
+## 2026-10-17 — Image Studio continuation
+
+Branch `feat/golge-image-studio-20261017`, stacked on PR #59 `b0b4dbf`. PR #59 and production are unchanged. Finish exact-head CI on the new draft PR; no deploy/merge. Before live acceptance: securely provision a current Google image-model key and explicitly approve daily cost/count limits; then test one 1K request, billing, safety refusal and timeout reconciliation. Physical Windows Qt save dialog, microphone and iPhone Safari/PWA share/save/zoom remain NOT RUN; laptop currently unavailable. Editing is phase 2, intentionally unavailable. Do not clear image-request ledger rows to retry uncertain calls. Ledger archival/account-erasure policy remains a follow-up. See `docs/GOLGE_IMAGE_STUDIO.md` for exact environment gates and limits.
+
 ## PR #59 — CI düzeltmesi (17 Ekim 2026)
 
 [Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.

@@ -2267,6 +2267,25 @@ class UltronLive:
                 await finish(False, "Laptop görevi boş geldi.")
                 return
 
+            if payload.get("mode") == "local_image":
+                # Isolated stock-node image worker; never enters Gemini or desktop tools.
+                from integration.comfyui_image import ComfyUI
+                import threading
+                cancelled = threading.Event()
+                lease_guard = RemoteLeaseGuard(client, command_id, delivery_attempt,
+                    interrupt_on_lost=cancelled.set, log=log_lease)
+                lease_task = asyncio.create_task(lease_guard.run())
+                try:
+                    await client.report_task_progress(command_id, delivery_attempt=delivery_attempt,
+                        stage="executing", message="Yerel SD 1.5 görseli üretiliyor.", percent=15)
+                    image = await ComfyUI().generate(payload, cancelled)
+                    if not lease_guard.lost.is_set():
+                        await finish(True, "Yerel görsel tamamlandı.", extra={"image":image})
+                except Exception:
+                    if not lease_guard.lost.is_set():
+                        await finish(False, "Yerel görsel üretilemedi; ComfyUI/SD 1.5 yapılandırmasını kontrol edin.")
+                return
+
             # Only this explicit no-tools mode is accepted for hour-long
             # listening analysis; older agents must never interpret it as
             # a general-purpose desktop command.
@@ -2612,6 +2631,7 @@ class UltronLive:
             return
         from concurrent.futures import ThreadPoolExecutor
         from integration.local_cloud_brain import local_chat_ready
+        from integration.comfyui_image import local_image_ready
         probe_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ultron-readiness")
         try:
             while True:
@@ -2630,7 +2650,9 @@ class UltronLive:
                     )
                     ready = await asyncio.get_running_loop().run_in_executor(
                         probe_executor, local_chat_ready)
+                    image_ready = await asyncio.get_running_loop().run_in_executor(probe_executor, local_image_ready)
                     state = {
+                        "local_image_ready": image_ready,
                         "local_chat_ready": ready,
                         "local_listening_analysis_ready": ready,
                         "ui_state": "CONNECTED" if self.session is not None else "CONNECTING",

@@ -301,3 +301,23 @@ CREATE INDEX IF NOT EXISTS idx_conversation_notes_owner_conversation
 
 -- Additive: retain Google source attribution with the same owner-scoped message.
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS research_metadata JSONB;
+
+-- Billing/idempotency tombstones intentionally outlive the 30-day image blobs.
+-- No prompt, secret or image bytes in this ledger. Do not prune automatically:
+-- deleting a tombstone would permit an old UUID to spend again.
+CREATE TABLE IF NOT EXISTS image_requests (
+    user_id TEXT NOT NULL,
+    request_id UUID NOT NULL,
+    conversation_id UUID,
+    fingerprint TEXT,
+    status TEXT NOT NULL,
+    reserved BOOLEAN NOT NULL DEFAULT false,
+    result JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY(user_id,request_id)
+);
+CREATE INDEX IF NOT EXISTS image_requests_spend ON image_requests(created_at) WHERE reserved;
+
+-- Local image requests reuse the existing owner ledger and device task lane.
+ALTER TABLE image_requests ADD COLUMN IF NOT EXISTS command_id BIGINT;
+ALTER TABLE image_requests ADD COLUMN IF NOT EXISTS provider TEXT;

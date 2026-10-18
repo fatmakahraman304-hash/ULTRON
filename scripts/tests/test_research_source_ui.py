@@ -29,7 +29,7 @@ class ResearchSourceBrowserTests(unittest.IsolatedAsyncioTestCase):
         await site.start()
         self.url = 'http://127.0.0.1:' + str(site._server.sockets[0].getsockname()[1])
         self.pw = await async_playwright().start()
-        self.browser = await self.pw.chromium.launch(args=['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
+        self.browser = await self.pw.chromium.launch(args=['--no-sandbox', '--disable-gpu-compositing', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'])
         self.context = await self.browser.new_context(viewport={'width':1366,'height':768}, service_workers='block')
         self.page = await self.context.new_page()
         self.outbound = []
@@ -101,8 +101,10 @@ class ResearchSourceBrowserTests(unittest.IsolatedAsyncioTestCase):
     async def test_iphone_actual_pwa_message_renderer_and_reload_metadata(self):
         await self.page.set_viewport_size({'width':390, 'height':844})
         await self.page.goto(self.url + '/phone')
+        # Wait for boot/auth to finish before injecting this renderer fixture.
+        await self.page.locator('#splash').wait_for(state='detached')
         await self.page.evaluate('''({text,meta}) => {
-            document.querySelector('#splash').classList.add('hidden');
+            document.querySelector('#splash')?.classList.add('hidden');
             document.querySelector('#login').classList.add('hidden');
             document.querySelector('#app').classList.remove('hidden');
             document.querySelector('#chatView').classList.add('active');

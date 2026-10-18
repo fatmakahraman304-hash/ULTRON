@@ -1,3 +1,19 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
+## 2026-10-18 — SD 1.5 ücretsiz yerel görsel üretimi
+
+Ücretsiz SD 1.5/ComfyUI ve mevcut güvenli cihaz kuyruğu, PR #60 tabanındaki ayrı geliştirme dalında uygulandı. Aynı Cloud görsel/geçmiş depolaması, UUID idempotency ve iptal/fencing korunur; paid Gemini çağrısı free modda reddedilir. Düşük VRAM profilinin gerçek RTX 2050 ölçümü ve fiziksel iPhone/Windows kabulü sonraya bırakıldı; sentetik transport testi GPU başarısı değildir. Bu aşamada model/paket indirme, maliyet etkinleştirme ve üretim yayını yok.
+
+## 2026-10-18 — Image Studio implementation ready for review
+
+Draft [PR #60](https://github.com/fatmakahraman304-hash/ULTRON/pull/60) contains private Windows/PWA text-to-image, durable at-most-once request accounting and explicit non-blocking cost consent. Initial commit passed seven Actions jobs; final commit CI is tracked on the PR. Synthetic browser/API and real disposable PostgreSQL verification are complete. Live provider quality/cost and physical device acceptance remain blocked/not run; phase 2 editing is unavailable. PR #59 and production remain unchanged; no release or paid activation.
+
+## 2026-10-17 — Image Studio text-to-image review milestone
+
+Shared Windows/PWA text-to-image path implemented, using existing Cloud storage/auth/history. Paid activation is fail-closed; independent PostgreSQL and browser verification included. Phase 2 image editing and physical/live provider acceptance are not complete. No autonomous activation or deployment. PR #59 remains an unchanged prerequisite.
+
 ## PR #59 — CI düzeltmesi (17 Ekim 2026)
 
 [Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.

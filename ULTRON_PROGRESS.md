@@ -1,3 +1,19 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
+## 2026-10-18 — Ücretsiz yerel Image Studio / ComfyUI
+
+PR #60 `d690c74` tabanından ayrı `feat/golge-free-comfyui-20261018` dalı. Free-by-default SD 1.5, stock ComfyUI workflow, loopback-only transport, mevcut telefon→laptop queue/lease/fencing, aynı özel görsel/geçmiş deposu ve GPU düşük VRAM başlatma profili uygulandı. Ücretsiz modda Gemini helper SDK kurmadan reddeder; çevrimdışı/bozuk yapılandırma ücretli fallback yapmaz. Windows/PWA aynı kuyruğu bekler; maliyet penceresi açılmaz. PR #59/#60/üretim korunur; indirme, gerçek GPU testi, paid çağrı, merge/deploy yok. Ayrıntılar: docs/GOLGE_FREE_IMAGE_STUDIO.md.
+
+## 2026-10-18 — Image Studio PR #60 final consent verification
+
+Draft [PR #60](https://github.com/fatmakahraman304-hash/ULTRON/pull/60), branch `feat/golge-image-studio-20261017`, is stacked on unchanged PR #59 `b0b4dbf`. Initial implementation `dbd00a45e7ebdfd6cda7bbfb04bb42e11af5996e` passed all seven GitHub Actions jobs across five workflows. Cost approval now uses a non-blocking accessible dialog shared by Windows React and iPhone PWA. A test first reproduced dispatch after switching conversations while consent was pending; a second owner/thread/active-request check now prevents it. Seven Image Studio Chromium tests and two research-renderer tests pass; the event-loop check is not physical microphone validation. Corrected screenshots use Chromium SwiftShader with CPU compositing and a clearly marked synthetic PNG. No paid call, merge or Render deploy. Follow-up exact-commit CI is recorded on PR #60.
+
+## 2026-10-17 — Image Studio (review build, separate from PR #59)
+
+Implemented owner-scoped Google image generation through the existing Cloud image endpoint, with explicit enablement/budget/per-request cost consent, PostgreSQL at-most-once ledger, quota and late-output suppression. Windows React and iPhone PWA now share intent/options and private generated-image history. Qt uses a restricted save-dialog download route. No paid provider call, production merge or deploy. See `docs/GOLGE_IMAGE_STUDIO.md`.
+
 ## PR #59 — CI düzeltmesi (17 Ekim 2026)
 
 [Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.

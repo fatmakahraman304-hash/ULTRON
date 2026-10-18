@@ -21,12 +21,13 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import image_studio
 import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
 from local_listening_bridge import register_local_listening_analysis_routes, listening_cleanup_loop
-from conversation_persona import build_system_instruction, classify_intent
+from conversation_persona import build_system_instruction, classify_intent, classify_image_request
 from verified_research import (append_research_sources,
                                build_research_prompt_block,
                                research_for_chat, research_message_for_turn)
@@ -154,6 +155,7 @@ async def uploaded_image_cleanup_loop(pool: asyncpg.Pool) -> None:
             await pool.execute(
                 "DELETE FROM uploaded_images WHERE created_at < NOW() - INTERVAL '30 days'"
             )
+            await pool.execute("DELETE FROM generated_images WHERE created_at < NOW() - INTERVAL '30 days'")
         except Exception:
             # Database reconnects are handled by the next bounded cleanup pass.
             pass
@@ -548,6 +550,12 @@ async def complete_device_command(request: web.Request) -> web.Response:
     )
     if not current:
         raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
+    local_payload = current.get("payload")
+    if isinstance(local_payload, str):
+        local_payload = json.loads(local_payload)
+    if isinstance(local_payload, dict) and local_payload.get("mode") == "local_image":
+        import local_image
+        return await local_image.complete(request, command_id, delivery_attempt, status, result)
     if current["status"] == "completed" and status == "completed":
         saved_payload, saved_result = current.get("payload"), current.get("result")
         if isinstance(saved_payload, str):
@@ -1163,142 +1171,63 @@ def _gemini_image_reply(image_bytes: bytes, mime_type: str, question: str, syste
     raise RuntimeError("Gemini vision provider returned no answer")
 
 
-def _gemini_generate_image(prompt: str, image_bytes: bytes | None = None,
-                           mime_type: str | None = None) -> dict[str, str]:
+def _gemini_generate_image(
+    prompt: str,
+    image_bytes: bytes | None = None,
+    mime_type: str | None = None,
+    *,
+    aspect_ratio="1:1",
+    style="natural"
+) -> dict[str, str]:
     """Generate or edit one image through Gemini; return only actual provider bytes."""
-    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
-    model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image").strip()
-    contents: list[Any] = [prompt]
+    if image_studio.provider_mode() != "gemini":
+        raise RuntimeError("Paid image API forbidden in free local mode")
     if image_bytes is not None:
-        contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"))
-    response = client.models.generate_content(
-        model=model,
-        contents=contents,
-        config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
+        raise ValueError("Image editing is not enabled")
+    client = genai.Client(
+        api_key=required_env("GEMINI_API_KEY"),
+        http_options=types.HttpOptions(
+            timeout=90000, retry_options=types.HttpRetryOptions(attempts=1)
+        ),
     )
-    for candidate in getattr(response, "candidates", []) or []:
-        for part in getattr(getattr(candidate, "content", None), "parts", []) or []:
-            inline = getattr(part, "inline_data", None)
-            data = getattr(inline, "data", None) if inline else None
-            if data:
-                raw = data if isinstance(data, bytes) else base64.b64decode(data) if isinstance(data, str) else bytes(data)
-                output_mime = getattr(inline, "mime_type", None) or "image/png"
-                if output_mime not in {"image/png", "image/jpeg", "image/webp"} or len(raw) > 8 * 1024 * 1024:
-                    raise RuntimeError("Gemini image response violates output limits")
-                return {"mime_type": output_mime,
-                        "image_b64": base64.b64encode(raw).decode("ascii"), "model": model}
-    raise RuntimeError("Gemini image model returned no image")
+    model = os.getenv("GEMINI_IMAGE_MODEL", image_studio.MODEL).strip()
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=[prompt + "\nVisual style: " + style],
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+                max_output_tokens=4096,
+                image_config=types.ImageConfig(
+                    aspect_ratio=aspect_ratio, image_size="1K"
+                ),
+            ),
+        )
+        for candidate in getattr(response, "candidates", []) or []:
+            for part in getattr(getattr(candidate, "content", None), "parts", []) or []:
+                if getattr(part, "thought", False):
+                    continue
+                inline = getattr(part, "inline_data", None)
+                if inline and inline.data:
+                    raw = (
+                        inline.data
+                        if isinstance(inline.data, bytes)
+                        else base64.b64decode(inline.data, validate=True)
+                    )
+                    result = {
+                        "mime_type": inline.mime_type,
+                        "image_b64": base64.b64encode(raw).decode(),
+                        "model": model,
+                    }
+                    image_studio.validate_image(result)
+                    return result
+        raise RuntimeError("Provider returned no final image")
+    finally:
+        client.close()
 
 
 async def generate_image(request: web.Request) -> web.Response:
-    prompt, image_bytes, mime_type, conversation_id = "", None, None, ""
-    if request.content_type == "application/json":
-        body = await request.json()
-        prompt = str(body.get("prompt", "")).strip()[:4000]
-        conversation_id = str(body.get("conversation_id", "")).strip()
-    else:
-        reader = await request.multipart()
-        while True:
-            field = await reader.next()
-            if field is None:
-                break
-            if field.name == "prompt":
-                prompt = (await field.text()).strip()[:4000]
-            elif field.name == "conversation_id":
-                conversation_id = (await field.text()).strip()
-            elif field.name == "image":
-                mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
-                if mime_type not in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}:
-                    raise web.HTTPBadRequest(text='{"error":"supported_image_required"}', content_type="application/json")
-                chunks, total = [], 0
-                while True:
-                    chunk = await field.read_chunk(size=64 * 1024)
-                    if not chunk:
-                        break
-                    total += len(chunk)
-                    if total > 8 * 1024 * 1024:
-                        raise web.HTTPRequestEntityTooLarge(max_size=8 * 1024 * 1024, actual_size=total)
-                    chunks.append(chunk)
-                image_bytes = b"".join(chunks)
-    if not prompt:
-        raise web.HTTPBadRequest(text='{"error":"prompt_required"}', content_type="application/json")
-    try:
-        conv_uuid = uuid.UUID(conversation_id) if conversation_id else uuid.uuid4()
-    except ValueError:
-        raise web.HTTPBadRequest(text='{"error":"invalid_conversation_id"}', content_type="application/json")
-    pool = request.app["db"]
-    # Check an existing thread before spending a provider call. Delay creating
-    # or touching the conversation row until generation succeeds, so provider
-    # failures do not leave empty conversations in chat history.
-    owner_id = await pool.fetchval(
-        "SELECT user_id FROM conversations WHERE id=$1", conv_uuid,
-    )
-    if owner_id is not None and owner_id != request["user_id"]:
-        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
-    try:
-        result = await asyncio.to_thread(_gemini_generate_image, prompt, image_bytes, mime_type)
-    except Exception:
-        # Provider errors may contain request details; never expose them to clients.
-        raise web.HTTPBadGateway(text=json.dumps({"error":"image_generation_failed",
-            "detail":"Görsel üretimi tamamlanamadı. Gemini görsel model erişimini kontrol et."}, ensure_ascii=False),
-            content_type="application/json")
-    # Do not insert the message "Görsel oluşturuldu" unless its actual bytes
-    # are durably attached. Otherwise a phone refresh leaves an empty claim.
-    try:
-        encoded = result["image_b64"]
-        image_data = base64.b64decode(encoded, validate=True)
-        image_mime = result["mime_type"]
-        if image_mime not in {"image/png", "image/jpeg", "image/webp"} or not (0 < len(image_data) <= 8 * 1024 * 1024):
-            raise ValueError("invalid generated image payload")
-    except (ValueError, KeyError, TypeError, base64.binascii.Error):
-        raise web.HTTPBadGateway(
-            text='{"error":"image_generation_invalid_payload"}',
-            content_type="application/json",
-        )
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            # Ownership and conversation creation occur in the same transaction
-            # as the messages and file: a failed save leaves no false thread.
-            claimed = await conn.fetchval(
-                "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
-                "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
-                "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
-                conv_uuid, request["user_id"], prompt[:80],
-            )
-            if claimed is None:
-                raise web.HTTPNotFound(
-                    text='{"error":"conversation_not_found"}',
-                    content_type="application/json",
-                )
-            user_message_id = await conn.fetchval(
-                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
-                "VALUES($1,$2,'user',$3,$4) RETURNING id",
-                conv_uuid, request["user_id"], prompt, request["device_id"],
-            )
-            assistant_message_id = await conn.fetchval(
-                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
-                "VALUES($1,$2,'assistant',$3,'gemini-image') RETURNING id",
-                conv_uuid, request["user_id"],
-                "Görsel düzenlendi." if image_bytes is not None else "Görsel oluşturuldu.",
-            )
-            await conn.execute(
-                "INSERT INTO generated_images(message_id,conversation_id,user_id,mime_type,image_data) "
-                "VALUES($1,$2,$3,$4,$5)",
-                assistant_message_id, conv_uuid, request["user_id"], image_mime, image_data,
-            )
-            # Clear only the owner's expired/over-limit blobs. Keep the chat
-            # text, but a missing asset should display an explicit UI error.
-            await conn.execute(
-                "DELETE FROM generated_images WHERE user_id=$1 AND "
-                "(created_at < NOW() - INTERVAL '30 days' OR message_id NOT IN "
-                "(SELECT message_id FROM generated_images WHERE user_id=$1 "
-                "ORDER BY created_at DESC,message_id DESC LIMIT 12))",
-                request["user_id"],
-            )
-    return web.json_response({**result, "conversation_id": str(conv_uuid),
-                              "user_message_id": user_message_id,
-                              "assistant_message_id": assistant_message_id,
-                              "image_url": f"/api/image/generated/{assistant_message_id}"})
+    return await image_studio.generate(request, _gemini_generate_image)
 
 
 async def get_generated_image(request: web.Request) -> web.Response:
@@ -1314,9 +1243,10 @@ async def get_generated_image(request: web.Request) -> web.Response:
     )
     if row is None:
         raise web.HTTPNotFound()
+    suffix={"image/png":"png","image/jpeg":"jpg","image/webp":"webp"}[row["mime_type"]]
     return web.Response(
         body=bytes(row["image_data"]), content_type=row["mime_type"],
-        headers={"Cache-Control":"private, no-store, max-age=0",
+        headers={"Content-Disposition":f'inline; filename="golge-gorsel-{raw_id}.{suffix}"',"Cache-Control":"private, no-store, max-age=0",
                  "X-Content-Type-Options":"nosniff"},
     )
 
@@ -1836,6 +1766,9 @@ async def scene_design(request: web.Request) -> web.Response:
 async def chat(request: web.Request) -> web.Response:
     body = await request.json()
     text = str(body.get("message", "")).strip()
+    if classify_image_request(text):
+        return image_studio.fail('image_studio_required',
+            'Görsel üretimi için sohbet ekranındaki ayrı maliyet onayı gerekir. Görsel henüz üretilmedi.',409)
     if not text:
         raise web.HTTPBadRequest(text=json.dumps({"error": "message_required"}), content_type="application/json")
     if len(text) > 16000:
@@ -2954,6 +2887,10 @@ def build_app() -> web.Application:
     app.router.add_get("/api/local-scene-design/{id}", get_scene)
     app.router.add_post("/api/listening-analysis", listening_analysis_api)
     app.router.add_post("/api/vision", vision)
+    app.router.add_get("/api/image/status", image_studio.status)
+    app.router.add_post("/api/image/cancel", image_studio.cancel)
+    import local_image
+    app.router.add_get("/api/image/requests/{request_id}", local_image.get_request)
     app.router.add_post("/api/image/generate", generate_image)
     app.router.add_get("/api/image/generated/{id}", get_generated_image)
     app.router.add_get("/api/image/uploaded/{id}", get_uploaded_image)

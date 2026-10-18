@@ -13,6 +13,7 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtWidgets import QStackedWidget, QToolBar, QFileDialog
 from .paths import ROOT
+from .image_download_policy import generated_image_filename
 from .golge_ui_commands import is_stop_command
 
 
@@ -660,12 +661,15 @@ def attach(ui):
     win.resize(1440,900)
     def save_download(download):
         address=download.url().toString()
+        generated=generated_image_filename(address,download.mimeType(),url)
         png=address.startswith('data:image/png')
         blob=address.startswith('blob:')
         project=blob and download.suggestedFileName().endswith(('.ultron.json','.golge.json')) and download.mimeType()=='application/json'
         video=blob and download.suggestedFileName().lower().endswith(('.webm','.mp4')) and download.mimeType().startswith('video/')
-        if not (png or project or video):download.cancel();return
-        if video:
+        if not (generated or png or project or video):download.cancel();return
+        if generated:
+            filename,_=QFileDialog.getSaveFileName(win,'GÖLGE görselini kaydet',generated,'Görsel (*.png *.jpg *.webp)')
+        elif video:
             suggested=download.suggestedFileName() or 'golge-animation.webm'
             filename,_=QFileDialog.getSaveFileName(win,'GÖLGE videosunu kaydet',suggested,'Video (*.webm *.mp4)')
         elif png:

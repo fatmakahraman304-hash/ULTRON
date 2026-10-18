@@ -1,3 +1,39 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
+## 2026-10-18 — Ücretsiz SD 1.5 / ComfyUI doğrulaması
+
+- Cloud + Comfy transport/profil + gerçek izole PostgreSQL: **474 PASS**, 0 FAIL/0 SKIP, 368 ek subtest. Yeni kapsam: 7 Cloud queue, 8 local transport/profil testi. Test-first başlangıçta eksik adaptör importu FAIL; uygulamayla geçti.
+- Backend tüm regresyon: **1307 PASS, 3 SKIP**, 6 ek subtest (mevcut parser, anahtar ve fiziksel cihaz koşulları).
+- Frontend **59 PASS**, PWA **169 PASS**; npm ci + TypeScript/Vite build/Python compile PASS. Earth JS ayrı 6 test bu frontend sayısına dahildir; Earth Python 6, native image download policy 1 PASS.
+- Gerçek Chromium Image Studio **10 PASS** (7 eski + 3 ücretsiz sıra/ücretsiz onay/iptal); araştırma renderer **2 PASS**. Sentetik PNG ve ComfyUI/CUDA metadatası kullanıldı, gerçek SD kalitesi değil.
+- Yeni E2E: cookie/Origin telefon isteği → gerçek Postgres cihaz kuyruğu → device claim → kontrollü ComfyUI HTTP → gerçek decode/fenced completion → yetkili görsel/history. Aynı request yeniden çalışmaz, başka kullanıcı erişemez, stale attempt ve geç iptal çıktısı kaydedilmez.
+- Free modda Gemini SDK yaratılmadan engellenir; eski ücret bayrakları açıkken dahi offline/yanlış sağlayıcı fallback yapmaz. Ücretli çağrı yapılmadı.
+- Gerçek Windows/RTX 2050/SD 1.5, iPhone/mikrofon/TTS/VRAM ve iki fiziksel cihaz aktarımı **NOT RUN**. Son commit CI sonucu yeni taslak PR'da kaydedilir. PR #59/#60 ve üretim değişmez; merge/deploy yok.
+
+## 2026-10-18 — Image Studio final UI regression
+
+- TypeScript/Vite production build: **PASS**; frontend Node **59 PASS**, PWA Node **169 PASS**.
+- Actual Chromium Image Studio: **7 PASS**, 0 FAIL. Includes desktop generation/download/zoom, phone rendering/reload, native history deduplication, late cancellation, conversation switch, cost refusal, live JS timer during consent and ESC. Provider/images/Qt signals are fixtures; this is not real AI, microphone or physical device success.
+- Research renderer Chromium: **2 PASS**, 0 FAIL. CPU compositing avoids SwiftShader screenshot corruption without replacing WebGL rendering.
+- Test-first failure: switching phone conversations during pending cost consent still dispatched a paid-generation request; after the active-job/thread recheck, the same test passes with zero provider requests.
+- Initial implementation `dbd00a45e7ebdfd6cda7bbfb04bb42e11af5996e`: **7/7 GitHub Actions jobs SUCCESS**, five workflows (Cloud/PostgreSQL, Scene, Responsive, Mobile Listening, Local Qwen Listening). These Qwen-named CI contracts are not live model inference. Final follow-up commit results are recorded on draft PR #60.
+- Previously completed whole-suite counts below remain applicable; no backend changes in this final UI follow-up. Live image generation **BLOCKED**; Windows/iPhone/microphone/TTS **NOT RUN**. No merge/deploy.
+
+## 2026-10-17 — Image Studio local verification
+
+- Cloud + disposable PostgreSQL: **458 PASS**, 0 FAIL, 0 skipped; 368 additional unittest subtests (not added to the test count).
+- Backend regression: **1307 PASS**, 0 FAIL, **3 NOT RUN/skipped**: existing deterministic-parser unsupported case, missing Picovoice key, physical Windows/microphone workflow. Six additional subtests.
+- React TypeScript/Vite production build: **PASS**. Existing >500 kB bundle advisory remains.
+- Frontend Node: **59 PASS**; separate Earth command: **6 PASS**.
+- PWA Node contracts: **169 PASS**, 0 FAIL after updating the test fixture for shared image intent.
+- Chromium Image Studio: **5 PASS** (synthetic provider/PNG; native history uses fake Qt signals). Research renderer regression: **2 PASS**.
+- Native image download policy: **1 PASS**; Earth Python config: **6 PASS**; required Python compile: **PASS**.
+- Regression failures found/fixed: Turkish “resmi yap” intent; history replay accidentally treated as a new voice request; duplicate Cloud image arrivals; research browser fixture racing startup; unauthenticated Qt download path was previously rejected and now has a narrowly scoped save-dialog policy.
+- Real AI image production: **BLOCKED** (no Gemini key/cost enablement). Real iPhone/Windows/microphone/Web Share: **NOT RUN**.
+- GitHub CI: draft PR #60 initial implementation passed 7/7 jobs; final follow-up commit checks are recorded on the PR. No production merge or Render deploy.
+
 ## PR #59 — CI düzeltmesi (17 Ekim 2026)
 
 [Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.
