@@ -88,6 +88,8 @@ def build_workflow(prompt, ratio, style, checkpoint, seed):
                 "vae": ["1", 2],
                 "tile_size": 256,
                 "overlap": 64,
+                "temporal_size": 64,
+                "temporal_overlap": 8,
             },
         },
         "7": {
