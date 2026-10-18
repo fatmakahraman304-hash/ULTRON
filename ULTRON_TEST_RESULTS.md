@@ -1,3 +1,7 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
 ## 2026-10-18 — Ücretsiz SD 1.5 / ComfyUI doğrulaması
 
 - Cloud + Comfy transport/profil + gerçek izole PostgreSQL: **474 PASS**, 0 FAIL/0 SKIP, 368 ek subtest. Yeni kapsam: 7 Cloud queue, 8 local transport/profil testi. Test-first başlangıçta eksik adaptör importu FAIL; uygulamayla geçti.

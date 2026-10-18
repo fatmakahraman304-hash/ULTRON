@@ -1,3 +1,7 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
 ## 2026-10-18 — Ücretsiz Image Studio devam kaydı
 
 Yeni `feat/golge-free-comfyui-20261018` dalı PR #60 `d690c74` üstündedir. Yeni taslak PR'ın son commit CI'sını doğrula; PR #59/#60 ve üretime yazma. Sonraki gerçek kabul laptop müsaitken: mevcut ComfyUI + güvenilir SD 1.5 safetensors kurulumunu ve CUDA/PyTorch uyumunu doğrula; dokümandaki düşük VRAM profiliyle tek 512 kare üret, VRAM/gecikme ölç; Qwen/ses birlikte kullanımını, gerçek iPhone→güvenli kuyruk→laptop→özel görsel geçmişini test et. Şimdi kullanıcıdan CMD istenmez. Yerel ortam/Cloud free flag'leri henüz uygulanmadı. Ücretli image API fallback asla açılmaz. Çalışan Comfy GPU işinde global interrupt yok, yalnız çıktı bastırma doğru raporlanır. Görsel düzenleme ayrı sonraki aşama. docs/GOLGE_FREE_IMAGE_STUDIO.md kurulum sınırlarını/NOT RUN maddelerini içerir.

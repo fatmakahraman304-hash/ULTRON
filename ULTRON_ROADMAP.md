@@ -1,3 +1,7 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
 ## 2026-10-18 — SD 1.5 ücretsiz yerel görsel üretimi
 
 Ücretsiz SD 1.5/ComfyUI ve mevcut güvenli cihaz kuyruğu, PR #60 tabanındaki ayrı geliştirme dalında uygulandı. Aynı Cloud görsel/geçmiş depolaması, UUID idempotency ve iptal/fencing korunur; paid Gemini çağrısı free modda reddedilir. Düşük VRAM profilinin gerçek RTX 2050 ölçümü ve fiziksel iPhone/Windows kabulü sonraya bırakıldı; sentetik transport testi GPU başarısı değildir. Bu aşamada model/paket indirme, maliyet etkinleştirme ve üretim yayını yok.
