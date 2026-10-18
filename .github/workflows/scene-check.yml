@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
+      - feat/golge-image-studio-20261017
       - feat/golge-grounded-research-20261017
       - feat/ultron-cloud-shared-memory
       - feat/golge-episodic-memory-v4-20261014
@@ -113,6 +114,8 @@ jobs:
           python -m py_compile ultron/backend/cloud_delivery.py
           python -m py_compile ultron/backend/cloud_dispatch_journal.py
           python -m py_compile mark_app.py
+      - name: Free ComfyUI SD 1.5 transport and low-VRAM boundaries (synthetic provider)
+        run: PYTHONPATH=. python -m unittest discover -s tests/image_local -v
       - name: Image Studio native save dialog URL boundary
         run: PYTHONPATH=. python scripts/tests/test_image_download_policy.py
       - name: Original MARK embedded video dock regression tests

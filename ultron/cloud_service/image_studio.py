@@ -102,8 +102,20 @@ def require_origin(request):
             )
 
 
+def provider_mode():
+    # Free local is the default even if old Gemini enablement/keys are present.
+    return os.getenv("GOLGE_IMAGE_PROVIDER", "comfyui_local")
+
+
 async def status(request):
-    return web.json_response(policy(), headers={"Cache-Control": "no-store"})
+    if provider_mode() != "gemini":
+        import local_image
+
+        return await local_image.status(request)
+    return web.json_response(
+        policy() | {"provider": "gemini", "requires_cost_approval": True},
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 async def cancel(request):
@@ -140,6 +152,14 @@ async def cancel(request):
                 request["user_id"],
                 rid,
             )
+            await conn.execute(
+                """UPDATE device_commands SET status='cancelled',completed_at=NOW(),
+                payload=payload - 'text', result='{"message":"Yerel görsel sonucu iptal edildi."}'::jsonb
+                WHERE user_id=$1 AND id=(SELECT command_id FROM image_requests WHERE user_id=$1 AND request_id=$2)
+                  AND payload->>'mode'='local_image' AND status IN ('queued','delivered')""",
+                request["user_id"],
+                rid,
+            )
     return web.json_response(
         {
             "status": (
@@ -152,6 +172,10 @@ async def cancel(request):
 
 
 async def generate(request, provider):
+    if provider_mode() != "gemini":
+        import local_image
+
+        return await local_image.generate(request)
     require_origin(request)
     if request.content_type != "application/json":
         return fail(
@@ -295,56 +319,74 @@ async def generate(request, provider):
                 return fail(
                     "output_suppressed", "İptal edilen görsel sohbete eklenmedi.", 409
                 )
-            claimed = await conn.fetchval(
-                """INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3)
-                ON CONFLICT(id) DO UPDATE SET updated_at=NOW() WHERE conversations.user_id=EXCLUDED.user_id RETURNING id""",
-                cid,
+            reply = await persist(
+                conn,
                 owner,
-                prompt[:80],
-            )
-            if claimed is None:
-                return fail("conversation_not_found", "Sohbet bulunamadı.", 404)
-            uid = await conn.fetchval(
-                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4) RETURNING id",
                 cid,
-                owner,
+                rid,
                 prompt,
                 request["device_id"],
-            )
-            mid = await conn.fetchval(
-                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant','Görsel oluşturuldu.','gemini-image') RETURNING id",
-                cid,
-                owner,
-            )
-            await conn.execute(
-                "INSERT INTO generated_images(message_id,conversation_id,user_id,mime_type,image_data) VALUES($1,$2,$3,$4,$5)",
-                mid,
-                cid,
-                owner,
-                mime,
                 raw,
-            )
-            await conn.execute(
-                """DELETE FROM generated_images WHERE user_id=$1 AND (created_at < NOW()-INTERVAL '30 days'
-                OR message_id NOT IN (SELECT message_id FROM generated_images WHERE user_id=$1 ORDER BY created_at DESC,message_id DESC LIMIT 12))""",
-                owner,
-            )
-            reply = dict(
-                status="completed",
-                request_id=str(rid),
-                conversation_id=str(cid),
-                user_message_id=uid,
-                assistant_message_id=mid,
-                image_url=f"/api/image/generated/{mid}",
-                mime_type=mime,
-                width=size[0],
-                height=size[1],
-                model=config["model"],
-            )
-            await conn.execute(
-                "UPDATE image_requests SET status='completed',result=$3::jsonb WHERE user_id=$1 AND request_id=$2",
-                owner,
-                rid,
-                json.dumps(reply),
+                mime,
+                size,
+                config["model"],
             )
     return web.json_response(reply)
+
+
+async def persist(conn, owner, cid, rid, prompt, device, raw, mime, size, model):
+    """Shared atomic owner-scoped image/history persistence for both providers."""
+    claimed = await conn.fetchval(
+        """INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3)
+        ON CONFLICT(id) DO UPDATE SET updated_at=NOW() WHERE conversations.user_id=EXCLUDED.user_id RETURNING id""",
+        cid,
+        owner,
+        prompt[:80],
+    )
+    if claimed is None:
+        raise web.HTTPNotFound()
+    uid = await conn.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'user',$3,$4) RETURNING id",
+        cid,
+        owner,
+        prompt,
+        device,
+    )
+    mid = await conn.fetchval(
+        "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant','Görsel oluşturuldu.',$3) RETURNING id",
+        cid,
+        owner,
+        "local-image" if model == "stable-diffusion-1.5" else "gemini-image",
+    )
+    await conn.execute(
+        "INSERT INTO generated_images(message_id,conversation_id,user_id,mime_type,image_data) VALUES($1,$2,$3,$4,$5)",
+        mid,
+        cid,
+        owner,
+        mime,
+        raw,
+    )
+    await conn.execute(
+        """DELETE FROM generated_images WHERE user_id=$1 AND (created_at < NOW()-INTERVAL '30 days'
+        OR message_id NOT IN (SELECT message_id FROM generated_images WHERE user_id=$1 ORDER BY created_at DESC,message_id DESC LIMIT 12))""",
+        owner,
+    )
+    reply = dict(
+        status="completed",
+        request_id=str(rid),
+        conversation_id=str(cid),
+        user_message_id=uid,
+        assistant_message_id=mid,
+        image_url=f"/api/image/generated/{mid}",
+        mime_type=mime,
+        width=size[0],
+        height=size[1],
+        model=model,
+    )
+    await conn.execute(
+        "UPDATE image_requests SET status='completed',result=$3::jsonb WHERE user_id=$1 AND request_id=$2",
+        owner,
+        rid,
+        json.dumps(reply),
+    )
+    return reply

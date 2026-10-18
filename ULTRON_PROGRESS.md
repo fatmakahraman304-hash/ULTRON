@@ -1,3 +1,7 @@
+## 2026-10-18 — Ücretsiz yerel Image Studio / ComfyUI
+
+PR #60 `d690c74` tabanından ayrı `feat/golge-free-comfyui-20261018` dalı. Free-by-default SD 1.5, stock ComfyUI workflow, loopback-only transport, mevcut telefon→laptop queue/lease/fencing, aynı özel görsel/geçmiş deposu ve GPU düşük VRAM başlatma profili uygulandı. Ücretsiz modda Gemini helper SDK kurmadan reddeder; çevrimdışı/bozuk yapılandırma ücretli fallback yapmaz. Windows/PWA aynı kuyruğu bekler; maliyet penceresi açılmaz. PR #59/#60/üretim korunur; indirme, gerçek GPU testi, paid çağrı, merge/deploy yok. Ayrıntılar: docs/GOLGE_FREE_IMAGE_STUDIO.md.
+
 ## 2026-10-18 — Image Studio PR #60 final consent verification
 
 Draft [PR #60](https://github.com/fatmakahraman304-hash/ULTRON/pull/60), branch `feat/golge-image-studio-20261017`, is stacked on unchanged PR #59 `b0b4dbf`. Initial implementation `dbd00a45e7ebdfd6cda7bbfb04bb42e11af5996e` passed all seven GitHub Actions jobs across five workflows. Cost approval now uses a non-blocking accessible dialog shared by Windows React and iPhone PWA. A test first reproduced dispatch after switching conversations while consent was pending; a second owner/thread/active-request check now prevents it. Seven Image Studio Chromium tests and two research-renderer tests pass; the event-loop check is not physical microphone validation. Corrected screenshots use Chromium SwiftShader with CPU compositing and a clearly marked synthetic PNG. No paid call, merge or Render deploy. Follow-up exact-commit CI is recorded on PR #60.

@@ -1,3 +1,13 @@
+## 2026-10-18 — Ücretsiz SD 1.5 / ComfyUI doğrulaması
+
+- Cloud + Comfy transport/profil + gerçek izole PostgreSQL: **474 PASS**, 0 FAIL/0 SKIP, 368 ek subtest. Yeni kapsam: 7 Cloud queue, 8 local transport/profil testi. Test-first başlangıçta eksik adaptör importu FAIL; uygulamayla geçti.
+- Backend tüm regresyon: **1307 PASS, 3 SKIP**, 6 ek subtest (mevcut parser, anahtar ve fiziksel cihaz koşulları).
+- Frontend **59 PASS**, PWA **169 PASS**; npm ci + TypeScript/Vite build/Python compile PASS. Earth JS ayrı 6 test bu frontend sayısına dahildir; Earth Python 6, native image download policy 1 PASS.
+- Gerçek Chromium Image Studio **10 PASS** (7 eski + 3 ücretsiz sıra/ücretsiz onay/iptal); araştırma renderer **2 PASS**. Sentetik PNG ve ComfyUI/CUDA metadatası kullanıldı, gerçek SD kalitesi değil.
+- Yeni E2E: cookie/Origin telefon isteği → gerçek Postgres cihaz kuyruğu → device claim → kontrollü ComfyUI HTTP → gerçek decode/fenced completion → yetkili görsel/history. Aynı request yeniden çalışmaz, başka kullanıcı erişemez, stale attempt ve geç iptal çıktısı kaydedilmez.
+- Free modda Gemini SDK yaratılmadan engellenir; eski ücret bayrakları açıkken dahi offline/yanlış sağlayıcı fallback yapmaz. Ücretli çağrı yapılmadı.
+- Gerçek Windows/RTX 2050/SD 1.5, iPhone/mikrofon/TTS/VRAM ve iki fiziksel cihaz aktarımı **NOT RUN**. Son commit CI sonucu yeni taslak PR'da kaydedilir. PR #59/#60 ve üretim değişmez; merge/deploy yok.
+
 ## 2026-10-18 — Image Studio final UI regression
 
 - TypeScript/Vite production build: **PASS**; frontend Node **59 PASS**, PWA Node **169 PASS**.

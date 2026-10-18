@@ -84,7 +84,7 @@ class FakeDB:
 
 class ImageGenerationApiTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.env = patch.dict(os.environ, {"ULTRON_DEVICE_TOKEN": "image_test_only", "GOLGE_IMAGE_ENABLED":"true", "GOLGE_IMAGE_BUDGET_APPROVED":"true", "GOLGE_IMAGE_DAILY_LIMIT":"20", "GOLGE_IMAGE_DAILY_BUDGET_USD":"10", "GEMINI_API_KEY":"fixture"})
+        self.env = patch.dict(os.environ, {"GOLGE_IMAGE_PROVIDER":"gemini", "ULTRON_DEVICE_TOKEN": "image_test_only", "GOLGE_IMAGE_ENABLED":"true", "GOLGE_IMAGE_BUDGET_APPROVED":"true", "GOLGE_IMAGE_DAILY_LIMIT":"20", "GOLGE_IMAGE_DAILY_BUDGET_USD":"10", "GEMINI_API_KEY":"fixture"})
         self.env.start()
         self.db = FakeDB()
         app = web.Application(middlewares=[cloud.auth_middleware])

@@ -317,3 +317,7 @@ CREATE TABLE IF NOT EXISTS image_requests (
     PRIMARY KEY(user_id,request_id)
 );
 CREATE INDEX IF NOT EXISTS image_requests_spend ON image_requests(created_at) WHERE reserved;
+
+-- Local image requests reuse the existing owner ledger and device task lane.
+ALTER TABLE image_requests ADD COLUMN IF NOT EXISTS command_id BIGINT;
+ALTER TABLE image_requests ADD COLUMN IF NOT EXISTS provider TEXT;

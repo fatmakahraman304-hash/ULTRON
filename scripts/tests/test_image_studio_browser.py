@@ -205,5 +205,59 @@ class ImageStudioBrowserTests(harness.ResearchSourceBrowserTests):
         self.assertEqual(self.invocations, [])
 
 
+
+class FreeLocalImageBrowserTests(harness.ResearchSourceBrowserTests):
+    """Actual built UI with a controlled local-image device queue; no GPU/model."""
+    test_desktop_actual_invoke_renders_source_and_isolates_widget = None
+    test_iphone_actual_pwa_message_renderer_and_reload_metadata = None
+
+    async def api(self, request):
+        if request.path.endswith('/status'):
+            return web.json_response({'available':True,'provider':'comfyui_local','requires_cost_approval':False,'detail':'DEMO TEST — ücretsiz yerel SD 1.5'})
+        if request.path.endswith('/generate'):
+            self.invocations.append(await request.json());self.polls=0
+            return web.json_response({'status':'queued','request_id':self.invocations[-1]['request_id']},status=202)
+        if '/requests/' in request.path:
+            self.polls+=1
+            body=self.invocations[-1]
+            if self.polls==1 or getattr(self,'hold',False):
+                return web.json_response({'status':'running'},status=202)
+            return web.json_response({'status':'completed','request_id':body['request_id'],
+                'conversation_id':body['conversation_id'],'assistant_message_id':900,
+                'user_message_id':899,'image_url':'/api/image/generated/900','mime_type':'image/png'})
+        if '/generated/900' in request.path:
+            f=io.BytesIO();Image.new('RGB',(384,640),'cyan').save(f,format='PNG')
+            return web.Response(body=f.getvalue(),content_type='image/png')
+        return await super().api(request)
+
+    async def test_desktop_free_queue_never_requests_paid_consent(self):
+        await self.page.goto(self.url)
+        await self.page.get_by_role('textbox',name='Mesaj',exact=True).fill('DEMO TEST — dikey Ferrari fotoğrafı oluştur')
+        await self.page.get_by_role('button',name='Gönder',exact=True).click()
+        await self.page.get_by_alt_text('GÖLGE tarafından üretilen görsel').wait_for()
+        self.assertEqual(len(self.invocations),1)
+        self.assertFalse(self.invocations[0]['cost_approved'])
+        self.assertGreaterEqual(self.polls,2)
+        self.assertEqual(await self.page.get_by_role('dialog',name='Görsel üretimi maliyet onayı').count(),0)
+        await self.screenshot('free-image-desktop-fixture.png')
+
+    async def test_phone_free_queue_persists_image_reference(self):
+        await ImageStudioBrowserTests.phone(self)
+        await self.page.evaluate("void sendImageCreation('DEMO TEST — ücretsiz dikey görsel oluştur',addMessage('user','DEMO TEST — sentetik ComfyUI görsel testi'))")
+        await self.page.wait_for_function("document.querySelector('#messages img')?.naturalWidth===384")
+        self.assertFalse(self.invocations[0]['cost_approved'])
+        self.assertEqual(await self.page.get_by_role('dialog',name='Görsel üretimi maliyet onayı').count(),0)
+        self.assertTrue(await self.page.evaluate('document.documentElement.scrollWidth<=innerWidth'))
+        self.assertEqual(await self.page.get_by_role('link',name='Görseli indir / kaydet').get_attribute('href'),'/api/image/generated/900')
+        await self.screenshot('free-image-phone-fixture.png')
+
+    async def test_phone_free_pending_cancel_stops_polling(self):
+        await ImageStudioBrowserTests.phone(self);self.hold=True
+        await self.page.evaluate("void sendImageCreation('DEMO TEST fotoğraf oluştur',null)")
+        await self.page.wait_for_function("activeImageJob!==null")
+        await self.page.keyboard.press('Escape')
+        await self.page.wait_for_timeout(1000)
+        self.assertEqual(await self.page.locator('#messages img').count(),0)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -351,10 +351,12 @@ export default function Dashboard(){
   try{
    const config=await request('/api/merged/image-studio/status',undefined,job.controller.signal);
    if(!config.available){u.add('assistant',config.detail);return;}
-   if(imageJob.current!==job||!await GolgeImages.confirmCost(config.detail,job.controller.signal))return;
+   if(imageJob.current!==job)return;
+   if(config.requires_cost_approval!==false&&!await GolgeImages.confirmCost(config.detail,job.controller.signal))return;
    localStorage.setItem('golgeImageConversation',imageConversation.current);
-   setLocalState('THINKING');u.setNotice('Görsel oluşturuluyor… ESC ile sonucu iptal edebilirsin.');
-   const r=await request('/api/merged/image-studio/generate',{prompt:text,conversation_id:imageConversation.current,request_id:job.id,cost_approved:true,...GolgeImages.options(text)},job.controller.signal);
+   setLocalState('THINKING');u.setNotice(config.provider==='comfyui_local'?'Ücretsiz SD 1.5 görseli laptopta üretiliyor…':'Görsel oluşturuluyor… ESC ile sonucu iptal edebilirsin.');
+   let r=await request('/api/merged/image-studio/generate',{prompt:text,conversation_id:imageConversation.current,request_id:job.id,cost_approved:config.requires_cost_approval!==false,...GolgeImages.options(text)},job.controller.signal);
+   r=await GolgeImages.awaitResult(()=>request('/api/merged/image-studio/requests/'+job.id,undefined,job.controller.signal),r,job.controller.signal);
    if(imageJob.current!==job||r.status!=='completed')return;
    u.setMessages(prev=>prev.some(m=>m.cloudId===r.assistant_message_id)?prev:[...prev,{id:-r.assistant_message_id,cloudId:r.assistant_message_id,imageId:r.assistant_message_id,role:'assistant',text:'Görsel oluşturuldu.',time:Date.now()}]);
   }catch(e){if(!job.controller.signal.aborted)u.add('assistant',(e as Error).message);}

@@ -25,6 +25,7 @@ class StudioPostgresTests(unittest.IsolatedAsyncioTestCase):
         self.env = patch.dict(
             os.environ,
             {
+                "GOLGE_IMAGE_PROVIDER":"gemini",
                 "ULTRON_DEVICE_TOKEN": "fixture-image",
                 "ULTRON_USER_ID": self.owner,
                 "GOLGE_IMAGE_ENABLED": "true",

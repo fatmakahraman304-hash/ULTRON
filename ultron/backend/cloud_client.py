@@ -170,7 +170,7 @@ class CloudClient:
     async def image_request(self, method, path, body=None):
         """Fixed authenticated Cloud image routes; no arbitrary URL forwarding."""
         import re
-        if not re.fullmatch(r"/api/image/(?:status|generate|cancel|generated/[0-9]{1,19})", path):
+        if not re.fullmatch(r"/api/image/(?:status|generate|cancel|requests/[0-9a-f-]{36}|generated/[0-9]{1,19})", path):
             raise ValueError("Invalid image endpoint")
         if not self.enabled:
             return 503, b'{"error":"cloud_not_configured","detail":"Gorsel icin Cloud eslestirmesi gerekli."}', 'application/json'
