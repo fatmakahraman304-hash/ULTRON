@@ -76,3 +76,6 @@
 .cc-column>.cc-card{flex-shrink:0}.cc-column>.cc-events{flex-shrink:1}
 @media(max-width:1649px) and (min-width:841px){.cc-source{display:none}.cc-device{padding:10px 11px}.cc-model{padding:9px 12px}}
 .earth-render-status{position:absolute;inset:45% 12% auto;text-align:center;z-index:4;padding:12px;border:1px solid #24506b;border-radius:8px;color:#98c8e2;background:#051427de;font-size:11px}
+
+.message-prose a{color:#7adfff;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.message-prose a:focus-visible{outline:2px solid #7adfff;outline-offset:3px}

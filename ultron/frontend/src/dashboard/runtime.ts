@@ -1,5 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import type {SystemSnapshot,AIStatus,TaskProposal,PatchProposal} from '../lib/types';
+import {isStopCommand} from './voiceCommand';
 export type CoreState='IDLE'|'LISTENING'|'THINKING'|'SPEAKING'|'WORKING'|'ERROR';
 export type StageMode='core_idle'|'hologram_lab'|'scene_lab'|'earth_watch'|'video_rendering'|'video_preview'|'task_progress'|'screen_preview'|'animation_preview'|'world_map';
 export type HologramConfig={
@@ -49,10 +50,10 @@ export type Native={send:(text:string)=>void;action:(name:string)=>void;videoReq
 declare global {interface Window {qt?:{webChannelTransport:unknown};QWebChannel?:new(transport:unknown,callback:(channel:{objects:{mark:Native}})=>void)=>unknown;}}
 export async function request(path:string,body?:unknown,signal?:AbortSignal){
  const res=await fetch(path,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal:signal??AbortSignal.timeout(200000)});
- const data=await res.json();if(!res.ok||data.ok===false)throw Error(data.error||`HTTP ${res.status}`);return data;
+ const data=await res.json();if(!res.ok||data.ok===false)throw Error(data.detail||data.error||`HTTP ${res.status}`);return data;
 }
 export type DevRequest={id:string;prompt:string;target:'phone'|'desktop'|'both';status:string;handoff:string;commit_sha?:string;verified_cloud?:boolean;verified_tests?:boolean};
-export type Message={role:'user'|'assistant';text:string;id:number;time:number;cloudId?:number};
+export type Message={role:'user'|'assistant';text:string;id:number;time:number;cloudId?:number;imageId?:number;research?:unknown};
 export function useUltron(){
  const [connected,setConnected]=useState(false),[system,setSystem]=useState<SystemSnapshot|null>(null),[ai,setAi]=useState<AIStatus|null>(null);
  const [state,setState]=useState<CoreState>('IDLE'),[nativeState,setNativeState]=useState<CoreState>('IDLE'),[amplitude,setAmplitude]=useState(0),[muted,setMuted]=useState(true),[native,setNative]=useState<Native|null>(null);
@@ -60,7 +61,7 @@ export function useUltron(){
  const [messages,setMessages]=useState<Message[]>([]),[pending,setPending]=useState<TaskProposal|null>(null),[patch,setPatch]=useState<PatchProposal|null>(null),[notice,setNotice]=useState(''),[notifications,setNotifications]=useState<any[]>([]);
  const [health,setHealth]=useState<any>(null),[tools,setTools]=useState<any[]>([]),[memory,setMemory]=useState<any>(null),[plugins,setPlugins]=useState<any[]|null>(null),[history,setHistory]=useState<SystemSnapshot[]>([]),[taskState,setTaskState]=useState<CoreState>('IDLE'),[devicePresence,setDevicePresence]=useState<any[]>([]),[stage,setStage]=useState<StageState>(defaultStage);
  const cloudKnown=useRef<Set<number>>(new Set());
- const add=(role:Message['role'],text:string)=>setMessages(p=>[...p,{role,text,id:Date.now()+Math.random(),time:Date.now()}].slice(-300));
+ const add=(role:Message['role'],text:string,research?:unknown)=>setMessages(p=>[...p,{role,text,research,id:Date.now()+Math.random(),time:Date.now()}].slice(-300));
  const mergeCloud=(rows:any[])=>setMessages(previous=>{
   const next=[...previous];
   for(const row of Array.isArray(rows)?rows:[]){
@@ -71,9 +72,9 @@ export function useUltron(){
    cloudKnown.current.add(cloudId);
    const parsed=Date.parse(String(row?.created_at??''));
    const time=Number.isFinite(parsed)?parsed:Date.now();
-   const match=next.findIndex(m=>m.cloudId===undefined&&m.role===role&&m.text===text&&Math.abs(m.time-time)<120000);
-   if(match>=0)next[match]={...next[match],cloudId,time};
-   else next.push({role,text,id:-cloudId,time,cloudId});
+   const match=next.findIndex(m=>m.cloudId===cloudId||(m.cloudId===undefined&&m.role===role&&m.text===text&&Math.abs(m.time-time)<120000));
+   if(match>=0)next[match]={...next[match],cloudId,time,imageId:row.has_generated_image?cloudId:undefined,research:row.research_metadata};
+   else next.push({role,text,id:-cloudId,time,cloudId,imageId:row.has_generated_image?cloudId:undefined,research:row.research_metadata});
   }
   next.sort((a,b)=>a.time-b.time||a.id-b.id);
   return next.slice(-300);
@@ -109,7 +110,27 @@ export function useUltron(){
    if(e.kind==='dev_verified'&&e.data){setDevRequests(prev=>prev.map(t=>t.id===e.data.id?e.data:t));if(e.data.status==='completed'){setNotice('Tamam efendim, doğrulanmış güncelleme tamamlandı.');add('assistant','Tamam efendim, güncelleme tamamlandı.');}else setNotice('Güncelleme durumu: '+String(e.data.status));}
    if(e.kind==='dev_install_result'&&e.data?.restart_required){setNotice('Güncelleme dosyaları hazır. Kurulu sürümün etkinleşmesi için GÖLGE’yi yeniden başlat.');}
    if(e.kind==='dev_notice'||e.kind==='dev_error')setNotice(String(e.text||''));
-   if(e.kind==='state'){setNativeState(coreState(e.state));setMuted(e.muted);setAmplitude(Number(e.amplitude)||0);}if(e.kind==='file')setNotice(e.name+' ses motoruna eklendi.');if(e.kind==='plugins')setPlugins(e.data);if(e.kind==='cloud_messages')mergeCloud(e.data??[]);if(e.kind==='device_presence')setDevicePresence(e.data??[]);if(e.kind==='remote_notice')setNotice(e.text);if(e.kind==='log')add(e.role,e.text);if(e.kind==='error'){setNotice(e.text);setNativeState('ERROR');}};
+   if(e.kind==='state'){setNativeState(coreState(e.state));setMuted(e.muted);setAmplitude(Number(e.amplitude)||0);}
+   if(e.kind==='file'&&typeof e.data==='string'){
+    const name=String(e.name||'dosya'),size=Number(e.size)||0,mime=String(e.mime||'');
+    if(size<1||size>8*1024*1024){setNotice('Dosya boş veya 8 MB sınırını aşıyor.');return;}
+    const image=mime.startsWith('image/'),endpoint=image?'/api/merged/image':'/api/merged/document';
+    add('user',(image?'Görsel eklendi: ':'Dosya eklendi: ')+name);
+    window.dispatchEvent(new CustomEvent('golge:file-loaded',{detail:{name,text:'Dosya seçildi; GÖLGE işliyor…',mime,data:image?`data:${mime};base64,${e.data}`:''}}));
+    setNotice(name+' GÖLGE’ye yükleniyor…');
+    void request(endpoint,{name,data:e.data}).then(result=>{
+     const text=String(result.text||'').trim();if(!text)throw Error('Dosyadan okunabilir sonuç alınamadı.');
+     window.dispatchEvent(new CustomEvent('golge:file-loaded',{detail:{name,text,mime,data:image?`data:${mime};base64,${e.data}`:''}}));
+     add('assistant',image?`Görsel analizi (${name}): ${text}`:`${name} dosyası okundu. İçeriği Dosyalar panelinde hazır; özetlemek için “İçeriği özetle”yi seçebilirsin.`);
+     setNotice(name+' yüklendi ve işlendi.');
+    }).catch(error=>{const message=error instanceof Error?error.message:'Dosya işlenemedi.';window.dispatchEvent(new CustomEvent('golge:file-loaded',{detail:{name,text:'İşleme başarısız: '+message,mime,data:image?`data:${mime};base64,${e.data}`:''}}));add('assistant',`${name} seçildi ancak işlenemedi: ${message}`);setNotice(message);});
+   }
+   if(e.kind==='plugins')setPlugins(e.data);if(e.kind==='cloud_messages')mergeCloud(e.data??[]);if(e.kind==='device_presence')setDevicePresence(e.data??[]);if(e.kind==='remote_notice')setNotice(e.text);
+   if(e.kind==='log'){
+    add(e.role,e.text);
+    if(e.role==='user'&&isStopCommand(String(e.text||'')))setNotice('Sesli durdurma komutu alındı; konuşma kesiliyor.');
+   }
+   if(e.kind==='error'){setNotice(e.text);setNativeState('ERROR');}};
   const script=document.createElement('script');script.src='qrc:///qtwebchannel/qwebchannel.js';script.onload=()=>{if(window.QWebChannel)new window.QWebChannel(window.qt!.webChannelTransport,c=>{if(!active)return;bridge=c.objects.mark;setNative(bridge);bridge.message.connect(receive);bridge.ready();});};document.head.appendChild(script);
   return()=>{active=false;bridge?.message.disconnect?.(receive);script.remove();};
  },[]);

@@ -167,6 +167,32 @@ class CloudClient:
             timeout=max(0.1, float(timeout)),
         )
 
+    async def image_request(self, method, path, body=None):
+        """Fixed authenticated Cloud image routes; no arbitrary URL forwarding."""
+        import re
+        if not re.fullmatch(r"/api/image/(?:status|generate|cancel|requests/[0-9a-f-]{36}|generated/[0-9]{1,19})", path):
+            raise ValueError("Invalid image endpoint")
+        if not self.enabled:
+            return 503, b'{"error":"cloud_not_configured","detail":"Gorsel icin Cloud eslestirmesi gerekli."}', 'application/json'
+        # No redirects: device credentials must never follow a provider URL.
+        def run():
+            class NoRedirect(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, *args, **kwargs):
+                    return None
+            req = urllib.request.Request(self.base_url+path,
+                data=json.dumps(body).encode() if body is not None else None,
+                headers=self._headers(),method=method)
+            try:
+                response=urllib.request.build_opener(NoRedirect()).open(req,timeout=110)
+            except urllib.error.HTTPError as exc:
+                response=exc
+            with response:
+                data=response.read(8*1024*1024+1)
+                if len(data)>8*1024*1024:
+                    raise ValueError('Image response too large')
+                return response.status,data,response.headers.get_content_type()
+        return await asyncio.to_thread(run)
+
     async def local_chat(self, prompt: str, system: str, turns=None, *, cancellation=None) -> dict:
         """Qwen lifetime is independent of Gemini Live/default executor teardown."""
         from integration.local_cloud_brain import local_chat

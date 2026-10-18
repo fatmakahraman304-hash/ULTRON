@@ -21,20 +21,23 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import image_studio
 import asyncpg
 from aiohttp import web
 from world_api import add_world_routes
 from local_brain_bridge import register_local_brain_routes, save_pending_local_replies
 from local_listening_bridge import register_local_listening_analysis_routes, listening_cleanup_loop
-from conversation_persona import build_system_instruction, classify_intent
+from conversation_persona import build_system_instruction, classify_intent, classify_image_request
 from verified_research import (append_research_sources,
                                build_research_prompt_block,
-                               research_for_chat)
+                               research_for_chat, research_message_for_turn)
+from ultron.backend.app.cognitive.research_context import is_research_followup
 from personal_context_focus import load_focused_owner_context, memory_focus_question
 from conversation_turns import load_thread_turns, load_contextual_thread_turns, gemini_turns
 from listening_analysis import build_request, checked_analysis, ListeningPayloadError, ANALYST_SYSTEM
 from chat_cancellation import ChatCancellationRegistry
 from response_quality import finalize_response
+from reply_policy import classify_reply_mode
 from live_voice_policy import (build_live_voice_instruction,
                                explicit_memory_save_requested,
                                safe_manual_memory_value)
@@ -152,6 +155,7 @@ async def uploaded_image_cleanup_loop(pool: asyncpg.Pool) -> None:
             await pool.execute(
                 "DELETE FROM uploaded_images WHERE created_at < NOW() - INTERVAL '30 days'"
             )
+            await pool.execute("DELETE FROM generated_images WHERE created_at < NOW() - INTERVAL '30 days'")
         except Exception:
             # Database reconnects are handled by the next bounded cleanup pass.
             pass
@@ -546,6 +550,12 @@ async def complete_device_command(request: web.Request) -> web.Response:
     )
     if not current:
         raise web.HTTPNotFound(text=json.dumps({"error": "command_not_found"}), content_type="application/json")
+    local_payload = current.get("payload")
+    if isinstance(local_payload, str):
+        local_payload = json.loads(local_payload)
+    if isinstance(local_payload, dict) and local_payload.get("mode") == "local_image":
+        import local_image
+        return await local_image.complete(request, command_id, delivery_attempt, status, result)
     if current["status"] == "completed" and status == "completed":
         saved_payload, saved_result = current.get("payload"), current.get("result")
         if isinstance(saved_payload, str):
@@ -976,7 +986,7 @@ async def list_messages(request: web.Request) -> web.Response:
     limit = min(max(int(request.query.get("limit", "80")), 1), 200)
     rows = await request.app["db"].fetch(
         """
-        SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at,
+        SELECT m.id, m.conversation_id::text, m.role, m.content, m.created_at, m.research_metadata,
                (gi.message_id IS NOT NULL) AS has_generated_image,
                (ui.message_id IS NOT NULL) AS has_uploaded_image,
                (m.device_id='gemini-image' AND gi.message_id IS NULL) AS image_unavailable,
@@ -1047,7 +1057,9 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str,
     response = client.models.generate_content(
         model=model,
         contents=content,
-        config=types.GenerateContentConfig(system_instruction=system_instruction),
+        config=types.GenerateContentConfig(system_instruction=system_instruction,
+            max_output_tokens=8192 if classify_intent(prompt).model_task == 'CODING' else
+                (8192 if classify_reply_mode(prompt) == 'detailed' else 4096)),
     )
     text = (response.text or "").strip()
     if not text:
@@ -1056,32 +1068,38 @@ def _generate_with_model(client: genai.Client, model: str, prompt: str,
 
 
 def _gemini_reply(prompt: str, system_instruction: str, turns=None, *, include_model: bool = False) -> str | tuple[str, str]:
-    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
-    primary_model = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
-    fallback_model = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip() or "gemini-3.5-flash-lite"
-    max_retries = max(1, min(int(os.getenv("GEMINI_MAX_RETRIES", "3")), 5))
-
-    models = [primary_model]
-    if fallback_model != primary_model:
-        models.append(fallback_model)
-
-    last_exc: Exception | None = None
-    for model in models:
-        for attempt in range(max_retries):
+    from ultron.cloud_service.grounded_search import provider_failure, RETRYABLE
+    from ultron.cloud_service.conversation_persona import classify_model_task
+    # Optional stronger task models require an explicit, separate cost policy.
+    task = classify_model_task(prompt)
+    primary = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip() or "gemini-3.8-flash"
+    if os.getenv("GEMINI_TASK_MODELS_APPROVED", "").lower() == "true":
+        primary = os.getenv("GEMINI_" + task + "_MODEL", "").strip() or primary
+    fallback = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-3.5-flash-lite").strip()
+    models = list(dict.fromkeys(filter(None, [primary, fallback])))[:2]
+    from google.genai import types as sdk_types
+    client = genai.Client(api_key=required_env("GEMINI_API_KEY"),
+        http_options=sdk_types.HttpOptions(timeout=15000,
+            retry_options=sdk_types.HttpRetryOptions(attempts=1)))
+    last_exc = None
+    try:
+        for model in models:
             try:
                 answer = _generate_with_model(client, model, prompt, system_instruction, turns=turns)
                 return (answer, model) if include_model else answer
             except Exception as exc:
                 last_exc = exc
-                if not _is_transient_gemini_error(exc):
+                if provider_failure(exc) not in RETRYABLE:
                     raise
-                if attempt < max_retries - 1:
-                    base_delay = min(8.0, 1.25 * (2 ** attempt))
-                    time.sleep(base_delay + random.uniform(0.0, 0.75))
-
-    if last_exc is not None:
-        raise RuntimeError(f"GEMINI_TEMPORARY_UNAVAILABLE: {last_exc}") from last_exc
-    raise RuntimeError("Gemini request failed")
+        if last_exc is not None:
+            # Preserve typed provider status without including its body in logs.
+            raise last_exc
+        raise RuntimeError("Gemini model is not configured")
+    finally:
+        close = getattr(client, 'close', None)
+        if callable(close):
+            try: close()
+            except Exception: pass
 
 
 def _vision_fallback_allowed(exc: Exception) -> bool:
@@ -1153,142 +1171,63 @@ def _gemini_image_reply(image_bytes: bytes, mime_type: str, question: str, syste
     raise RuntimeError("Gemini vision provider returned no answer")
 
 
-def _gemini_generate_image(prompt: str, image_bytes: bytes | None = None,
-                           mime_type: str | None = None) -> dict[str, str]:
+def _gemini_generate_image(
+    prompt: str,
+    image_bytes: bytes | None = None,
+    mime_type: str | None = None,
+    *,
+    aspect_ratio="1:1",
+    style="natural"
+) -> dict[str, str]:
     """Generate or edit one image through Gemini; return only actual provider bytes."""
-    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
-    model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image").strip()
-    contents: list[Any] = [prompt]
+    if image_studio.provider_mode() != "gemini":
+        raise RuntimeError("Paid image API forbidden in free local mode")
     if image_bytes is not None:
-        contents.append(types.Part.from_bytes(data=image_bytes, mime_type=mime_type or "image/jpeg"))
-    response = client.models.generate_content(
-        model=model,
-        contents=contents,
-        config=types.GenerateContentConfig(response_modalities=["IMAGE", "TEXT"]),
+        raise ValueError("Image editing is not enabled")
+    client = genai.Client(
+        api_key=required_env("GEMINI_API_KEY"),
+        http_options=types.HttpOptions(
+            timeout=90000, retry_options=types.HttpRetryOptions(attempts=1)
+        ),
     )
-    for candidate in getattr(response, "candidates", []) or []:
-        for part in getattr(getattr(candidate, "content", None), "parts", []) or []:
-            inline = getattr(part, "inline_data", None)
-            data = getattr(inline, "data", None) if inline else None
-            if data:
-                raw = data if isinstance(data, bytes) else base64.b64decode(data) if isinstance(data, str) else bytes(data)
-                output_mime = getattr(inline, "mime_type", None) or "image/png"
-                if output_mime not in {"image/png", "image/jpeg", "image/webp"} or len(raw) > 8 * 1024 * 1024:
-                    raise RuntimeError("Gemini image response violates output limits")
-                return {"mime_type": output_mime,
-                        "image_b64": base64.b64encode(raw).decode("ascii"), "model": model}
-    raise RuntimeError("Gemini image model returned no image")
+    model = os.getenv("GEMINI_IMAGE_MODEL", image_studio.MODEL).strip()
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=[prompt + "\nVisual style: " + style],
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE"],
+                max_output_tokens=4096,
+                image_config=types.ImageConfig(
+                    aspect_ratio=aspect_ratio, image_size="1K"
+                ),
+            ),
+        )
+        for candidate in getattr(response, "candidates", []) or []:
+            for part in getattr(getattr(candidate, "content", None), "parts", []) or []:
+                if getattr(part, "thought", False):
+                    continue
+                inline = getattr(part, "inline_data", None)
+                if inline and inline.data:
+                    raw = (
+                        inline.data
+                        if isinstance(inline.data, bytes)
+                        else base64.b64decode(inline.data, validate=True)
+                    )
+                    result = {
+                        "mime_type": inline.mime_type,
+                        "image_b64": base64.b64encode(raw).decode(),
+                        "model": model,
+                    }
+                    image_studio.validate_image(result)
+                    return result
+        raise RuntimeError("Provider returned no final image")
+    finally:
+        client.close()
 
 
 async def generate_image(request: web.Request) -> web.Response:
-    prompt, image_bytes, mime_type, conversation_id = "", None, None, ""
-    if request.content_type == "application/json":
-        body = await request.json()
-        prompt = str(body.get("prompt", "")).strip()[:4000]
-        conversation_id = str(body.get("conversation_id", "")).strip()
-    else:
-        reader = await request.multipart()
-        while True:
-            field = await reader.next()
-            if field is None:
-                break
-            if field.name == "prompt":
-                prompt = (await field.text()).strip()[:4000]
-            elif field.name == "conversation_id":
-                conversation_id = (await field.text()).strip()
-            elif field.name == "image":
-                mime_type = str(field.headers.get("Content-Type", "")).split(";", 1)[0].strip().lower()
-                if mime_type not in {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}:
-                    raise web.HTTPBadRequest(text='{"error":"supported_image_required"}', content_type="application/json")
-                chunks, total = [], 0
-                while True:
-                    chunk = await field.read_chunk(size=64 * 1024)
-                    if not chunk:
-                        break
-                    total += len(chunk)
-                    if total > 8 * 1024 * 1024:
-                        raise web.HTTPRequestEntityTooLarge(max_size=8 * 1024 * 1024, actual_size=total)
-                    chunks.append(chunk)
-                image_bytes = b"".join(chunks)
-    if not prompt:
-        raise web.HTTPBadRequest(text='{"error":"prompt_required"}', content_type="application/json")
-    try:
-        conv_uuid = uuid.UUID(conversation_id) if conversation_id else uuid.uuid4()
-    except ValueError:
-        raise web.HTTPBadRequest(text='{"error":"invalid_conversation_id"}', content_type="application/json")
-    pool = request.app["db"]
-    # Check an existing thread before spending a provider call. Delay creating
-    # or touching the conversation row until generation succeeds, so provider
-    # failures do not leave empty conversations in chat history.
-    owner_id = await pool.fetchval(
-        "SELECT user_id FROM conversations WHERE id=$1", conv_uuid,
-    )
-    if owner_id is not None and owner_id != request["user_id"]:
-        raise web.HTTPNotFound(text='{"error":"conversation_not_found"}', content_type="application/json")
-    try:
-        result = await asyncio.to_thread(_gemini_generate_image, prompt, image_bytes, mime_type)
-    except Exception:
-        # Provider errors may contain request details; never expose them to clients.
-        raise web.HTTPBadGateway(text=json.dumps({"error":"image_generation_failed",
-            "detail":"Görsel üretimi tamamlanamadı. Gemini görsel model erişimini kontrol et."}, ensure_ascii=False),
-            content_type="application/json")
-    # Do not insert the message "Görsel oluşturuldu" unless its actual bytes
-    # are durably attached. Otherwise a phone refresh leaves an empty claim.
-    try:
-        encoded = result["image_b64"]
-        image_data = base64.b64decode(encoded, validate=True)
-        image_mime = result["mime_type"]
-        if image_mime not in {"image/png", "image/jpeg", "image/webp"} or not (0 < len(image_data) <= 8 * 1024 * 1024):
-            raise ValueError("invalid generated image payload")
-    except (ValueError, KeyError, TypeError, base64.binascii.Error):
-        raise web.HTTPBadGateway(
-            text='{"error":"image_generation_invalid_payload"}',
-            content_type="application/json",
-        )
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            # Ownership and conversation creation occur in the same transaction
-            # as the messages and file: a failed save leaves no false thread.
-            claimed = await conn.fetchval(
-                "INSERT INTO conversations(id,user_id,title) VALUES($1,$2,$3) "
-                "ON CONFLICT(id) DO UPDATE SET updated_at=NOW() "
-                "WHERE conversations.user_id=EXCLUDED.user_id RETURNING id",
-                conv_uuid, request["user_id"], prompt[:80],
-            )
-            if claimed is None:
-                raise web.HTTPNotFound(
-                    text='{"error":"conversation_not_found"}',
-                    content_type="application/json",
-                )
-            user_message_id = await conn.fetchval(
-                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
-                "VALUES($1,$2,'user',$3,$4) RETURNING id",
-                conv_uuid, request["user_id"], prompt, request["device_id"],
-            )
-            assistant_message_id = await conn.fetchval(
-                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
-                "VALUES($1,$2,'assistant',$3,'gemini-image') RETURNING id",
-                conv_uuid, request["user_id"],
-                "Görsel düzenlendi." if image_bytes is not None else "Görsel oluşturuldu.",
-            )
-            await conn.execute(
-                "INSERT INTO generated_images(message_id,conversation_id,user_id,mime_type,image_data) "
-                "VALUES($1,$2,$3,$4,$5)",
-                assistant_message_id, conv_uuid, request["user_id"], image_mime, image_data,
-            )
-            # Clear only the owner's expired/over-limit blobs. Keep the chat
-            # text, but a missing asset should display an explicit UI error.
-            await conn.execute(
-                "DELETE FROM generated_images WHERE user_id=$1 AND "
-                "(created_at < NOW() - INTERVAL '30 days' OR message_id NOT IN "
-                "(SELECT message_id FROM generated_images WHERE user_id=$1 "
-                "ORDER BY created_at DESC,message_id DESC LIMIT 12))",
-                request["user_id"],
-            )
-    return web.json_response({**result, "conversation_id": str(conv_uuid),
-                              "user_message_id": user_message_id,
-                              "assistant_message_id": assistant_message_id,
-                              "image_url": f"/api/image/generated/{assistant_message_id}"})
+    return await image_studio.generate(request, _gemini_generate_image)
 
 
 async def get_generated_image(request: web.Request) -> web.Response:
@@ -1304,9 +1243,10 @@ async def get_generated_image(request: web.Request) -> web.Response:
     )
     if row is None:
         raise web.HTTPNotFound()
+    suffix={"image/png":"png","image/jpeg":"jpg","image/webp":"webp"}[row["mime_type"]]
     return web.Response(
         body=bytes(row["image_data"]), content_type=row["mime_type"],
-        headers={"Cache-Control":"private, no-store, max-age=0",
+        headers={"Content-Disposition":f'inline; filename="golge-gorsel-{raw_id}.{suffix}"',"Cache-Control":"private, no-store, max-age=0",
                  "X-Content-Type-Options":"nosniff"},
     )
 
@@ -1826,6 +1766,9 @@ async def scene_design(request: web.Request) -> web.Response:
 async def chat(request: web.Request) -> web.Response:
     body = await request.json()
     text = str(body.get("message", "")).strip()
+    if classify_image_request(text):
+        return image_studio.fail('image_studio_required',
+            'Görsel üretimi için sohbet ekranındaki ayrı maliyet onayı gerekir. Görsel henüz üretilmedi.',409)
     if not text:
         raise web.HTTPBadRequest(text=json.dumps({"error": "message_required"}), content_type="application/json")
     if len(text) > 16000:
@@ -1891,11 +1834,14 @@ async def chat(request: web.Request) -> web.Response:
     focus_query = memory_focus_question(text, turns)
     memory = await _memory_context(pool, request["user_id"], query=focus_query)
     research_result = None
-    if classify_intent(text).kind == "research":
+    research_message = research_message_for_turn(text, turns)
+    if research_message is not None:
         # This outbound read is limited to the user's explicit current research
         # request. Personal memory/history are deliberately not added to the
         # query or persisted in the research store.
-        research_result = await research_for_chat(text)
+        research_result = await research_for_chat(research_message if research_message == text else 'Araştır: ' + research_message)
+    if research_message is None and is_research_followup(text):
+        research_result = {"ok": False, "status": "research_topic_missing", "synthesis": {"findings": []}}
     system_instruction = build_system_instruction(
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
@@ -1904,11 +1850,28 @@ async def chat(request: web.Request) -> web.Response:
     if research_result is not None:
         system_instruction += build_research_prompt_block(research_result)
     prompt = text
+    if cancel_record["cancel_requested"]:
+        return web.json_response({"request_id": request_id, "status": "output_suppressed",
+            "provider_stopped": False, "conversation_id": str(conv_uuid)})
 
     try:
-        reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
-        if research_result is not None:
-            reply = append_research_sources(reply, research_result)
+        if research_result and research_result.get("answer"):
+            # Google already generated a grounded response; no second model call.
+            reply = research_result["answer"]
+        elif research_result and not (research_result.get("synthesis") or {}).get("findings"):
+            reply = ("Hangi konudaki araştırmaya devam edelim? Bu konuşmada bağlı bir araştırma isteği bulamadım."
+                     if research_result.get("status") == "research_topic_missing" else
+                     "Bu sorgu özel bilgi içeriyor. Özel bilgileri kaldırıp yeniden sorabilirsin."
+                     if research_result.get("status") == "research_blocked_sensitive_input" else
+                     "Güncel kaynaklara erişemedim; bu bilgiyi doğrulayamıyorum. Daha sonra yeniden deneyebilirsin.")
+        elif research_result and not os.getenv("GEMINI_API_KEY"):
+            excerpts = "\n\n".join(str(row.get("excerpt", ""))[:600]
+                for row in (research_result.get("synthesis") or {}).get("findings", [])[:3])
+            reply = append_research_sources("Model özeti kullanılamıyor. Okunan kaynak bölümleri:\n" + excerpts, research_result)
+        else:
+            reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
+            if research_result is not None:
+                reply = append_research_sources(reply, research_result)
     except Exception as exc:
         error_code = _safe_provider_error(exc)
         await pool.execute(
@@ -1919,7 +1882,7 @@ async def chat(request: web.Request) -> web.Response:
             raise web.HTTPServiceUnavailable(
                 text=json.dumps({
                     "error": "gemini_temporarily_unavailable",
-                    "detail": "Gemini şu anda yoğun. GÖLGE iki modeli de otomatik olarak denedi; birkaç saniye sonra yeniden dene.",
+                    "detail": "Model yanıt veremedi; izinli deneme sınırında sonuç alınamadı. Biraz sonra yeniden dene.",
                 }, ensure_ascii=False),
                 content_type="application/json",
             )
@@ -1945,9 +1908,17 @@ async def chat(request: web.Request) -> web.Response:
             return web.json_response({"request_id": request_id,
                 "status": "output_suppressed", "provider": "gemini-cloud",
                 "provider_stopped": False, "conversation_id": str(conv_uuid)})
+        research_metadata = None
+        if research_result and research_result.get("status") == "google_grounded":
+            research_metadata = json.dumps({
+                "sources": research_result.get("sources", []),
+                "search_suggestions_html": research_result.get("search_suggestions_html", ""),
+                "provider": "google_search",
+            }, ensure_ascii=False)
         assistant_message_id = await pool.fetchval(
-            "INSERT INTO messages(conversation_id,user_id,role,content,device_id) VALUES($1,$2,'assistant',$3,'cloud-gemini') RETURNING id",
-            conv_uuid, request["user_id"], reply,
+            "INSERT INTO messages(conversation_id,user_id,role,content,device_id,research_metadata) "
+            "VALUES($1,$2,'assistant',$3,'cloud-gemini',$4::jsonb) RETURNING id",
+            conv_uuid, request["user_id"], reply, research_metadata,
         )
         await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
         cancel_registry.mark_completed(request["user_id"], request["device_id"],
@@ -1963,6 +1934,9 @@ async def chat(request: web.Request) -> web.Response:
 
     return web.json_response({"conversation_id": str(conv_uuid), "reply": reply,
         "request_id": request_id,
+        "research": ({"sources": research_result.get("sources", []),
+                      "search_suggestions_html": research_result.get("search_suggestions_html", ""),
+                      "status": research_result.get("status")} if research_result else None),
         "user_message_id":current_message_id, "assistant_message_id":assistant_message_id})
 
 
@@ -2913,6 +2887,10 @@ def build_app() -> web.Application:
     app.router.add_get("/api/local-scene-design/{id}", get_scene)
     app.router.add_post("/api/listening-analysis", listening_analysis_api)
     app.router.add_post("/api/vision", vision)
+    app.router.add_get("/api/image/status", image_studio.status)
+    app.router.add_post("/api/image/cancel", image_studio.cancel)
+    import local_image
+    app.router.add_get("/api/image/requests/{request_id}", local_image.get_request)
     app.router.add_post("/api/image/generate", generate_image)
     app.router.add_get("/api/image/generated/{id}", get_generated_image)
     app.router.add_get("/api/image/uploaded/{id}", get_uploaded_image)

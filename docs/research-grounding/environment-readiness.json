@@ -1,0 +1,12 @@
+{
+  "google_search": "BLOCKED",
+  "key_present": false,
+  "enabled": false,
+  "budget_approved": false,
+  "model_configured": false,
+  "model_inventory": "BLOCKED_KEY_MISSING",
+  "generation": "NOT_RUN",
+  "quota": "NOT_VERIFIED",
+  "physical_devices": "NOT_RUN",
+  "pricing_reference": "https://ai.google.dev/gemini-api/docs/pricing"
+}

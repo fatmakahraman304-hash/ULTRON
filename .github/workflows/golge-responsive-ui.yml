@@ -8,6 +8,8 @@ on:
       - fix/golge-real-use-100tests-20261016
   pull_request:
     branches:
+      - feat/golge-image-studio-20261017
+      - feat/golge-grounded-research-20261017
       - feat/golge-qwen-goal-routing-20261013
       - feat/ultron-cloud-shared-memory
       - feat/golge-natural-conversation-voice-20261014
@@ -47,6 +49,6 @@ jobs:
         run: npm run build
         working-directory: ultron/frontend
       - name: Dashboard workspace, live CORE and deterministic network contracts
-        run: node --experimental-strip-types --test ultron/frontend/tests/panelIntent.test.mjs ultron/frontend/tests/coreNetwork.test.mjs ultron/frontend/tests/connectionStatus.test.mjs ultron/frontend/tests/earthIntent.test.mjs ultron/frontend/tests/earthMath.test.mjs
+        run: node --experimental-strip-types --test ultron/frontend/tests/imageStudio.test.mjs ultron/frontend/tests/panelIntent.test.mjs ultron/frontend/tests/coreNetwork.test.mjs ultron/frontend/tests/connectionStatus.test.mjs ultron/frontend/tests/earthIntent.test.mjs ultron/frontend/tests/earthMath.test.mjs ultron/frontend/tests/manualFailures.test.mjs
       - name: Cloud PWA fixed-wallpaper and mobile-chat contracts
         run: node --test ultron/cloud_service/test_golge_reference_ui.cjs

@@ -10,7 +10,7 @@ from pathlib import Path
 from aiohttp import web
 
 from cloud_client import CloudClient, safe_cloud_error
-from ultron.cloud_service.conversation_persona import classify_intent
+from ultron.cloud_service.conversation_persona import classify_intent, classify_image_request
 from ultron.cloud_service.text_normalization import fold_turkish
 import re
 
@@ -164,6 +164,8 @@ def install(app, hub):
             return web.json_response({'ok': False, 'error': 'bad request'}, status=400)
         if not text or len(text) > 50000 or mode not in ('auto', 'coding', 'general', 'fast', 'agent', 'task', 'multi'):
             return web.json_response({'ok': False, 'error': 'invalid input'}, status=400)
+        if classify_image_request(text):
+            return web.json_response({'error':'image_studio_required','detail':'Görsel üretimi için sohbet ekranındaki ayrı maliyet onayı gerekir. Görsel henüz üretilmedi.'},status=409)
         if not valid_request_id(request_id) or not valid_request_key(request_key):
             return web.json_response({'ok': False, 'error': 'invalid request identity'}, status=400)
         try:
@@ -377,6 +379,7 @@ def install(app, hub):
                     'model': 'cloud-gemini',
                     'source': 'cloud',
                     'conversation_id': data.get('conversation_id'),
+                    'research': data.get('research'),
                     'request_id': request_id,
                 })
             except Exception as exc:
@@ -390,6 +393,26 @@ def install(app, hub):
                     f'Cloud unavailable; local Ollama fallback ({safe_cloud_error(exc)})', 'warn')
             finally:
                 await hub.broadcast({'type': 'agent', 'state': hub.agent.state})
+
+        research_result = None
+        if intent.model_task == 'RESEARCH':
+            from ultron.cloud_service.verified_research import research_for_chat
+            from ultron.backend.app.cognitive.research_context import build_research_prompt_block, append_research_sources
+            research_result, cancelled = await await_until_cancelled(research_for_chat(text, allow_grounding=selected_model is None), record)
+            if cancelled or record.cancel_event.is_set():
+                cancellations.finish(record, 'output_suppressed')
+                return web.json_response({'ok': False, 'status': 'output_suppressed',
+                    'provider_stopped': False, 'request_id': request_id, 'text': ''})
+            if research_result and (research_result.get('answer') or not (research_result.get('synthesis') or {}).get('findings')):
+                answer = research_result.get('answer') or (
+                    'Hangi konudaki araştırmaya devam edelim? Konuyu belirtir misin?'
+                    if research_result.get('status') == 'research_topic_missing' else
+                    'Bu sorgu özel bilgi içeriyor; özel bilgileri kaldırıp yeniden sorabilirsin.'
+                    if research_result.get('status') == 'research_blocked_sensitive_input' else
+                    'Güncel kaynaklara erişemedim; bu bilgiyi doğrulayamıyorum.')
+                cancellations.finish(record, 'completed')
+                return web.json_response({'ok': True, 'text': answer, 'source': 'research',
+                    'research': research_result, 'request_id': request_id})
 
         check = await hub.check_ollama()
         hub.ai_status = check['status']
@@ -410,7 +433,7 @@ def install(app, hub):
                 return web.json_response({'ok': False, 'error': 'MODEL NOT AVAILABLE',
                                           'request_id': request_id}, status=400)
             settings['llm'].setdefault('routing', {})[mode.lower()] = selected_model
-        settings['llm'].setdefault('local_multi_model', {})['enabled'] = mode == 'multi'
+        settings['llm'].setdefault('local_multi_model', {})['enabled'] = mode == 'multi' and not research_result
         router = ModelRouter(rt.brain, settings, get_models=lambda: models)
         multi_model = router.local_multi_enabled()
         cancellations.set_provider(record,
@@ -437,8 +460,14 @@ def install(app, hub):
                         'request_id': request_id, 'provider': 'ollama-local-multi',
                         'provider_stopped': False, 'text': ''})
             else:
-                answer = await router.ask_cancellable(
-                    mode.upper(), text, cancel_event=record.cancel_event)
+                if research_result:
+                    answer = await router.ask_cancellable(
+                        'RESEARCH', text, system=build_research_prompt_block(research_result),
+                        cancel_event=record.cancel_event)
+                    answer = append_research_sources(answer, research_result)
+                else:
+                    answer = await router.ask_cancellable(
+                        mode.upper(), text, cancel_event=record.cancel_event)
             if record.cancel_event.is_set():
                 # The provider already returned; a cancel racing with response
                 # delivery suppresses output but cannot be reported as stopped.
@@ -586,6 +615,22 @@ def install(app, hub):
             return web.json_response({'ok': False, 'error': message,
                                       'error_code': error_code}, status=502)
 
+    async def image_studio_proxy(req):
+        if not token:
+            return web.json_response({'error':'desktop_auth_required','detail':'Görsel servisi için kimlik doğrulamalı GÖLGE masaüstü oturumu gerekir.'},status=503)
+        endpoint = req.match_info['endpoint']
+        body = await req.json() if req.method == 'POST' else None
+        try:
+            status, data, mime = await cloud.image_request(req.method, '/api/image/'+endpoint, body)
+            headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}
+            if endpoint.startswith('generated/') and mime in {'image/png','image/jpeg','image/webp'}:
+                suffix={'image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[mime]
+                headers['Content-Disposition']=f'inline; filename="golge-gorsel-{endpoint.split("/")[-1]}.{suffix}"'
+            return web.Response(status=status,body=data,content_type=mime,headers=headers)
+        except Exception:
+            return web.json_response({'error':'image_cloud_unavailable',
+                'detail':'Görsel servisine ulaşılamadı. Tekrar ücretlendirmemek için otomatik tekrar yapılmadı.'},status=502)
+
     async def frontend(req):
         root = Path(__file__).resolve().parents[1] / req.match_info.get('surface', 'frontend') / 'dist'
         relative = req.match_info.get('asset') or 'index.html'
@@ -626,6 +671,8 @@ location.replace(showHologram ? '/hologram/hologram.html' : '/frontend/index.htm
         response.set_cookie('mark_session', token, httponly=True, samesite='Strict', path='/')
         return response
 
+    app.router.add_get('/api/merged/image-studio/{endpoint:status|requests/[0-9a-f-]{36}|generated/[0-9]{1,19}}', image_studio_proxy)
+    app.router.add_post('/api/merged/image-studio/{endpoint:generate|cancel}', image_studio_proxy)
     app.router.add_get('/api/merged/health', health)
     app.router.add_post('/api/merged/invoke', invoke)
     app.router.add_post('/api/merged/cancel', cancel_request)

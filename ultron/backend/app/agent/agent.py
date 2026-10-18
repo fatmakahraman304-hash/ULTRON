@@ -237,13 +237,24 @@ class Agent:
         if self.research_engine is not None:
             try:
                 if research_pattern(text):
-                    from app.cognitive.research_context import extract_research_query
-                    research_result=self.research_engine.research(
-                        extract_research_query(text),max_sources=3,store=False)
+                    from app.cognitive.research_context import extract_research_query, safe_public_query
+                    if safe_public_query(text):
+                        research_result=self.research_engine.research(
+                            extract_research_query(text),max_sources=3,store=False)
+                    else:
+                        research_result={"ok":False,"status":"research_blocked_sensitive_input",
+                                         "evidence_level":"none","citations":[],
+                                         "synthesis":{"findings":[]}}
             except Exception:
                 research_result={"ok":False,"status":"research_unavailable",
                                  "evidence_level":"none","citations":[],
                                  "synthesis":{"findings":[]}}
+        if research_result is not None and not (research_result.get("synthesis") or {}).get("findings"):
+            answer=("Bu sorgu özel bilgi içeriyor. Özel bilgileri kaldırıp yeniden sorabilirsin."
+                    if research_result.get("status")=="research_blocked_sensitive_input" else
+                    "Güncel kaynaklara erişemedim; bu bilgiyi doğrulayamıyorum.")
+            self._save("GÖLGE",answer); self.audit.write("ASSISTANT",answer)
+            return answer
         direct=None if research_result is not None else self._direct(text)
         if direct:
             direct=self._boss_hitap(direct)

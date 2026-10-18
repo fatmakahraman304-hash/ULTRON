@@ -657,9 +657,11 @@
 <script src="/static/owner-plans.js"></script>
 <script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
+<script src="/static/source-links.js"></script>
 <script src="/static/chat-transport.js"></script>
 <script src="/static/scene-intents.js"></script>
 <script src="/static/panel-intents.js"></script>
+<script src="/static/image-intents.js"></script>
 <script src="/static/learning-review.js"></script>
 <script>
 const $=s=>document.querySelector(s);
@@ -890,7 +892,7 @@ $('#approvePhoneAction').onclick=()=>{
   toast('İsteğinle GÖLGE Bridge açılıyor; sonucu iOS belirler.');
   location.href=url;
 };
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&activeChatRequest){e.preventDefault();cancelActiveChat()}if(e.key==='Escape'&&pendingIOSAction)closeIOSApproval()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(activeChatRequest||activeImageJob)){e.preventDefault();cancelActiveChat()}if(e.key==='Escape'&&pendingIOSAction)closeIOSApproval()});
 function setAttachMenu(open){
   attachMenuOpen=!!open;$('#attachMenu').classList.toggle('show',attachMenuOpen);$('#plusBtn').classList.toggle('open',attachMenuOpen);$('#plusBtn').setAttribute('aria-expanded',attachMenuOpen?'true':'false');
 }
@@ -1025,36 +1027,64 @@ async function visionApi(file,question='',storedImageId=null){
 }
 let lastImageFile=null,lastImageConversationId='',lastUploadedImageId=null;
 // Generated files use owner-authenticated URLs, not temporary Safari blob links.
+let activeImageJob=null;
+function cancelImageJob(){
+ const job=activeImageJob;if(!job)return false;
+ activeImageJob=null;job.controller.abort();
+ fetch('/api/image/cancel',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:job.id}),keepalive:true}).catch(()=>{});
+ $('#busy').textContent='';toast('Görsel yanıtı gizlendi; sağlayıcı üretimi/ücreti iptal edilmiş sayılmaz.');return true;
+}
 async function generateImageApi(prompt,image=null){
-  const form=new FormData();form.append('prompt',prompt);if(conversationId)form.append('conversation_id',conversationId);
-  if(image)form.append('image',image,image.name||'uploaded-image.png');
-  const res=await fetch('/api/image/generate',{method:'POST',credentials:'include',body:form});
+ if(image)throw Error('Görsel düzenleme henüz etkin değil; fotoğraf analizi kullanılabilir.');
+ if(activeImageJob)return null;
+ const startingConversation=conversationId;
+ const cid=conversationId||crypto.randomUUID();
+ const job={id:crypto.randomUUID(),cid,controller:new AbortController()};activeImageJob=job;
+ $('#sendBtn').disabled=false;$('#sendBtn').setAttribute('aria-label','Görsel üretimini iptal et');
+ try{
+  const config=await api('/api/image/status',{signal:job.controller.signal});
+  if(activeImageJob!==job||conversationId!==startingConversation)return null;
+  if(!config.available)throw Error(config.detail);
+  if(config.requires_cost_approval!==false&&!await GolgeImages.confirmCost(config.detail,job.controller.signal))return null;
+  if(activeImageJob!==job||job.controller.signal.aborted||conversationId!==startingConversation)return null;
+  if(!conversationId){conversationId=cid;localStorage.setItem('ultronConversationId',cid)}
+  const res=await fetch('/api/image/generate',{method:'POST',credentials:'include',signal:job.controller.signal,
+   headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,conversation_id:cid,request_id:job.id,cost_approved:config.requires_cost_approval!==false,...GolgeImages.options(prompt)})});
   let data={};try{data=await res.json()}catch{}
-  if(!res.ok)throw new Error(data.detail||data.error||('HTTP '+res.status));return data;
+  if(activeImageJob!==job||conversationId!==cid)return null;
+  if(!res.ok)throw new Error(data.detail||data.error||('HTTP '+res.status));
+  data=await GolgeImages.awaitResult(()=>api('/api/image/requests/'+job.id,{signal:job.controller.signal}),data,job.controller.signal);
+  if(activeImageJob!==job||conversationId!==cid)return null;
+  return data;
+ }catch(e){if(job.controller.signal.aborted)return null;throw e}
+ finally{if(activeImageJob===job){activeImageJob=null;$('#sendBtn').setAttribute('aria-label','Gönder');}}
 }
 function isImageCreationRequest(text){
-  return /(?:resim|görsel|fotoğraf|image|picture).*?(?:oluştur|üret|çiz|yarat|generate|create|draw)|(?:oluştur|üret|çiz|yarat|generate|create|draw)\s+(?:bana\s+)?(?:bir|a|an)?\s*(?:resim|görsel|fotoğraf|image|picture)|^(?:bana\s+)?(?:bir|a|an)?\s*[\w\s-]{2,100}\s+(?:çiz|oluştur|üret|yarat|draw|generate|create)\b|(?:attığım|yüklediğim|bu)\s+(?:resim\w*|görsel\w*|fotoğraf\w*)\s+(?:değiştir|düzenle|iyileştir|güzelleştir|modify|edit|improve|enhance)/i.test(text)||
-    (!!lastImageFile&&/(?:daha iyi yap|iyileştir|güzelleştir|kalitesini artır|make it better|enhance it|improve it)/i.test(text));
+ return !!GolgeImages.resolve(text)||(!!lastImageFile&&/(?:daha iyi yap|iyileştir|güzelleştir|kalitesini artır|make it better|enhance it|improve it)/i.test(text));
 }
 function isImageFollowupRequest(text){
   return /(?:bu\s+(?:resim|görsel|fotoğraf)|(?:resimde|görselde|fotoğrafta)|onun\s+(?:rengi|üzerinde)|orada|şurada|bunda|bunu|bunun|ne\s+(?:yazıyor|var)|hangi\s+(?:renk|nesne)|kaç\s+(?:tane|kişi)|describe\s+(?:it|this)|what(?:'s| is)\s+(?:in|on)\s+(?:it|this)|what\s+color\s+is\s+it)/i.test(text);
 }
 async function sendImageCreation(text,userBubble){
   const edit=/attığım|yüklediğim|bu\s+resim|bu\s+görsel|bu\s+fotoğraf|düzenle|iyileştir|güzelleştir|daha iyi yap|kalitesini artır|edit|improve|enhance/i.test(text);
-  const source=edit&&lastImageConversationId===conversationId?lastImageFile:null;
-  if(edit&&!source){addMessage('assistant','Düzenleyebilmem için değiştirmek istediğin resmi bu sohbete yeniden ekle.');return true}
+  if(edit){addMessage('assistant','Görsel düzenleme henüz etkin değil; fotoğraf analizi kullanılabilir.');return true}
+  const source=null;
+  try{
   $('#busy').textContent=source?'GÖLGE görseli düzenliyor…':'GÖLGE görseli oluşturuyor…';
   const d=await generateImageApi(text,source);
+  if(!d)return true;
   if(d.conversation_id){conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId)}
   if(d.user_message_id&&userBubble){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
   if(d.image_url&&d.assistant_message_id&&/^image\/(?:png|jpeg|webp)$/.test(d.mime_type||'')){
-    addMessage('assistant',source?'Görseli düzenledim.':'Görseli oluşturdum.',
+    if(!knownMessageIds.has(Number(d.assistant_message_id)))addMessage('assistant','Görsel oluşturuldu.',
       {id:d.assistant_message_id,has_generated_image:true});
+    knownMessageIds.add(Number(d.assistant_message_id));
     toast('Görsel kaydedildi. Son 12 görsel 30 gün erişilebilir.');
   }else{
     addMessage('assistant','Görsel kaydedilemedi. Yeniden deneyebilirsin.',{id:d.assistant_message_id});
   }
   messageSignature='';return true;
+  }finally{$('#busy').textContent=''}
 }
 function clearPendingImage(){
   pendingImage=null;
@@ -1100,7 +1130,7 @@ async function sendImage(){
         photoNode.src='/api/image/uploaded/'+photoId;
       }
     }
-    addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';clearPendingImage();$('#message').value='';
+    addMessage('assistant',d.reply,{id:d.assistant_message_id,research:d.research});messageSignature='';clearPendingImage();$('#message').value='';
     if(voiceEnabled&&!voiceListening)speakUltron(d.reply);
     toast(d.analysis_status==='failed'
       ?'Fotoğraf kaydedildi ancak analiz tamamlanamadı.'
@@ -1656,9 +1686,18 @@ async function openLiveSocket(){
       resetRemoteResultSpeech();resetVoiceGateSegment();
       const input=String(d.input||'').trim(),output=String(d.output||'').trim();
       // input_transcript events may be partial (e.g. "dur" from "durum").
-      // Only honor stop phrases after the provider's final turn transcript.
-      if(activeChatRequest&&isSpokenStopCommand(input)){
-        cancelActiveChat();liveStatus('Yanıt kesildi.',true);return;
+      // At turn_complete the transcript is final. Stop queued Live audio even
+      // when no typed-chat request exists; previously this was gated on
+      // activeChatRequest, so voice-only TTS continued after "Dur".
+      if(isSpokenStopCommand(input)){
+        if(activeChatRequest)cancelActiveChat();
+        cancelLiveOutput();liveStatus('Yanıt kesildi.',true);
+        $('#stageVoiceText').textContent='Yanıt durduruldu';return;
+      }
+      if(input&&isImageCreationRequest(input)){
+        const bubble=addMessage('user',input);
+        try{if(!activeImageJob)await sendImageCreation(input,bubble)}catch(e){addMessage('assistant',e.message)}finally{$('#busy').textContent=''}
+        return;
       }
       if(!voiceDevToolSaved&&input){window.ULTRONDevRequests?.fromSpeech(input).catch(()=>{})}
       voiceDevToolSaved=false;
@@ -1786,7 +1825,7 @@ function attachGeneratedImage(bubble,id){
   img.alt='GÖLGE tarafından üretilen görsel';img.loading='lazy';img.decoding='async';
   img.style.cssText='display:block;max-width:min(100%,480px);max-height:65vh;margin-top:10px;border-radius:14px';
   const link=document.createElement('a');
-  link.href=url;link.download='golge-gorsel-'+messageId;
+  link.href=url;link.download='';
   link.textContent='Görseli indir / kaydet';
   link.style.cssText='display:inline-block;margin-top:8px;color:#9fe9ff;text-decoration:underline';
   const error=document.createElement('small');
@@ -1794,7 +1833,11 @@ function attachGeneratedImage(bubble,id){
   error.style.cssText='display:none;margin-top:8px;color:#b8d0d9';
   img.onerror=()=>{img.style.display='none';link.style.display='none';error.style.display='block'};
   img.src=url;
-  bubble.append(img,link,error);
+  const full=document.createElement('a');full.href=url;full.target='_blank';full.rel='noopener';full.textContent='Tam boy / yakınlaştır';full.style.cssText=link.style.cssText+';margin-left:12px';
+  const share=document.createElement('button');share.textContent='Paylaş';share.type='button';
+  share.onclick=async()=>{try{const r=await fetch(url,{credentials:'include'});if(!r.ok)throw Error();const blob=await r.blob();const file=new File([blob],'golge-gorsel.png',{type:blob.type});if(navigator.canShare?.({files:[file]}))await navigator.share({files:[file]});else toast('Paylaşım desteklenmiyor; indir / kaydet seçeneğini kullan.')}catch{toast('Paylaşım tamamlanamadı.')}};
+  img.onerror=()=>{img.hidden=true;link.hidden=true;full.hidden=true;share.hidden=true;error.style.display='block'};
+  bubble.append(img,link,full,share,error);
 }
 function attachUploadedImage(bubble,id){
   // Never accept a URL or a filename from the model; use an integer DB ID.
@@ -1809,7 +1852,7 @@ function attachUploadedImage(bubble,id){
 }
 function addMessage(role,content,meta={}){
   const d=document.createElement('div');d.className='msg '+role;
-  const body=document.createElement('span');body.textContent=cleanChatText(content);d.appendChild(body);
+  const body=document.createElement('span');window.GolgeSourceLinks.render(body,cleanChatText(content));d.appendChild(body);window.GolgeSourceLinks.widget(d,meta.research||meta.research_metadata);
   if(meta.has_generated_image&&meta.id!=null)attachGeneratedImage(d,meta.id);
   else if(meta.has_uploaded_image&&meta.id!=null)attachUploadedImage(d,meta.id);
   else if(meta.image_unavailable||meta.uploaded_image_unavailable){
@@ -2121,13 +2164,18 @@ function newChatIdentity(){
 function isSpokenStopCommand(text){
   const value=String(text||'').toLocaleLowerCase('tr-TR').normalize('NFKC')
     .replace(/[’']/g,'').replace(/[.,!?]+/g,' ').replace(/\s+/g,' ').trim();
-  return /^(?:(?:gölge|ultron)\s+)?(?:dur|sus|konuşmayı kes|konusmayi kes|yanıtı durdur|yaniti durdur|cevabı kes|cevabi kes|stop|stop speaking|be quiet)$/iu.test(value);
+  return /^(?:(?:gölge|ultron)\s+)?(?:dur|sus|konuşmayı durdur|konusmayi durdur|konuşmayı kes|konusmayi kes|yanıtı durdur|yaniti durdur|cevabı kes|cevabi kes|stop|stop speaking|be quiet)$/iu.test(value);
+}
+function cancelLiveOutput(){
+  suppressOutput=true;liveSpeaking=false;bargeBlocks=0;
+  livePlaybackState?.cancel();stopPlayback();resetRemoteResultSpeech();resetVoiceGateSegment();
 }
 function mayApplyChatCancelResult(requestId){
   return !activeChatRequest||activeChatRequest.identity.request_id===requestId;
 }
 function cancelActiveChat(){
-  const active=activeChatRequest;if(!active)return false;
+  const imageCancelled=cancelImageJob();
+  const active=activeChatRequest;if(!active){if(imageCancelled){chatSending=false;chatSendVersion++;chatRequestGeneration++;$('#sendBtn').disabled=false;}return imageCancelled;}
   activeChatRequest=null;
   if(active.provider==='gemini-cloud'||active.provider==='local-qwen'){
     // Start the authenticated provider-specific cancel/suppression request
@@ -2228,18 +2276,18 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     rememberPendingVoice('user',text,180000);userBubble=addMessage('user',text);
     // Scene intents are deliberate interactions; never reinterpret an owner-approved
     // listening report (forceChat) as a 3D scene command.
+    if(!options.forceChat&&isImageCreationRequest(text))return await sendImageCreation(text,userBubble);
     if(!options.forceChat&&await handleSceneIntent(text))return true;
     const panelHandled=!options.forceChat&&handlePanelIntent(text);
     if(panelHandled){toast('GÖLGE çalışma alanı açıldı.');return}
     const devHandled=options.forceChat?false:await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
     if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
-    if(!options.forceChat&&isImageCreationRequest(text))return await sendImageCreation(text,userBubble);
     if(!options.forceChat&&(lastUploadedImageId||lastImageFile)&&lastImageConversationId===conversationId&&isImageFollowupRequest(text)){
       $('#busy').textContent='GÖLGE yüklediğin görsele bakıyor…';
       const d=await visionApi(lastUploadedImageId?null:lastImageFile,text,lastUploadedImageId);
       if(d.user_message_id){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id))}
       rememberPendingVoice('assistant',d.reply);
-      addMessage('assistant',d.reply,{id:d.assistant_message_id});messageSignature='';
+      addMessage('assistant',d.reply,{id:d.assistant_message_id,research:d.research});messageSignature='';
       if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
       if(voiceEnabled&&!voiceListening)try{speakUltron(d.reply)}catch{}
       return true;
@@ -2272,7 +2320,7 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(typeof d.reply!=='string'||!d.reply.trim())throw new Error('Yanıt boş geldi.');
     conversationId=d.conversation_id;localStorage.setItem('ultronConversationId',conversationId);
     if(d.user_message_id&&userBubble){userBubble.dataset.cloudId=String(d.user_message_id);knownMessageIds.add(Number(d.user_message_id));consumePendingVoice('user',text)}
-    rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply,{id:d.assistant_message_id});
+    rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply,{id:d.assistant_message_id,research:d.research});
     if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
     messageSignature='';
     if((!fromVoice||voiceTurnGuard.current(voiceToken))&&
@@ -2298,7 +2346,7 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     }
   }
 }
-$('#sendBtn').onclick=()=>{if(activeChatRequest){cancelActiveChat();return}void send(false)};
+$('#sendBtn').onclick=()=>{if(activeImageJob){cancelActiveChat();return}if(activeChatRequest){cancelActiveChat();return}void send(false)};
 updateBrainModeUi();
 $('#longListenBegin').onclick=async()=>{
   longListenAwaitingTap=false;
@@ -2704,7 +2752,7 @@ setInterval(phoneHeartbeat,5000);
 setInterval(watchDesktopPresence,5000);
 setInterval(()=>{if(currentView==='remote')loadRemoteState().catch(()=>{})},3000);
 setInterval(watchLaptopTasks,2500);
-window.addEventListener('pagehide',()=>{longListenController.interrupt('Sayfa kapandı; uzun dinleme durdu.');voiceTurnGuard.cancel();localVoiceController?.stop();try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
+window.addEventListener('pagehide',()=>{longListenController.interrupt('Sayfa kapandı; uzun dinleme durdu.');cancelImageJob();voiceTurnGuard.cancel();localVoiceController?.stop();try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}releaseVoiceWakeLock().catch(()=>{});stopPlayback()});
 window.addEventListener('pageshow',()=>{void refreshAutoBrain(true)});
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){voiceTurnGuard.cancel();localVoiceController?.stop();try{if('speechSynthesis' in window)speechSynthesis.cancel()}catch{}stopPhoneCamera();releaseVoiceWakeLock().catch(()=>{});return}

@@ -170,20 +170,65 @@ _MEMORY_RECALL = folded_regex(
 )
 
 
+_CURRENT_INFORMATION = folded_regex(
+    r"(?:\b(?:bugün(?:kü)?|şu an|güncel|son dakika|en son|latest|current|today|right now)\b"
+    r".{0,65}\b(?:dolar|euro|döviz|kur|fiyat\w*|haber\w*|maç|sonuç\w*|ürün\w*|"
+    r"teknoloji|news|price|exchange|rate|match|score|release)\b|"
+    r"\b(?:dolar|euro|döviz|fiyat\w*|news|price|rate|score)\b.{0,55}"
+    r"\b(?:bugün|güncel|şu an|today|current|latest)\b)", re.I)
+
+
 def classify_model_task(message: str) -> str:
     """Select an existing single-pass model capability without a model call."""
     text = fold_turkish(str(message or "").strip())
     if _MODEL_VISION.search(text):
         return "VISION"
-    if _MODEL_RESEARCH.search(text):
+    if _MODEL_RESEARCH.search(text) or _CURRENT_INFORMATION.search(text):
         return "RESEARCH"
     if _COMPUTER_ACTION.search(text):
         return "CODING"
     if _MODEL_CODE.search(text):
+        # Learning ABOUT programming does not require the heavier code generator.
+        if folded_regex(r"(?:nedir|hangi amaç|nasıl öğren|öğreniyorum|what is|commonly used for|learning)").search(text) and not re.search(r"(?:kod(?:u)? yaz|fonksiyon yaz|write.{0,15}(?:code|function)|debug|refactor|implement|```)", text):
+            return "GENERAL" if _MODEL_DEEP.search(text) else "FAST"
         return "CODING"
     if _MODEL_DEEP.search(text):
         return "GENERAL"
     return "FAST"
+
+
+def classify_image_request(message: str) -> str | None:
+    """Image Studio intent; retrieval, analysis, download and code remain separate."""
+    text = fold_turkish(str(message or ""))
+    if not text or len(text) > 4000:
+        return None
+    if re.search(
+        r"\b(?:bul|ara|indir|analiz|incele|hakkinda|nedir|nasil|find|search|download|analyze|explain)\b",
+        text,
+    ):
+        return None
+    noun = re.search(
+        r"fotograf|gorsel|res(?:im|mi)|duvar kagidi|image|picture|wallpaper|photo|digital sanat",
+        text,
+    )
+    if (
+        noun
+        and re.search(r"sinematik yap|duzenle|iyilestir|degistir|edit|enhance", text)
+        and re.search(r"\b(?:bu|bunu|this|it)\b", text)
+    ):
+        return "image_edit"
+    if (
+        (
+            noun
+            and re.search(
+                r"olustur|uret|ciz|yarat|\byap\b|generate|create|draw|paint", text
+            )
+        )
+        or re.search(r"\bciz\b|\bdraw\b", text)
+        or re.search(r"^(?:bana )?(?:bir )?.{1,60}\bdaire olustur", text)
+    ):
+        return "image_generate"
+    return None
 
 
 def classify_intent(message: str) -> IntentDecision:
@@ -191,7 +236,10 @@ def classify_intent(message: str) -> IntentDecision:
     text = str(message or "").strip()
     task = classify_model_task(text)
     act = classify_dialogue_act(text)
-    if act == "correction":
+    image = classify_image_request(text)
+    if image:
+        kind = image
+    elif act == "correction":
         kind = "correction"
     elif is_topic_switch_request(text):
         # A current explicit topic change always supersedes recalled projects.
@@ -222,7 +270,7 @@ def classify_intent(message: str) -> IntentDecision:
             "continuation", "correction", "topic_return", "history_recall", "memory_recall",
             "episode_recall",
         },
-        requires_tool=kind in {"research", "computer_task", "scene_visual"},
+        requires_tool=kind in {"research", "computer_task", "scene_visual", "image_generate", "image_edit"},
         model_task=task,
     )
 

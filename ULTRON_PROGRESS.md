@@ -1,3 +1,31 @@
+## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
+
+[Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.
+
+## 2026-10-18 — Ücretsiz yerel Image Studio / ComfyUI
+
+PR #60 `d690c74` tabanından ayrı `feat/golge-free-comfyui-20261018` dalı. Free-by-default SD 1.5, stock ComfyUI workflow, loopback-only transport, mevcut telefon→laptop queue/lease/fencing, aynı özel görsel/geçmiş deposu ve GPU düşük VRAM başlatma profili uygulandı. Ücretsiz modda Gemini helper SDK kurmadan reddeder; çevrimdışı/bozuk yapılandırma ücretli fallback yapmaz. Windows/PWA aynı kuyruğu bekler; maliyet penceresi açılmaz. PR #59/#60/üretim korunur; indirme, gerçek GPU testi, paid çağrı, merge/deploy yok. Ayrıntılar: docs/GOLGE_FREE_IMAGE_STUDIO.md.
+
+## 2026-10-18 — Image Studio PR #60 final consent verification
+
+Draft [PR #60](https://github.com/fatmakahraman304-hash/ULTRON/pull/60), branch `feat/golge-image-studio-20261017`, is stacked on unchanged PR #59 `b0b4dbf`. Initial implementation `dbd00a45e7ebdfd6cda7bbfb04bb42e11af5996e` passed all seven GitHub Actions jobs across five workflows. Cost approval now uses a non-blocking accessible dialog shared by Windows React and iPhone PWA. A test first reproduced dispatch after switching conversations while consent was pending; a second owner/thread/active-request check now prevents it. Seven Image Studio Chromium tests and two research-renderer tests pass; the event-loop check is not physical microphone validation. Corrected screenshots use Chromium SwiftShader with CPU compositing and a clearly marked synthetic PNG. No paid call, merge or Render deploy. Follow-up exact-commit CI is recorded on PR #60.
+
+## 2026-10-17 — Image Studio (review build, separate from PR #59)
+
+Implemented owner-scoped Google image generation through the existing Cloud image endpoint, with explicit enablement/budget/per-request cost consent, PostgreSQL at-most-once ledger, quota and late-output suppression. Windows React and iPhone PWA now share intent/options and private generated-image history. Qt uses a restricted save-dialog download route. No paid provider call, production merge or deploy. See `docs/GOLGE_IMAGE_STUDIO.md`.
+
+## PR #59 — CI düzeltmesi (17 Ekim 2026)
+
+[Taslak PR #59](https://github.com/fatmakahraman304-hash/ULTRON/pull/59). İlk HEAD `e286772` için 6/7 Actions işi geçti; responsive-ui eski `ultron-shell-v74` assertion'ında durdu. Hata yerelde yeniden üretildi; v75 ve yeni kaynak renderer'ının HTML/cache bağımlılığı birlikte test ediliyor. Test kaldırılmadı veya genel sürüm regex'iyle gevşetilmedi. Yeni exact-head CI sonuçları PR'da kontrol edilecek; üretim/Render değişmedi. Actions log artefaktı erişimi 403 verdi; job/step durumları GitHub API'den, hata nedeni aynı komutun yerel çalıştırmasından doğrulandı.
+
+## 2026-10-17 — Kaynaklı Google araştırması ve bounded model fallback (güncel)
+
+Geliştirme dalı: `feat/golge-grounded-research-20261017`; başlangıç üretim `b486f13`, uygulama `a42b6bf`, PR #56 düzeltmelerini **yalnızca geliştirme dalına** alma `48a688a`. Üretim veya Render'a merge/deploy yok. Önceki kayıtlar tarihseldir. Ayrıntılar: [docs/GOLGE_GROUNDED_RESEARCH.md](docs/GOLGE_GROUNDED_RESEARCH.md).
+
+Mevcut ResearchEngine'e resmî SDK Google Search adaptörü eklendi; kapalı varsayılan, ayrı model/bütçe/anahtar kapıları, en fazla iki model denemesi. Güncel soru yönlendirme, hassas sorguyu kısaltmadan önce denetleme, owner/thread kapsamlı ardışık araştırma devamı, güvenli kaynak yedeği ve kanıt yoksa dürüst yanıt çalışır. Grounding URL/UTF-8 support denetimi, tıklanabilir React/PWA kaynakları, sandbox öneri widget'ı, mesajla atomik PostgreSQL metadata kaydı ve iptal sonrası geç yanıtı kaydetmeme uygulandı. Eski ses/harita düzeltmeleri PR #56'dan korundu; Calculator UIA/approval sınırları değiştirilmedi.
+
+443 Cloud/gerçek geçici PostgreSQL, 376 ilgili backend/güvenlik/kanıt/Calculator sözleşmesi, 43 frontend, 169 PWA JS, 4 gerçek Chromium ve 3 manuel komut regresyonu PASS. Build/compile PASS. 100 mevcut yönlendirme senaryosu 100/100; yeni 16 vaka üretim başlangıcında 8/16, şimdi 16/16. Bunlar model zekâsı ölçümü değildir. SDK 1.75.0 ve 2.31.0 fixture sözleşmeleri geçti. Gerçek Gemini/Qwen BLOCKED; cihaz/mikrofon/TTS NOT_RUN. Render health timeout; canlı sürüm doğrulanmadı. Exact-head CI sonucu PR üzerinde ayrıca izlenecek.
+
 ## 2026-10-16 — Üç legacy preset kaldırıldı
 
 Kullanıcının açık kapsam yanıtıyla yalnızca GÖLGE intro render, Dünya hologramı ve enerji hologramı kaldırıldı; ana CORE, EarthWatch/harita ve kontrol merkezi korunur. Dashboard Araçlar düğmeleri, CenterStage presetleri/çizimleri, ilgili sahne kısayolları ve agent araç açıklamaları temizlendi. Backend artık kaldırılan türleri create/update/add, batch ve JSON import yollarında HTTP 400 ile reddeder; intro/energy video şablonları kabul edilmez. Eski snapshot'lar yalnızca desteklenen nesneleri canlı sahneye getirir; kullanıcı proje dosyaları ve hafıza silinmez.
@@ -742,3 +770,11 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Yerel TTS hazır mesajı, bağlantı/izin hata metinleri ve süreç sağlık/başlangıç etiketleri GÖLGE adını kullanıyor.
 - Sohbet/hafıza kayıtları, kullanıcı dosyaları ve depolama anahtarları silinmedi. `X-MARK-Token`, `X-ULTRON-DEVICE`, localStorage adları ve özel ULTRON wake-model dosyası değiştirilmedi; bunlar protokol veya kurulu kullanıcı verisi uyumluluğu taşıyor.
 - Bu dal: `codex/golge-brand-cleanup`, başlangıç üretim SHA `f88eec1`. Üretime merge/deploy yapılmadı.
+## 2026-10-16 — Manual GÖLGE checks: interruption, weather, satellite and file picker
+
+- Owner-run Windows session exposed four product failures: spoken “Dur” did not stop TTS (ESC did); an unavailable licensed satellite layer was followed by contradictory success wording; live weather values appeared in the Earth panel but were not reported in chat; native file selection did not send selected file contents into the vision/document routes.
+- Added exact Turkish stop-command routing in the React chat/native Qt bridge and fixed the Cloud Live final-transcript path so it stops queued audio regardless of whether a typed-chat request is active. Local Qwen/provider generation is cancelled only through existing cancellation path; Cloud Live output suppression does not claim to stop remote Gemini generation.
+- The satellite command variants route to the existing licensed-layer availability gate. Weather chat replies are now composed from the returned provider temperature, wind, source and timestamp and explicitly label forecast data.
+- Native Qt file picker now allows only supported image/document suffixes, enforces the existing 8 MiB cap and sends bytes to the existing authenticated image/document API. The selected filename/preview and real analysis/extraction result or error are shown; no file is silently called “loaded”.
+- Local verification: frontend build PASS; frontend Node tests 40/40 PASS; Cloud JavaScript tests 167/167 PASS; focused desktop voice/file Python tests 3/3 PASS; Earth layer/geocoding tests 5/5 PASS; Python compile PASS. Exact-head Actions for the first fix commit passed all seven checks; a follow-up made typed “Dur” bypass the busy composer lock and is awaiting its own CI run. No real Windows retest was possible from this runner. Image vision may still report unavailable if the local vision model is not installed; selection and this limitation are surfaced honestly.
+- Work is isolated on `fix/golge-manual-test-failures`, based on production `b4086aa`; no PR merge or Render deployment was performed. Exact Windows verification after pulling this branch remains required.

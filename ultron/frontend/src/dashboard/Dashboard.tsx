@@ -1,3 +1,5 @@
+import '../../../cloud_service/static/image-intents.js';
+import GeneratedImage from './GeneratedImage';
 import {sceneIntent} from '../spatial/intents';
 import {lazy,Suspense,useEffect,useRef,useState,type CSSProperties} from 'react';
 import {Home,Settings,Gamepad2,Box,Folder,Wrench,Puzzle,Power,Globe,Files,Terminal,Scan,ScanText,Calendar,Code,Activity,Grid2X2,PanelsTopLeft,Mic,MicOff,Send,Square,Trash2,MessageSquare,Command,ShieldCheck,X,Bell,Lightbulb,Search,Layers,Brain,Paperclip} from 'lucide-react';
@@ -8,6 +10,7 @@ import {conversationRequestFailure,visibleConversationState} from './conversatio
 import {createConversationRequestIdentity,isCurrentConversationResponse} from './conversationRequestIdentity';
 import {chatChannel} from './connectionStatus';
 import {resolveEarthIntent} from './earthIntent';
+import {isStopCommand} from './voiceCommand';
 import {useEarthActions} from './useEarthActions';
 import type {EarthView} from './EarthWatch';
 import './earth-engine.css';
@@ -338,7 +341,31 @@ export default function Dashboard(){
   if(w==='settings'){open('Ayarlar');return 'Ayarlar açıldı.';}
   return '';
  };
- const send=async(text=input)=>{if(!text.trim()||busy)return;setInput('');setCommand('');
+ const imageJob=useRef<{id:string;controller:AbortController}|null>(null);
+ const imageConversation=useRef(localStorage.getItem('golgeImageConversation')||crypto.randomUUID());
+ const sendImage=async(text:string,alreadyShown=false)=>{
+  if(imageJob.current)return;
+  if(!alreadyShown)u.add('user',text);
+  if(GolgeImages.resolve(text)==='edit'){u.add('assistant','Görsel düzenleme bu sürümde açık değil. Fotoğraf yükleme ve analiz kullanılabilir.');return;}
+  const job={id:crypto.randomUUID(),controller:new AbortController()};imageJob.current=job;setBusy(true);
+  try{
+   const config=await request('/api/merged/image-studio/status',undefined,job.controller.signal);
+   if(!config.available){u.add('assistant',config.detail);return;}
+   if(imageJob.current!==job)return;
+   if(config.requires_cost_approval!==false&&!await GolgeImages.confirmCost(config.detail,job.controller.signal))return;
+   localStorage.setItem('golgeImageConversation',imageConversation.current);
+   setLocalState('THINKING');u.setNotice(config.provider==='comfyui_local'?'Ücretsiz SD 1.5 görseli laptopta üretiliyor…':'Görsel oluşturuluyor… ESC ile sonucu iptal edebilirsin.');
+   let r=await request('/api/merged/image-studio/generate',{prompt:text,conversation_id:imageConversation.current,request_id:job.id,cost_approved:config.requires_cost_approval!==false,...GolgeImages.options(text)},job.controller.signal);
+   r=await GolgeImages.awaitResult(()=>request('/api/merged/image-studio/requests/'+job.id,undefined,job.controller.signal),r,job.controller.signal);
+   if(imageJob.current!==job||r.status!=='completed')return;
+   u.setMessages(prev=>prev.some(m=>m.cloudId===r.assistant_message_id)?prev:[...prev,{id:-r.assistant_message_id,cloudId:r.assistant_message_id,imageId:r.assistant_message_id,role:'assistant',text:'Görsel oluşturuldu.',time:Date.now()}]);
+  }catch(e){if(!job.controller.signal.aborted)u.add('assistant',(e as Error).message);}
+  finally{if(imageJob.current===job){imageJob.current=null;setBusy(false);setLocalState('IDLE');u.setNotice('');}}
+ };
+ const send=async(text=input)=>{if(!text.trim())return;
+   if(isStopCommand(text)){typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();setInput('');setCommand('');u.add('user',text);stop();u.add('assistant','Konuşmayı durdurdum.');return;}
+   if(busy)return;setInput('');setCommand('');
+   if(GolgeImages.resolve(text)){typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();await sendImage(text);return;}
    typedRouteSeen.current=text.toLocaleLowerCase('tr-TR').trim();
    if(/(?:^|\s)intro(?:\s|$)|(?:enerji|dünya|dunya) (?:hologram|küre|kure)/.test(text.toLocaleLowerCase('tr-TR'))&&/(?:oluştur|olustur|göster|goster|aç|render|yap)/.test(text.toLocaleLowerCase('tr-TR'))&&!/(?:nedir|nasıl|nasil|neden)/.test(text.toLocaleLowerCase('tr-TR'))){u.add('user',text);u.add('assistant','Bu hazır hologram/intro özelliği kaldırıldı.');return;}
    const earthIntent=resolveEarthIntent(text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
@@ -358,11 +385,11 @@ export default function Dashboard(){
   setBusy(true);setLocalState('THINKING');setSuppressServerThinking(false);const ctl=new AbortController();abort.current=ctl;
   const identity=createConversationRequestIdentity(),requestId=identity.request_id;
   const active={id:requestId,key:identity.request_key,controller:ctl};activeRequest.current=active;
-  try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{}),...identity},ctl.signal);if(!isCurrentConversationResponse(activeRequest.current?.id,requestId,r.request_id))return;u.add('assistant',r.text||JSON.stringify(r));setLocalState('IDLE');}catch(e){if(activeRequest.current?.id!==requestId)return;const failure=conversationRequestFailure(e);setLocalState(failure.state);setSuppressServerThinking(failure.suppressServerThinking);if(failure.notification)notify(failure.notification);}finally{if(activeRequest.current?.id===requestId){activeRequest.current=null;setBusy(false);if(abort.current===ctl)abort.current=null;}}};
+  try{const r=await request('/api/merged/invoke',{text,mode,...(model?{model}:{}),...identity},ctl.signal);if(!isCurrentConversationResponse(activeRequest.current?.id,requestId,r.request_id))return;u.add('assistant',r.text||JSON.stringify(r),r.research);setLocalState('IDLE');}catch(e){if(activeRequest.current?.id!==requestId)return;const failure=conversationRequestFailure(e);setLocalState(failure.state);setSuppressServerThinking(failure.suppressServerThinking);if(failure.notification)notify(failure.notification);}finally{if(activeRequest.current?.id===requestId){activeRequest.current=null;setBusy(false);if(abort.current===ctl)abort.current=null;}}};
  useEffect(()=>{if(u.state!=='THINKING')setSuppressServerThinking(false);},[u.state]);
  const state:CoreState=visibleConversationState(localState,u.state,u.taskState,u.nativeState,suppressServerThinking) as CoreState;
  const coreCaption=state==='LISTENING'?'Dinliyorum…':state==='THINKING'?'Yanıt hazırlıyorum…':state==='SPEAKING'?'Konuşuyorum…':state==='WORKING'?'Görevi yürütüyorum…':state==='ERROR'?'Bağlantı veya işlem hatası':u.native&&!u.muted?'Sesli giriş açık.':u.ai?.models?.length||u.health?.cloud?.enabled?'Sohbete hazırım.':'Model bağlantısı bekleniyor.';
- const stop=()=>{const active=activeRequest.current;if(active){void request('/api/merged/cancel',{request_id:active.id,request_key:active.key},AbortSignal.timeout(1800)).then(result=>{if(activeRequest.current&&activeRequest.current.id!==active.id)return;u.setNotice(result.provider_stopped?'Yerel Ollama isteği durduruldu.':result.operation_continues?'Yanıt kesildi; onaylı bilgisayar görevi kendi durumunda sürüyor.':'Yanıt kesildi; model durumu doğrulanmadı.');}).catch(()=>{if(!activeRequest.current)u.setNotice('Yanıt yerel arayüzde kesildi; sunucu iptali doğrulanamadı.');});activeRequest.current=null;if(abort.current===active.controller)abort.current=null;active.controller.abort();setBusy(false);setLocalState('IDLE');setSuppressServerThinking(true);}u.native?.action('interrupt');};
+ const stop=()=>{const job=imageJob.current;if(job){imageJob.current=null;job.controller.abort();void request('/api/merged/image-studio/cancel',{request_id:job.id}).catch(()=>{});setBusy(false);setLocalState('IDLE');u.setNotice('Görsel yanıtı gizlendi; sağlayıcının üretimi/ücreti iptal edilmiş sayılmaz.');}const active=activeRequest.current;if(active){void request('/api/merged/cancel',{request_id:active.id,request_key:active.key},AbortSignal.timeout(1800)).then(result=>{if(activeRequest.current&&activeRequest.current.id!==active.id)return;u.setNotice(result.provider_stopped?'Yerel Ollama isteği durduruldu.':result.operation_continues?'Yanıt kesildi; onaylı bilgisayar görevi kendi durumunda sürüyor.':'Yanıt kesildi; model durumu doğrulanmadı.');}).catch(()=>{if(!activeRequest.current)u.setNotice('Yanıt yerel arayüzde kesildi; sunucu iptali doğrulanamadı.');});activeRequest.current=null;if(abort.current===active.controller)abort.current=null;active.controller.abort();setBusy(false);setLocalState('IDLE');setSuppressServerThinking(true);}u.native?.action('interrupt');};
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if(e.key==='Escape'){stop();setModal('');}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[u.native]);
  const review=async(path:string,id:string)=>{try{await request(path,{id});u.setPending(null);u.setPatch(null);}catch(e){notify((e as Error).message);}};
  const run=async(path:string,body?:unknown)=>{try{setExtra(JSON.stringify(await request(path,body),null,2));}catch(e){notify((e as Error).message);}};
@@ -371,12 +398,14 @@ export default function Dashboard(){
  // Native speech transcripts arrive through desktop message logs. Route only UI.
  useEffect(()=>{
    const latest=[...u.messages].reverse().find(m=>m.role==='user');
-   if(!latest)return;
+   if(!latest||latest.cloudId!==undefined)return;
    const id=String(latest.id);
    if(Date.now()-latest.time>15000){voiceRouteSeen.current=id;return;}
    if(voiceRouteSeen.current===id)return;
    voiceRouteSeen.current=id;
    if(latest.text.toLocaleLowerCase('tr-TR').trim()===typedRouteSeen.current){typedRouteSeen.current='';return;}
+   if(isStopCommand(latest.text)){stop();u.add('assistant','Konuşmayı durdurdum.');return;}
+   if(GolgeImages.resolve(latest.text)){void sendImage(latest.text,true);return;}
    if(sceneIntent(latest.text,hologram)){setHologram(true);setModal('');setSceneRequest(prev=>({id:(prev?.id||0)+1,text:latest.text}));return;}
    const earthIntent=resolveEarthIntent(latest.text,u.stage.mode==='earth_watch'||u.stage.mode==='world_map'||workspace==='control-center');
    if(earthIntent){void earth.command(earthIntent.operation,earthIntent.args).then(reply=>u.add('assistant',reply)).catch(e=>notify((e as Error).message));return;}
@@ -386,7 +415,7 @@ export default function Dashboard(){
  const ready=(value:unknown)=>u.connected?(value?'ONLINE':'N/A'):'OFFLINE';
  const chipsLeft=[['SYSTEM',u.connected?'ONLINE':'OFFLINE'],['MEMORY',ready(u.memory)],['TASK ENGINE',ready(u.health?.components?.task_engine)],['VISION',ready(u.ai?.vision)],['AUDIO',u.native?(u.muted?'MUTED':u.nativeState):'N/A']];
  const chipsRight=[['AI CORE',ready(u.health?.components?.brain)],['NEURAL LINK',ready(u.ai?.connected)],['TOOLS',u.connected?`${u.tools.filter(t=>t.status==='READY').length} READY`:'N/A'],['PLUGINS',u.plugins?`${u.plugins.length} LOADED`:'N/A'],['MONITOR',u.system?'LIVE':'N/A']];
- const disabledSend=busy||chatChannel(u.connected,Boolean(u.native))==='unavailable';
+ const disabledSend=chatChannel(u.connected,Boolean(u.native))==='unavailable'||(busy&&!isStopCommand(input));
  const footer=[['Web Tarayıcı',Globe,()=>open('Browser')],['Dosya İşlemleri',Files,()=>open('Dosyalar')],['Terminal',Terminal,()=>open('Terminal')],['Ekran Yakalama',Scan,()=>{open('Vizyon');void run('/api/actions/screenshot',{});}],['OCR',ScanText,()=>{open('Vizyon');void run('/api/merged/tool',{name:'screen_ocr',arguments:{}});}],['Planlayıcı',Calendar,()=>open('Görevler')],['Kod Asistanı',Code,()=>{setMode('coding');open('Kod Asistanı');}],['Sistem Monitörü',Activity,()=>open('Sistem Monitörü')]] as const;
  return <div className={'viewport '+(workspace==='control-center'?'control-center-active':'')}><div className={'ultron-app voice-first golge-minimal '+(compact?'compact':'')}>
  <header className="main-header metal-frame"><div className="golge-brand"><span className="golge-brand-mark" aria-hidden="true"/><span>GÖLGE<small>KİŞİSEL YAPAY ZEKA</small></span></div><div className="header-mode"><b>{workspace==='control-center'?'KONTROL MERKEZİ':'NORMAL SOHBET MODU'}</b><small>Kişisel yapay zekâ asistanın</small></div><nav>
@@ -403,7 +432,7 @@ export default function Dashboard(){
  <div className="nav-status"><i className={u.connected?'online':''}/><div>GÖLGE<small>{u.connected?'Backend bağlı':'Servis bekleniyor'}</small></div></div>
  </aside><SystemRail system={u.system} history={u.history} health={u.health} connected={u.connected}/>
  <section className="reactor-panel metal-frame">{u.stage.mode==='core_idle'&&<div className="core-topline"><span><i/>GÖLGE CORE</span><span>ETKİLEŞİMLİ HOLOGRAM</span></div>}{stageBundleReady?<Suspense fallback={<div className="center-stage-loading" role="status">3D çekirdek hazırlanıyor</div>}><CenterStage stage={u.stage} earthCommand={(op,args)=>earth.command(op,args).then(reply=>{u.setNotice(reply)}).catch(e=>notify((e as Error).message))} earthView={earthView} earthSearch={earth.search} onChoosePlace={hit=>earth.choose(hit).catch(e=>notify((e as Error).message))} state={state} amplitude={u.amplitude} notify={notify} openNativeVideo={u.native?.videoRequest?()=>u.native?.videoRequest?.('open_file',''):undefined}/></Suspense>:<div className="center-stage-loading" role="status">3D çekirdek hazırlanıyor</div>}{u.stage.mode==='core_idle'&&<div className="golge-stage-caption" role="status"><strong>GÖLGE</strong><span>{coreCaption}</span><div className="core-waveform" aria-hidden="true">{Array.from({length:37},(_,i)=><i key={i} style={{height:2+Math.max(0,Math.min(1,u.amplitude))*26*(.25+.75*Math.sin(i*1.7)**2)}}/>)}</div></div>}{u.stage.mode==='core_idle'&&<><div className="subsystems left">{chipsLeft.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div><div className="subsystems right">{chipsRight.map(([label,value])=><div key={label} className={value==='OFFLINE'||value==='N/A'?'unavailable':''}><i/>{label}<b>{value}</b></div>)}</div></>}{!u.connected&&<div className="offline" role="status">Yerel servisle bağlantı kuruluyor</div>}</section></>}
- <aside className="right-panels"><Panel title="SOHBET" icon={<MessageSquare/>} className="chat-panel" extra={<button disabled={busy} onClick={()=>u.setMessages([])}><Trash2/>Temizle</button>}><div className="messages" ref={messages}>{!u.messages.length&&<p className="chat-empty"><strong>Birlikte başlayalım.</strong>{u.connected?'Bir şey sor, bir fikir paylaş ya da bir görev ver.':'Yerel GÖLGE servisi açık olduğunda sohbet burada devam eder.'}</p>}{u.messages.map(m=><article className={'message '+m.role} key={m.id}><header className="message-meta"><b>{m.role==='user'?'Sen':'GÖLGE'}</b><time>{new Date(m.time).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</time></header><div className="message-content"><MessageText text={m.text}/></div></article>)}{busy&&<p className="muted">Yanıt hazırlanıyor…</p>}</div><form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><button type="button" className="mobile-attach" aria-label="Dosya veya görsel ekle" onClick={()=>mobileFilePicker.current()}><Paperclip/></button><input aria-label="Mesaj" value={input} onChange={e=>setInput(e.target.value)} placeholder="GÖLGE'ye bir şey söyle…"/><button type="button" className="composer-mic" aria-label={u.muted?'Mikrofonu aç':'Mikrofonu kapat'} disabled={!u.native} title={u.native?'Yerel mikrofon':'Sesli giriş için yerel GÖLGE köprüsü gerekir'} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>}</button><button aria-label="Gönder" disabled={disabledSend||!input.trim()}><Send/></button></form></Panel>
+ <aside className="right-panels"><Panel title="SOHBET" icon={<MessageSquare/>} className="chat-panel" extra={<button disabled={busy} onClick={()=>u.setMessages([])}><Trash2/>Temizle</button>}><div className="messages" ref={messages}>{!u.messages.length&&<p className="chat-empty"><strong>Birlikte başlayalım.</strong>{u.connected?'Bir şey sor, bir fikir paylaş ya da bir görev ver.':'Yerel GÖLGE servisi açık olduğunda sohbet burada devam eder.'}</p>}{u.messages.map(m=><article className={'message '+m.role} key={m.id}><header className="message-meta"><b>{m.role==='user'?'Sen':'GÖLGE'}</b><time>{new Date(m.time).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}</time></header><div className="message-content"><MessageText text={m.text} research={m.research}/>{m.imageId&&<GeneratedImage id={m.imageId}/>}</div></article>)}{busy&&<p className="muted">Yanıt hazırlanıyor…</p>}</div><form className="composer" onSubmit={e=>{e.preventDefault();void send();}}><button type="button" className="mobile-attach" aria-label="Dosya veya görsel ekle" onClick={()=>mobileFilePicker.current()}><Paperclip/></button><input aria-label="Mesaj" value={input} onChange={e=>setInput(e.target.value)} placeholder="GÖLGE'ye bir şey söyle…"/><button type="button" className="composer-mic" aria-label={u.muted?'Mikrofonu aç':'Mikrofonu kapat'} disabled={!u.native} title={u.native?'Yerel mikrofon':'Sesli giriş için yerel GÖLGE köprüsü gerekir'} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>}</button><button aria-label="Gönder" disabled={disabledSend||!input.trim()}><Send/></button></form></Panel>
  <FileDrop pickerRef={mobileFilePicker} notify={notify} ask={send} nativeFile={u.native?()=>u.native?.action('file'):undefined}/>
  <Panel title="KOMUT" icon={<Command/>} className="command-panel"><form onSubmit={e=>{e.preventDefault();void send(command);}}><button type="button" className="mic-circle" aria-label="Mikrofon" disabled={!u.native} onClick={()=>u.native?.action('mute')}>{u.muted?<MicOff/>:<Mic/>}</button><input aria-label="Komut" value={command} onChange={e=>setCommand(e.target.value)} placeholder="Komut yaz…"/><button aria-label="Komutu gönder" disabled={disabledSend||!command.trim()}><Send/></button></form><button className="interrupt" onClick={stop}><Square/>KONUŞMAYI DURDUR <span>[ESC]</span></button><button className={'voice-status '+(u.native&&!u.muted?'active':'')} disabled={!u.native} onClick={()=>u.native?.action('mute')}><Mic/>{u.native?(u.muted?'MİKROFON KAPALI':state==='THINKING'?'İŞLENİYOR':'MİKROFON AKTİF'):'MİKROFON N/A'}</button></Panel></aside></>}
  </main>

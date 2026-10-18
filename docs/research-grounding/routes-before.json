@@ -1,0 +1,124 @@
+{
+  "scope": "lexical router only; 100 timing repetitions per scenario",
+  "passed": 8,
+  "total": 16,
+  "latency_ms_p50": 0.0058335,
+  "latency_ms_p95": 0.012409,
+  "model_quality": "NOT_RUN",
+  "live_response_latency": "NOT_RUN",
+  "extra_model_calls": 0,
+  "results": [
+    {
+      "message": "Bugün dolar kaç TL?",
+      "task": "RESEARCH",
+      "reason": "Güncel döviz kuru kaynak gerektirir.",
+      "actual": "FAST",
+      "pass": false
+    },
+    {
+      "message": "En son teknoloji haberleri neler?",
+      "task": "RESEARCH",
+      "reason": "Yeni haberler güncel kaynak gerektirir.",
+      "actual": "FAST",
+      "pass": false
+    },
+    {
+      "message": "What is the current EUR exchange rate?",
+      "task": "RESEARCH",
+      "reason": "Current financial information.",
+      "actual": "FAST",
+      "pass": false
+    },
+    {
+      "message": "Bugünkü maç sonucu ne?",
+      "task": "RESEARCH",
+      "reason": "Güncel spor sonucu.",
+      "actual": "FAST",
+      "pass": false
+    },
+    {
+      "message": "iPhone 17 güncel fiyatı ne kadar?",
+      "task": "RESEARCH",
+      "reason": "Ürün fiyatının zamanı önemli.",
+      "actual": "FAST",
+      "pass": false
+    },
+    {
+      "message": "Araştır: yeni pil teknolojileri",
+      "task": "RESEARCH",
+      "reason": "Açık araştırma talebi.",
+      "actual": "RESEARCH",
+      "pass": true
+    },
+    {
+      "message": "Merhaba",
+      "task": "FAST",
+      "reason": "Gündelik sohbet; web çağrısı gerekmez.",
+      "actual": "FAST",
+      "pass": true
+    },
+    {
+      "message": "Döviz kuru nedir?",
+      "task": "FAST",
+      "reason": "Güncel veri değil kavram açıklaması.",
+      "actual": "FAST",
+      "pass": true
+    },
+    {
+      "message": "Python nedir?",
+      "task": "FAST",
+      "reason": "Kod üretimi değil öğrenme sorusu.",
+      "actual": "CODING",
+      "pass": false
+    },
+    {
+      "message": "Python öğreniyorum",
+      "task": "FAST",
+      "reason": "Programlama hakkında sohbet.",
+      "actual": "CODING",
+      "pass": false
+    },
+    {
+      "message": "What is Python commonly used for?",
+      "task": "FAST",
+      "reason": "Programming explanation, not code generation.",
+      "actual": "CODING",
+      "pass": false
+    },
+    {
+      "message": "Bugün çok yoruldum",
+      "task": "FAST",
+      "reason": "Bugün kelimesi tek başına araştırma nedeni değildir.",
+      "actual": "FAST",
+      "pass": true
+    },
+    {
+      "message": "2 kere 7 kaç?",
+      "task": "FAST",
+      "reason": "Temel hesaplama web gerektirmez.",
+      "actual": "FAST",
+      "pass": true
+    },
+    {
+      "message": "Python fonksiyon yaz",
+      "task": "CODING",
+      "reason": "Açık kod üretimi.",
+      "actual": "CODING",
+      "pass": true
+    },
+    {
+      "message": "Write Python code to parse JSON",
+      "task": "CODING",
+      "reason": "Explicit coding task.",
+      "actual": "CODING",
+      "pass": true
+    },
+    {
+      "message": "Refactor this Python function",
+      "task": "CODING",
+      "reason": "Existing code modification.",
+      "actual": "CODING",
+      "pass": true
+    }
+  ]
+}
