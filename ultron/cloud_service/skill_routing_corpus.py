@@ -231,3 +231,13 @@ CASES += [
     ("geliştirme listem", "gaps"), ("bunu öğren: yarınki maç saatini söylesin", "gaps"),
     ("eksiklerimi kapatmak için ne yapmalıyım", None), ("eksik malzemeleri say", None), ("eksik bir şey var gibi", None),
 ]
+
+CASES += [
+    ("kredi taksiti: 100000 tl 12 ay aylık %3", "calc"), ("1000 tl kdv ekle", "calc"), ("1200 tl kdv dahil kdv ayır", "calc"), ("500 tl %30 indirim", "calc"),
+    ("100'den 150'ye yüzde kaç artış", "calc"), ("ortalama: 4 8 15 16", "calc"), ("97 asal mı", "calc"), ("10 faktöriyel", "calc"), ("12 ile 18 ebob", "calc"),
+    ("1234 yazıyla", "calc"), ("14 roma rakamı", "calc"), ("255 onaltılık", "calc"), ("7'de uyanmak için ne zaman yatmalıyım", "calc"),
+    ("15 mart burcum", "calc"), ("1990 çin burcu", "calc"), ("5 km 30 dk tempo", "calc"), ("1 bardak un kaç gram", "calc"),
+    ("istanbul 15:00 new york kaç", "calc"), ("bir sonraki resmi tatil ne zaman", "calc"), ("büyük harf yap: istanbul", "calc"),
+    ("base64 kodla: merhaba", "calc"), ("#ff8800 rgb", "calc"), ("mors: sos", "calc"), ("yılın kaçıncı günü", "calc"),
+    ("kredi çekmek istiyorum", None), ("kdv nedir", None), ("ortalama notum nedir", None), ("mors alfabesi nedir", None), ("burcum uyumlu mu", None), ("resmi tatil olsa iyi olur", None),
+]
