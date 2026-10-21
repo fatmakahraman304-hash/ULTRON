@@ -210,6 +210,10 @@ async def close_db(app: web.Application) -> None:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
+    for task in list(app.get("mission_tasks", {}).values()):
+        task.cancel()
+    import http_client
+    await http_client.close()
     await app["db"].close()
 
 
@@ -3013,6 +3017,8 @@ def build_app() -> web.Application:
     from web_push import register_routes as register_push_routes
     register_push_routes(app)
     missions.register_routes(app)
+    import ops
+    ops.register_routes(app)
     register_learning_routes(app)
     register_conversation_note_routes(app)
     register_auto_learning_routes(app)

@@ -14,7 +14,8 @@ import time
 from typing import Any
 from urllib.parse import urlsplit
 
-from aiohttp import ClientSession, ClientTimeout, web
+from aiohttp import web
+import http_client
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
@@ -90,7 +91,7 @@ async def load_vapid(pool: Any) -> tuple[ec.EllipticCurvePrivateKey, str]:
 
 
 async def send_push(pool: Any, sub: dict, message: dict, *, urgency: str = "normal", ttl: int = 3600,
-                    session: ClientSession | None = None) -> str:
+                    session: object | None = None) -> str:
     """Return 'ok', 'gone' (subscription removed) or 'error'."""
     if not valid_endpoint(sub["endpoint"]):
         return "gone"
@@ -99,23 +100,17 @@ async def send_push(pool: Any, sub: dict, message: dict, *, urgency: str = "norm
     headers = {"Authorization": vapid_authorization(sub["endpoint"], key, os.getenv("GOLGE_PUSH_SUBJECT", "mailto:admin@golge.invalid")),
                "Content-Encoding": "aes128gcm", "Content-Type": "application/octet-stream",
                "TTL": str(ttl), "Urgency": urgency}
-    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
-    owns = session is None
-    session = session or ClientSession(timeout=ClientTimeout(total=10))
     try:
-        async with session.post(sub["endpoint"], data=body, headers=headers, allow_redirects=False, proxy=proxy) as resp:
-            if resp.status in (200, 201, 202):
-                await pool.execute("UPDATE push_subscriptions SET last_ok=NOW() WHERE endpoint=$1", sub["endpoint"])
-                return "ok"
-            if resp.status in (404, 410):
-                await pool.execute("DELETE FROM push_subscriptions WHERE endpoint=$1", sub["endpoint"])
-                return "gone"
-            return "error"
+        status, _, _ = await http_client.fetch(sub["endpoint"], method="POST", data=body, headers=headers, timeout=10, max_bytes=100_000)
     except Exception:
         return "error"
-    finally:
-        if owns:
-            await session.close()
+    if status in (200, 201, 202):
+        await pool.execute("UPDATE push_subscriptions SET last_ok=NOW() WHERE endpoint=$1", sub["endpoint"])
+        return "ok"
+    if status in (404, 410):
+        await pool.execute("DELETE FROM push_subscriptions WHERE endpoint=$1", sub["endpoint"])
+        return "gone"
+    return "error"
 
 
 async def push_to_user(pool: Any, user_id: str, message: dict, **kw) -> int:

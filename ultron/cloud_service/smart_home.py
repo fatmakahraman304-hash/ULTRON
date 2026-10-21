@@ -12,12 +12,12 @@ import time
 from typing import Any, Awaitable, Callable
 from urllib.parse import urlsplit
 
-from aiohttp import ClientSession, ClientTimeout
-
 if __package__:
     from .text_normalization import fold_turkish
+    from . import http_client
 else:
     from text_normalization import fold_turkish
+    import http_client
 
 HaCall = Callable[..., Awaitable[tuple[int, Any]]]
 _CACHE: dict[str, tuple[float, list]] = {}
@@ -53,16 +53,20 @@ def config() -> tuple[str, str] | None:
     return url, token
 
 
-async def ha_call(method: str, path: str, body: dict | None = None) -> tuple[int, Any]:
+async def ha_call(method: str, path: str, body: dict | None = None) -> tuple[int, Any]:  # noqa: C901
     cfg = config()
     if cfg is None:
         raise RuntimeError("not_configured")
-    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
-    async with ClientSession(timeout=ClientTimeout(total=10)) as s:
-        async with s.request(method, cfg[0] + path, json=body, allow_redirects=False, proxy=proxy,
-                             headers={"Authorization": "Bearer " + cfg[1]}) as resp:
-            data = await resp.json(content_type=None) if resp.status == 200 else None
-            return resp.status, data
+    status, body, _ = await http_client.fetch(cfg[0] + path, method=method, json_body=body, timeout=10, max_bytes=3_000_000,
+                                              headers={"Authorization": "Bearer " + cfg[1]})
+    data = None
+    if status == 200:
+        import json
+        try:
+            data = json.loads(body or b"null")
+        except ValueError:
+            data = None
+    return status, data
 
 
 def parse_command(text: str) -> dict | None:
@@ -160,7 +164,7 @@ async def handle(text: str, call: HaCall | None = None) -> str | None:
     cmd = parse_command(text)
     if cmd is None:
         return None
-    if cfg_missing := (call is None and config() is None):
+    if call is None and config() is None:
         return ("Akıllı ev şu an bağlı değil. Home Assistant'ın herkese açık https adresini ve uzun ömürlü erişim anahtarını "
                 "sunucuya (HOME_ASSISTANT_URL, HOME_ASSISTANT_TOKEN) eklediğinde ışık, priz, klima, perde ve sahneleri buradan yönetebilirim.")
     call = call or ha_call

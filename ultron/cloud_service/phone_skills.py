@@ -6,7 +6,6 @@ flights open a prefilled Google Flights search, YouTube is read by Gemini itself
 """
 from __future__ import annotations
 
-import os
 import re
 import time
 from datetime import date, datetime, timedelta
@@ -14,14 +13,15 @@ from typing import Awaitable, Callable
 from urllib.parse import quote, urlsplit
 from xml.etree import ElementTree
 
-from aiohttp import ClientSession, ClientTimeout
 
 if __package__:
     from .text_normalization import fold_turkish
     from .reminders import fold_with_map
+    from . import http_client
 else:
     from text_normalization import fold_turkish
     from reminders import fold_with_map
+    import http_client
 
 FetchText = Callable[[str, str, int], Awaitable[str]]
 _NEWS_CACHE: dict[str, tuple[float, str]] = {}
@@ -41,14 +41,9 @@ async def fetch_news_xml(url: str, key: str, ttl: int = 600) -> str:
     cached = _NEWS_CACHE.get(key)
     if cached and cached[0] > time.monotonic():
         return cached[1]
-    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
-    async with ClientSession(timeout=ClientTimeout(total=10), headers={"User-Agent": "GOLGE-News/1.0"}) as s:
-        async with s.get(url, allow_redirects=False, proxy=proxy) as resp:
-            if resp.status != 200:
-                raise ValueError("feed_unavailable")
-            body = await resp.content.read(1_000_001)
-    if len(body) > 1_000_000:
-        raise ValueError("feed_too_large")
+    status, body, _ = await http_client.fetch(url, headers={"User-Agent": "GOLGE-News/1.0"}, timeout=10, max_bytes=1_000_000)
+    if status != 200:
+        raise ValueError("feed_unavailable")
     text = body.decode("utf-8", errors="replace")
     if len(_NEWS_CACHE) > 20:
         _NEWS_CACHE.clear()

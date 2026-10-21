@@ -253,18 +253,33 @@ async def tick(pool: Any, fetch_json, fetch_text=None, now: datetime | None = No
 
 
 async def dispatcher_loop(app: web.Application, fetch_json, fetch_text=None) -> None:
+    import time as _time
+    if __package__:
+        from . import ops
+    else:
+        import ops
     pool = app["db"]
+    status = app.setdefault("dispatcher_status", {"ticks": 0, "errors": 0, "last_tick_at": None, "last_stats": {}, "last_maintenance": {}})
+    last_maintenance = 0.0
     while True:
         try:
             async with pool.acquire() as conn:
                 if await conn.fetchval("SELECT pg_try_advisory_lock(7243001)"):
                     try:
-                        await tick(pool, fetch_json, fetch_text)
+                        status["last_stats"] = await tick(pool, fetch_json, fetch_text)
+                        status["ticks"] += 1
+                        status["last_tick_at"] = _time.time()
+                        if _time.time() - last_maintenance > 3600:
+                            status["last_maintenance"] = await ops.maintenance(pool)
+                            last_maintenance = _time.time()
                     finally:
                         await conn.execute("SELECT pg_advisory_unlock(7243001)")
+                else:
+                    status["last_tick_at"] = _time.time()   # another instance owns the lock; we are healthy
         except asyncio.CancelledError:
             raise
         except Exception as exc:
+            status["errors"] += 1
             print(f"[proactive] tick failed: {type(exc).__name__}", flush=True)
         await asyncio.sleep(TICK_SECONDS)
 

@@ -8,7 +8,6 @@ SSRF is prevented by an https-only host allowlist, no redirects and a size cap.
 from __future__ import annotations
 
 import hashlib
-import os
 import re
 import time
 from datetime import date, datetime, timedelta, timezone
@@ -16,7 +15,9 @@ from typing import Any
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
-from aiohttp import ClientSession, ClientTimeout, web
+from aiohttp import web
+
+import http_client
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 ALLOWED_HOST_SUFFIXES = ("calendar.google.com", "icloud.com", "outlook.live.com", "outlook.office365.com",
@@ -50,19 +51,14 @@ async def fetch_ics(url: str, ttl: int = 600) -> str:
     cached = _CACHE.get(key)
     if cached and cached[0] > time.monotonic():
         return cached[1]
-    proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
     try:
-        async with ClientSession(timeout=ClientTimeout(total=12), headers={"User-Agent": "GOLGE-Calendar/1.0"}) as s:
-            async with s.get(url, allow_redirects=False, proxy=proxy) as resp:
-                if resp.status != 200:
-                    raise FeedError("feed_unavailable")
-                body = await resp.content.read(MAX_BYTES + 1)
-    except FeedError:
-        raise
+        status, body, _ = await http_client.fetch(url, headers={"User-Agent": "GOLGE-Calendar/1.0"}, timeout=12, max_bytes=MAX_BYTES)
+    except ValueError as exc:
+        raise FeedError("feed_too_large" if str(exc) == "too_large" else "feed_unavailable") from exc
     except Exception as exc:
         raise FeedError("feed_unavailable") from exc
-    if len(body) > MAX_BYTES:
-        raise FeedError("feed_too_large")
+    if status != 200:
+        raise FeedError("feed_unavailable")
     text = body.decode("utf-8", errors="replace")
     if "BEGIN:VCALENDAR" not in text:
         raise FeedError("not_ical")

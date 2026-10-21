@@ -148,9 +148,11 @@ class Skills(unittest.TestCase):
         self.assertIn("Takvim bağlı değil", out["reply"])
 
     def test_briefing(self):
-        out = run(s.instant_reply("günaydın", pool=FakePool(), user_id="u", fetch_json=fake_fetch, now=NOW))
+        async def no_news(url, key, ttl):
+            return "<rss><channel><item><title>Haber A - Kaynak</title><source>Kaynak</source></item></channel></rss>"
+        out = run(s.instant_reply("günaydın", pool=FakePool(), user_id="u", fetch_json=fake_fetch, fetch_text=no_news, now=NOW))
         self.assertEqual(out["skill"], "briefing")
-        for needle in ("21 Ekim 2026 Çarşamba", "🌤", "📅 Bugün", "💻 Bilgisayar: çevrimiçi", "💱"):
+        for needle in ("21 Ekim 2026 Çarşamba", "🌤", "📅 Bugün", "📰 Gündem:\n• Haber A", "💻 Bilgisayar: çevrimiçi", "💱"):
             self.assertIn(needle, out["reply"])
         self.assertIsNone(run(s.instant_reply("günaydın dostum bugün çok yorgunum uzun uzun anlatayım",
                                                pool=FakePool(), user_id="u", now=NOW)))
