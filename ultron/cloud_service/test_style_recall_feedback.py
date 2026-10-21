@@ -91,7 +91,7 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.pool.execute("DELETE FROM conversations WHERE user_id=$1", self.u)
-        for table in ("owner_routines", "owner_plans", "owner_habits", "owner_expenses", "owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
+        for table in ("capability_gaps", "dev_requests", "device_commands", "owner_routines", "owner_plans", "owner_habits", "owner_expenses", "owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
             await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
         await self.pool.close()
 
@@ -365,6 +365,50 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         # utility: absurd birth years do not raise
         self.assertIsNone(s.utility_skills.answer("0000 doğumluyum kaç yaşındayım"))
         self.assertIsInstance(s.wants_cloud_skill("0000 doğumluyum kaç yaşındayım"), bool)       # must not raise
+
+    async def test_capability_gaps_to_approved_development_request(self):
+        import gap_skills
+        self.assertIn("boş", await self.say("eksiklerim"))
+        self.assertIn("eksik", await self.say("eksik: telefonumdaki rehberden kişi bulabilsin"))
+        gid = await self.pool.fetchval("SELECT id FROM capability_gaps WHERE user_id=$1", self.u)
+        self.assertIn("zaten listemde", await self.say("eksik: Telefonumdaki rehberden kişi bulabilsin"))
+        self.assertIn("ekleyemedim", await self.say("eksik: parolam sk-abcdefghijklmnop1234 olsun"))
+        self.assertIn("rehberden", await self.say("eksiklerim"))
+        # voice may list/add but never start a build
+        out = await vs.run(f"eksik {gid}'i geliştir", pool=self.pool, user_id=self.u)
+        self.assertIn("yazarak", out["spoken"])
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM dev_requests WHERE user_id=$1", self.u), 0)
+        # offline laptop: a stored request, no laptop task
+        reply = await self.say(f"eksik {gid}'i geliştir")
+        self.assertIn("çevrimdışı", reply)
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM dev_requests WHERE user_id=$1", self.u), 1)
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM device_commands WHERE user_id=$1", self.u), 0)
+        self.assertIn("zaten oluşturuldu", await self.say(f"eksik {gid} geliştir"))
+        prompt = await self.pool.fetchval("SELECT prompt FROM dev_requests WHERE user_id=$1", self.u)
+        for rule in ("AGENTS.md", "Approval Gate", "birleştirme"):
+            self.assertIn(rule, prompt)
+        # online laptop: the task only asks for a patch PROPOSAL and says nothing is written without approval
+        await self.say("eksik: haftalık rapor PDF olarak e-postama gelsin")
+        gid2 = await self.pool.fetchval("SELECT MAX(id) FROM capability_gaps WHERE user_id=$1", self.u)
+        await self.pool.execute("INSERT INTO device_presence(user_id,device,last_seen) VALUES($1,'desktop',NOW()) ON CONFLICT(user_id,device) DO UPDATE SET last_seen=NOW()", self.u)
+        try:
+            reply = await self.say(f"eksik {gid2}'i geliştir")
+            self.assertIn("TASLAĞI", reply)
+            payload = await self.pool.fetchval("SELECT payload::text FROM device_commands WHERE user_id=$1", self.u)
+            self.assertIn("YALNIZCA TASLAK", payload)
+            self.assertIn("hiçbir dosyaya yazma", payload)
+        finally:
+            await self.pool.execute("DELETE FROM device_commands WHERE user_id=$1", self.u)
+            await self.pool.execute("DELETE FROM device_presence WHERE user_id=$1", self.u)
+        self.assertIn("çıkardım", await self.say(f"eksik {gid2}'i vazgeç"))
+        # an inability admitted by the model is recorded once, with a hint; ordinary answers get none
+        hint = await gap_skills.auto_gap_hint(self.pool, self.u, "bana uçak bileti al", "Üzgünüm, bunu şu an yapamıyorum.")
+        self.assertIn("geliştirme listeme ekledim", hint)
+        self.assertEqual(await gap_skills.auto_gap_hint(self.pool, self.u, "bana uçak bileti al", "Üzgünüm, bunu şu an yapamıyorum."), "")
+        self.assertEqual(await gap_skills.auto_gap_hint(self.pool, self.u, "Roma nedir", "Roma İtalya'nın başkentidir."), "")
+        self.assertEqual(await gap_skills.auto_gap_hint(self.pool, self.u, "Roma neden yıkıldı", "Bunu yapamıyorum ama anlatayım"), "")
+        data = await ops.export_owner_data(self.pool, self.u)
+        self.assertTrue(data["capability_gaps"])
 
 
 if __name__ == "__main__":

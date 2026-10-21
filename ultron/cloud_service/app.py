@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from capability_readiness import readiness
-from instant_skills import instant_reply, clock_context, SKILL_SUMMARY
-import style_skills, voice_skills, feedback_skills, shape_library
+from instant_skills import instant_reply, clock_context, SKILL_SUMMARY, THINKING_GUIDE
+import style_skills, voice_skills, feedback_skills, shape_library, gap_skills
 import phone_skills
 import missions
 import infra
@@ -2050,7 +2050,7 @@ async def chat(request: web.Request) -> web.Response:
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
         user_message=text, read_only=True, has_prior_turns=bool(turns),
-    ) + "\n" + clock_context() + SKILL_SUMMARY + style_skills.style_instruction(await style_skills.get_style(pool, request["user_id"]))
+    ) + "\n" + clock_context() + SKILL_SUMMARY + THINKING_GUIDE + style_skills.style_instruction(await style_skills.get_style(pool, request["user_id"]))
     if research_result is not None:
         system_instruction += build_research_prompt_block(research_result)
     youtube_request = phone_skills.youtube_request(text)
@@ -2084,6 +2084,8 @@ async def chat(request: web.Request) -> web.Response:
             reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
             if research_result is not None:
                 reply = append_research_sources(reply, research_result)
+            else:
+                reply += await gap_skills.auto_gap_hint(pool, request["user_id"], text, reply)
     except Exception as exc:
         error_code = _safe_provider_error(exc)
         await pool.execute(

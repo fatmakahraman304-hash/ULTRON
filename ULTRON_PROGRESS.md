@@ -862,3 +862,6 @@ Not changed: older `_CORRECT` quadratic whitespace backtracking (bounded by the 
 
 ## 2026-10-21 — Spoken hologram requests; feature level list
 Live voice can now show a shape: `control_phone_ui` accepts `action=hologram` (query ≤100 chars, required), the PWA turns it into `hologramda <shape> göster` → shape library / model; one line added to the voice policy (still < 3000 chars); SW cache v85. New `GOLGE_OZELLIK_SEVIYELERI.md`: every phone and laptop feature with an evidence-based level (S0–S4) and an explicit list of what was never run on a real device.
+
+## 2026-10-21 — Capability-gap backlog and thinking guide
+`gap_skills.py` + `capability_gaps`: GÖLGE records what it could not do (model inability phrases → `auto` gaps with a one-line hint; "eksik: …" by the owner), lists them, and "eksik N'i geliştir" creates a `dev_requests` row (AGENTS.md rules embedded) and, with an online laptop, a laptop task that asks only for a patch PROPOSAL (no writes without the owner's approval). Voice can list/add but never build. Chat system instruction gained `THINKING_GUIDE` (step-by-step reasoning, assumptions, runnable code, honest limits, never claim self-modification). Approval gate, audit, SelfCodeBoundary and PR-only flow untouched. Export includes gaps. Real-PostgreSQL test covers the whole flow; corpus 488/488, hijacked chat 0/190.

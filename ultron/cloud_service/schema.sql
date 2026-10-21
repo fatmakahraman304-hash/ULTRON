@@ -496,3 +496,15 @@ CREATE TABLE IF NOT EXISTS owner_routines (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (user_id, name)
 );
+
+-- Backlog of things GÖLGE could not do; the owner decides which become approved development requests.
+CREATE TABLE IF NOT EXISTS capability_gaps (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  request TEXT NOT NULL CHECK (length(request) BETWEEN 4 AND 300),
+  source TEXT NOT NULL DEFAULT 'owner' CHECK (source IN ('owner','auto')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','requested','dismissed')),
+  dev_request_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_capability_gaps_user ON capability_gaps(user_id, status, id DESC);

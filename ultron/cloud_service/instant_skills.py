@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills, routine_skills, weekly_skills, journal_skills, utility_skills, style_skills, recall_skills, feedback_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills, gap_skills, routine_skills, weekly_skills, journal_skills, utility_skills, style_skills, recall_skills, feedback_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -38,6 +38,7 @@ else:
     import habit_skills
     import nav_skills
     import focus_skills
+    import gap_skills
     import routine_skills
     import weekly_skills
     import journal_skills
@@ -748,6 +749,7 @@ HELP_TEXT = (
     "🛒 Liste/harcama: “alışveriş listesine süt ekle”, “150 lira market harcaması ekle”, “bu ay ne kadar harcadım”, “aylık bütçem 15000 tl”, “bütçe durumu”, “10 dakika zamanlayıcı kur”\n"
     "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “Ahmet hakkında ne biliyorsun”, “dün ne konuştuk”, “nerede kalmıştık”, “hafıza özeti”, “son notlarım”, “düzelt: kahve => sade kahve”, “hafızada kahve notumun geçmişi”, “unut: …”\n"
     "🎲 Pratik: “yazı tura at”, “2 zar at”, “seç: pizza, lahmacun”, “45 gün sonra hangi gün”, “850 tl 4 kişi böl”, “%10 bahşiş”, “boyum 180 kilom 75”, “15.03.1990 doğumluyum kaç yaşındayım”\n"
+    "🛠 Kendini geliştirme: “eksik: …” (yapamadığın şeyi listeye ekle), “eksiklerim”, “eksik 3'ü geliştir” (onaylı geliştirme isteği; kod değişiklikleri senin onayın ve testlerden geçer)\n"
     "🔁 Rutin: “akşam rutini: ilaç iç, su iç, yarını planla”, “akşam rutinini başlat”, “rutinlerim”\n"
     "📊 Haftalık: “haftalık özet”, “geçen hafta nasıldı” (plan, alışkanlık, harcama, günlük)\n"
     "📓 Günlük: “günlüğe yaz: bugün çok verimliydim”, “günlüğüm”, “dünkü günlüğüm”, “günlüğümde kahve geçenler”\n"
@@ -798,6 +800,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
         reply = await journal_skills.handle(text, pool, user_id, now) if _may(allow, "journal") else None
         if reply:
             return {"skill": "journal", "reply": reply}
+        reply = await gap_skills.handle(text, pool, user_id, "golge-chat", can_build=allow is None) if _may(allow, "gaps") else None
+        if reply:
+            return {"skill": "gaps", "reply": reply}
         reply = await routine_skills.handle(text, pool, user_id, now) if _may(allow, "routines") else None
         if reply:
             return {"skill": "routines", "reply": reply}
@@ -890,6 +895,17 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     return None
 
 
+THINKING_GUIDE = (
+    "\nTHINKING AND SELF-IMPROVEMENT: For complex or open-ended requests reason step by step before answering, "
+    "consider alternatives and trade-offs, state assumptions, and give the answer first, then the short reasoning. "
+    "Ask at most one clarifying question and only when the answer would change materially. For code requests write "
+    "complete, runnable code with a brief explanation and its limits. If you cannot do something with GÖLGE's current "
+    "skills or tools, say exactly what is missing and offer the closest alternative; GÖLGE records such requests in its "
+    "improvement list and the owner can approve a development request. Never claim you changed your own code, memory "
+    "or settings: code changes happen only through the owner-approved development flow (patch proposal, owner approval, "
+    "tests, pull request).\n"
+)
+
 SKILL_SUMMARY = (
     "GÖLGE INSTANT SKILLS (answered exactly, without the model): current time/date and world "
     "clocks, countdowns to dates, calculator and percentages, unit conversion, live weather "
@@ -931,7 +947,7 @@ def wants_cloud_skill(text: str) -> bool:
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded) or memory_skills._CORRECT.match(folded) or memory_skills._HISTORY.match(folded)
         or phone_skills.wants_news(text) or phone_skills.wants_flight(text) or smart_home.wants_smart_home(text) or knowledge_skills.wants_knowledge(text)
-        or answer_help(text) or list_skills.wants_lists(text) or expense_skills.wants_expenses(text) or birthday_skills.wants_birthdays(text) or habit_skills.wants_habits(text) or focus_skills.wants_focus(text) or nav_skills.wants_navigation(text) or routine_skills.wants_routines(text) or weekly_skills.wants_weekly(text) or journal_skills.wants_journal(text) or style_skills.wants_style(text) or recall_skills.wants_recall(text) or feedback_skills.wants_feedback(text)
+        or answer_help(text) or list_skills.wants_lists(text) or expense_skills.wants_expenses(text) or birthday_skills.wants_birthdays(text) or habit_skills.wants_habits(text) or focus_skills.wants_focus(text) or nav_skills.wants_navigation(text) or gap_skills.wants_gaps(text) or routine_skills.wants_routines(text) or weekly_skills.wants_weekly(text) or journal_skills.wants_journal(text) or style_skills.wants_style(text) or recall_skills.wants_recall(text) or feedback_skills.wants_feedback(text)
         or alert_skills.parse_alert(text) or alert_skills._LIST.search(folded) or alert_skills._CANCEL.search(folded)
         or re.search(r"\baksam (?:ozet\w*|hazirlik\w*)\b", folded)
         or (plan_skills._ADD.search(folded) and not plan_skills._NOT_A_PLAN.search(folded)) or (plan_skills._FREE_Q.search(folded) and not plan_skills._FREE_SKIP.search(folded) and len(folded) <= 60) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)

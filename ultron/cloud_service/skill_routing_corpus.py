@@ -225,3 +225,9 @@ CASES += [
     ("rutinlerim", "routines"), ("akşam rutinini sil", "routines"), ("rutin kaydet sabah: su iç, ilaç al", "routines"),
     ("bugün rutin işlerim çok", None), ("rutin kontrol için hastaneye gittim", None), ("rutinim bozuldu", None),
 ]
+
+CASES += [
+    ("eksik: telefonumdaki rehberden kişi bulabilsin", "gaps"), ("eksiklerim", "gaps"), ("eksik 3'ü geliştir", "gaps"), ("eksik 2'yi vazgeç", "gaps"),
+    ("geliştirme listem", "gaps"), ("bunu öğren: yarınki maç saatini söylesin", "gaps"),
+    ("eksiklerimi kapatmak için ne yapmalıyım", None), ("eksik malzemeleri say", None), ("eksik bir şey var gibi", None),
+]
