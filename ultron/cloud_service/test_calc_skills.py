@@ -59,6 +59,17 @@ class CalcTests(unittest.TestCase):
         self.assertIn("294. günü", self.a("yılın kaçıncı günü"))
         self.assertIn("6 kişilik tarif (×1,5): 3 bardak un, 4,5 yumurta", self.a("tarif 4 kişilik 6 kişiliğe: 2 bardak un, 3 yumurta"))
 
+    def test_calendar_facts(self):
+        self.assertIn("29 gün", self.a("2028 artık yıl mı"))
+        self.assertIn("artık yıl değil", self.a("2100 artık yıl mı"))
+        self.assertIn("artık yıl, Şubat 29", self.a("2000 artık yıl mı"))
+        self.assertIn("Ekim 2026 31 gün", self.a("bu ay kaç gün var"))
+        self.assertIn("Şubat 2028 29 gün", self.a("şubat 2028 kaç gün çeker"))
+        self.assertIn("%80,8", self.a("yılın yüzde kaçı geçti"))
+        self.assertIn("70 gün", self.a("yıl sonuna kaç gün kaldı"))
+        self.assertIn("7 saat geride", self.a("istanbul ile new york arasında saat farkı kaç"))
+        self.assertIsNone(self.a("artık yıl nedir"))
+
     def test_text_and_codes(self):
         self.assertEqual(self.a("büyük harf yap: istanbul ığdır"), "İSTANBUL IĞDIR")
         self.assertEqual(self.a("küçük harf yap: IĞDIR İZMİR"), "ığdır izmir")

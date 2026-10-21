@@ -474,6 +474,30 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         await self.say("sessiz saatler 22 ile 6")                          # other prefs keep the riddle
         self.assertEqual(await self.pool.fetchval("SELECT prefs->'riddle'->>'a' FROM owner_prefs WHERE user_id=$1", self.u), answer)
 
+    async def test_smart_scheduling_proposal_confirm_countdown_postpone(self):
+        now = datetime(2026, 10, 21, 9, 0, tzinfo=timezone.utc)          # 12:00 Istanbul
+        await self.pool.execute("INSERT INTO owner_plans(user_id,title,scheduled_date,scheduled_time) VALUES($1,'Toplantı','2026-10-22','10:00')", self.u)
+        proposal = await self.say("yarın şu işleri sığdır: rapor 2 saat, spor 1 saat, alışveriş 45 dk", now=now)
+        self.assertIn("09:00–10:00  spor", proposal)                 # the only free hour before the 10:00 meeting
+        self.assertIn("11:00–13:00  rapor", proposal)                # meeting occupies 10:00–11:00
+        self.assertIn("planı onayla", proposal)
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_plans WHERE user_id=$1", self.u), 1)   # nothing written yet
+        self.assertIn("3 bloğu", await self.say("planı onayla", now=now))
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_plans WHERE user_id=$1", self.u), 4)
+        self.assertIn("Onaylanacak bir öneri yok", await self.say("planı onayla", now=now))
+        self.assertIn("hiçbir plan eklenmedi", await self.say("planı vazgeç", now=now))
+        # countdown and next plan
+        self.assertIn("22 saat kaldı", await self.say("toplantıya ne kadar kaldı", now=now))
+        self.assertIsNone(await self.say("yoktur diye bir şeye ne kadar kaldı", now=now))
+        self.assertIn("spor — 22.10 09:00", await self.say("sıradaki planım", now=now))
+        # postponing needs a unique match
+        self.assertIn("23.10.2026 tarihine erteledim", await self.say("toplantı planını yarına ertele", now=now))
+        self.assertIn("içeren bir planın yok", await self.say("yüzme planını yarına ertele", now=now))
+        # today starts from the current time, rounded up to a quarter hour
+        today_plan = await self.say("bugün şu işleri sığdır: kitap 1 saat", now=now)
+        self.assertIn("12:00–13:00  kitap", today_plan)
+        await self.say("planı vazgeç", now=now)
+
 
 if __name__ == "__main__":
     unittest.main()

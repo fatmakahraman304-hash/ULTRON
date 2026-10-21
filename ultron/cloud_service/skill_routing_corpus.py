@@ -255,3 +255,10 @@ CASES += [
     ("göz dinlendirme", "fun"), ("esneme hareketleri", "fun"), ("tasarruf ipucu", "fun"), ("verimlilik ipucu", "fun"), ("uyku hijyeni", "fun"),
     ("motivasyon nedir", None), ("espri anlıyor musun", None), ("bilgi ver", None), ("tavsiye ver", None), ("deyim öğrenmek istiyorum", None),
 ]
+
+CASES += [
+    ("2028 artık yıl mı", "calc"), ("şubat kaç çeker", "calc"), ("yılın yüzde kaçı geçti", "calc"), ("yıl sonuna kaç gün kaldı", "calc"),
+    ("istanbul ile new york arasında saat farkı kaç", "calc"), ("bugün şu işleri sığdır: rapor 2 saat, spor 1 saat", "schedule"),
+    ("planı onayla", "schedule"), ("planı vazgeç", "schedule"), ("sıradaki planım", "schedule"), ("diş randevusu planını yarına ertele", "schedule"),
+    ("artık yıl nedir", None), ("planım yok", None),
+]

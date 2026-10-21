@@ -392,13 +392,56 @@ _CITIES = {"istanbul": "Europe/Istanbul", "ankara": "Europe/Istanbul", "izmir": 
 _CITY_RX = "|".join(sorted(_CITIES, key=len, reverse=True))
 
 
+def _city(name: str) -> str:
+    return " ".join(("İ" if w[:1] == "i" else w[:1].upper()) + w[1:] for w in name.split())
+
+
 def _tz(m, today: date):
     src, hh, mm, dst = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
     if not (0 <= hh <= 23 and 0 <= mm <= 59):
         return None
     t = datetime.combine(today, time(hh, mm), tzinfo=ZoneInfo(_CITIES[src])).astimezone(ZoneInfo(_CITIES[dst]))
     day = "" if t.date() == today else (" (ertesi gün)" if t.date() > today else " (önceki gün)")
-    return f"{src.title()} {hh:02d}:{mm:02d} → {dst.title()} {t:%H:%M}{day}."
+    return f"{_city(src)} {hh:02d}:{mm:02d} → {_city(dst)} {t:%H:%M}{day}."
+
+
+# ── calendar facts ───────────────────────────────────────────────────────────
+
+def _is_leap(y: int) -> bool:
+    return y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)
+
+
+def _leap(m, today: date):
+    year = int(m.group(1)) if m.group(1) else today.year
+    if not 1 <= year <= 9999:
+        return None
+    return f"{year} artık yıl, Şubat 29 gün çeker." if _is_leap(year) else f"{year} artık yıl değil, Şubat 28 gün çeker."
+
+
+def _month_days(m, today: date):
+    name = m.group(1)
+    month = _MONTHS[name] if name else today.month
+    year = int(m.group(2)) if m.group(2) else today.year
+    if not 1 <= year <= 9999:
+        return None
+    days = (date(year + (month == 12), month % 12 + 1, 1) - date(year, month, 1)).days
+    return f"{_TR_MONTHS[month - 1]} {year} {days} gün çeker."
+
+
+def _year_progress(today: date):
+    total = 366 if _is_leap(today.year) else 365
+    doy = today.timetuple().tm_yday
+    return f"{today.year} yılının %{n2(doy / total * 100, 1)}'i geçti ({doy}/{total} gün), {total - doy} gün ({n2((total - doy) / 7, 1)} hafta) kaldı."
+
+
+def _tz_diff(m, today: date):
+    a, b = m.group(1), m.group(2)
+    noon = datetime.combine(today, time(12, 0))
+    offset = lambda city: ZoneInfo(_CITIES[city]).utcoffset(noon)  # noqa: E731
+    diff = (offset(b) - offset(a)).total_seconds() / 3600
+    if diff == 0:
+        return f"{_city(a)} ile {_city(b)} arasında saat farkı yok."
+    return f"{_city(b)}, {_city(a)}'dan {n2(abs(diff), 1)} saat {'ileride' if diff > 0 else 'geride'} (bugünün yaz/kış saati dikkate alındı)."
 
 
 # ── text, colour, codes ──────────────────────────────────────────────────────
@@ -505,6 +548,10 @@ _HEX_RGB = re.compile(r"^#?([0-9a-f]{6})\s+(?:rgb|renk)\w*(?:\s+kac)?\s*\??$")
 _RGB_HEX = re.compile(r"^rgb\s*\(?\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*[, ]\s*(\d{1,3})\s*\)?\s*(?:hex|kac)?\s*\??$")
 _RECIPE = re.compile(r"^tarif\s+(\d{1,3})\s*kisilik\w*\s*(?:dan|den|ten|tan)?\s*(\d{1,3})\s*kisilig\w*\s*[:\-]\s*(.+)$", re.S)
 _WEEK = re.compile(r"^(?:bugun\s+)?yilin\s+kacinci\s+(?:gunu|haftasi)\w*\s*\??$|^hafta\s+kac\s*\??$|^bu\s+hafta\s+kacinci\s+hafta\s*\??$")
+_LEAP_RX = re.compile(r"^(?:(\d{4})|bu\s+yil)\s+(?:artik\s+yil\s+mi|subat\s+kac\s+cekiyor)\s*\??$")
+_MONTH_DAYS_RX = re.compile(rf"^(?:({_MON})(?:\s+ayi)?(?:\s+(\d{{4}}))?\s+kac\s+(?:gun(?:\s+cek\w*)?|cek\w*)|bu\s+ay\s+kac\s+gun\s+var)\s*\??$")
+_YEAR_PROGRESS_RX = re.compile(r"^yilin\s+(?:yuzde\s+kaci\s+gecti|ne\s+kadari\s+gecti)\s*\??$|^yil\s+sonuna\s+kac\s+(?:gun|hafta)\s+(?:kaldi|var)\s*\??$|^yilin\s+bitmesine\s+kac\s+gun\s+(?:kaldi|var)\s*\??$")
+_TZDIFF_RX = re.compile(rf"^({_CITY_RX})\s+(?:ile|ve)\s+({_CITY_RX})\s+arasinda\s+saat\s+farki\s+(?:kac|ne\s+kadar)\s*\??$")
 _HOLIDAY = re.compile(r"^(?:(?:siradaki|sonraki|bir\s+sonraki)\s+resmi\s+tatil\w*(?:\s+ne\s+zaman|\s+ne)?|resmi\s+tatiller\w*(?:\s+neler)?)\s*\??$")
 
 
@@ -531,6 +578,17 @@ def answer(text: str, now: datetime | None = None) -> str | None:
             return None
         if _WEEK.match(f):
             return _week_info(today)
+        m = _LEAP_RX.match(f)
+        if m:
+            return _leap(m, today)
+        m = _MONTH_DAYS_RX.match(f)
+        if m:
+            return _month_days(m, today)
+        if _YEAR_PROGRESS_RX.match(f):
+            return _year_progress(today)
+        m = _TZDIFF_RX.match(f)
+        if m:
+            return _tz_diff(m, today)
         m = _HOLIDAY.match(f)
         if m:
             return _holidays(today, "siradaki" in f or "sonraki" in f)

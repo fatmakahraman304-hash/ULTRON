@@ -871,3 +871,6 @@ Live voice can now show a shape: `control_phone_ui` accepts `action=hologram` (q
 
 ## 2026-10-21 — Companion content (`fun_skills.py`, 20 commands)
 Motivation, proverbs and idioms with meanings, jokes, verified-fact snippets, word of the day (stable per day), riddles (answer kept per owner in `owner_prefs.riddle`), rock-paper-scissors, magic 8-ball, meal ideas, 4-7-8 breathing, 20-20-20 eye rest, desk stretches (both with "not medical advice" notes), saving/productivity/sleep-hygiene tips, compliments. Creative requests ("bana bir fıkra anlat") deliberately stay with the model. Routing corpus 556/556, hijacked chat 0/205.
+
+## 2026-10-21 — Smart scheduling and calendar facts
+`schedule_skills.py`: "bugün/yarın şu işleri sığdır: rapor 2 saat, spor 1 saat" → first-fit time blocks inside free windows (09:00–21:00, from "now" for today, existing plans and iCal events subtracted, 10-min buffer), shown as a proposal; only "planı onayla" writes plans, "planı vazgeç" drops it; "toplantıya ne kadar kaldı", "sıradaki planım", "X planını yarına/haftaya/N gün sonraya ertele" (unique match only). `calc_skills.py` gained leap-year, days-in-month, year progress and time-zone difference. Real-PostgreSQL test covers proposal → confirm → countdown → postpone; corpus 568/568, hijacked chat 0/207.
