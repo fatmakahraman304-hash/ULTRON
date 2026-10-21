@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -29,6 +29,7 @@ else:
     import proactive
     import plan_skills
     import smart_home
+    import knowledge_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -737,6 +738,10 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
         reply = await answer_weather(text, fetch_json, now, location)
         if reply:
             return {"skill": "weather", "reply": reply}
+    if fetch_json is not None:
+        known = await knowledge_skills.answer(text, fetch_json, now, location)
+        if known:
+            return {"skill": known[0], "reply": known[1]}
     reply = phone_skills.answer_flight(text, now)
     if reply:
         return {"skill": "flight", "reply": reply}
@@ -795,7 +800,7 @@ def wants_cloud_skill(text: str) -> bool:
         or reminders.has_reminder_intent(text) or reminders._LIST_Q.search(folded) or reminders._CANCEL_Q.search(folded)
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
-        or phone_skills.wants_news(text) or phone_skills.wants_flight(text) or smart_home.wants_smart_home(text)
+        or phone_skills.wants_news(text) or phone_skills.wants_flight(text) or smart_home.wants_smart_home(text) or knowledge_skills.wants_knowledge(text)
         or plan_skills._ADD.search(folded) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)
         or re.search(r"\bbildirim ayarlarim\b|\bproaktif\b|\bsessiz saat\w*\b|\bsabah (?:brifing\w*|ozet\w*)\b.*\bbildirim|\bkendiliginden uyar", folded)
         or (_FX_Q.search(folded) and _CUR_TOKEN.search(folded) and not _FX_SKIP.search(folded))
