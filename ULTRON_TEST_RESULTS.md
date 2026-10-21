@@ -1,3 +1,27 @@
+## 2026-10-21 — Tek beyin entegrasyon turu
+
+- `./.venv/Scripts/python.exe -m pytest -q` (tam paket, proje venv): **1381 passed, 4 skipped, 6 subtests passed** (~80s). **Not:** global `python` ile çalıştırılırsa `pypdf` eksik olduğundan 2 test yanlış FAIL verir — `.venv\Scripts\python.exe` kullanılmalı.
+- `pytest ultron/backend/tests/test_cloud_dispatch_journal.py -v`: **11/11 PASS** (sqlite connection-leak fix sonrası; önceden Windows dosya kilidi yüzünden teardown'da PermissionError veriyordu).
+- `pytest -k mark_core_preserved`: **PASS** (launcher/doctor PYTHONPATH fix sonrası; önce `ModuleNotFoundError: No module named 'cloud_client'` ile FAIL idi).
+- `pytest tests/test_whatsapp_core.py -v`: **7/7 PASS** (mock pywinauto/pyautogui/pyperclip; gerçek pencereye hiçbir tuş/mesaj gönderilmedi).
+- `pytest tests/test_clipboard_typing.py -v`: **9/9 PASS** (Türkçe karakter + pano geri-yükleme regresyonu).
+- `pytest tests/test_open_app.py -v`: **4/4 PASS** (mock pencere algılama).
+- **Gerçek cihaz (Windows laptop, bu oturumda fiilen çalıştırıldı):**
+  - `open_app.open_app({'app_name':'calculator'})` → Hesap Makinesi gerçekten açıldı, yeni pencere "Hesap Makinesi" olarak doğru tespit edildi. **PASS**.
+  - `open_app.open_app({'app_name':'sistem hakkında'})` → `ms-settings:about` gerçekten açıldı (Ayarlar penceresi `Get-Process` ile doğrulandı), ancak Ayarlar zaten açık olduğundan "yeni pencere" testi negatif sonuç verdi; kod yanlış başarı iddia etmedi, dürüst "doğrulanamadı" mesajı döndü. **PASS (dürüst sınır davranışı)**, pencere-zaten-açıkken-doğrulama senaryosu **NOT RUN** olarak kalıyor.
+  - WhatsApp gerçek pencere yapısı salt-okunur incelendi (kullanıcının kendi "Siz" sohbeti, üçüncü kişi mesajı görülmedi); gerçek bir kişiye mesaj gönderimi bu oturumda **NOT RUN** (kurallara uygun olarak).
+- Telefon→laptop gerçek cihaz testi (fiziksel iPhone), ekran OCR/buton tespiti, Word'e Türkçe yazı yazma gerçek doğrulaması, Render canlı metrik ölçümü: **NOT RUN** bu oturumda (altyapı/kod incelemesiyle doğrulandı, fiziksel doğrulama bekliyor).
+
+## 2026-10-20 — Local Turkish prompt and safe-recipient regression
+
+- `python -m pytest tests/image_local/test_turkish_prompt.py -q`: **5 passed** after adding the omitted-sentence fallback and CPU-only Ollama option assertions.
+- `python -m pytest tests/image_local/test_turkish_prompt.py tests/image_local/test_comfyui.py -q`: **16 passed**.
+- `python -m py_compile integration/turkish_prompt.py integration/comfyui_image.py`: **PASS**.
+- `PYTHONPATH=ultron/backend python -m pytest tests/test_integration.py -k live_message_sender -q`: **2 passed, 35 deselected**. Verifies recipient/body display before mocked acceptance, no pre-acceptance send, and refusal for missing recipient or unverified platform.
+- A manual Qwen response to a related test prompt omitted the final window/lamp lighting sentence and translated `loş` as `dusty`. Added sentence-count fallback and a specific lexical disambiguation. The integrated CPU-only Qwen3:4b call then preserved all four sentences; `ollama ps` confirmed **100% CPU**. End-to-end ComfyUI/GPU rendering remains untested; no WhatsApp message was sent.
+- Initial ComfyUI run exposed a stale expected style string (`Ferrari, photo`) after the existing prompt enhancer had added photorealism/lighting; updated the contract to match the preserved enhancement, then the focused suite passed.
+- Paid API, new model download, PR/commit, merge and deployment: **NOT RUN**.
+
 ## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
 
 [Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.

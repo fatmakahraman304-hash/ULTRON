@@ -60,7 +60,13 @@ class RemoteDispatchJournal:
 
             # No plaintext task contents or tokens are persisted in this file.
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            with sqlite3.connect(str(self.path), timeout=3.0, isolation_level=None) as db:
+            # sqlite3's own context manager only commits/rolls back the
+            # transaction — it does NOT close the connection. Without the
+            # explicit close() below, each reserve() leaks a connection that
+            # holds a file lock (fatal on Windows: later opens/cleanup of the
+            # same path fail with a sharing-violation PermissionError).
+            db = sqlite3.connect(str(self.path), timeout=3.0, isolation_level=None)
+            try:
                 db.execute("PRAGMA synchronous=FULL")
                 db.execute("BEGIN IMMEDIATE")
                 try:
@@ -86,6 +92,8 @@ class RemoteDispatchJournal:
                 except BaseException:
                     db.execute("ROLLBACK")
                     raise
+            finally:
+                db.close()
         except (OSError, sqlite3.Error, ValueError, TypeError, OverflowError) as exc:
             raise JournalUnavailable(
                 f"Desktop dispatch journal unavailable: {type(exc).__name__}"

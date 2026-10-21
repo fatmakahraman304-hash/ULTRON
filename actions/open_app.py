@@ -62,7 +62,57 @@ _APP_ALIASES: dict[str, dict[str, str]] = {
     "steam":              {"Windows": "steam",                   "Darwin": "Steam",                "Linux": "steam"},
     "epic":               {"Windows": "EpicGamesLauncher",       "Darwin": "Epic Games Launcher",  "Linux": "legendary"},
     "epic games":         {"Windows": "EpicGamesLauncher",       "Darwin": "Epic Games Launcher",  "Linux": "legendary"},
+    "about":              {"Windows": "ms-settings:about",       "Darwin": "System Preferences",   "Linux": "gnome-control-center info-overview"},
+    "system info":        {"Windows": "ms-settings:about",       "Darwin": "System Preferences",   "Linux": "gnome-control-center info-overview"},
+    "sistem bilgisi":     {"Windows": "ms-settings:about",       "Darwin": "System Preferences",   "Linux": "gnome-control-center info-overview"},
+    "sistem hakkında":    {"Windows": "ms-settings:about",       "Darwin": "System Preferences",   "Linux": "gnome-control-center info-overview"},
+    "bilgisayar hakkında": {"Windows": "ms-settings:about",      "Darwin": "System Preferences",   "Linux": "gnome-control-center info-overview"},
 }
+
+
+def _window_titles() -> set[str]:
+    """Snapshot of visible top-level window titles. Windows-only, best-effort.
+
+    Used only to confirm a new window actually appeared after launching —
+    not a general system inventory, so it skips the per-window process-name
+    lookup actions/system_monitor.py does for its (opt-in, heavier) report.
+    """
+    if _SYSTEM != "Windows":
+        return set()
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        titles: set[str] = set()
+        callback_type = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+        @callback_type
+        def collect(hwnd, _):
+            if user32.IsWindowVisible(hwnd):
+                length = user32.GetWindowTextLengthW(hwnd)
+                if 0 < length <= 512:
+                    buf = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(hwnd, buf, length + 1)
+                    if buf.value:
+                        titles.add(buf.value)
+            return True
+
+        user32.EnumWindows(collect, 0)
+        return titles
+    except Exception:
+        return set()
+
+
+def _wait_for_new_window(before: set[str], timeout: float = 6.0) -> str | None:
+    """Poll for a window title that was not present before launching."""
+    if _SYSTEM != "Windows":
+        return None
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        new_titles = _window_titles() - before
+        if new_titles:
+            return sorted(new_titles)[0]
+        time.sleep(0.3)
+    return None
 
 
 def _normalize(raw: str) -> str:
@@ -258,16 +308,25 @@ def open_app(
     if player:
         player.write_log(f"[open_app] {app_name}")
 
+    before = _window_titles()
     try:
-        if launcher(normalized):
-            return f"Opened {app_name}."
-        if normalized.lower() != app_name.lower():
-            if launcher(app_name):
-                return f"Opened {app_name}."
-        return (
-            f"Could not confirm that {app_name} launched. "
-            f"It may still be loading, or it might not be installed."
-        )
+        launched = launcher(normalized)
+        if not launched and normalized.lower() != app_name.lower():
+            launched = launcher(app_name)
+        if not launched:
+            return (
+                f"Could not confirm that {app_name} launched. "
+                f"It may still be loading, or it might not be installed."
+            )
+        new_title = _wait_for_new_window(before)
+        if new_title:
+            return f"Opened {app_name} (window: {new_title})."
+        if _SYSTEM == "Windows":
+            # Honest about the gap: the launch command didn't raise, but no
+            # new top-level window showed up — could be a slow start, a
+            # tray-only app, or a window that merged into an existing one.
+            return f"{app_name} için başlatma komutu gönderildi; yeni bir pencere açıldığı doğrulanamadı."
+        return f"Opened {app_name}."
     except Exception as e:
         print(f"[open_app] Error: {e}")
         return f"Failed to open {app_name}: {e}"

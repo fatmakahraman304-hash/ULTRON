@@ -15,13 +15,7 @@ try:
 except ImportError:
     _PYAUTOGUI = False
 
-try:
-    import pyperclip
-    _PYPERCLIP = True
-except ImportError:
-    _PYPERCLIP = False
-
-from core import confirm
+from core import clipboard_safe, confirm
 from core.undo import push_undo
 
 _OS = platform.system()  # "Windows" | "Darwin" | "Linux"
@@ -435,11 +429,9 @@ def press_key(key: str): pyautogui.press(key)
 def type_text(text: str, press_enter_after: bool = False):
     if not text:
         return
-    if _PYPERCLIP:
-        pyperclip.copy(str(text))
-        time.sleep(0.15)
-        paste()
-    else:
+    # Restores the clipboard after pasting instead of leaving the user's own
+    # copied content permanently overwritten by this automation step.
+    if not clipboard_safe.paste_text(str(text), mac=_OS == "Darwin"):
         pyautogui.write(str(text), interval=0.03)
     if press_enter_after:
         time.sleep(0.1)

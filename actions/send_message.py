@@ -12,11 +12,7 @@ try:
 except ImportError:
     _PYAUTOGUI = False
 
-try:
-    import pyperclip
-    _PYPERCLIP = True
-except ImportError:
-    _PYPERCLIP = False
+from core import clipboard_safe
 
 def _base_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -41,16 +37,12 @@ def _require_pyautogui():
 def _paste_text(text: str) -> None:
     _require_pyautogui()
 
-    os_name = _get_os()
-    paste_hotkey = ("command", "v") if os_name == "mac" else ("ctrl", "v")
-
-    if _PYPERCLIP:
-        pyperclip.copy(text)
-        time.sleep(0.15)
-        pyautogui.hotkey(*paste_hotkey)
-        time.sleep(0.1)
-    else:
-        pyautogui.write(text, interval=0.03)
+    # clipboard_safe restores whatever was on the clipboard before this call
+    # once the paste lands, instead of leaving the user's own copied content
+    # permanently overwritten by this automation step.
+    if clipboard_safe.paste_text(text, mac=_get_os() == "mac"):
+        return
+    pyautogui.write(text, interval=0.03)
 
 
 def _clear_and_paste(text: str) -> None:

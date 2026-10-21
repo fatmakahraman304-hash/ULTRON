@@ -1,3 +1,17 @@
+## 2026-10-21 — Telefon/laptop tek-claim mimarisi ve dürüst doğrulama
+
+Mimari karar: phone→laptop `agent_task` komutlarının tek yetkili yürütücüsü `mark_app.py`'nin asyncio `_cloud_remote_loop`'u — durable dispatch journal, lease guard, 180s deadline ve Gemini `turn_complete` doğrulamasıyla. `integration/web_panel.py`'nin Qt tabanlı ikinci claim döngüsü bu komut için devre dışı bırakıldı (diğer basit toggle komutları — wake/mute/unmute/interrupt/sync_memory — orada kalabilir, idempotent oldukları için zararsız). Bu, "masaüstü ve telefonun farklı kararlar vermesini önle" ve "tek görev iki kez çalışmasın" hedeflerine doğrudan karşılık geliyor.
+
+Masaüstü otomasyonunda tek bir kalıcı prensip kondu: pano tabanlı metin girişi (`core/clipboard_safe.py`) her yerde kullanıcının önceki pano içeriğini geri yükler ve pyautogui'nin Unicode sınırını (Türkçe harfler dahil) otomatik algılayıp aşar — yeni bir "ikinci yazma sistemi" değil, var olan dört farklı yazma yolunun (computer_control, send_message, computer_settings, whatsapp_core) ortak güvenli katmanı.
+
+Render 23-30 dk gecikmesi için tahmine dayalı değişiklik yapılmadı; `ultron/cloud_service/app.py`'ye geçici, kaldırılabilir zamanlama logları eklendi — kök neden bir sonraki production deploy'un loglarından ölçülecek, henüz PASS/FAIL olarak işaretlenmedi.
+
+## 2026-10-20 — Local Turkish image prompts and safe messaging
+
+A bounded Turkish prompt translator reuses the configured local fast model through Ollama at `127.0.0.1` only. It sends one JSON-schema translation field, runs without tools, is capped at 25 seconds, forces CPU inference to avoid competing with ComfyUI VRAM, and has no cloud/paid fallback or model download. Invalid or incomplete output keeps the Turkish source. The translator checks output sentence count and clarifies that `loş` means `dim/low-lit`; the exact coastal-sunset conversion remains offline. Explicit no-text requests retain `text, watermark` in the SD negative prompt while affirmative text requests remain allowed.
+
+Validation: 5 translator unit tests, 11 ComfyUI/prompt tests, and 2 WhatsApp confirmation tests passed. A manual Qwen response exposed an omitted lighting sentence and `loş` mistranslated as `dusty`; the omission regression and lexical hint now cover these findings. A real integrated Qwen3:4b CPU-only call preserved all four source sentences, and `ollama ps` confirmed `100% CPU`. Translation took about 20 seconds. GPU image output and native confirmation UI remain untested. The original unstaged coastal prompt and heartbeat changes remain intact; no commit, PR, merge or deployment was made.
+
 ## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
 
 [Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.

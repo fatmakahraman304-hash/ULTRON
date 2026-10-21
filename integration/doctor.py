@@ -19,6 +19,15 @@ class Unavailable(RuntimeError):
 
 def probe(name):
     if name == 'MARK imports':
+        # mark_app.py imports cloud_client/cloud_delivery/cloud_dispatch_journal
+        # as bare top-level modules that live under BACKEND, exactly as the real
+        # launcher's PYTHONPATH exposes them (see _ensure_runtime_import_paths
+        # in launcher.py). Without this, the probe fails with a misleading
+        # ModuleNotFoundError instead of testing the actual MARK import surface.
+        # Appended, not inserted at index 0: BACKEND also has its own
+        # ultron/backend/memory.py, which would otherwise shadow the real
+        # top-level memory/ package that mark_app.py needs.
+        sys.path.append(str(BACKEND))
         for mod in ('mark_app','ui','core.gemini','core.audio_devices','core.viseme','core.wake_word','core.echo','actions.browser_control','actions.screen_processor','actions.system_monitor','dashboard.server'):
             importlib.import_module(mod)
     elif name == 'Core dependencies':

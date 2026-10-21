@@ -48,6 +48,14 @@ from development_updates import (register as register_development_routes,
 from google import genai
 from google.genai import types
 
+# Temporary startup-timing breakdown for the Render cold-start investigation
+# (23-30 min observed between "Running 'python app.py'" and "Running on
+# :10000" in production logs, with no blocking call found by code review).
+# Safe to remove once a deploy's logs show where the time actually goes;
+# every print is a single line with a wall-clock timestamp, nothing else
+# changes. See ULTRON_PROGRESS.md for the dated note once measured.
+print(f"startup_timing stage=imports_done ts={time.time():.3f}", flush=True)
+
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 SCHEMA_FILE = BASE_DIR / "schema.sql"
@@ -133,11 +141,14 @@ async def auth_middleware(request: web.Request, handler):
 
 
 async def init_db(app: web.Application) -> None:
+    print(f"startup_timing stage=init_db_start ts={time.time():.3f}", flush=True)
     db_url = required_env("DATABASE_URL")
     app["db"] = await asyncpg.create_pool(db_url, min_size=1, max_size=5, command_timeout=30)
+    print(f"startup_timing stage=db_pool_created ts={time.time():.3f}", flush=True)
     schema = SCHEMA_FILE.read_text(encoding="utf-8")
     async with app["db"].acquire() as conn:
         await conn.execute(schema)
+    print(f"startup_timing stage=schema_applied ts={time.time():.3f}", flush=True)
     # Independent of user HTTP traffic: abandoned microphone-derived queue
     # entries must expire even when both phone and laptop are switched off.
     app["listening_cleanup_task"] = asyncio.create_task(
@@ -146,6 +157,7 @@ async def init_db(app: web.Application) -> None:
     app["uploaded_image_cleanup_task"] = asyncio.create_task(
         uploaded_image_cleanup_loop(app["db"])
     )
+    print(f"startup_timing stage=init_db_done ts={time.time():.3f}", flush=True)
 
 
 async def uploaded_image_cleanup_loop(pool: asyncpg.Pool) -> None:
@@ -2919,5 +2931,8 @@ def build_app() -> web.Application:
 
 
 if __name__ == "__main__":
+    print(f"startup_timing stage=main_start ts={time.time():.3f}", flush=True)
     port = int(os.getenv("PORT", "10000"))
-    web.run_app(build_app(), host="0.0.0.0", port=port)
+    app = build_app()
+    print(f"startup_timing stage=build_app_done ts={time.time():.3f}", flush=True)
+    web.run_app(app, host="0.0.0.0", port=port)

@@ -1,3 +1,18 @@
+## 2026-10-21 — Kalan gerçek cihaz doğrulamaları
+
+1. Bu push sonrası ilk Render cold-start'ının loglarında `startup_timing stage=...` satırlarını oku ve 23-30 dk gecikmenin hangi aşamada olduğunu kaydet (import/DB pool/schema/port). Bulguya göre asıl düzeltme bir SONRAKİ oturumda yapılmalı — henüz tahmine dayalı değişiklik yapılmadı.
+2. `open_app`'ın "yeni pencere belirdi mi" kontrolü, hedef uygulama ZATEN açıksa ayırt edemiyor (Ayarlar→Hakkında testinde görüldü). Gerekirse pencere içeriğini (UI Automation) okuyarak "doğru sayfa" teyidi eklenebilir — şu an kapsam dışı bırakıldı.
+3. Gerçek iPhone üzerinden "laptopumda hesap makinesini aç" / "ekranıma bak" / "Word'e şunu yaz" komutlarının fiziksel telefon-laptop üzerinden doğrulanması **NOT RUN** — kod incelemesiyle doğrulandı (tek claim döngüsü artık `mark_app.py`'de), fiziksel telefon testi bekliyor.
+4. WhatsApp sürücüsü (`plugins/_whatsapp_core.py`) gerçek bir kişiye mesaj göndererek uçtan uca doğrulanmadı (kurallara uygun); kullanıcı kendi isterse kendi "Siz" sohbetiyle fiziksel bir deneme yapabilir.
+5. Ekranda buton/UI elemanı tespiti şu an sadece Gemini'nin görsel modeline dayanıyor (OCR/UI Automation yok) — `actions/computer_control.py:_screen_find`. Yeterli bulundu, ek sistem kurulmadı.
+
+## 2026-10-20 — Turkish prompts and recipient confirmation
+
+1. Translator smoke test is **PASS**: installed Qwen3:4b preserved all four sentences, including `loş` and the window/lamp lighting contrast; `ollama ps` confirmed **100% CPU**. It took about 20 seconds.
+2. Next, restart GÖLGE and test one varied Turkish image request end-to-end through local ComfyUI/SD 1.5, then compare visible-text and no-text requests. Physical RTX output quality, VRAM and generation time are still **NOT RUN**. No model/package download or paid image fallback.
+3. WhatsApp code already shows the exact contact and message on the UI confirmation and does not call the sender before acceptance. Automated mocked confirmation checks are **2/2 PASS**; physical Windows UI check and any actual user-requested send are **NOT RUN**.
+4. Keep the existing heartbeat fix and coastal sunset prompt enhancement. No commit, PR, merge or deployment is authorized by this work.
+
 ## PR #61 — Ücretsiz yerel görsel / CI düzeltmesi
 
 [Taslak PR #61](https://github.com/fatmakahraman304-hash/ULTRON/pull/61), ilk uygulama `1dc4041`. Scene CI yeni Comfy transport testini aiohttp/Pillow kurulmadan önce çalıştırdığı için ModuleNotFoundError ile durdu. Test bağımlılıkların kurulduğu mevcut adımın arkasına taşındı; test/assertion kaldırılmadı. Son commit'in bütün Actions sonuçları PR üzerinde ayrıca doğrulanır. GPU/model/cihaz testleri NOT RUN; paid image çağrısı, PR #59/#60 değişikliği veya merge/deploy yok.

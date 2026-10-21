@@ -11,6 +11,8 @@ import time
 from urllib.parse import urlsplit
 import aiohttp
 
+from integration.turkish_prompt import translate_turkish_prompt
+
 SIZES = {"1:1": (512, 512), "9:16": (384, 640), "16:9": (640, 384)}
 
 
@@ -39,6 +41,54 @@ def local_config(env=None):
     return url.rstrip("/"), checkpoint
 
 
+# Conservative, offline prompt preparation. Full-match templates deliberately
+# avoid partial translation that might discard negation, subjects or quantities.
+_STYLE_HINTS = {
+    'natural': 'natural lighting, highly detailed',
+    'photo': 'photorealistic, natural lighting, highly detailed',
+    'cinematic': 'cinematic composition, cinematic lighting, highly detailed',
+    'anime': 'anime illustration, detailed line art',
+    '3d': '3D render, detailed materials',
+    'digital-art': 'digital art, detailed illustration',
+}
+_COAST_SUNSET = re.compile(
+    r'(?P<place>[\wÇĞİÖŞÜçğıöşü -]{1,80}) (?:sahilinde|kıyısında) '
+    r'gün batımı(?:nın)?(?: (?P<photo>gerçekçi))?(?: bir)?'
+    r'(?: fotoğraf(?:ını|ı)| görsel(?:ini|i)| resm(?:ini|i))?'
+    r'(?: oluştur| çiz| yap)?[.!]?',
+    re.IGNORECASE,
+)
+_TEXT_REQUEST = re.compile(
+    r'\b(?:text|lettering|typography|caption|sign|logo|poster|watermark|'
+    r'yazı\w*|metin\w*|harf\w*|tabela\w*|afiş\w*|filigran\w*)\b',
+    re.IGNORECASE,
+)
+_NO_TEXT_REQUEST = re.compile(
+    r'\b(?:no|without|exclude|avoid|free of|'
+    r'(?:must|should|do|does)\s+not\s+(?:include|show|contain|have))\s+'
+    r'(?:(?:any|visible|readable|extra|additional)\s+)*'
+    r'(?:text|lettering|typography|caption|sign|logo|poster|watermark)\b|'
+    r'\b(?:yazı|metin|harf|tabela|afiş|filigran)\w*'
+    r'(?:\s+[^\s.!?]+){0,3}\s+olmasın\b',
+    re.IGNORECASE,
+)
+
+
+def prepare_sd15_prompt(prompt, style):
+    # Return positive/negative CLIP text without network or model calls.
+    scene = prompt.strip()
+    match = _COAST_SUNSET.fullmatch(scene)
+    hints = _STYLE_HINTS[style]
+    if match:
+        scene = 'sunset on the coast of ' + match.group('place')
+        if match.group('photo') and style == 'natural':
+            hints = _STYLE_HINTS['photo']
+    negative = 'low quality, blurry'
+    if _NO_TEXT_REQUEST.search(prompt) or not _TEXT_REQUEST.search(prompt):
+        negative += ', text, watermark'
+    return scene + ', ' + hints, negative
+
+
 def build_workflow(prompt, ratio, style, checkpoint, seed):
     if (
         not isinstance(prompt, str)
@@ -48,6 +98,7 @@ def build_workflow(prompt, ratio, style, checkpoint, seed):
         raise ValueError("Invalid image request")
     if style not in ("natural", "photo", "cinematic", "anime", "3d", "digital-art"):
         raise ValueError("Invalid style")
+    positive, negative = prepare_sd15_prompt(prompt, style)
     w, h = SIZES[ratio]
     return {
         "1": {
@@ -56,11 +107,11 @@ def build_workflow(prompt, ratio, style, checkpoint, seed):
         },
         "2": {
             "class_type": "CLIPTextEncode",
-            "inputs": {"text": prompt + ", " + style, "clip": ["1", 1]},
+            "inputs": {"text": positive, "clip": ["1", 1]},
         },
         "3": {
             "class_type": "CLIPTextEncode",
-            "inputs": {"text": "low quality, blurry, watermark", "clip": ["1", 1]},
+            "inputs": {"text": negative, "clip": ["1", 1]},
         },
         "4": {
             "class_type": "EmptyLatentImage",
@@ -146,8 +197,17 @@ class ComfyUI:
         import uuid
 
         rid = str(uuid.UUID(payload["request_id"]))
+        source_prompt = payload["text"]
+        translated_prompt = None
+        if not _COAST_SUNSET.fullmatch(source_prompt.strip() if isinstance(source_prompt, str) else ""):
+            translated_prompt = await translate_turkish_prompt(
+                source_prompt, cancelled=cancelled
+            )
+        if cancelled.is_set():
+            raise RuntimeError("LOCAL_IMAGE_CANCELLED")
+        prompt = translated_prompt if translated_prompt is not None else source_prompt
         graph = build_workflow(
-            payload["text"],
+            prompt,
             payload["aspect_ratio"],
             payload["style"],
             self.checkpoint,

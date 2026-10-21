@@ -35,7 +35,6 @@ class NativeBridge(QObject):
         self._cloud_busy=False
         self._command_busy=False
         self._presence_busy=False
-        self._remote_task_ids=[]
         from .development_bridge import local_commit
         self._running_development_sha=local_commit()  # captured at process start, not after checkout changes
         self._dev_busy=False
@@ -261,28 +260,20 @@ class NativeBridge(QObject):
         return json.loads(raw) if raw else {}
 
     def cloud_presence(self):
-        """Publish desktop liveness/state so the phone can show online/offline."""
+        """Fetch device online/offline state from Cloud for the UI to display.
+
+        The desktop's own liveness heartbeat is sent exclusively by the
+        dedicated mark_app.py presence loop (see integration/cloud_memory_sync.py
+        and ultron/backend/cloud_client.py). This method must stay read-only —
+        a second heartbeat sender here previously raced the dedicated loop and
+        overwrote its richer state with a partial one.
+        """
         if self._presence_busy:
             return
         self._presence_busy=True
-        try:
-            try:
-                from memory.config_manager import get_voice
-                voice_name=str(get_voice() or '').strip()
-            except Exception:
-                voice_name=''
-            state={
-                'ui_state':str(self.ui._win.hud.state),
-                'muted':bool(self.ui.muted),
-                'assistant':str(getattr(self.ui,'assistant_name','GÖLGE')),
-                'voice':voice_name,
-            }
-        except Exception:
-            state={'ui_state':'UNKNOWN'}
 
         def worker():
             try:
-                self._cloud_control_request('/api/device-presence/heartbeat',{'state':state},timeout=8)
                 base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
                 token=os.environ.get('ULTRON_DEVICE_TOKEN','').strip()
                 request=urllib.request.Request(
@@ -318,7 +309,20 @@ class NativeBridge(QObject):
         threading.Thread(target=worker,daemon=True).start()
 
     def cloud_commands(self):
-        """Claim safe phone->desktop control commands from GÖLGE Cloud."""
+        """Claim safe phone->desktop control commands from GÖLGE Cloud.
+
+        Deliberately excludes 'agent_task': mark_app.py's own async
+        _cloud_remote_loop/_handle_cloud_remote_command already claims and
+        runs it, with a durable dispatch journal, a lease guard, a 180s
+        deadline, and honest completion reporting. That loop and this Qt
+        timer both run for the whole app lifetime, so until 2026-10-21 they
+        raced for the same /api/device-commands/claim rows — the Qt path had
+        none of those safeguards and could report "lease expired" for a task
+        that actually succeeded a moment later, or let a redelivered row slip
+        past the journal's replay guard. The toggle commands below are
+        idempotent even if both loops occasionally still claim one each, so
+        they stay here for UI-thread responsiveness.
+        """
         if self._command_busy:
             return
         base=os.environ.get('ULTRON_CLOUD_URL','').strip().rstrip('/')
@@ -345,7 +349,7 @@ class NativeBridge(QObject):
                     payload=json.loads(response.read().decode('utf-8'))
                 for item in payload.get('commands',[]):
                     command=str(item.get('command','')).strip().lower()
-                    if command in {'wake','mute','unmute','interrupt','sync_memory','agent_task'}:
+                    if command in {'wake','mute','unmute','interrupt','sync_memory'}:
                         self.remote_command.emit(json.dumps(item,ensure_ascii=False))
             except Exception:
                 pass
@@ -407,33 +411,9 @@ class NativeBridge(QObject):
                         self.emit(kind='remote_notice',text='Cloud hafıza eşitlemesi başarısız.')
                         self._complete_remote_command(command_id,False,str(exc))
                 threading.Thread(target=sync_worker,daemon=True).start()
-            elif command=='agent_task':
-                text=str(payload.get('text','')).strip()
-                if not text:
-                    self.emit(kind='remote_notice',text='Telefondan boş görev geldi; çalıştırılmadı.')
-                    self._complete_remote_command(command_id,False,'Görev metni boş.')
-                    return
-                if len(text)>50000:
-                    text=text[:50000]
-                # A remote agent task is treated exactly like a command typed
-                # into the local GÖLGE interface. Wake the assistant first when
-                # wake-word mode is enabled, then hand the task to Gemini Live,
-                # which can use the desktop's existing apps/files/browser/tools.
-                getter=getattr(self.ui,'wake_get_state',None)
-                manual=getattr(self.ui,'on_wake_manual',None)
-                state=getter() if callable(getter) else {}
-                if state.get('enabled') and not state.get('awake') and callable(manual):
-                    manual()
-                self.ui.write_log('You: '+text)
-                handler=getattr(self.ui,'on_text_command',None)
-                if callable(handler):
-                    if command_id:
-                        self._remote_task_ids.append(int(command_id))
-                    handler(text)
-                    self.emit(kind='remote_notice',text='Telefon görevi GÖLGE agente gönderildi.')
-                else:
-                    self.emit(kind='remote_notice',text='GÖLGE agent henüz hazır değil.')
-                    self._complete_remote_command(command_id,False,'GÖLGE agent henüz hazır değil.')
+            # 'agent_task' is deliberately not handled here — see the comment
+            # on cloud_commands() above. mark_app.py's async _cloud_remote_loop
+            # is the only claimer/executor for it.
         except Exception as exc:
             self.emit(kind='remote_notice',text='Uzaktan komut uygulanamadı: '+str(exc)[:100])
             try:
@@ -481,15 +461,9 @@ class NativeBridge(QObject):
         elif text.startswith((self.ui.assistant_name+':', 'GÖLGE:', 'ULTRON:')):
             answer=text.partition(':')[2].strip()
             self.emit(kind='log', role='assistant', text=answer)
-            if self._remote_task_ids:
-                command_id=self._remote_task_ids.pop(0)
-                self._complete_remote_command(command_id,True,answer or 'Görev tamamlandı.')
         elif text.startswith('ERR:'):
             error=text[4:].strip()
             self.emit(kind='error', text=error)
-            if self._remote_task_ids:
-                command_id=self._remote_task_ids.pop(0)
-                self._complete_remote_command(command_id,False,error or 'Görev başarısız.')
 
     @pyqtSlot(str)
     def send(self, text):

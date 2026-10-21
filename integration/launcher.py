@@ -164,7 +164,13 @@ def main(argv=None):
                     raise
                 logging.exception('ULTRON unavailable; starting MARK in degraded mode')
                 stop_process(services.backend)
-                services.env = os.environ.copy()
+                # Keep ultron/backend on PYTHONPATH here too — mark_app.py imports
+                # cloud_client/cloud_delivery/cloud_dispatch_journal as bare
+                # top-level modules from BACKEND. A plain os.environ.copy() drops
+                # that path and crashes MARK on startup with
+                # "ModuleNotFoundError: No module named 'cloud_client'" right
+                # when degraded mode is supposed to keep the desktop usable.
+                services.env = _ensure_runtime_import_paths(os.environ.copy())
                 services.env['MARK_ULTRON_WARNING'] = str(exc)
                 services.env['PYTHONUTF8'] = '1'
                 print('UYARI: Yerel motor kullanılamıyor. ULTRON masaüstü açılıyor; logs/backend.log', flush=True)

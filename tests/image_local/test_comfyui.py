@@ -19,6 +19,23 @@ class ComfyContracts(unittest.TestCase):
                     }
                 )
 
+    def test_explicit_no_text_request_uses_negative_prompt(self):
+        graph = build_workflow(
+            "A book on a table. Its pages should have no readable text.",
+            "1:1", "photo", "sd15.safetensors", 7,
+        )
+        self.assertEqual(
+            graph["3"]["inputs"]["text"],
+            "low quality, blurry, text, watermark",
+        )
+
+    def test_requested_visible_text_is_not_negated(self):
+        graph = build_workflow(
+            "A poster with visible text and a logo.",
+            "1:1", "photo", "sd15.safetensors", 8,
+        )
+        self.assertEqual(graph["3"]["inputs"]["text"], "low quality, blurry")
+
     def test_fixed_low_vram_graph(self):
         graph = build_workflow("Ferrari", "9:16", "photo", "sd15.safetensors", 42)
         latent = graph["4"]["inputs"]
@@ -41,7 +58,7 @@ class ComfyContracts(unittest.TestCase):
                 "SaveImage",
             },
         )
-        self.assertEqual(graph["2"]["inputs"]["text"], "Ferrari, photo")
+        self.assertEqual(graph["2"]["inputs"]["text"], "Ferrari, photorealistic, natural lighting, highly detailed")
 
 
 import asyncio
@@ -49,7 +66,7 @@ import io
 import os
 import threading
 import uuid
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from PIL import Image
 from aiohttp import web
 from aiohttp.test_utils import TestServer
@@ -145,6 +162,21 @@ class ComfyTransport(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(post["prompt"]["4"]["inputs"]["batch_size"], 1)
         self.assertIn(("POST", "/queue", {"delete": [self.pid]}), self.calls)
         self.assertNotIn("/interrupt", [c[1] for c in self.calls])
+
+    @patch("integration.comfyui_image.translate_turkish_prompt", new_callable=AsyncMock)
+    async def test_turkish_prompt_is_translated_before_comfy_dispatch(self, translate_prompt):
+        source = "Loş bir kütüphanede iki yeşil elma var."
+        translate_prompt.return_value = "Two green apples in a dim library."
+        self.payload["text"] = source
+
+        await self.client.generate(self.payload, threading.Event())
+
+        translate_prompt.assert_awaited_once()
+        graph = next(c[2]["prompt"] for c in self.calls if c[1] == "/prompt")
+        self.assertEqual(
+            graph["2"]["inputs"]["text"],
+            "Two green apples in a dim library., photorealistic, natural lighting, highly detailed",
+        )
 
     async def test_asset_path_rejected(self):
         self.bad = True

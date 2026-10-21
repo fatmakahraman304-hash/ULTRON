@@ -29,6 +29,8 @@ try:
 except ImportError:
     _PYPERCLIP = False
 
+from core import clipboard_safe
+
 def _base_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
@@ -157,6 +159,12 @@ def _user_profile() -> dict:
 def _type(text: str, interval: float = 0.03) -> str:
     _require_pyautogui()
     time.sleep(0.3)
+    # pyautogui's keystroke table has no entry for a single Turkish-specific
+    # letter (confirmed against the installed pyautogui: ğ ü ş ı ö ç İ Ğ Ü Ş
+    # Ö Ç are all absent from KEYBOARD_KEYS), so typewrite() cannot send any
+    # of them. Clipboard paste has no such limit.
+    if clipboard_safe.needs_clipboard(text) and clipboard_safe.paste_text(text, mac=_get_os() == "mac"):
+        return f"Typed (clipboard): {text[:60]}{'…' if len(text) > 60 else ''}"
     pyautogui.typewrite(text, interval=interval)
     return f"Typed: {text[:60]}{'…' if len(text) > 60 else ''}"
 
@@ -167,11 +175,9 @@ def _smart_type(text: str, clear_first: bool = True) -> str:
         _clear_field()
         time.sleep(0.1)
 
-    if len(text) > 20 and _PYPERCLIP:
-        pyperclip.copy(text)
-        time.sleep(0.1)
-        paste_key = "command" if _get_os() == "mac" else "ctrl"
-        pyautogui.hotkey(paste_key, "v")
+    if (len(text) > 20 or clipboard_safe.needs_clipboard(text)) and clipboard_safe.paste_text(
+        text, mac=_get_os() == "mac"
+    ):
         return f"Smart-typed (clipboard): {text[:60]}{'…' if len(text) > 60 else ''}"
 
     pyautogui.typewrite(text, interval=0.04)
