@@ -992,3 +992,6 @@ All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real Po
 ## 2026-10-21 — Memory correction/history (Linux sandbox, real PostgreSQL 16)
 - `ultron/cloud_service` pytest → 575 passed, 93 skipped; `test_skill_routing.py` 446/446, hijacked chat 0/178; all `.cjs` pass.
 - NOT RUN: real phone session; voice access to these commands (memory skills are intentionally not in the voice allow-list).
+
+## 2026-10-21 — Weekly review (Linux sandbox, real PostgreSQL 16)
+- `ultron/cloud_service` pytest + all `.cjs` pass; routing 453/453. NOT RUN: real device.

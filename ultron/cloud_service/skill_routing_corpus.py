@@ -204,3 +204,8 @@ CASES += [
     ("son notlarım", "recall"), ("bugün ne kaydettim", "recall"), ("son 3 kayıt", "recall"),
     ("Roma'nın geçmişi", None), ("düzelt bunu", None), ("son haberler", "news"),
 ]
+
+CASES += [
+    ("haftalık özet", "weekly"), ("geçen hafta nasıldı", "weekly"), ("bu haftanın özeti", "weekly"), ("haftalık rapor", "weekly"),
+    ("haftalık burç yorumu", None), ("hafta sonu planım ne", None), ("bu hafta hava nasıl olacak", "weather"),
+]

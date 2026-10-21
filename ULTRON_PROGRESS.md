@@ -838,3 +838,6 @@ New modules `style_skills.py`, `recall_skills.py`, `voice_skills.py`, `feedback_
 
 ## 2026-10-21 — Memory: correct, history, recent
 `memory_skills.py`: "düzelt: <kelime> => <yeni değer>" (unique match only, secrets refused, old value archived in `memory_history`), "hafızada X notumun geçmişi / X kaydımın eski hali / hafızada X eskiden neydi" (previous versions). `recall_skills.py`: "son notlarım", "son 3 kayıt", "bugün/dün/bu hafta ne kaydettim". Generic "X'in geçmişi" is deliberately NOT intercepted. Real-PostgreSQL test added; routing corpus now 446/446, hijacked chat 0/178.
+
+## 2026-10-21 — Weekly review
+`weekly_skills.py`: "haftalık özet / geçen hafta nasıldı / bu haftanın özeti" → plans done/total, habit totals/averages, spending with top category, journal entries, fired reminders, most-used skills; sections with no data are omitted and an empty week says so. Read-only (also available through the voice gateway). Real-PostgreSQL test; corpus 453/453, hijacked chat 0/180.

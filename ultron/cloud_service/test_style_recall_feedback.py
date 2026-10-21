@@ -91,7 +91,7 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.pool.execute("DELETE FROM conversations WHERE user_id=$1", self.u)
-        for table in ("owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
+        for table in ("owner_plans", "owner_habits", "owner_expenses", "owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
             await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
         await self.pool.close()
 
@@ -221,6 +221,18 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         refusal = await self.say("düzelt: ahmet => parolam sk-abcdefghijklmnop1234")
         self.assertIn("kaydetmiyorum", refusal)
         self.assertIn("sade", await self.say("Ahmet hakkında ne biliyorsun"))
+
+    async def test_weekly_review_uses_only_recorded_data(self):
+        now = datetime(2026, 10, 21, 9, 0, tzinfo=timezone.utc)      # Wednesday
+        self.assertIn("kayıtlı bir veri yok", await self.say("haftalık özet", now=now))
+        await self.pool.execute("INSERT INTO owner_plans(user_id,title,scheduled_date,is_done) VALUES($1,'a','2026-10-19',TRUE),($1,'b','2026-10-20',FALSE)", self.u)
+        await self.pool.execute("INSERT INTO owner_habits(user_id,habit,amount,day) VALUES($1,'water',6,'2026-10-20'),($1,'sleep',7,'2026-10-19'),($1,'sleep',8,'2026-10-20')", self.u)
+        await self.pool.execute("INSERT INTO owner_expenses(user_id,amount,category,spent_on) VALUES($1,150,'market','2026-10-20'),($1,50,'kahve','2026-10-21')", self.u)
+        await self.pool.execute("INSERT INTO owner_journal(user_id,entry,day) VALUES($1,'iyi gün','2026-10-20')", self.u)
+        reply = await self.say("haftalık özet", now=now)
+        for part in ("1/2 tamamlandı", "su 6 bardak (1 gün)", "uyku ort. 7.5 saat", "Harcama: 200 ₺, en çok market (150 ₺)", "Günlük: 1 girdi"):
+            self.assertIn(part, reply)
+        self.assertIn("kayıtlı bir veri yok", await self.say("geçen hafta nasıldı", now=now))
 
 
 if __name__ == "__main__":
