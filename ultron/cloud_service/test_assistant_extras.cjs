@@ -120,3 +120,19 @@ test("without querySelectorAll or callback nothing breaks", () => {
   const {document} = fakeDOM(["reminderBanners"]);
   assert.equal(extras.create({document, window: {}, fetchJson: async () => ({})}).bindQuickCommands(), 0);
 });
+
+test("feedback buttons post a rating once per assistant message", async () => {
+  const {document} = fakeDOM([]);
+  const calls = [];
+  const x = extras.create({document, fetchJson: async (u, o) => { calls.push([u, JSON.parse(o.body)]); return {ok: true}; }});
+  const node = document.createElement(); node.className = "msg assistant"; node.dataset = {cloudId: "42"};
+  assert.equal(x.attachFeedback(node), true);
+  assert.equal(x.attachFeedback(node), false);
+  const row = node.children[0];
+  assert.equal(row.children.length, 2);
+  await row.children[1].listeners.click();
+  assert.deepEqual(calls, [["/api/feedback", {rating: "bad", message_id: 42}]]);
+  assert.match(row.textContent, /kaydettim/);
+  const user = document.createElement(); user.className = "msg user"; user.dataset = {cloudId: "7"};
+  assert.equal(x.attachFeedback(user), false);
+});

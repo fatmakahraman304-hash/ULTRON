@@ -900,3 +900,6 @@ On the deployed service ask once each: "100 dolar kaç tl", "bitcoin kaç dolar"
 3. Chat: "kısa cevap ver" then ask an open question; judge whether replies become short. Then "tarzı sıfırla".
 4. After some use: "en çok kullandığım komutlar", "bana öneri ver"; after a mis-answer say "yanlış anladın", export (`GET /api/export`) and run `python feedback_to_corpus.py export.json` to get corpus candidates; label them in `skill_routing_corpus.py` first, then fix the rule.
 5. Not built yet: thumbs-up/down buttons in `static/index.html` calling `POST /api/feedback {rating, message_id}`; style by voice ("kısa konuş" works via golge_skill/style only if heard as that phrase).
+
+## 2026-10-21 — After utilities + feedback buttons
+Try on the phone after deploy: "yazı tura at", "45 gün sonra hangi gün", "850 tl 4 kişi böl", "boyum 180 kilom 75"; tap 👎 under a wrong answer, then export and run `python feedback_to_corpus.py`. Check the 👍/👎 row does not overlap the time stamp on a small iPhone screen (cosmetic, not verified).

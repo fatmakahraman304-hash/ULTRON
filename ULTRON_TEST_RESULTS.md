@@ -974,3 +974,7 @@ All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real Po
 - All `ultron/cloud_service/test_*.cjs` pass; pyflakes clean on the new modules (added to the CI lint list).
 - Root suite: same 5 environment-dependent failures as before (`tests/test_integration.py` ×4, `tests/test_open_app.py` ×1; desktop/Windows code not touched by this batch).
 - NOT RUN: real Gemini Live session with `golge_skill`, spoken-quality evaluation, iPhone, Render deployment, GitHub Actions for this commit (check after push).
+
+## 2026-10-21 — Utilities + feedback buttons (Linux sandbox, real PostgreSQL 16)
+- `ultron/cloud_service` pytest with Postgres + PYTHONPATH → 565 passed, 93 skipped; all `test_*.cjs` pass (incl. new feedback-button test); `scripts/test_golge_minimal_ui.mjs` PASS (cache v82). pyflakes clean on `utility_skills.py`.
+- NOT RUN: real iPhone rendering of the 👍/👎 row, Actions for this commit (check after push).

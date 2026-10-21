@@ -183,3 +183,12 @@ CASES += [
     ("yanlış anladın", "feedback"), ("tam istediğim buydu", "feedback"), ("en çok kullandığım komutlar", "feedback"), ("bana öneri ver", "feedback"),
     ("geri bildirimlerim", "feedback"), ("bu filmi öner", None), ("doğru mu bu", None),
 ]
+
+CASES += [
+    ("yazı tura at", "utility"), ("2 zar at", "utility"), ("20 yüzlü zar at", "utility"), ("1 ile 50 arasında rastgele sayı", "utility"),
+    ("seç: pizza, hamburger, lahmacun", "utility"), ("45 gün sonra hangi gün", "utility"), ("3 hafta sonra ne zaman", "utility"),
+    ("5 mayıs 2027 hangi gün", "utility"), ("1 mart 2026 ile 15 nisan 2026 arasında kaç gün", "utility"),
+    ("15.03.1990 doğumluyum kaç yaşındayım", "utility"), ("boyum 180 kilom 75", "utility"), ("850 lira 4 kişi böl", "utility"),
+    ("850 tl %10 bahşiş hesapla", "utility"),
+    ("zar atmak istiyorum", None), ("yazı yazmak zor", None), ("bana bir hikaye seç", None), ("tura çıkmak istiyorum", None), ("kilom çok arttı", None),
+]

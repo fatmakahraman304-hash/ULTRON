@@ -175,8 +175,44 @@
       return buttons.length;
     }
 
+    // 👍/👎 under assistant messages that exist in the cloud (POST /api/feedback); one vote per message.
+    function attachFeedback(node) {
+      const id = node && node.dataset && node.dataset.cloudId;
+      if (!id || node.dataset.feedback || !/assistant/.test(String(node.className))) return false;
+      node.dataset.feedback = "1";
+      const row = doc.createElement("span");
+      row.className = "msg-feedback";
+      row.style.cssText = "display:block;margin-top:6px;opacity:.55";
+      for (const [rating, label, title] of [["good", "👍", "Doğru cevap"], ["bad", "👎", "Yanlış anladın"]]) {
+        const b = doc.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.setAttribute("aria-label", title);
+        b.style.cssText = "background:none;border:0;font-size:15px;padding:2px 8px;cursor:pointer";
+        b.addEventListener("click", async () => {
+          try {
+            await api("/api/feedback", {method: "POST", body: JSON.stringify({rating, message_id: Number(id)})});
+            row.textContent = rating === "good" ? "Teşekkürler, not aldım." : "Not aldım, bunu düzeltmek için kaydettim.";
+          } catch (_) { toast("Geri bildirim gönderilemedi."); }
+        });
+        row.append(b);
+      }
+      node.append(row);
+      return true;
+    }
+
+    function watchMessages() {
+      const host = el("messages");
+      const Observer = win.MutationObserver || (typeof MutationObserver !== "undefined" ? MutationObserver : null);
+      if (!host || !Observer) return;
+      const scan = () => { for (const n of Array.from(host.children || [])) attachFeedback(n); };
+      new Observer(scan).observe(host, {childList: true});
+      scan();
+    }
+
     function init() {
       bindQuickCommands();
+      watchMessages();
       el("calendarFeedConnect")?.addEventListener("click", connectFeed);
       el("calendarFeedDisconnect")?.addEventListener("click", disconnectFeed);
       el("reminderNotifyPermission")?.addEventListener("click", requestNotifications);
@@ -184,7 +220,7 @@
       startPolling();
     }
 
-    return {init, poll, refreshFeed, connectFeed, disconnectFeed, banner, enablePush, bindQuickCommands};
+    return {init, attachFeedback, poll, refreshFeed, connectFeed, disconnectFeed, banner, enablePush, bindQuickCommands};
   }
   return {create, FEED_ERRORS};
 });
