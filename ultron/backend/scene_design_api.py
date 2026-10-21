@@ -6,12 +6,17 @@ ROOT=Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
 from aiohttp import web
 from ultron.cloud_service.scene_design import description, validate, SYSTEM
+from ultron.cloud_service import shape_library
 
 async def design_request(request):
     from ultron.backend.cloud_client import CloudClient
     from integration.local_cloud_brain import local_chat_ready
     try:text=description(await request.json())
     except (ValueError,TypeError):return web.json_response({'error':'invalid_description'},status=400)
+    try:  # known shapes are built locally and instantly, no model and no cloud needed
+        known=shape_library.generate(text)
+        if known is not None:return web.json_response({'design':validate(known),'source':'library'})
+    except Exception:pass
     client=request.app.get('scene_design_client')
     if client is None:
         client=CloudClient();request.app['scene_design_client']=client

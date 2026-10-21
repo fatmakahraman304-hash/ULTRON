@@ -2005,6 +2005,8 @@ async function loadSpatialController(){
  return spatialLoading;
 }
 async function generateSceneDesign(description,signal){
+ try{const known=await api('/api/scene-library',{method:'POST',timeoutMs:8000,body:JSON.stringify({description})});if(signal.aborted)throw new Error('cancelled');if(known&&known.design)return known.design;}
+ catch(e){if(signal.aborted)throw e;}
  const preferred=await refreshAutoBrain(true);
  if(signal.aborted)throw new Error('cancelled');
  if(preferred==='local'){

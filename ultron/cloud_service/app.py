@@ -1810,6 +1810,20 @@ async def listening_analysis_api(request: web.Request) -> web.Response:
     return web.json_response({"stage": stage, "analysis": answer, "saved": False})
 
 
+async def scene_library(request: web.Request) -> web.Response:
+    """Library-only lookup so the phone can skip the local/cloud model for known shapes."""
+    from scene_design import description, validate
+    try:
+        text = description(await request.json())
+    except (ValueError, TypeError):
+        return web.json_response({"error": "invalid_description"}, status=400)
+    try:
+        known = shape_library.generate(text)
+        return web.json_response({"design": validate(known) if known is not None else None})
+    except Exception:
+        return web.json_response({"design": None})
+
+
 async def scene_design(request: web.Request) -> web.Response:
     from scene_design import description, validate, SYSTEM
     try:
@@ -3104,6 +3118,7 @@ def build_app() -> web.Application:
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/feedback", feedback_route)
     app.router.add_post("/api/scene-design", scene_design)
+    app.router.add_post("/api/scene-library", scene_library)
     from scene_assets import register as register_scene_assets
     register_scene_assets(app)
     from scene_queue import post_scene, get_scene

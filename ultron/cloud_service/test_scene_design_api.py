@@ -49,8 +49,14 @@ class LibraryApiTests(unittest.IsolatedAsyncioTestCase):
     async def test_known_shape_is_built_without_a_model_call(self):
         env=patch.dict(os.environ,{'ULTRON_DEVICE_TOKEN':'scene_test_only'});env.start()
         app=web.Application(middlewares=[cloud.auth_middleware]);app.router.add_post('/api/scene-design',cloud.scene_design)
+        app.router.add_post('/api/scene-library',cloud.scene_library)
         client=TestClient(TestServer(app));await client.start_server()
         try:
+            h={'Authorization':'Bearer scene_test_only'}
+            r=await client.post('/api/scene-library',json={'description':'kalp'},headers=h);self.assertEqual(len((await r.json())['design']['parts']),3)
+            r=await client.post('/api/scene-library',json={'description':'sihirli tilki'},headers=h);self.assertEqual((r.status,(await r.json())['design']),(200,None))
+            r=await client.post('/api/scene-library',json={'description':'x'*241},headers=h);self.assertEqual(r.status,400)
+            self.assertEqual((await client.post('/api/scene-library',json={'description':'kalp'})).status,401)
             with patch.object(cloud,'_gemini_reply') as generate:
                 r=await client.post('/api/scene-design',json={'description':'8 köşeli yıldız'},headers={'Authorization':'Bearer scene_test_only'})
                 body=await r.json()
