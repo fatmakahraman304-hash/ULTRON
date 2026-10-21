@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -34,6 +34,8 @@ else:
     import alert_skills
     import list_skills
     import expense_skills
+    import birthday_skills
+    import habit_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 # frankfurter.app permanently redirects here; redirects are never followed, so use the canonical host.
@@ -712,6 +714,8 @@ HELP_TEXT = (
     "🌤 Bilgi: hava (konumunla), haberler, döviz, bitcoin, namaz vakitleri, depremler, gün doğumu, ay evresi, “Atatürk kimdir”\n"
     "🧮 Hesap: “15 x 4 + 2”, “100 km kaç mil”, “yılbaşına kaç gün var”, saat/tarih/dünya saatleri\n"
     "🔔 Uyarılar: “bitcoin 70 bin dolara çıkarsa haber ver”, “sessiz saatler 23 ile 7”, “sabah brifingi bildirimi aç”\n"
+    "💧 Alışkanlık: “2 bardak su içtim”, “7 saat uyudum”, “30 dakika yürüdüm”, “modum 4”, “sağlık özetim”, “bu hafta ne kadar spor yaptım”\n"
+    "🎂 Doğum günü: “Ahmet'in doğum günü 3 Mart”, “doğum günlerim”, “her yıl 14 şubat sevgililer günü hatırlat”\n"
     "🛒 Liste/harcama: “alışveriş listesine süt ekle”, “150 lira market harcaması ekle”, “bu ay ne kadar harcadım”, “10 dakika zamanlayıcı kur”\n"
     "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “unut: …”\n"
     "🎯 Görev: “görev: yarınki hava ve haberlere göre günümü planla” (adım adım çalışır)\n"
@@ -742,6 +746,12 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
     if pool is not None and not read_only:
+        reply = await habit_skills.handle(text, pool, user_id, now)
+        if reply:
+            return {"skill": "habits", "reply": reply}
+        reply = await birthday_skills.handle(text, pool, user_id, now)
+        if reply:
+            return {"skill": "birthdays", "reply": reply}
         reply = await expense_skills.handle(text, pool, user_id, now)
         if reply:
             return {"skill": "expenses", "reply": reply}
@@ -848,7 +858,7 @@ def wants_cloud_skill(text: str) -> bool:
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
         or phone_skills.wants_news(text) or phone_skills.wants_flight(text) or smart_home.wants_smart_home(text) or knowledge_skills.wants_knowledge(text)
-        or answer_help(text) or list_skills.wants_lists(text) or expense_skills.wants_expenses(text)
+        or answer_help(text) or list_skills.wants_lists(text) or expense_skills.wants_expenses(text) or birthday_skills.wants_birthdays(text) or habit_skills.wants_habits(text)
         or alert_skills.parse_alert(text) or alert_skills._LIST.search(folded) or alert_skills._CANCEL.search(folded)
         or re.search(r"\baksam (?:ozet\w*|hazirlik\w*)\b", folded)
         or plan_skills._ADD.search(folded) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)

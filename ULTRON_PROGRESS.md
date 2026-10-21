@@ -811,3 +811,6 @@ Skill replies are stored with `device_id = 'golge-skill:<skill>'`. A very short,
 
 ## 2026-10-21 — Expense log
 `expense_skills.py` ("150 lira market harcaması ekle", "bugün kahveye 80 tl harcadım", "bu ay/hafta/bugün/dün/geçen ay ne kadar harcadım", "son harcamayı sil"; table `owner_expenses`, TRY only; included in `/api/export`). Router corpus 320 utterances, 0 chat hijacked; real-PostgreSQL stack test 8 passed; suite 501 passed, 9 skipped (non-PG).
+
+## 2026-10-21 — Birthdays/yearly reminders and habit log
+`birthday_skills.py` ("Murat'ın doğum günü 3 Mart" → two yearly reminders: eve 19:00 + day 09:00; Turkish vowel-harmony genitive; `reminders.py` gained `yearly:MM-DD`, 29 Feb handled; DB CHECK migrated). `habit_skills.py` (water/sleep/exercise/steps/weight/mood log, daily/weekly summaries with targets; table `owner_habits`; also in `/api/export`). Router corpus 353 utterances (0/144 chat hijacked); real-PostgreSQL stack test 9 passed (incl. constraint migration); suite 516 passed, 9 skipped (non-PG).

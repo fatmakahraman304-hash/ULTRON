@@ -141,3 +141,19 @@ CASES += [
     ("çok harcadım bugün", None), ("bugün ne kadar harcayabilirim", None), ("maaşım 25.000 tl", None), ("harcama yapmayı sevmiyorum", None),
     ("para biriktirmenin yolları neler", None), ("tasarruf için ne yapmalıyım", None),
 ]
+
+CASES += [
+    ("Ahmet'in doğum günü 3 Mart", "birthdays"), ("Ayşe'nin doğum günü 15.06", "birthdays"), ("doğum günü ekle: Ali 20 Aralık", "birthdays"),
+    ("doğum günüm 5 mayıs", "birthdays"), ("doğum günlerim", "birthdays"), ("yaklaşan doğum günleri", "birthdays"),
+    ("her yıl 14 şubat sevgililer gününü hatırlat", "reminder"),
+    ("doğum günü hediyesi öner", None), ("doğum günü partisi nasıl planlanır", None), ("bugün benim doğum günüm", None),
+    ("doğum günün kutlu olsun", None), ("doğum günü pastası tarifi", None),
+]
+
+CASES += [
+    ("2 bardak su içtim", "habits"), ("su içtim", "habits"), ("1 litre su içtim", "habits"), ("7 saat uyudum", "habits"), ("uyudum 7,5 saat", "habits"),
+    ("30 dakika yürüdüm", "habits"), ("1 saat koştum", "habits"), ("8000 adım attım", "habits"), ("kilom 72,5", "habits"), ("modum 4", "habits"),
+    ("sağlık özetim", "habits"), ("bugün kaç bardak su içtim", "habits"), ("bu hafta ne kadar spor yaptım", "habits"),
+    ("çok su içtim", None), ("dün gece kötü uyudum", None), ("su içmek sağlıklı mı", None), ("kaç bardak su içmeliyim", None),
+    ("kilo vermek için ne yapmalıyım", None), ("uyku düzenim bozuk", None), ("spor yapmak istiyorum program öner", None), ("modum çok kötü", None),
+]

@@ -49,7 +49,7 @@ class StackContract(unittest.IsolatedAsyncioTestCase):
         self.app = {"db": self.pool}
 
     async def asyncTearDown(self):
-        for table in ("owner_expenses", "owner_list_items", "owner_reminders", "owner_plans", "owner_alerts", "owner_notifications", "owner_prefs",
+        for table in ("owner_habits", "owner_expenses", "owner_list_items", "owner_reminders", "owner_plans", "owner_alerts", "owner_notifications", "owner_prefs",
                       "push_subscriptions", "missions", "memories"):
             await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
         await self.pool.close()
@@ -170,6 +170,27 @@ class StackContract(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_expenses WHERE user_id=$1", self.u), 2)
         with self.assertRaises(asyncpg.CheckViolationError):
             await self.pool.execute("INSERT INTO owner_expenses(user_id,amount,category) VALUES($1,-5,'x')", self.u)
+
+    async def test_habits_and_birthdays(self):
+        self.assertIn("2/8 bardak", await self.say("2 bardak su içtim"))
+        self.assertIn("5/8 bardak", await self.say("3 bardak su içtim"))
+        await self.say("7 saat uyudum")
+        await self.say("30 dakika yürüdüm")
+        await self.say("kilom 72,5")
+        self.assertIn("(öncekine göre -1,5 kg)", await self.say("kilom 71"))
+        today = await self.say("sağlık özetim")
+        self.assertIn("💧 Su: 5 bardak", today)
+        self.assertIn("😴 Uyku: ortalama 7 saat", today)
+        self.assertIn("Son kaydı sildim", await self.say("son aliskanlik kaydini sil"))
+        with self.assertRaises(asyncpg.CheckViolationError):
+            await self.pool.execute("INSERT INTO owner_habits(user_id,habit,amount) VALUES($1,'caffeine',1)", self.u)
+        self.assertIn("Murat'ın doğum günü: 3 Mart", await self.say("Murat'ın doğum günü 3 Mart"))
+        self.assertIn("zaten kayıtlı", await self.say("Murat'ın doğum günü 3 Mart"))
+        rules = [r["repeat_rule"] for r in await self.pool.fetch("SELECT repeat_rule FROM owner_reminders WHERE user_id=$1 ORDER BY id", self.u)]
+        self.assertEqual(rules, ["yearly:03-03", "yearly:03-02"])
+        self.assertIn("• 3 Mart — Murat'ın", await self.say("doğum günlerim"))
+        self.assertIn("yearly:02-14", (await self.say("her yıl 14 şubat sevgililer gününü hatırlat")) and
+                      (await self.pool.fetchval("SELECT string_agg(repeat_rule, ',') FROM owner_reminders WHERE user_id=$1", self.u)))
 
     async def test_retention_export_and_diagnostics(self):
         await self.say("hatırla: annemin doğum günü 3 Mart")

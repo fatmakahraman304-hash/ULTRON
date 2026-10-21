@@ -57,12 +57,15 @@ _FILLER = re.compile(r"\b(?:bana|lutfen|diye|tekrar|bir|hatirlat\w*|hatirlatici\
                      r"olustur|ekle|kaydet|ayarla|zamanlayici\w*|sayac|timer|geri sayim)\b")
 
 
+_MONTH_NAMES = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
 _DOW_NAMES = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
 _REP_WEEKDAYS = re.compile(r"\bhafta ici(?: her gun)?\b")
 _REP_WEEKENDS = re.compile(r"\bhafta sonu(?:nda)?(?: her gun)?\b")
 _REP_WEEKLY = re.compile(r"\bher (" + "|".join(_WEEKDAYS) + r")\b")
 _REP_MONTHLY = re.compile(r"\bher ayin (\d{1,2})(?:\. ?)?(?:'?(?:inde|nde|unde|de|da))?\b")
 _REP_DAILY = re.compile(r"\bher (gun|sabah|aksam|gece|ogle)\b")
+_MONTHS_FOLDED = ("ocak", "subat", "mart", "nisan", "mayis", "haziran", "temmuz", "agustos", "eylul", "ekim", "kasim", "aralik")
+_REP_YEARLY = re.compile(r"\bher yil (\d{1,2}) (" + "|".join(_MONTHS_FOLDED) + r")(?:'?(?:da|de|ta|te))?\b")
 
 
 def detect_repeat(folded: str) -> tuple[str, tuple[int, int]] | None:
@@ -75,6 +78,9 @@ def detect_repeat(folded: str) -> tuple[str, tuple[int, int]] | None:
     if (m := _REP_MONTHLY.search(folded)):
         d = int(m.group(1))
         return (f"monthly:{d}", m.span()) if 1 <= d <= 31 else None
+    if (m := _REP_YEARLY.search(folded)):
+        d, mon = int(m.group(1)), _MONTHS_FOLDED.index(m.group(2)) + 1
+        return (f"yearly:{mon:02d}-{d:02d}", m.span()) if 1 <= d <= 31 else None
     if (m := _REP_DAILY.search(folded)):
         return "daily", m.span()
     return None
@@ -92,12 +98,14 @@ def _rule_matches(rule: str, day) -> bool:
         return day.weekday() == int(arg)
     if kind == "monthly":
         return day.day == int(arg)
+    if kind == "yearly":
+        return (day.month, day.day) == (int(arg[:2]), int(arg[3:5]))
     return False
 
 
 def next_occurrence(rule: str, hour: int, minute: int, after: datetime) -> datetime | None:
     after = after.astimezone(HOME_TZ)
-    for offset in range(0, 400):
+    for offset in range(0, 1500 if rule.startswith("yearly") else 400):   # 29 Feb needs up to 4 years
         day = after.date() + timedelta(days=offset)
         if not _rule_matches(rule, day):
             continue
@@ -112,7 +120,8 @@ def describe_repeat(rule: str, due: datetime) -> str:
     kind, _, arg = rule.partition(":")
     label = {"daily": "her gün", "weekdays": "hafta içi her gün", "weekends": "hafta sonları",
              "weekly": f"her {_DOW_NAMES[int(arg)]}" if kind == "weekly" else "",
-             "monthly": f"her ayın {arg}'inde" if kind == "monthly" else ""}[kind]
+             "monthly": f"her ayın {arg}'inde" if kind == "monthly" else "",
+             "yearly": f"her yıl {int(arg[3:5])} {_MONTH_NAMES[int(arg[:2]) - 1]}" if kind == "yearly" else ""}[kind]
     return f"{label} {due:%H:%M}"
 
 

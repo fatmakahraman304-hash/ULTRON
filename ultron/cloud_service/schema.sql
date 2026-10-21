@@ -441,3 +441,20 @@ CREATE TABLE IF NOT EXISTS owner_expenses (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_owner_expenses_user_date ON owner_expenses(user_id, spent_on DESC);
+
+-- Yearly repeating reminders (birthdays, anniversaries): rule 'yearly:MM-DD'.
+ALTER TABLE owner_reminders DROP CONSTRAINT IF EXISTS owner_reminders_repeat_rule_check;
+ALTER TABLE owner_reminders ADD CONSTRAINT owner_reminders_repeat_rule_check
+  CHECK (repeat_rule IS NULL OR repeat_rule ~ '^(daily|weekdays|weekends|weekly:[0-6]|monthly:([1-9]|[12][0-9]|3[01])|yearly:(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]))$');
+
+-- Habit / health log ("2 bardak su içtim", "7 saat uyudum", "30 dakika yürüdüm", "modum 4").
+CREATE TABLE IF NOT EXISTS owner_habits (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  habit TEXT NOT NULL CHECK (habit IN ('water','sleep','exercise','steps','weight','mood')),
+  amount DOUBLE PRECISION NOT NULL CHECK (amount >= 0 AND amount < 1000000),
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 60),
+  day DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_habits_user_day ON owner_habits(user_id, habit, day DESC);
