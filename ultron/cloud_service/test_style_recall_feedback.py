@@ -206,6 +206,22 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         out = await vs.run("günlüğe yaz: sesle eklendi", pool=self.pool, user_id=self.u, now=now)
         self.assertEqual(out["skill"], "journal")
 
+    async def test_memory_correction_history_and_recent_notes(self):
+        await self.say("hatırla: Ahmet kahveyi şekerli içer")
+        await self.say("hatırla: Zeynep çayı demli sever")
+        self.assertIn("Düzelttim", await self.say("düzelt: ahmet => Ahmet kahveyi sade içer"))
+        self.assertIn("sade", await self.say("Ahmet hakkında ne biliyorsun"))
+        self.assertIn("şekerli", await self.say("hafızada ahmet notumun geçmişi"))
+        self.assertIn("bulamadım", await self.say("düzelt: yokboyle => x"))
+        self.assertIn("eski bir sürüm kaydı yok", await self.say("hafızada zeynep eskiden neydi"))
+        recent = await self.say("son notlarım")
+        self.assertIn("Zeynep", recent)
+        self.assertIn("Ahmet", await self.say("bugün ne kaydettim"))
+        self.assertIsNone(await self.say("Roma'nın geçmişi"))
+        refusal = await self.say("düzelt: ahmet => parolam sk-abcdefghijklmnop1234")
+        self.assertIn("kaydetmiyorum", refusal)
+        self.assertIn("sade", await self.say("Ahmet hakkında ne biliyorsun"))
+
 
 if __name__ == "__main__":
     unittest.main()

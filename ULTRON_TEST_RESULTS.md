@@ -988,3 +988,7 @@ All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real Po
 - `node scripts/test_scene_intents.mjs`, all cloud `.cjs`, `scripts/test_golge_minimal_ui.mjs` pass; `tsc --noEmit` clean. `ultron/frontend` unit tests: 58 pass, 1 fail ("initial dashboard graph defers the Three.js WebGL renderer") — same result with my changes stashed, so pre-existing.
 - Visual check: 30 shapes rendered headlessly with three.js 0.177 and Chromium software GL (screenshots reviewed by eye). Colour is not part of the schema, so all shapes render in the scene's default material.
 - NOT RUN: real phone/laptop hologram UI with the new bundle, Gemini fallback for unknown nouns, `scripts/tests` browser suites (need Playwright, not installed here).
+
+## 2026-10-21 — Memory correction/history (Linux sandbox, real PostgreSQL 16)
+- `ultron/cloud_service` pytest → 575 passed, 93 skipped; `test_skill_routing.py` 446/446, hijacked chat 0/178; all `.cjs` pass.
+- NOT RUN: real phone session; voice access to these commands (memory skills are intentionally not in the voice allow-list).

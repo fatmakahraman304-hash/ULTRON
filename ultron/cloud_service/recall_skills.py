@@ -22,6 +22,7 @@ _ABOUT_KNOW = re.compile(r"^(?:peki\s+)?(.{2,40}?)\s+(?:hakkinda|ile ilgili|icin
 _ABOUT_TALK = re.compile(r"^(?:peki\s+)?(.{2,40}?)\s+(?:hakkinda|ile ilgili|konusunda)\s+(?:ne\s+)?(?:konusmustuk|konustuk|konusmustuk|konusmustum|yazmistik|demistim|soylemistim)\s*\??$|^(?:peki\s+)?(.{2,40}?)\s+(?:hakkinda|ile ilgili)\s+ne\s+(?:konusmustuk|konustuk|demistim|soylemistim)\s*\??$")
 _WHEN_TALK = re.compile(r"^(?:peki\s+)?(bugun|dun|evvelsi gun|onceki gun|bu hafta|gecen hafta|son bir hafta|son 7 gun)\s+(?:biz\s+)?ne\s+(?:konustuk|konusmustuk|yaptik|sordum|sormustum)\s*\??$|^(?:peki\s+)?(?:biz\s+)?ne\s+(?:konustuk|konusmustuk)\s+(bugun|dun|bu hafta|gecen hafta)\s*\??$")
 _SUMMARY = re.compile(r"^(?:hafiza\s+ozeti|hafiza\s+ozetin|hafizanin\s+ozeti|hafiza\s+durumu|neler\s+biliyorsun\s+ozetle)\s*\??$")
+_RECENT = re.compile(r"^son\s+(?:(\d{1,2})\s+)?(?:notlarim|kayitlarim|kaydettiklerim|kayit|not)\s*\??$|^(bugun|dun|bu hafta|gecen hafta)\s+ne\s+(?:kaydettim|ekledim|not\s+aldim)\s*\??$")
 _SELF = {"ben", "benim", "beni", "bu", "su", "o", "bunlar", "sen", "seni", "kendin", "kendini"}
 MAX_SCAN = 600
 
@@ -34,7 +35,7 @@ def wants_recall(text: str) -> bool:
         m = rx.match(f)
         if m and _topic(m) not in _SELF:
             return True
-    return bool(_WHEN_TALK.match(f) or _SUMMARY.match(f))
+    return bool(_WHEN_TALK.match(f) or _SUMMARY.match(f) or _RECENT.match(f))
 
 
 def _topic(m: re.Match) -> str:
@@ -97,6 +98,18 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
         total = sum(int(r["n"]) for r in rows)
         cats = ", ".join(f"{r['category'].lower()} ({r['n']})" for r in rows[:6])
         return f"Hafızamda {total} kayıt var: {cats}. Ayrıntı için “neler hatırlıyorsun” ya da “… hakkında ne biliyorsun” de."
+    m = _RECENT.match(f)
+    if m:
+        if m.group(2):
+            start, end, label = _window(m.group(2), now)
+            rows = await pool.fetch("SELECT category,key,value,updated_at FROM memories WHERE user_id=$1 AND updated_at>=$2 AND updated_at<$3 ORDER BY updated_at DESC LIMIT 8", user_id, start, end)
+            empty = f"{label} hafızaya yeni bir şey kaydetmemişsin."
+        else:
+            rows = await pool.fetch("SELECT category,key,value,updated_at FROM memories WHERE user_id=$1 ORDER BY updated_at DESC LIMIT $2", user_id, min(int(m.group(1) or 5), 10))
+            empty = "Hafızamda henüz kayıtlı bir şey yok."
+        if not rows:
+            return empty
+        return "Hafızadaki kayıtlar:\n" + "\n".join(f"• {_day(r['updated_at'])} — {_clip(r['value'], 100)}" for r in rows)
     m = _WHEN_TALK.match(f)
     if m:
         start, end, label = _window(_topic(m), now)

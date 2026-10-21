@@ -198,3 +198,9 @@ CASES += [
     ("günlüğümde kahve geçenler", "journal"), ("son günlük kaydını sil", "journal"),
     ("günlük plan yap", None), ("günlük burç yorumu", None), ("günlük kaç adım atmalıyım", None), ("günlüğüm kayboldu mu", None),
 ]
+
+CASES += [
+    ("düzelt: kahve => sade kahve", "memory"), ("hafızada kahve notumun geçmişi", "memory"),
+    ("son notlarım", "recall"), ("bugün ne kaydettim", "recall"), ("son 3 kayıt", "recall"),
+    ("Roma'nın geçmişi", None), ("düzelt bunu", None), ("son haberler", "news"),
+]
