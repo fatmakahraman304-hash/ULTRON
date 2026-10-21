@@ -386,3 +386,18 @@ CREATE TABLE IF NOT EXISTS owner_prefs (
 -- Repeating reminders ("her gün 9'da …"): the next occurrence is queued when one fires.
 ALTER TABLE owner_reminders ADD COLUMN IF NOT EXISTS repeat_rule TEXT
   CHECK (repeat_rule IS NULL OR repeat_rule ~ '^(daily|weekdays|weekends|weekly:[0-6]|monthly:([1-9]|[12][0-9]|3[01]))$');
+
+-- Multi-step missions ("görev: …"): LLM plan, read-only execution, final report.
+CREATE TABLE IF NOT EXISTS missions (
+  id UUID PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  conversation_id UUID,
+  goal TEXT NOT NULL CHECK (length(goal) BETWEEN 3 AND 1000),
+  status TEXT NOT NULL DEFAULT 'planning' CHECK (status IN ('planning','running','done','failed','cancelled')),
+  steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+  report TEXT,
+  delivered BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_missions_user ON missions(user_id, created_at DESC);

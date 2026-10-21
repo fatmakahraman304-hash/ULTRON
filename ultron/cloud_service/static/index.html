@@ -669,6 +669,7 @@
 <script src="/static/owner-plans.js"></script>
 <script src="/static/assistant-extras.js"></script>
 <script src="/static/laptop-bridge.js"></script>
+<script src="/static/mission-watch.js"></script>
 <script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
 <script src="/static/source-links.js"></script>
@@ -2354,6 +2355,8 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply,{id:d.assistant_message_id,research:d.research});
     if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
     messageSignature='';
+    if(d.mission_id&&window.ULTRONMissionWatch)window.ULTRONMissionWatch.create({fetchJson:(p,o)=>api(p,o),addMessage,toast,
+      speak:r=>{if(voiceEnabled&&!voiceListening)try{speakUltron(r)}catch{}}}).watch(d.mission_id,d.conversation_id);
     if((!fromVoice||voiceTurnGuard.current(voiceToken))&&
        (!fromVoice||!document.hidden)&&(fromVoice||voiceEnabled)){
       // Voice playback is optional; a speaker exception cannot retroactively

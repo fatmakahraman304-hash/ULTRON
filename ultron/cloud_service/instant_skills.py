@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -30,6 +30,7 @@ else:
     import plan_skills
     import smart_home
     import knowledge_skills
+    import missions
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -703,12 +704,12 @@ _SKIP_ALL = re.compile(r"\b(?:arastir|research|kaynak goster|makale yaz|kod yaz|
 async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
                         fetch_json: FetchJson | None = None,
                         now: datetime | None = None, location: dict | None = None,
-                        fetch_text=None, ha=None) -> dict | None:
+                        fetch_text=None, ha=None, read_only: bool = False) -> dict | None:
     """Return {"skill", "reply"} for an unambiguous skill request, else None."""
     text = str(text or "").strip()
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
-    if pool is not None:
+    if pool is not None and not read_only:
         reply = await plan_skills.handle(text, pool, user_id, now)
         if reply:
             return {"skill": "plans", "reply": reply}
@@ -748,7 +749,7 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     reply = await phone_skills.answer_news(text, fetch_text)
     if reply:
         return {"skill": "news", "reply": reply}
-    if fetch_json is not None or pool is not None or ha is not None:
+    if (fetch_json is not None or pool is not None or ha is not None) and not read_only:
         reply = await smart_home.handle(text, ha)
         if reply:
             return {"skill": "smart_home", "reply": reply}
@@ -786,6 +787,8 @@ def wants_cloud_skill(text: str) -> bool:
     Used by the local-Qwen path to hand such messages to the cloud endpoint instead of the local model.
     """
     text = str(text or "").strip()
+    if missions.mission_goal(text) is not None or (len(text) <= 60 and missions.is_cancel_request(text)):
+        return True
     if not text or len(text) > MAX_SKILL_TEXT * 3 or _SKIP_ALL.search(fold_turkish(text)):
         return False
     folded = fold_turkish(text)

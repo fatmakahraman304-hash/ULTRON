@@ -3,6 +3,7 @@ from __future__ import annotations
 from capability_readiness import readiness
 from instant_skills import instant_reply, clock_context, SKILL_SUMMARY
 import phone_skills
+import missions
 import world_api
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
@@ -162,6 +163,25 @@ async def init_db(app: web.Application) -> None:
     )
     async def _proactive_fetch_json(url: str, key: str, ttl: int) -> dict:
         return await world_api._upstream(url, ttl=ttl, key=key)
+    await missions.fail_stale(app["db"])
+
+    async def _mission_llm(prompt: str, system: str) -> str:
+        return await asyncio.to_thread(_gemini_reply, prompt, system)
+
+    async def _mission_skill(value: str, user_id: str):
+        return await instant_reply(value, pool=app["db"], user_id=user_id, fetch_json=_proactive_fetch_json,
+                                   fetch_text=phone_skills.fetch_news_xml, read_only=True)
+
+    async def _mission_research(value: str, user_id: str) -> str:
+        result = await research_for_chat("Araştır: " + value)
+        if result.get("answer"):
+            return str(result["answer"])
+        findings = (result.get("synthesis") or {}).get("findings", [])[:3]
+        if not findings:
+            return "Güncel kaynaklara erişemedim; bu konuda doğrulanmış bilgi yok."
+        return append_research_sources("\n\n".join(str(f.get("excerpt", ""))[:600] for f in findings), result)
+
+    app["mission_deps"] = {"llm": _mission_llm, "skill": _mission_skill, "research": _mission_research}
     import proactive
     app["proactive_task"] = asyncio.create_task(
         proactive.dispatcher_loop(app, _proactive_fetch_json, phone_skills.fetch_news_xml))
@@ -1878,8 +1898,10 @@ async def chat(request: web.Request) -> web.Response:
     async def _skill_fetch(url: str, key: str, ttl: int) -> dict:
         return await world_api._upstream(url, ttl=ttl, key=key)
     try:
-        skill = await instant_reply(text, pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch,
-                                    location=_valid_location(body.get("location")))
+        skill = None if (missions.mission_goal(text) is not None or missions.is_cancel_request(text)) else \
+            await instant_reply(text, pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch,
+                                location=_valid_location(body.get("location")),
+                                fetch_text=phone_skills.fetch_news_xml)
     except Exception:
         skill = None  # A skill bug must never block a normal model answer.
     if skill and not cancel_record["cancel_requested"]:
@@ -1898,6 +1920,22 @@ async def chat(request: web.Request) -> web.Response:
                                            request_id, request_key)
         return web.json_response({"conversation_id": str(conv_uuid), "reply": skill["reply"],
             "request_id": request_id, "skill": skill["skill"], "research": None,
+            "user_message_id": current_message_id, "assistant_message_id": assistant_message_id})
+
+    if missions.is_cancel_request(text) or missions.mission_goal(text) is not None:
+        if missions.is_cancel_request(text):
+            cancelled = await missions.cancel_mission(request)
+            reply = "Çalışan görevi iptal ettim." if json.loads(cancelled.text).get("cancelled") else "İptal edilecek çalışan bir görev yok."
+            out = {"mission_id": None}
+        else:
+            out = await missions.start(request, missions.mission_goal(text), str(conv_uuid))
+            reply = out["reply"]
+        assistant_message_id = await pool.fetchval(
+            "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+            "VALUES($1,$2,'assistant',$3,'golge-mission') RETURNING id", conv_uuid, request["user_id"], reply)
+        cancel_registry.mark_completed(request["user_id"], request["device_id"], request_id, request_key)
+        return web.json_response({"conversation_id": str(conv_uuid), "reply": reply, "request_id": request_id,
+            "mission_id": out.get("mission_id"), "research": None,
             "user_message_id": current_message_id, "assistant_message_id": assistant_message_id})
 
     turns = await load_contextual_thread_turns(
@@ -2957,6 +2995,7 @@ def build_app() -> web.Application:
     register_laptop_bridge_routes(app)
     from web_push import register_routes as register_push_routes
     register_push_routes(app)
+    missions.register_routes(app)
     register_learning_routes(app)
     register_conversation_note_routes(app)
     register_auto_learning_routes(app)
