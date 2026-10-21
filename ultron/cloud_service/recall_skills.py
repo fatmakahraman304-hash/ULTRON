@@ -23,6 +23,7 @@ _ABOUT_TALK = re.compile(r"^(?:peki\s+)?(.{2,40}?)\s+(?:hakkinda|ile ilgili|konu
 _WHEN_TALK = re.compile(r"^(?:peki\s+)?(bugun|dun|evvelsi gun|onceki gun|bu hafta|gecen hafta|son bir hafta|son 7 gun)\s+(?:biz\s+)?ne\s+(?:konustuk|konusmustuk|yaptik|sordum|sormustum)\s*\??$|^(?:peki\s+)?(?:biz\s+)?ne\s+(?:konustuk|konusmustuk)\s+(bugun|dun|bu hafta|gecen hafta)\s*\??$")
 _SUMMARY = re.compile(r"^(?:hafiza\s+ozeti|hafiza\s+ozetin|hafizanin\s+ozeti|hafiza\s+durumu|neler\s+biliyorsun\s+ozetle)\s*\??$")
 _RECENT = re.compile(r"^son\s+(?:(\d{1,2})\s+)?(?:notlarim|kayitlarim|kaydettiklerim|kayit|not)\s*\??$|^(bugun|dun|bu hafta|gecen hafta)\s+ne\s+(?:kaydettim|ekledim|not\s+aldim)\s*\??$")
+_RESUME = re.compile(r"^(?:peki\s+)?(?:nerede\s+kalmistik|en\s+son\s+ne\s+konustuk|en\s+son\s+ne\s+konusmustuk|son\s+konusmamiz\s+neydi)\s*\??$")
 _SELF = {"ben", "benim", "beni", "bu", "su", "o", "bunlar", "sen", "seni", "kendin", "kendini"}
 MAX_SCAN = 600
 
@@ -35,7 +36,7 @@ def wants_recall(text: str) -> bool:
         m = rx.match(f)
         if m and _topic(m) not in _SELF:
             return True
-    return bool(_WHEN_TALK.match(f) or _SUMMARY.match(f) or _RECENT.match(f))
+    return bool(_WHEN_TALK.match(f) or _SUMMARY.match(f) or _RECENT.match(f) or _RESUME.match(f))
 
 
 def _topic(m: re.Match) -> str:
@@ -98,6 +99,12 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
         total = sum(int(r["n"]) for r in rows)
         cats = ", ".join(f"{r['category'].lower()} ({r['n']})" for r in rows[:6])
         return f"Hafızamda {total} kayıt var: {cats}. Ayrıntı için “neler hatırlıyorsun” ya da “… hakkında ne biliyorsun” de."
+    if _RESUME.match(f):
+        rows = [r for r in await _past_messages(pool, user_id, limit=40) if not _is_recall_query(r["content"])][:3]
+        if not rows:
+            return "Daha önce bir konuşma kaydı bulamadım; yeni bir sohbete başlayabiliriz."
+        rows = list(reversed(rows))
+        return "En son şunları konuşmuştuk:\n" + "\n".join(f"• {_day(r['created_at'])} — {_clip(r['content'])}" for r in rows) + "\nKaldığımız yerden devam edelim mi?"
     m = _RECENT.match(f)
     if m:
         if m.group(2):

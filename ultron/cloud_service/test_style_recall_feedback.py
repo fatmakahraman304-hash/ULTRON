@@ -270,6 +270,24 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         await self.say("bütçeyi kaldır")
         self.assertNotIn("Bu ay", await self.say("50 lira kahve harcaması ekle", now=now))
 
+    async def test_streaks_birthday_countdown_and_resume(self):
+        now = datetime(2026, 10, 21, 9, 0, tzinfo=timezone.utc)
+        await self.pool.execute("INSERT INTO owner_habits(user_id,habit,amount,day) VALUES($1,'water',8,'2026-10-21'),($1,'water',8,'2026-10-20'),($1,'water',8,'2026-10-19'),($1,'water',8,'2026-10-17'),($1,'exercise',30,'2026-10-20')", self.u)
+        self.assertIn("3 gün üst üste", await self.say("su serim", now=now))
+        both = await self.say("serilerim", now=now)
+        self.assertIn("Su: 3 gün", both)
+        self.assertIn("Spor: 1 gün", both)                      # yesterday counts while today is still empty
+        self.assertIn("serin şu an yok", await self.say("uyku serim", now=now))
+        self.assertIn("Ahmet", await self.say("Ahmet'in doğum günü 3 Mart", now=now))
+        self.assertIn("doğum gününe 133 gün var (3 Mart)", await self.say("Ahmet'in doğum gününe kaç gün var", now=now))
+        self.assertIn("bulamadım", await self.say("Veli'nin doğum gününe kaç gün var", now=now))
+        self.assertIn("Daha önce", await self.say("nerede kalmıştık", now=now))
+        await self.add_msg("user", "Bisiklet bütçemi planlıyorum", age_days=1)
+        await self.add_msg("user", "nerede kalmıştık")
+        reply = await self.say("nerede kalmıştık", now=now)
+        self.assertIn("Bisiklet bütçemi planlıyorum", reply)
+        self.assertEqual(reply.count("nerede kalmıştık"), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

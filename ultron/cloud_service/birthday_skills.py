@@ -23,6 +23,7 @@ _NAME_N = re.compile(r"^\s*(?:lutfen\s+)?(.+?)'?(?:in|nin|un|nun)\s+dogum gunu(?
 _ADD_B = re.compile(r"^\s*dogum gunu\s+(?:ekle|kaydet)\s*[:\-]?\s*(.+?)\s+(\d{1,2})\s+(" + _MON + r")\s*$")
 _MINE = re.compile(r"^\s*dogum gunum\s+(\d{1,2})\s+(" + _MON + r")\s*(?:ekle|kaydet)?\s*$")
 _LIST = re.compile(r"^\s*(?:yaklasan\s+)?dogum gunlerim(?:i)?(?:\s+(?:goster|listele|neler))?\s*\??\s*$|^\s*yaklasan dogum gunleri\s*\??\s*$|^\s*kimin dogum gunu yaklasiyor\s*\??\s*$")
+_UNTIL = re.compile(r"^\s*(.+?)'?(?:in|nin|un|nun)\s+dogum gunune\s+kac gun\s+(?:var|kaldi)\s*\??\s*$|^\s*dogum gunume\s+kac gun\s+(?:var|kaldi)\s*\??\s*$")
 _REMOVE = re.compile(r"^\s*(.+?)'?(?:in|nin|un|nun)\s+dogum gunu(?:nu)?\s+(?:sil|kaldir|iptal et)\s*$")
 
 
@@ -33,7 +34,7 @@ def wants_birthdays(text: str) -> bool:
     f = fold_turkish(text)
     if _MEMORY_PREFIX.match(f):          # "hatırla: annemin doğum günü 3 mart" is an explicit memory command
         return False
-    return len(f) <= 120 and any(p.match(f) for p in (_NAME_A, _NAME_N, _ADD_B, _MINE, _LIST, _REMOVE))
+    return len(f) <= 120 and any(p.match(f) for p in (_NAME_A, _NAME_N, _ADD_B, _MINE, _LIST, _REMOVE, _UNTIL))
 
 
 def _display(original: str, idx: list[int], span: tuple[int, int]) -> str:
@@ -99,6 +100,16 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
         if not _valid(day, month):
             return "Bu tarih geçerli görünmüyor."
         return await _save(pool, user_id, "Senin", day, month, now)
+    m = _UNTIL.match(f)
+    if m:
+        who = _display(text, idx, m.span(1)) if m.group(1) else "Senin"
+        rows = await pool.fetch("SELECT text,due_at FROM owner_reminders WHERE user_id=$1 AND status='pending' AND repeat_rule LIKE 'yearly:%' "
+                                "AND text LIKE '%doğum günü bugün!' AND text LIKE $2 ORDER BY due_at LIMIT 1", user_id, f"{MARK}%{who[:1].upper() + who[1:]}%")
+        if not rows:
+            return f"{who} için kayıtlı bir doğum günü bulamadım."
+        due = rows[0]["due_at"].astimezone(HOME_TZ)
+        days = (due.date() - now.astimezone(HOME_TZ).date()).days
+        return (f"{who} doğum günü bugün! 🎉" if days == 0 else f"{who} doğum gününe {days} gün var ({due.day} {_MONTH_NAMES[due.month - 1]}).")
     m = _REMOVE.match(f)
     if m:
         label = _display(text, idx, m.span(1))

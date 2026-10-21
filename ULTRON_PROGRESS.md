@@ -844,3 +844,6 @@ New modules `style_skills.py`, `recall_skills.py`, `voice_skills.py`, `feedback_
 
 ## 2026-10-21 — Weekly review notification
 New pref `weekly_review` (default off): "haftalık özet bildirimi aç/kapat"; proactive rule `weekly_review` sends the weekly review on Sunday 19:00–22:00 (Istanbul), once per date key, only when the week has recorded data; listed in "bildirim ayarlarım". Real-PostgreSQL test covers default-off, Sunday window, empty-week skip, Saturday skip and toggling.
+
+## 2026-10-21 — Budget, streaks, birthday countdown, "nerede kalmıştık"
+`expense_skills.py`: "aylık bütçem 15000 tl" (stored in `owner_prefs.budget`, survives other pref changes), every expense reply shows month total / budget / %/ remaining with warnings at ≥80 % and over budget, "bütçe durumu", "bütçeyi kaldır". `habit_skills.py`: "su/spor/uyku/adım serim", "serilerim" (consecutive days; yesterday counts while today is empty). `birthday_skills.py`: "Ahmet'in doğum gününe kaç gün var". `recall_skills.py`: "nerede kalmıştık / en son ne konuştuk" (last three of the owner's messages). Real-PostgreSQL tests added; corpus 470/470, hijacked chat 0/184.

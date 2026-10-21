@@ -213,3 +213,9 @@ CASES += [
 CASES += [("haftalık özet bildirimi aç", "prefs"), ("haftalık özet bildirimini kapat", "prefs")]
 
 CASES += [("aylık bütçem 15000 tl", "expenses"), ("bütçe belirle 15000", "expenses"), ("bütçem", "expenses"), ("bütçe durumu", "expenses"), ("bütçe nedir", None), ("devlet bütçesi ne kadar", None)]
+
+CASES += [
+    ("su serim", "habits"), ("serilerim", "habits"), ("spor serim", "habits"), ("Ahmet'in doğum gününe kaç gün var", "birthdays"),
+    ("doğum günüme kaç gün var", "birthdays"), ("nerede kalmıştık", "recall"), ("en son ne konuştuk", "recall"),
+    ("serim bozuldu mu ne", None), ("nerede kalmıştı o kitap", None),
+]

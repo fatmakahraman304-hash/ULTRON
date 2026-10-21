@@ -31,6 +31,8 @@ _MOOD = re.compile(r"^\s*(?:bugun\s+)?(?:modum|ruh halim|moralim)\s+([1-5])(?:\s
 _SUMMARY = re.compile(r"\b(?:saglik ozetim|saglik raporum|haftalik saglik raporu|aliskanliklarim|aliskanlik ozeti|su durumum|uyku durumum)\b"
                       r"|\b(?:bugun|bu hafta|dun)\b.*\b(?:kac bardak su|ne kadar su|kac saat uyudum|ne kadar uyudum|kac adim|ne kadar spor|ne kadar yurudum|kac dakika spor)\b"
                       r"|\bkac bardak su ictim\b|\bne kadar spor yaptim\b")
+_STREAK = re.compile(r"^\s*(?:(su|uyku|spor|adim)\s+(?:icme\s+)?serim|serilerim|serim|kac gundur ust uste (su|spor|uyku|adim)\w*)\s*\??\s*$")
+_STREAK_HABIT = {"su": "water", "uyku": "sleep", "spor": "exercise", "adim": "steps"}
 _UNDO = re.compile(r"\bson (?:aliskanlik|saglik|su|uyku|spor) kaydini sil\b")
 
 
@@ -85,7 +87,7 @@ def parse_log(text: str) -> tuple[str, float, str] | None:
 
 def wants_habits(text: str) -> bool:
     f = fold_turkish(text)
-    return parse_log(text) is not None or (len(f) <= 100 and bool(_SUMMARY.search(f) or _UNDO.search(f)))
+    return parse_log(text) is not None or (len(f) <= 100 and bool(_SUMMARY.search(f) or _UNDO.search(f) or _STREAK.match(f)))
 
 
 def _num(v: float) -> str:
@@ -127,6 +129,23 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
             return f"{name} kaydedildi: {_num(amount)} kg{diff}."
         what = f" ({note})" if note else ""
         return f"{name} kaydedildi{what}: {_num(amount)}{unit if unit == '/5' else ' ' + unit}." + ("" if habit != "mood" else " Not: sağlıkla ilgili tavsiye vermiyorum, sadece kayıt tutuyorum.")
+    sm = _STREAK.match(f)
+    if sm:
+        wanted = _STREAK_HABIT.get(sm.group(1) or sm.group(2))
+        days_by = {}
+        for r in await pool.fetch("SELECT habit, day FROM owner_habits WHERE user_id=$1 AND day>=$2 GROUP BY habit, day", user_id, today - timedelta(days=120)):
+            days_by.setdefault(r["habit"], set()).add(r["day"])
+        out = []
+        for habit in ([wanted] if wanted else ["water", "sleep", "exercise", "steps"]):
+            days = days_by.get(habit, set())
+            cursor = today if today in days else today - timedelta(days=1)       # today may simply not be logged yet
+            run = 0
+            while cursor in days:
+                run += 1
+                cursor -= timedelta(days=1)
+            if run or wanted:
+                out.append(f"{LABEL[habit][0]}: {run} gün üst üste" if run else f"{LABEL[habit][0]}: serin şu an yok; bugün kayıt girersen yeni seri başlar")
+        return ("🔥 Serilerin:\n" + "\n".join("• " + o for o in out)) if out else "Henüz bir serin yok; su, uyku ya da spor kaydettikçe takip ederim."
     if _UNDO.search(f):
         row = await pool.fetchrow("DELETE FROM owner_habits WHERE id=(SELECT id FROM owner_habits WHERE user_id=$1 ORDER BY id DESC LIMIT 1) AND user_id=$1 RETURNING habit,amount", user_id)
         return f"Son kaydı sildim: {LABEL[row['habit']][0]} {_num(row['amount'])}" if row else "Silinecek kayıt yok."
