@@ -2904,6 +2904,10 @@ def build_app() -> web.Application:
     register_local_brain_routes(app,_memory_context,_recent_context)
     register_local_listening_analysis_routes(app)
     register_personal_plan_routes(app)
+    from reminders import register_routes as register_reminder_routes
+    from calendar_feed import register_routes as register_calendar_feed_routes
+    register_reminder_routes(app)
+    register_calendar_feed_routes(app)
     register_learning_routes(app)
     register_conversation_note_routes(app)
     register_auto_learning_routes(app)

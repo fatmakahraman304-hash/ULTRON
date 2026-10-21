@@ -321,3 +321,25 @@ CREATE INDEX IF NOT EXISTS image_requests_spend ON image_requests(created_at) WH
 -- Local image requests reuse the existing owner ledger and device task lane.
 ALTER TABLE image_requests ADD COLUMN IF NOT EXISTS command_id BIGINT;
 ALTER TABLE image_requests ADD COLUMN IF NOT EXISTS provider TEXT;
+
+
+-- Owner reminders created in chat ("20 dakika sonra hatırlat ...").
+-- Delivered to an open GÖLGE page/app; there is no server-side OS push.
+CREATE TABLE IF NOT EXISTS owner_reminders (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  text TEXT NOT NULL CHECK (length(text) BETWEEN 1 AND 200),
+  due_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','cancelled')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  delivered_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_owner_reminders_due
+  ON owner_reminders(user_id, status, due_at);
+
+-- Read-only calendar subscription (secret iCal address from Google/Apple/Outlook).
+CREATE TABLE IF NOT EXISTS owner_calendar_feeds (
+  user_id TEXT PRIMARY KEY,
+  url TEXT NOT NULL CHECK (length(url) BETWEEN 12 AND 800),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

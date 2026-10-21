@@ -407,6 +407,7 @@
     <div class="top-actions"><button class="round-action" id="voiceToggle" aria-label="Sesli yanıt">◖))</button><button class="round-action" type="button" id="panelMenuToggle" aria-label="Çalışma alanları menüsü" aria-expanded="false" aria-controls="tabs">⋯</button></div>
   </header>
 
+  <div id="reminderBanners" aria-live="assertive" style="position:relative;z-index:3"></div>
   <section id="login" class="panel hidden">
     <h2>GÜVENLİ GİRİŞ</h2>
     <p class="tiny">GÖLGE Cloud oturumunu aç. Parolan cihazında saklanmaz.</p>
@@ -577,6 +578,17 @@
         </select>
         <button type="button" id="exportOwnerPlans" class="secondary" style="width:100%;margin-top:9px">.ICS TAKVİM DOSYASINI İNDİR</button>
         <p class="remote-note">Yalnızca sen tıklarsan takvim dosyası oluşturulur. Dosya sadece tamamlanmamış planların başlık ve tarih/saatini içerir; özel notları ve otomatik alarmı içermez. Apple/Google Takvim'e bağlanmaz.</p>
+        <div class="section-title" style="margin-top:12px"><h2>GOOGLE / APPLE / OUTLOOK TAKVİM (SALT OKUNUR)</h2></div>
+        <p class="remote-note">Google Takvim → Ayarlar → takvimi seç → “Gizli iCal biçimindeki adres” bağlantısını yapıştır. GÖLGE yalnızca okur, değişiklik yapmaz; adres bir daha gösterilmez.</p>
+        <input id="calendarFeedUrl" type="password" maxlength="800" placeholder="https://calendar.google.com/…/basic.ics" autocomplete="off" />
+        <div class="row" style="margin-top:7px">
+          <button type="button" id="calendarFeedConnect" class="grow">TAKVİMİ BAĞLA</button>
+          <button type="button" id="calendarFeedDisconnect" class="secondary hidden">KALDIR</button>
+        </div>
+        <p class="remote-note" id="calendarFeedStatus" role="status" aria-live="polite">Takvim durumu yükleniyor…</p>
+        <div class="section-title" style="margin-top:12px"><h2>HATIRLATICILAR</h2></div>
+        <p class="remote-note">Sohbette “20 dakika sonra su içmeyi hatırlat” yazman yeterli. Hatırlatıcılar GÖLGE açıkken sesle ve bildirimle gelir.</p>
+        <button type="button" id="reminderNotifyPermission" class="secondary" style="width:100%">BİLDİRİM İZNİ VER</button>
         <p class="remote-note" id="ownerPlansStatus" role="status" aria-live="polite">Tarih ve başlıkla bir plan oluştur. Görev tamamlanınca işaretleyebilir veya silebilirsin.</p>
         <div id="ownerPlansList" class="memory-list" aria-label="Kişisel plan kayıtları"></div>
       </div>
@@ -655,6 +667,7 @@
 <script src="/static/speaker-policy.js"></script>
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
+<script src="/static/assistant-extras.js"></script>
 <script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
 <script src="/static/source-links.js"></script>
@@ -2042,6 +2055,7 @@ async function boot(){
 window.ULTRONDevRequests?.init();
 window.ULTRONPersonalPanel?.create({fetchJson: path => api(path), document}).init();
 window.ULTRONOwnerPlans?.create({fetchJson: (path, options) => api(path, options), document}).init();
+window.ULTRONAssistantExtras?.create({fetchJson: (path, options) => api(path, options), document, toast, speak: speakUltron}).init();
 const conversationNotesController=window.ULTRONConversationNotes?.create({
   document,
   fetchJson: (path, options) => api(path, options),

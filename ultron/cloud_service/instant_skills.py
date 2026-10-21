@@ -19,8 +19,11 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
+    from . import calendar_feed, reminders
 else:
     from text_normalization import fold_turkish
+    import calendar_feed
+    import reminders
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -560,6 +563,123 @@ async def answer_status(text: str, pool: Any, user_id: str, now: datetime | None
     return "\n".join(lines)
 
 
+# ── agenda & morning briefing ───────────────────────────────────────────────
+
+_AGENDA_Q = re.compile(r"\btakvim(?:im)?(?:de|imde)? ne var|\b(?:bugun|yarin|bu hafta|haftalik)\b.{0,25}\b(?:programim|ajandam|planim|takvimim|toplantilarim|etkinliklerim)\b"
+                       r"|\b(?:programim|ajandam|takvimim) ne\b|\bajanda\b|\b(?:bugun|yarin) ne var\b|\btoplantim var mi\b|\bnelerim var\b|\bsiradaki (?:toplanti|etkinlik)\b")
+_BRIEF_Q = re.compile(r"\b(?:sabah|gunluk|gunun) (?:brifing\w*|ozet\w*|raporu)\b|\bbrifing\b|\bbriefing\b|\bgunu ozetle\b")
+_GREETING = re.compile(r"\bgunaydin\b")
+
+
+def _range_for(folded: str, today: date) -> tuple[date, date, str]:
+    if "yarin" in folded:
+        d = today + timedelta(days=1)
+        return d, d, "Yarın"
+    if "hafta" in folded:
+        return today, today + timedelta(days=6), "Önümüzdeki 7 gün"
+    return today, today, "Bugün"
+
+
+async def agenda_lines(pool: Any, user_id: str, start: date, end: date) -> tuple[list[str], list[str]]:
+    """Calendar + owner plans + pending reminders in [start, end]; plus honest notes."""
+    lines: list[tuple[Any, str]] = []
+    notes: list[str] = []
+    try:
+        events = await calendar_feed.events_between(pool, user_id, start, end)
+        if events is None:
+            notes.append("Takvim bağlı değil (Planlar bölümünden gizli iCal adresini ekleyebilirsin).")
+        for e in events or []:
+            day = datetime.fromisoformat(e["start"]).date() if not e["all_day"] else date.fromisoformat(e["start"])
+            when = "" if start == end else f"{day.day} {TR_MONTHS[day.month - 1][:3]} · "
+            lines.append(((day, e["start"]), f"{when}{calendar_feed.format_event(e)}"))
+    except calendar_feed.FeedError:
+        notes.append("Takvim kaynağına şu an ulaşamadım; takvim etkinliklerini okuyamadım.")
+    except Exception:
+        notes.append("Takvim bilgisi okunamadı.")
+    try:
+        plans = await pool.fetch(
+            "SELECT title,scheduled_date,scheduled_time FROM owner_plans WHERE user_id=$1 AND is_done=FALSE "
+            "AND scheduled_date BETWEEN $2 AND $3 ORDER BY scheduled_date, scheduled_time NULLS LAST LIMIT 12",
+            user_id, start, end)
+        for p in plans:
+            clock = p["scheduled_time"].strftime("%H:%M") if p["scheduled_time"] else "Gün içinde"
+            day = p["scheduled_date"]
+            when = "" if start == end else f"{day.day} {TR_MONTHS[day.month - 1][:3]} · "
+            key = (day, f"{day.isoformat()}T{clock}" if p["scheduled_time"] else f"{day.isoformat()}T99")
+            lines.append((key, f"{when}{clock} — {str(p['title'])[:80]} (plan)"))
+        rems = await pool.fetch(
+            "SELECT text,due_at FROM owner_reminders WHERE user_id=$1 AND status='pending' "
+            "AND (due_at AT TIME ZONE 'Europe/Istanbul')::date BETWEEN $2 AND $3 ORDER BY due_at LIMIT 10",
+            user_id, start, end)
+        for r in rems:
+            due = r["due_at"].astimezone(HOME_TZ)
+            when = "" if start == end else f"{due.day} {TR_MONTHS[due.month - 1][:3]} · "
+            lines.append(((due.date(), due.isoformat()), f"{when}{due:%H:%M} — ⏰ {r['text']}"))
+    except Exception:
+        notes.append("Planlar okunamadı.")
+    lines.sort(key=lambda item: (item[0][0], str(item[0][1])[11:] or ""))
+    return [text for _, text in lines], notes
+
+
+async def answer_agenda(text: str, pool: Any, user_id: str, now: datetime | None = None) -> str | None:
+    folded = fold_turkish(text)
+    if pool is None or not _AGENDA_Q.search(folded):
+        return None
+    today = now_local(now).date()
+    start, end, label = _range_for(folded, today)
+    lines, notes = await agenda_lines(pool, user_id, start, end)
+    head = f"{label} ({format_date_tr(start) if start == end else format_date_tr(start) + ' – ' + format_date_tr(end)}):"
+    if not lines:
+        body = "Kayıtlı etkinlik, plan ya da hatırlatıcı görünmüyor."
+    else:
+        body = "\n".join("• " + l for l in lines)
+    return "\n".join([head, body] + [f"ℹ {n}" for n in notes])
+
+
+def _greeting(hour: int) -> str:
+    return ("İyi geceler" if hour < 5 else "Günaydın" if hour < 12 else "İyi günler" if hour < 18 else "İyi akşamlar")
+
+
+async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJson | None,
+                          now: datetime | None = None) -> str | None:
+    folded = fold_turkish(text)
+    wants = bool(_BRIEF_Q.search(folded)) or (bool(_GREETING.search(folded)) and len(folded) <= 30)
+    if pool is None or not wants:
+        return None
+    local = now_local(now)
+    parts = [f"{_greeting(local.hour)}, efendim. {format_date_tr(local.date())}, saat {local:%H:%M}."]
+    if fetch_json is not None:
+        weather = await answer_weather("hava durumu", fetch_json, now)
+        if weather and "ulaşamadım" not in weather and "eksik" not in weather:
+            parts.append("🌤 " + weather.replace(" (Varsayılan konum; başka şehir için adını söyleyebilirsin.)", "").replace(" Kaynak: Open-Meteo.", ""))
+    lines, notes = await agenda_lines(pool, user_id, local.date(), local.date())
+    parts.append("📅 Bugün:\n" + "\n".join("• " + l for l in lines) if lines else "📅 Bugün için kayıtlı etkinlik ya da plan görünmüyor.")
+    try:
+        tomorrow = local.date() + timedelta(days=1)
+        nxt, _ = await agenda_lines(pool, user_id, tomorrow, tomorrow)
+        if nxt:
+            parts.append(f"➡ Yarın: {len(nxt)} kayıt, ilki: {nxt[0]}")
+    except Exception:
+        pass
+    try:
+        desktop = await pool.fetchval("SELECT (last_seen > NOW() - INTERVAL '15 seconds') FROM device_presence WHERE user_id=$1 AND device='desktop'", user_id)
+        parts.append("💻 Bilgisayar: " + ("çevrimiçi." if desktop else "çevrimdışı."))
+    except Exception:
+        pass
+    if fetch_json is not None:
+        fx = []
+        for code in ("USD", "EUR"):
+            try:
+                data = await fetch_json("https://api.frankfurter.app/latest?" + urlencode({"from": code, "to": "TRY"}), f"fx:{code}:TRY", 1800)
+                fx.append(f"{code} {format_number_tr(round(float(data['rates']['TRY']), 2))} ₺")
+            except Exception:
+                pass
+        if fx:
+            parts.append("💱 " + " · ".join(fx) + " (AMB referans)")
+    parts.extend(f"ℹ {n}" for n in notes)
+    return "\n".join(parts)
+
+
 # ── dispatcher ──────────────────────────────────────────────────────────────
 
 _SKIP_ALL = re.compile(r"\b(?:arastir|research|kaynak goster|makale yaz|kod yaz|hikaye)\b")
@@ -572,9 +692,23 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     text = str(text or "").strip()
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
+    if pool is not None:
+        reply = await reminders.manage_from_chat(text, pool, user_id, now)
+        if reply:
+            return {"skill": "reminders", "reply": reply}
+        if reminders.has_reminder_intent(text):
+            reply = await reminders.create_from_chat(text, pool, user_id, now)
+            if reply:
+                return {"skill": "reminder", "reply": reply}
     reply = await answer_status(text, pool, user_id, now)
     if reply:
         return {"skill": "status", "reply": reply}
+    reply = await answer_briefing(text, pool, user_id, fetch_json, now)
+    if reply:
+        return {"skill": "briefing", "reply": reply}
+    reply = await answer_agenda(text, pool, user_id, now)
+    if reply:
+        return {"skill": "agenda", "reply": reply}
     if fetch_json is not None:
         reply = await answer_weather(text, fetch_json, now)
         if reply:
@@ -594,6 +728,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
 SKILL_SUMMARY = (
     "GÖLGE INSTANT SKILLS (answered exactly, without the model): current time/date and world "
     "clocks, countdowns to dates, calculator and percentages, unit conversion, live weather "
-    "(Open-Meteo), ECB exchange rates and an owner status report ('durum raporu'). When the "
-    "owner asks what you can do, mention these naturally.\n"
+    "(Open-Meteo), ECB exchange rates, owner status report ('durum raporu'), reminders "
+    "('20 dakika sonra ... hatırlat', delivered while the GÖLGE page is open), agenda from the owner's "
+    "plans + read-only iCal calendar ('bugün programım'), and a morning briefing ('günaydın'/'brifing'). "
+    "When the owner asks what you can do, mention these naturally. Never claim a reminder was set unless "
+    "the skill reply says so.\n"
 )
