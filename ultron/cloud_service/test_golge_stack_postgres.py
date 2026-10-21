@@ -49,7 +49,7 @@ class StackContract(unittest.IsolatedAsyncioTestCase):
         self.app = {"db": self.pool}
 
     async def asyncTearDown(self):
-        for table in ("owner_list_items", "owner_reminders", "owner_plans", "owner_alerts", "owner_notifications", "owner_prefs",
+        for table in ("owner_expenses", "owner_list_items", "owner_reminders", "owner_plans", "owner_alerts", "owner_notifications", "owner_prefs",
                       "push_subscriptions", "missions", "memories"):
             await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
         await self.pool.close()
@@ -159,6 +159,18 @@ class StackContract(unittest.IsolatedAsyncioTestCase):
         self.assertIn("5 dakika sonra", await self.say("5 dakika zamanlayıcı kur"))
         self.assertEqual(await self.pool.fetchval("SELECT text FROM owner_reminders WHERE user_id=$1", self.u), "Zamanlayıcı süresi doldu ⏲")
 
+    async def test_expenses(self):
+        self.assertIn("Kaydettim: 150 ₺ — market", await self.say("150 lira market harcaması ekle"))
+        await self.say("bugün kahveye 80 tl harcadım")
+        await self.say("dün 1.250,50 lira benzin harcadım")
+        month = await self.say("bu ay ne kadar harcadım")
+        self.assertIn("• benzin: 1.250,5 ₺", month)
+        self.assertIn("market", month)
+        self.assertIn("Son harcamayı sildim: 1.250,5 ₺ (benzin)", await self.say("son harcamayı sil"))
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_expenses WHERE user_id=$1", self.u), 2)
+        with self.assertRaises(asyncpg.CheckViolationError):
+            await self.pool.execute("INSERT INTO owner_expenses(user_id,amount,category) VALUES($1,-5,'x')", self.u)
+
     async def test_retention_export_and_diagnostics(self):
         await self.say("hatırla: annemin doğum günü 3 Mart")
         await self.pool.execute("INSERT INTO owner_reminders(user_id,text,due_at,status,delivered_at) VALUES($1,'eski',NOW()-interval '40 days','delivered',NOW()-interval '40 days')", self.u)
@@ -167,6 +179,8 @@ class StackContract(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(all(v >= 0 for v in removed.values()))
         data = await ops.export_owner_data(self.pool, self.u)
         self.assertEqual(data["memories"][0]["value"], "annemin doğum günü 3 Mart")
+        self.assertIn("lists", data)
+        self.assertIn("expenses", data)
         self.assertNotIn("endpoint", json.dumps(data))
         diag = await ops.diagnostics(self.app, self.u)
         self.assertEqual(diag["counts"]["memories"], 1)

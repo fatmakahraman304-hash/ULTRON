@@ -429,3 +429,15 @@ CREATE TABLE IF NOT EXISTS owner_list_items (
 );
 CREATE INDEX IF NOT EXISTS idx_owner_list_items_user ON owner_list_items(user_id, list_name, id);
 ALTER TABLE owner_list_items ADD COLUMN IF NOT EXISTS list_label TEXT NOT NULL DEFAULT '';
+
+-- Simple expense log ("150 lira market harcaması ekle", "bu ay ne kadar harcadım"); TRY only.
+CREATE TABLE IF NOT EXISTS owner_expenses (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  amount NUMERIC(12,2) NOT NULL CHECK (amount > 0 AND amount < 100000000),
+  category TEXT NOT NULL CHECK (length(category) BETWEEN 1 AND 40),
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 120),
+  spent_on DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_expenses_user_date ON owner_expenses(user_id, spent_on DESC);

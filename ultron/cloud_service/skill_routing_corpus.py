@@ -134,3 +134,10 @@ CASES += [
     ("bu listeyi beğendim", None), ("bir liste yapalım mı", None), ("listenin en başı kim", None), ("zamanlayıcı nasıl çalışır", None),
     ("en iyi 10 film listesi öner", None), ("liste yap bana", None), ("zamanlayıcı uygulaması yaz", None),
 ]
+
+CASES += [
+    ("150 lira market harcaması ekle", "expenses"), ("bugün kahveye 80 tl harcadım", "expenses"), ("harcama ekle 150 market", "expenses"),
+    ("bu ay ne kadar harcadım", "expenses"), ("harcamalarım", "expenses"), ("son harcamayı sil", "expenses"), ("dün 1.250,50 lira benzin harcadım", "expenses"),
+    ("çok harcadım bugün", None), ("bugün ne kadar harcayabilirim", None), ("maaşım 25.000 tl", None), ("harcama yapmayı sevmiyorum", None),
+    ("para biriktirmenin yolları neler", None), ("tasarruf için ne yapmalıyım", None),
+]

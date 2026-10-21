@@ -808,3 +808,6 @@ Skill replies are stored with `device_id = 'golge-skill:<skill>'`. A very short,
 
 ## 2026-10-21 — Lists and timers
 `list_skills.py` ("alışveriş listesine süt, ekmek ve yumurta ekle", "alışveriş listem", "ekmek … listesinden çıkar", "… listesini temizle", "listelerim"; table `owner_list_items`, key folded + original label) and timer phrases in `reminders.py` ("10 dakika zamanlayıcı kur"). Router corpus now 307 utterances (0 chat hijacked). Real-PostgreSQL stack test: 7 passed. Suite: 497 passed, 9 skipped (non-PG).
+
+## 2026-10-21 — Expense log
+`expense_skills.py` ("150 lira market harcaması ekle", "bugün kahveye 80 tl harcadım", "bu ay/hafta/bugün/dün/geçen ay ne kadar harcadım", "son harcamayı sil"; table `owner_expenses`, TRY only; included in `/api/export`). Router corpus 320 utterances, 0 chat hijacked; real-PostgreSQL stack test 8 passed; suite 501 passed, 9 skipped (non-PG).

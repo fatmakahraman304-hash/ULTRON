@@ -98,6 +98,8 @@ async def export_owner_data(pool: Any, user_id: str) -> dict:
         "memories": await rows("SELECT category,key,value,version,created_at,updated_at FROM memories WHERE user_id=$1 ORDER BY updated_at DESC"),
         "plans": await rows("SELECT title,scheduled_date,scheduled_time,note,is_done FROM owner_plans WHERE user_id=$1 ORDER BY scheduled_date"),
         "reminders": await rows("SELECT text,due_at,status,repeat_rule FROM owner_reminders WHERE user_id=$1 AND status='pending' ORDER BY due_at"),
+        "lists": await rows("SELECT list_label AS list, item, created_at FROM owner_list_items WHERE user_id=$1 ORDER BY list_name, id"),
+        "expenses": await rows("SELECT amount, category, note, spent_on FROM owner_expenses WHERE user_id=$1 ORDER BY spent_on DESC, id DESC LIMIT 1000"),
         "price_alerts": await rows("SELECT asset,vs,direction,threshold,active FROM owner_alerts WHERE user_id=$1 ORDER BY id"),
         "preferences": json.loads(prefs) if isinstance(prefs, str) else (prefs or {}),
         "missions": await rows("SELECT goal,status,report,created_at FROM missions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20"),
