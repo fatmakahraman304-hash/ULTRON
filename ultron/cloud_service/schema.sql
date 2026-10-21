@@ -401,3 +401,18 @@ CREATE TABLE IF NOT EXISTS missions (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_missions_user ON missions(user_id, created_at DESC);
+
+-- Price alerts ("bitcoin 70 bin dolara çıkarsa haber ver"): fire once, then deactivate.
+CREATE TABLE IF NOT EXISTS owner_alerts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  asset TEXT NOT NULL CHECK (length(asset) BETWEEN 2 AND 40),
+  kind TEXT NOT NULL CHECK (kind IN ('coin','fx')),
+  vs TEXT NOT NULL CHECK (vs IN ('usd','try')),
+  direction TEXT NOT NULL CHECK (direction IN ('above','below')),
+  threshold DOUBLE PRECISION NOT NULL CHECK (threshold > 0),
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  fired_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_owner_alerts_active ON owner_alerts(active, user_id);

@@ -22,17 +22,18 @@ from aiohttp import web
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, instant_skills, web_push
+    from . import calendar_feed, instant_skills, web_push, alert_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
     import instant_skills
     import web_push
+    import alert_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 GRACE_SECONDS = 25
 TICK_SECONDS = 30
-DEFAULT_PREFS = {"proactive": True, "morning_brief": False, "morning_time": "08:00",
+DEFAULT_PREFS = {"proactive": True, "morning_brief": False, "morning_time": "08:00", "evening_preview": False,
                  "quiet_start": "23:00", "quiet_end": "07:00"}
 _HHMM = re.compile(r"(?:[01]?\d|2[0-3])[:.]?[0-5]?\d?\Z")
 
@@ -155,19 +156,51 @@ async def morning_brief(pool, user_id, prefs, fetch_json, fetch_text, local_now:
     return [{"key": f"brief:{local_now.date()}", "title": "Günaydın — günün özeti", "body": body.strip()[:400]}]
 
 
+async def quake_alert(fetch_json, now: datetime) -> list[dict]:
+    """M5.0+ in/near Türkiye within the last hour. Urgent: ignores quiet hours."""
+    try:
+        data = await fetch_json(
+            "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&minmagnitude=5&orderby=time&limit=3"
+            "&minlatitude=34&maxlatitude=43&minlongitude=25&maxlongitude=46", "proactive-quake", 120)
+        feats = data["features"]
+    except Exception:
+        return []
+    out = []
+    for ft in feats:
+        p = ft["properties"]
+        at = datetime.fromtimestamp(p["time"] / 1000, timezone.utc)
+        if now - at <= timedelta(hours=1):
+            out.append({"key": f"quake:{ft.get('id') or p['time']}", "urgent": True, "title": f"Deprem: M{p['mag']:.1f}",
+                        "body": f"{str(p.get('place') or '?')[:80]} — {at.astimezone(HOME_TZ):%H:%M}. Resmî bilgi için AFAD/Kandilli'yi kontrol et. (USGS)"})
+    return out
+
+
+async def evening_preview(pool, user_id, prefs, local_now: datetime) -> list[dict]:
+    if not prefs.get("evening_preview") or not (21 * 60 <= local_now.hour * 60 + local_now.minute < 23 * 60):
+        return []
+    tomorrow = local_now.date() + timedelta(days=1)
+    lines, _ = await instant_skills.agenda_lines(pool, user_id, tomorrow, tomorrow)
+    if not lines:
+        return [{"key": f"evening:{tomorrow}", "title": "Yarın için", "body": "Yarın için kayıtlı etkinlik ya da plan görünmüyor. İyi geceler!"}]
+    body = f"Yarın {len(lines)} kayıt var. İlk: {lines[0]}"
+    return [{"key": f"evening:{tomorrow}", "title": "Yarına hazırlık", "body": body[:400]}]
+
+
 async def evaluate(pool: Any, user_id: str, now: datetime, fetch_json, fetch_text=None) -> list[dict]:
     local_now = now.astimezone(HOME_TZ)
     prefs = await get_prefs(pool, user_id)
-    if not prefs["proactive"] or in_quiet_hours(prefs, local_now):
+    if not prefs["proactive"]:
         return []
+    quiet = in_quiet_hours(prefs, local_now)
     items: list[dict] = []
     for rule in (upcoming_events(pool, user_id, local_now), rain_alert(fetch_json, local_now),
-                 morning_brief(pool, user_id, prefs, fetch_json, fetch_text, local_now)):
+                 morning_brief(pool, user_id, prefs, fetch_json, fetch_text, local_now),
+                 evening_preview(pool, user_id, prefs, local_now), quake_alert(fetch_json, now)):
         try:
             items += await rule
         except Exception:
             continue  # one broken rule must not silence the others
-    return items
+    return [i for i in items if i.get("urgent") or not quiet]
 
 
 async def store(pool: Any, user_id: str, items: list[dict]) -> int:
@@ -193,6 +226,11 @@ async def tick(pool: Any, fetch_json, fetch_text=None, now: datetime | None = No
         "WHERE last_seen > NOW() - INTERVAL '7 days' UNION SELECT user_id FROM owner_prefs")]
     for user_id in users:
         stats["stored"] += await store(pool, user_id, await evaluate(pool, user_id, now, fetch_json, fetch_text))
+    try:
+        for user_id, note in await alert_skills.check_all(pool, fetch_json):
+            stats["stored"] += await store(pool, user_id, [note])
+    except Exception:
+        pass
     # explicit reminders nobody picked up in-app → push (not blocked by quiet hours)
     rows = await pool.fetch(
         "UPDATE owner_reminders SET status='delivered',delivered_at=NOW() WHERE id IN ("
@@ -255,6 +293,7 @@ async def handle_prefs(text: str, pool: Any, user_id: str) -> str | None:
         return ("Bildirim ayarların:\n"
                 f"• Proaktif uyarılar: {'açık' if p['proactive'] else 'kapalı'}\n"
                 f"• Sabah brifingi bildirimi: {'açık, ' + p['morning_time'] if p['morning_brief'] else 'kapalı'}\n"
+                f"• Akşam özeti bildirimi: {'açık' if p['evening_preview'] else 'kapalı'}\n"
                 f"• Sessiz saatler: {p['quiet_start']} – {p['quiet_end']}\n"
                 f"• Bildirim alan cihaz: {int(n or 0)}" + ("" if n else " (Hafıza → Bildirimleri aç düğmesi)"))
     m = re.search(r"\bsessiz saat\w*\b.*?\b([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*(?:ile|-|–|den|'?dan|ve)\s*([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\b", f)
@@ -273,6 +312,11 @@ async def handle_prefs(text: str, pool: Any, user_id: str) -> str | None:
         when = f"{int(t.group(1)):02d}:{t.group(2)}" if t else "08:00"
         await set_pref(pool, user_id, morning_brief=True, morning_time=when)
         return f"Tamam, her sabah {when} civarında günün özetini bildirim olarak göndereceğim."
+    if re.search(r"\bak[sş]am (?:ozet\w*|hazirlik\w*)\b.*\bbildirim\w*\b|\bbildirim\w*\b.*\bak[sş]am (?:ozet\w*|hazirlik\w*)\b", f) or \
+            re.search(r"\baksam (?:ozet\w*|hazirlik\w*)\b.*\bbildirim", f):
+        off = bool(re.search(_OFF, f))
+        await set_pref(pool, user_id, evening_preview=not off)
+        return "Akşam özeti bildirimini kapattım." if off else "Tamam, her akşam 21:00 sonrası yarının planlarını bildirim olarak göndereceğim."
     if re.search(r"\bproaktif\b|\bkendiliginden uyar\w*\b|\buyari\w* (?:ac|kapat)", f) and (re.search(_OFF, f) or re.search(_ON, f)):
         off = bool(re.search(_OFF, f))
         await set_pref(pool, user_id, proactive=not off)

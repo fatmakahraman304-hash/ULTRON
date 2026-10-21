@@ -49,3 +49,20 @@ class TestReadiness(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHomeAssistantNote(unittest.TestCase):
+    def test_detail_reflects_real_configuration_without_claiming_verification(self):
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"HOME_ASSISTANT_URL": "", "HOME_ASSISTANT_TOKEN": ""}):
+            detail = next(x for x in readiness()["capabilities"] if x["id"] == "smart_devices")["detail"]
+        self.assertIn("tanımlı değil", detail)
+        with mock.patch.dict(os.environ, {"HOME_ASSISTANT_URL": "https://x.ui.nabu.casa", "HOME_ASSISTANT_TOKEN": "t"}):
+            item = next(x for x in readiness()["capabilities"] if x["id"] == "smart_devices")
+        self.assertIn("gerçek deneme yapılmadı", item["detail"])
+        self.assertEqual(item["status"], "requires_devices")
+
+    def test_push_claim_is_not_marked_verified(self):
+        item = next(x for x in readiness()["capabilities"] if x["id"] == "native_iphone")
+        self.assertIn("doğrulanmadı", item["detail"])
