@@ -102,6 +102,12 @@ async def post_local_chat(request: web.Request) -> web.Response:
                     return web.json_response({"status":"queued", "command_id":previous["command_id"],
                         "conversation_id":str(previous["conversation_id"]), "provider":"local",
                         "user_message_id":previous["user_message_id"], "replayed":True}, status=202)
+            from instant_skills import wants_cloud_skill
+            if wants_cloud_skill(text):
+                # Exact cloud skills (clock, weather, reminders, news…) must not be
+                # answered by the local model; the client falls back to /api/chat.
+                return web.json_response({"error": "research_requires_cloud",
+                    "detail": "Bu istek hızlı GÖLGE yetenekleriyle yanıtlanıyor."}, status=409)
             from conversation_persona import classify_model_task
             from ultron.backend.app.cognitive.research_context import is_research_followup
             if classify_model_task(text) == 'RESEARCH' or is_research_followup(text):

@@ -19,12 +19,13 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
     import reminders
     import memory_skills
+    import phone_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -388,7 +389,8 @@ def home_location() -> tuple[str, float, float]:
     return name, lat, lon
 
 
-async def answer_weather(text: str, fetch_json: FetchJson, now: datetime | None = None) -> str | None:
+async def answer_weather(text: str, fetch_json: FetchJson, now: datetime | None = None,
+                         location: dict | None = None) -> str | None:
     folded = fold_turkish(text)
     if not _WEATHER_Q.search(folded) or _WEATHER_SKIP.search(folded):
         return None
@@ -405,6 +407,8 @@ async def answer_weather(text: str, fetch_json: FetchJson, now: datetime | None 
             hit = hits[0]
             label = str(hit.get("name") or place)
             lat, lon = float(hit["latitude"]), float(hit["longitude"])
+        elif location:
+            label, lat, lon = "Bulunduğun konum", location["lat"], location["lon"]
         else:
             label, lat, lon = home_location()
         lat, lon = round(lat, 2), round(lon, 2)
@@ -435,7 +439,7 @@ async def answer_weather(text: str, fetch_json: FetchJson, now: datetime | None 
     if tomorrow:
         parts = [f"{label} için yarın" + (f" {desc}" if desc else "") + " bekleniyor"]
     else:
-        parts = [f"{label}'da şu an {t(current['temperature_2m'])}" + (f", {desc}" if desc else "")]
+        parts = [(f"{label}'da şu an" if not location or place else "Bulunduğun konumda şu an") + f" {t(current['temperature_2m'])}" + (f", {desc}" if desc else "")]
         if current.get("apparent_temperature") is not None:
             parts.append(f"hissedilen {t(current['apparent_temperature'])}")
         if current.get("wind_speed_10m") is not None:
@@ -451,7 +455,7 @@ async def answer_weather(text: str, fetch_json: FetchJson, now: datetime | None 
         advice = " Bol su içmeyi unutma."
     elif lo is not None and float(lo) <= 3:
         advice = " Sıkı giyinmekte fayda var."
-    if not place and not tomorrow:
+    if not place and not tomorrow and not location:
         advice += " (Varsayılan konum; başka şehir için adını söyleyebilirsin.)"
     return "; ".join(parts) + "." + advice + " Kaynak: Open-Meteo."
 
@@ -642,7 +646,7 @@ def _greeting(hour: int) -> str:
 
 
 async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJson | None,
-                          now: datetime | None = None) -> str | None:
+                          now: datetime | None = None, fetch_text=None) -> str | None:
     folded = fold_turkish(text)
     wants = bool(_BRIEF_Q.search(folded)) or (bool(_GREETING.search(folded)) and len(folded) <= 30)
     if pool is None or not wants:
@@ -667,6 +671,12 @@ async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJ
         parts.append("💻 Bilgisayar: " + ("çevrimiçi." if desktop else "çevrimdışı."))
     except Exception:
         pass
+    try:
+        news = await phone_skills.headlines(None, fetch_text, 3)
+        if news:
+            parts.append("📰 Gündem:\n" + "\n".join("• " + n["title"] for n in news))
+    except Exception:
+        pass
     if fetch_json is not None:
         fx = []
         for code in ("USD", "EUR"):
@@ -688,7 +698,8 @@ _SKIP_ALL = re.compile(r"\b(?:arastir|research|kaynak goster|makale yaz|kod yaz|
 
 async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
                         fetch_json: FetchJson | None = None,
-                        now: datetime | None = None) -> dict | None:
+                        now: datetime | None = None, location: dict | None = None,
+                        fetch_text=None) -> dict | None:
     """Return {"skill", "reply"} for an unambiguous skill request, else None."""
     text = str(text or "").strip()
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
@@ -707,16 +718,22 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     reply = await answer_status(text, pool, user_id, now)
     if reply:
         return {"skill": "status", "reply": reply}
-    reply = await answer_briefing(text, pool, user_id, fetch_json, now)
+    reply = await answer_briefing(text, pool, user_id, fetch_json, now, fetch_text)
     if reply:
         return {"skill": "briefing", "reply": reply}
     reply = await answer_agenda(text, pool, user_id, now)
     if reply:
         return {"skill": "agenda", "reply": reply}
     if fetch_json is not None:
-        reply = await answer_weather(text, fetch_json, now)
+        reply = await answer_weather(text, fetch_json, now, location)
         if reply:
             return {"skill": "weather", "reply": reply}
+    reply = phone_skills.answer_flight(text, now)
+    if reply:
+        return {"skill": "flight", "reply": reply}
+    reply = await phone_skills.answer_news(text, fetch_text)
+    if reply:
+        return {"skill": "news", "reply": reply}
     for skill, fn in (("units", answer_units), ("countdown", lambda t: answer_countdown(t, now)),
                       ("clock", lambda t: answer_clock(t, now)), ("math", answer_math)):
         reply = fn(text)
@@ -732,7 +749,7 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
 SKILL_SUMMARY = (
     "GÖLGE INSTANT SKILLS (answered exactly, without the model): current time/date and world "
     "clocks, countdowns to dates, calculator and percentages, unit conversion, live weather "
-    "(Open-Meteo), ECB exchange rates, owner status report ('durum raporu'), reminders "
+    "(Open-Meteo, also for the phone's current location), ECB exchange rates, news headlines (Google News), flight-search links (Google Flights, no invented prices), YouTube link summaries, owner status report ('durum raporu'), reminders "
     "('20 dakika sonra ... hatırlat', delivered while the GÖLGE page is open), agenda from the owner's "
     "plans + read-only iCal calendar ('bugün programım'), and a morning briefing ('günaydın'/'brifing'). "
     "LAPTOP FROM PHONE CHAT: the owner can type 'laptop: <anything>', 'bilgisayarda chrome aç', "
@@ -743,3 +760,28 @@ SKILL_SUMMARY = (
     "When the owner asks what you can do, mention these naturally. Never claim a reminder was set or a "
     "laptop action was done unless the skill/laptop reply says so.\n"
 )
+
+
+def wants_cloud_skill(text: str) -> bool:
+    """Cheap, side-effect-free check: would instant_reply (or the YouTube summary) take this message?
+
+    Used by the local-Qwen path to hand such messages to the cloud endpoint instead of the local model.
+    """
+    text = str(text or "").strip()
+    if not text or len(text) > MAX_SKILL_TEXT * 3 or _SKIP_ALL.search(fold_turkish(text)):
+        return False
+    folded = fold_turkish(text)
+    if phone_skills.youtube_request(text) is not None:
+        return True
+    if len(text) > MAX_SKILL_TEXT:
+        return False
+    return bool(
+        _WEATHER_Q.search(folded) and not _WEATHER_SKIP.search(folded)
+        or _STATUS_Q.search(folded) or _AGENDA_Q.search(folded) or _BRIEF_Q.search(folded)
+        or (_GREETING.search(folded) and len(folded) <= 30)
+        or reminders.has_reminder_intent(text) or reminders._LIST_Q.search(folded) or reminders._CANCEL_Q.search(folded)
+        or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
+        or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
+        or phone_skills.wants_news(text) or phone_skills.wants_flight(text)
+        or (_FX_Q.search(folded) and _CUR_TOKEN.search(folded) and not _FX_SKIP.search(folded))
+        or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text))

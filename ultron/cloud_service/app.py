@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from capability_readiness import readiness
 from instant_skills import instant_reply, clock_context, SKILL_SUMMARY
+import phone_skills
 import world_api
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
@@ -1777,6 +1778,36 @@ async def scene_design(request: web.Request) -> web.Response:
     return web.json_response({"design":design})
 
 
+def _valid_location(raw: object) -> dict | None:
+    """Rounded phone coordinates sent only with weather questions; never stored."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        lat, lon = float(raw.get("lat")), float(raw.get("lon"))
+    except (TypeError, ValueError):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180) or lat != lat or lon != lon:
+        return None
+    return {"lat": round(lat, 2), "lon": round(lon, 2)}
+
+
+def _gemini_youtube_reply(url: str, question: str, system_instruction: str) -> str:
+    """Gemini reads the public YouTube video itself; no transcript scraping."""
+    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
+    model = os.getenv("GEMINI_VIDEO_MODEL", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")).strip() or "gemini-3.8-flash"
+    contents = types.Content(parts=[
+        types.Part(file_data=types.FileData(file_uri=url)),
+        types.Part(text=question + "\n\nKısa bir özet, ardından en önemli 3-5 madde ver. Videoda olmayan bir şeyi ekleme."),
+    ])
+    response = client.models.generate_content(
+        model=model, contents=contents,
+        config=types.GenerateContentConfig(system_instruction=system_instruction, max_output_tokens=4096))
+    text = (response.text or "").strip()
+    if not text:
+        raise RuntimeError("Gemini returned an empty video response")
+    return text
+
+
 async def chat(request: web.Request) -> web.Response:
     body = await request.json()
     text = str(body.get("message", "")).strip()
@@ -1842,7 +1873,8 @@ async def chat(request: web.Request) -> web.Response:
     async def _skill_fetch(url: str, key: str, ttl: int) -> dict:
         return await world_api._upstream(url, ttl=ttl, key=key)
     try:
-        skill = await instant_reply(text, pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch)
+        skill = await instant_reply(text, pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch,
+                                    location=_valid_location(body.get("location")))
     except Exception:
         skill = None  # A skill bug must never block a normal model answer.
     if skill and not cancel_record["cancel_requested"]:
@@ -1887,6 +1919,7 @@ async def chat(request: web.Request) -> web.Response:
     ) + "\n" + clock_context() + SKILL_SUMMARY
     if research_result is not None:
         system_instruction += build_research_prompt_block(research_result)
+    youtube_request = phone_skills.youtube_request(text)
     prompt = text
     if cancel_record["cancel_requested"]:
         return web.json_response({"request_id": request_id, "status": "output_suppressed",
@@ -1896,6 +1929,13 @@ async def chat(request: web.Request) -> web.Response:
         if research_result and research_result.get("answer"):
             # Google already generated a grounded response; no second model call.
             reply = research_result["answer"]
+        elif youtube_request is not None:
+            try:
+                reply = await asyncio.to_thread(_gemini_youtube_reply, youtube_request["url"],
+                                                youtube_request["question"], system_instruction)
+            except Exception:
+                reply = ("Bu videoyu açıp özetleyemedim. Video özel, yaşa kısıtlı ya da çok uzun olabilir; "
+                         "yine de başlığını veya ne öğrenmek istediğini yazarsan elimden geleni yaparım.")
         elif research_result and not (research_result.get("synthesis") or {}).get("findings"):
             reply = ("Hangi konudaki araştırmaya devam edelim? Bu konuşmada bağlı bir araştırma isteği bulamadım."
                      if research_result.get("status") == "research_topic_missing" else
