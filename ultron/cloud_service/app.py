@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from capability_readiness import readiness
+from instant_skills import instant_reply, clock_context, SKILL_SUMMARY
+import world_api
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
 from approved_learning import register_learning_routes
@@ -1837,6 +1839,30 @@ async def chat(request: web.Request) -> web.Response:
         conv_uuid, request["user_id"], text, request["device_id"],
     )
 
+    async def _skill_fetch(url: str, key: str, ttl: int) -> dict:
+        return await world_api._upstream(url, ttl=ttl, key=key)
+    try:
+        skill = await instant_reply(text, pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch)
+    except Exception:
+        skill = None  # A skill bug must never block a normal model answer.
+    if skill and not cancel_record["cancel_requested"]:
+        async with cancel_registry.completion_lock:
+            if cancel_record["cancel_requested"]:
+                return web.json_response({"request_id": request_id, "status": "output_suppressed",
+                    "provider": "golge-skill", "provider_stopped": False,
+                    "conversation_id": str(conv_uuid)})
+            assistant_message_id = await pool.fetchval(
+                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                "VALUES($1,$2,'assistant',$3,'golge-skill') RETURNING id",
+                conv_uuid, request["user_id"], skill["reply"],
+            )
+            await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
+            cancel_registry.mark_completed(request["user_id"], request["device_id"],
+                                           request_id, request_key)
+        return web.json_response({"conversation_id": str(conv_uuid), "reply": skill["reply"],
+            "request_id": request_id, "skill": skill["skill"], "research": None,
+            "user_message_id": current_message_id, "assistant_message_id": assistant_message_id})
+
     turns = await load_contextual_thread_turns(
         pool, request["user_id"], conv_uuid, question=text,
         before_id=current_message_id, max_chars=5200, limit=16,
@@ -1858,7 +1884,7 @@ async def chat(request: web.Request) -> web.Response:
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
         user_message=text, read_only=True, has_prior_turns=bool(turns),
-    )
+    ) + "\n" + clock_context() + SKILL_SUMMARY
     if research_result is not None:
         system_instruction += build_research_prompt_block(research_result)
     prompt = text
@@ -1995,7 +2021,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         memory=memory, recent=recent,
         has_prior_turns=not recent.startswith("No previous chat messages."),
     )
-    system_instruction = build_live_voice_instruction(base_prompt)
+    system_instruction = build_live_voice_instruction(base_prompt + "\n" + clock_context())
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
     voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
     try:
