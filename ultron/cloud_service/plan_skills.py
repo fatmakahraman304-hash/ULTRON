@@ -17,6 +17,7 @@ _ADD = re.compile(r"\b(?:plan\w*|takvim\w*|ajanda\w*|program\w*)\b.*\b(?:ekle|ol
 _LIST = re.compile(r"\bplanlarim(?:i)?(?: neler| ne| goster| listele| var)?\b|\byaklasan planlar\w*\b|\bplanlarimi (?:goster|listele)\b")
 _DONE = re.compile(r"\bplan\w*\b.*\b(?:tamamla\w*|bitir\w*|bitti|yaptim)\b|\b(?:tamamla\w*|bitir\w*)\b.*\bplan\w*\b")
 _DEL = re.compile(r"\bplan\w*\b.*\b(?:sil|silelim|kaldir|iptal et)\b|\b(?:sil|kaldir)\b.*\bplan\w*\b")
+_NOT_A_PLAN = re.compile(r"\b(?:uygulama\w*|kod\w*|script\w*|yazilim\w*|site\w*|makale\w*|rapor\w*|odev\w*|program yaz\w*|ders plani|plan yap\w*)\b")
 _NOISE = re.compile(r"\b(?:plan\w*|takvim\w*|ajanda\w*|program\w*|ekle|olustur|yaz|kaydet|koy|ayarla|tamamla\w*|bitir\w*|bitti|yaptim|"
                     r"sil\w*|kaldir\w*|iptal|et|lutfen|bana|benim|bir|icin|su|sunu|bunu)\b")
 
@@ -79,7 +80,7 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
         await pool.execute("UPDATE owner_plans SET is_done=TRUE,updated_at=NOW() WHERE id=$1 AND user_id=$2", hit["id"], user_id)
         return f"Planı tamamlandı olarak işaretledim: {str(hit['title'])[:80]} ✓"
 
-    if _ADD.search(folded):
+    if _ADD.search(folded) and not _NOT_A_PLAN.search(folded):
         parsed = parse_reminder(text, now, require_intent=False)
         if parsed is None or parsed.get("error") == "no_time":
             return "Planı hangi gün ve saate ekleyeyim? Örneğin “yarın 15:00 diş randevusu planına ekle”."

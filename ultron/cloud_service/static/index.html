@@ -2258,7 +2258,7 @@ async function localBrainAnswer(text,userBubble,identity,signal){
 // Coordinates (rounded to ~1 km) are attached only to weather questions, used for that
 // answer and never stored. Without permission the server falls back to the home city.
 async function locationForWeather(text){
-  if(!/(hava|ya[ğg]mur|[şs]emsiye|ka[çc] derece|s[ıi]cak m[ıi]|so[ğg]uk mu)/i.test(text)||!navigator.geolocation)return undefined;
+  if(!/(hava|ya[ğg]mur|[şs]emsiye|ka[çc] derece|s[ıi]cak m[ıi]|so[ğg]uk mu|yak[ıi]n|etraf[ıi]m|yol tarifi|nas[ıi]l giderim|trafik|namaz|ezan|g[üu]n (?:do[ğg]|bat))/i.test(text)||!navigator.geolocation)return undefined;
   try{
     const pos=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(ok,no,{timeout:6000,maximumAge:600000}));
     return {lat:Math.round(pos.coords.latitude*100)/100,lon:Math.round(pos.coords.longitude*100)/100};

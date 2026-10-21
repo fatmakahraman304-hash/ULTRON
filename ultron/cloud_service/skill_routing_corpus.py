@@ -157,3 +157,13 @@ CASES += [
     ("çok su içtim", None), ("dün gece kötü uyudum", None), ("su içmek sağlıklı mı", None), ("kaç bardak su içmeliyim", None),
     ("kilo vermek için ne yapmalıyım", None), ("uyku düzenim bozuk", None), ("spor yapmak istiyorum program öner", None), ("modum çok kötü", None),
 ]
+
+CASES += [
+    ("Ankara'dan İstanbul'a yol tarifi", "navigation"), ("İzmir'e nasıl giderim", "navigation"), ("İzmir'e yürüyerek yol tarifi", "navigation"),
+    ("yol tarifi: Girne", "navigation"), ("yakınımda eczane", "navigation"), ("en yakın benzin istasyonu", "navigation"),
+    ("yakınımda market var mı", "navigation"), ("trafik durumu", "navigation"),
+    ("yol tarifi nasıl alınır", None), ("yakın arkadaşım geldi", None), ("yakınımda biri var mı", None), ("en yakın zamanda görüşelim", None),
+    ("trafik cezası nasıl ödenir", None), ("rota planlama uygulaması yaz", None), ("trafikte sıkıştım çok sinirliyim", None),
+    ("pomodoro başlat", "focus"), ("pomodoro 25 5", "focus"), ("50 dakika odaklan", "focus"), ("pomodoro durdur", "focus"),
+    ("odaklanamıyorum", None), ("pomodoro tekniği nedir", None), ("odaklanmak için ne yapmalıyım", None),
+]

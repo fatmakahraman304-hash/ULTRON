@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -36,6 +36,8 @@ else:
     import expense_skills
     import birthday_skills
     import habit_skills
+    import nav_skills
+    import focus_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 # frankfurter.app permanently redirects here; redirects are never followed, so use the canonical host.
@@ -714,6 +716,7 @@ HELP_TEXT = (
     "🌤 Bilgi: hava (konumunla), haberler, döviz, bitcoin, namaz vakitleri, depremler, gün doğumu, ay evresi, “Atatürk kimdir”\n"
     "🧮 Hesap: “15 x 4 + 2”, “100 km kaç mil”, “yılbaşına kaç gün var”, saat/tarih/dünya saatleri\n"
     "🔔 Uyarılar: “bitcoin 70 bin dolara çıkarsa haber ver”, “sessiz saatler 23 ile 7”, “sabah brifingi bildirimi aç”\n"
+    "🧭 Yol: “Ankara'dan İstanbul'a yol tarifi”, “yakınımda eczane”, “trafik durumu”; 🍅 Odak: “pomodoro başlat”, “50 dakika odaklan”\n"
     "💧 Alışkanlık: “2 bardak su içtim”, “7 saat uyudum”, “30 dakika yürüdüm”, “modum 4”, “sağlık özetim”, “bu hafta ne kadar spor yaptım”\n"
     "🎂 Doğum günü: “Ahmet'in doğum günü 3 Mart”, “doğum günlerim”, “her yıl 14 şubat sevgililer günü hatırlat”\n"
     "🛒 Liste/harcama: “alışveriş listesine süt ekle”, “150 lira market harcaması ekle”, “bu ay ne kadar harcadım”, “10 dakika zamanlayıcı kur”\n"
@@ -746,6 +749,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
     if pool is not None and not read_only:
+        reply = await focus_skills.handle(text, pool, user_id, now)
+        if reply:
+            return {"skill": "focus", "reply": reply}
         reply = await habit_skills.handle(text, pool, user_id, now)
         if reply:
             return {"skill": "habits", "reply": reply}
@@ -797,6 +803,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
         known = await knowledge_skills.answer(text, fetch_json, now, location)
         if known:
             return {"skill": known[0], "reply": known[1]}
+    reply = nav_skills.answer(text, location)
+    if reply:
+        return {"skill": "navigation", "reply": reply}
     reply = phone_skills.answer_flight(text, now)
     if reply:
         return {"skill": "flight", "reply": reply}
@@ -858,10 +867,10 @@ def wants_cloud_skill(text: str) -> bool:
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
         or phone_skills.wants_news(text) or phone_skills.wants_flight(text) or smart_home.wants_smart_home(text) or knowledge_skills.wants_knowledge(text)
-        or answer_help(text) or list_skills.wants_lists(text) or expense_skills.wants_expenses(text) or birthday_skills.wants_birthdays(text) or habit_skills.wants_habits(text)
+        or answer_help(text) or list_skills.wants_lists(text) or expense_skills.wants_expenses(text) or birthday_skills.wants_birthdays(text) or habit_skills.wants_habits(text) or focus_skills.wants_focus(text) or nav_skills.wants_navigation(text)
         or alert_skills.parse_alert(text) or alert_skills._LIST.search(folded) or alert_skills._CANCEL.search(folded)
         or re.search(r"\baksam (?:ozet\w*|hazirlik\w*)\b", folded)
-        or plan_skills._ADD.search(folded) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)
+        or (plan_skills._ADD.search(folded) and not plan_skills._NOT_A_PLAN.search(folded)) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)
         or re.search(r"\bbildirim ayarlarim\b|\bproaktif\b|\bsessiz saat\w*\b|\bsabah (?:brifing\w*|ozet\w*)\b.*\bbildirim|\bkendiliginden uyar", folded)
         or (_FX_Q.search(folded) and _CUR_TOKEN.search(folded) and not _FX_SKIP.search(folded))
         or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text))
