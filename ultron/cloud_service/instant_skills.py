@@ -697,6 +697,31 @@ async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJ
     return "\n".join(parts)
 
 
+# ── help ────────────────────────────────────────────────────────────────────
+
+_HELP_Q = re.compile(r"\b(?:neler|ne) yapabilirsin\b|\byapabildiklerin\b|\bozelliklerin\b|\bkomutlar(?:in)?\b|\byetenekleri?n\b|\bnasil kullanilir\b|^\s*yardim\s*[?!.]*$")
+HELP_TEXT = (
+    "Yapabildiklerim (örnekler):\n"
+    "⏰ Hatırlatıcı: “20 dakika sonra su içmeyi hatırlat”, “her gün 9'da ilaç hatırlat”\n"
+    "📅 Plan/takvim: “yarın 15:00 diş randevusu planıma ekle”, “planlarım”, “bugün programım ne”\n"
+    "🌤 Bilgi: hava (konumunla), haberler, döviz, bitcoin, namaz vakitleri, depremler, gün doğumu, ay evresi, “Atatürk kimdir”\n"
+    "🧮 Hesap: “15 x 4 + 2”, “100 km kaç mil”, “yılbaşına kaç gün var”, saat/tarih/dünya saatleri\n"
+    "🔔 Uyarılar: “bitcoin 70 bin dolara çıkarsa haber ver”, “sessiz saatler 23 ile 7”, “sabah brifingi bildirimi aç”\n"
+    "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “unut: …”\n"
+    "🎯 Görev: “görev: yarınki hava ve haberlere göre günümü planla” (adım adım çalışır)\n"
+    "💻 Laptop: “laptop: chrome aç”, “ekran analizi yap” (laptop açıkken)\n"
+    "🏠 Akıllı ev: “salon ışığını aç”, “klimayı 24 dereceye ayarla” (Home Assistant bağlıysa)\n"
+    "📷 Görme: + düğmesiyle fotoğraf, ekran görüntüsü veya PDF gönder; YouTube linki + “özetle”\n"
+    "Sınırlarım: laptop kapalıyken bilgisayarı yönetemem, kapı kilidini açmam, bildirimler için uygulamayı Ana Ekrana eklemen gerekir; "
+    "uçuşlarda fiyat çekmem, sadece arama bağlantısı veririm."
+)
+
+
+def answer_help(text: str) -> str | None:
+    f = fold_turkish(text)
+    return HELP_TEXT if len(f) <= 50 and _HELP_Q.search(f) else None
+
+
 # ── dispatcher ──────────────────────────────────────────────────────────────
 
 _SKIP_ALL = re.compile(r"\b(?:arastir|research|kaynak goster|makale yaz|kod yaz|hikaye)\b")
@@ -730,6 +755,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
             reply = await reminders.create_from_chat(text, pool, user_id, now)
             if reply:
                 return {"skill": "reminder", "reply": reply}
+    reply = answer_help(text)
+    if reply:
+        return {"skill": "help", "reply": reply}
     reply = await answer_status(text, pool, user_id, now)
     if reply:
         return {"skill": "status", "reply": reply}
@@ -808,6 +836,7 @@ def wants_cloud_skill(text: str) -> bool:
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
         or phone_skills.wants_news(text) or phone_skills.wants_flight(text) or smart_home.wants_smart_home(text) or knowledge_skills.wants_knowledge(text)
+        or answer_help(text)
         or alert_skills.parse_alert(text) or alert_skills._LIST.search(folded) or alert_skills._CANCEL.search(folded)
         or re.search(r"\baksam (?:ozet\w*|hazirlik\w*)\b", folded)
         or plan_skills._ADD.search(folded) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)

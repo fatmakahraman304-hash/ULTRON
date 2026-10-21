@@ -113,3 +113,16 @@ class InstantSkills(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class HelpSkill(unittest.TestCase):
+    def test_help_lists_real_skills_and_limits(self):
+        for q in ("neler yapabilirsin", "yardım", "ne yapabilirsin?", "komutların"):
+            out = run(s.instant_reply(q, now=NOW))
+            self.assertEqual(out["skill"], "help", q)
+        reply = run(s.instant_reply("neler yapabilirsin", now=NOW))["reply"]
+        for needle in ("hatırlat", "görev:", "laptop:", "Sınırlarım", "kapı kilidini açmam"):
+            self.assertIn(needle, reply)
+
+    def test_long_messages_are_not_hijacked(self):
+        self.assertIsNone(run(s.instant_reply("bu uygulamanın komutlarını kullanarak bana uzun bir şiir yazar mısın lütfen güzel olsun", now=NOW)))
