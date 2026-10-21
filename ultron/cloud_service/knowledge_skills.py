@@ -143,7 +143,7 @@ async def answer_prayer(text: str, fetch_json: FetchJson, now: datetime | None =
 # ── earthquakes (USGS) ──────────────────────────────────────────────────────
 
 _QUAKE_Q = re.compile(r"\bdeprem\w*\b")
-_QUAKE_SKIP = re.compile(r"\b(?:nedir|nasil olusur|neden|sigorta\w*|canta\w*|hazirlik\w*|onlem\w*|tahmin\w*|olur mu|olacak mi|ne yapmaliyiz|ne yapilir|neler olmali)\b")
+_QUAKE_SKIP = re.compile(r"\b(?:nedir|nasil olusur|neden|sigorta\w*|canta\w*|hazirlik\w*|onlem\w*|tahmin\w*|olur mu|olacak mi|ne yapmaliyiz|ne yapilir|neler olmali|ne yapilmali|ne yapmaliyim|ne yapmali|korku\w*|panik\w*|kabus\w*|hazirlan\w*)\b")
 
 
 def wants_quake(text: str) -> bool:

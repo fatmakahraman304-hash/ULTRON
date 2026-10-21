@@ -943,3 +943,13 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 | Render / production | NOT RUN | No deploy or merge; production code remains unchanged. |
 
 Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0ddcf8c8672`. This result does not claim device acceptance or model-generation cancellation for Cloud Gemini; Cloud live TTS buffers are cancelled locally while provider completion may continue.
+
+
+## 2026-10-21 — Phone assistant stack test evidence (Linux sandbox, no Windows/iPhone/real providers)
+
+- `cd ultron/cloud_service && python -m pytest -q --ignore-glob='*postgres*' .` → 488 passed, 9 skipped.
+- With a disposable local PostgreSQL 16 and `ULTRON_TEST_DATABASE_URL`: `test_golge_stack_postgres.py` 6 passed (schema twice, repeating reminders, push dispatcher in-app-first/dedupe, plans, alerts, missions incl. cancel, retention, export, diagnostics). Whole suite with both DB env vars: 590 passed, 2 failed — `test_grounded_research_postgres.py` (2 tests) fail identically on the commit before the shared HTTP client, i.e. pre-existing / no network in this sandbox.
+- Web Push encryption matches the RFC 8291 Appendix A vector (`test_web_push_proactive.py`).
+- Router corpus: 292/292 labelled utterances routed correctly, 0/118 ordinary-chat utterances intercepted (`test_skill_routing.py`).
+- Node: every `ultron/cloud_service/test_*.cjs` passes; `node scripts/test_golge_minimal_ui.mjs` passes (cache v81).
+- **NOT RUN**: real iPhone (Home-Screen PWA push with locked phone), real laptop (`laptop: …`, screen analysis), real Gemini (YouTube summary, mission planning quality), real Home Assistant, Render deployment, Windows tests. The new `golge-cloud-stack.yml` workflow had started on GitHub but its result was not read at the time of writing.

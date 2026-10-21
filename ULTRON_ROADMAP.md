@@ -714,3 +714,16 @@ Next dependency order: finish exact-head CI for PR #34/#35 → merge and verify 
 - Completed in development code: deterministic stop command handling, honest licensed-satellite failure, provider-backed weather chat result, and native desktop file-byte transfer into existing vision/document handlers.
 - Remaining acceptance work: pull the fix onto Windows and repeat the four manual interactions on the actual Qt/native audio path. Confirm local vision model availability separately. No new map provider is configured, so satellite imagery remains unavailable; ordinary street map and the separate Globe remain intact.
 - Release gate: review CI and manual Windows evidence before merging. Do not deploy to Render for this desktop bridge change unless separately required and explicitly authorized.
+
+
+## 2026-10-21 — Phone assistant stack (branch `claude/epic-ptolemy-0mexud`, draft PR #62 into `feat/ultron-cloud-shared-memory`)
+
+Cloud service + PWA only; no Windows desktop code was changed except display strings.
+- **Skills without a model call** (`instant_skills.py`, `phone_skills.py`, `knowledge_skills.py`): clock/countdown/math/units, weather (also phone location), FX, crypto, news (Google News RSS), flight-search link (no prices), YouTube link summary (Gemini file_data), Wikipedia, prayer times, USGS quakes, sun/moon, status, briefing, agenda, help. Local-Qwen path hands these back to `/api/chat` (`wants_cloud_skill`).
+- **Plans/reminders/memory/calendar**: repeating reminders, plans from chat, read-only iCal feed (https + host allow-list), memory commands, `owner_prefs`.
+- **Proactive + Web Push** (`proactive.py`, `web_push.py`): RFC 8291/8292 on `cryptography`, VAPID keys in DB, in-app first / push after 25 s grace, quiet hours, price alerts (`alert_skills.py`), M5+ quake notice.
+- **Smart home** (`smart_home.py`): Home Assistant REST (env `HOME_ASSISTANT_URL`/`HOME_ASSISTANT_TOKEN`); never unlocks doors / opens garage covers.
+- **Missions** (`missions.py`): `görev: …` → validated plan → read-only runner → report; laptop steps proposed only.
+- **Phone → laptop chat bridge** (`laptop_bridge.py`): `laptop: …`, `ekran analizi yap`; destructive needs prefix; offline not queued.
+- **Infra** (`infra.py`, `http_client.py`, `ops.py`): login lockout, security headers, safe JSON 500 + request id, per-owner rate limits, pooled HTTP client, deep health, diagnostics, retention, export. New workflow `.github/workflows/golge-cloud-stack.yml`.
+- **Router quality gate**: `skill_routing_corpus.py` + `test_skill_routing.py` (292 labelled utterances; ordinary chat must never be intercepted).

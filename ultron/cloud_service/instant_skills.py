@@ -107,7 +107,8 @@ CITY_TZ = {
     "brezilya": ("Brezilya", "America/Sao_Paulo"),
 }
 _TIME_Q = re.compile(r"\bsaat (?:kac|ka[cç]ta)\b|\bwhat time\b|\bsaati (?:soyle|ne)\b|\bsu an saat\b")
-_DATE_Q = re.compile(r"\bbugun (?:gunlerden ne|ayin kaci|ne gun|hangi gun)|\b(?:bugunun )?tarih(?:i)? (?:ne|nedir|kac)"
+_DATE_Q = re.compile(r"\bbugun (?:gunlerden ne|ayin kaci|ne gun|hangi gun)|\bayin kaci\b"
+                     r"|\b(?:bugunun|bugun|su an(?:ki)?|simdiki|guncel) tarih\w*|^\s*tarih(?:i)? (?:ne|nedir|kac)\s*\??\s*$"
                      r"|\bhangi gundeyiz\b|\bgunlerden ne\b|\bwhat(?:'s| is) (?:the )?date\b|\bwhat day is it\b")
 
 
@@ -360,7 +361,7 @@ _WMO_TR = {
 }
 _WEATHER_Q = re.compile(r"\bhava (?:durumu|nasil|nasildir|ne durumda|kac derece|sicak mi|soguk mu)"
                         r"|\b(?:yagmur|kar) yagacak mi\b|\bsemsiye\b|\bkac derece\b|\bweather\b")
-_WEATHER_SKIP = re.compile(r"\b(?:neden|niye|nicin|why|iklim degisikligi|kuresel isinma)\b")
+_WEATHER_SKIP = re.compile(r"\b(?:neden|niye|nicin|why|iklim degisikligi|kuresel isinma|uygulama\w*|yaz|yazar|yazsana|kod\w*|program\w*|api|site\w*|widget|tasarla\w*)\b")
 _NOT_PLACES = {"bugun", "yarin", "burada", "burasi", "disarida", "disari", "orada", "evde", "simdi",
                "su", "an", "hafta", "sonu", "aksam", "sabah", "gece", "bu", "ve", "acaba", "peki",
                "golge", "oralarda", "buralarda", "bizim", "senin", "benim", "nasil"}

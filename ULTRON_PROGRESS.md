@@ -795,3 +795,10 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Native Qt file picker now allows only supported image/document suffixes, enforces the existing 8 MiB cap and sends bytes to the existing authenticated image/document API. The selected filename/preview and real analysis/extraction result or error are shown; no file is silently called “loaded”.
 - Local verification: frontend build PASS; frontend Node tests 40/40 PASS; Cloud JavaScript tests 167/167 PASS; focused desktop voice/file Python tests 3/3 PASS; Earth layer/geocoding tests 5/5 PASS; Python compile PASS. Exact-head Actions for the first fix commit passed all seven checks; a follow-up made typed “Dur” bypass the busy composer lock and is awaiting its own CI run. No real Windows retest was possible from this runner. Image vision may still report unavailable if the local vision model is not installed; selection and this limitation are surfaced honestly.
 - Work is isolated on `fix/golge-manual-test-failures`, based on production `b4086aa`; no PR merge or Render deployment was performed. Exact Windows verification after pulling this branch remains required.
+
+
+## 2026-10-21 — Phone assistant stack: what changed in the repo
+
+New modules in `ultron/cloud_service/`: instant_skills, phone_skills, knowledge_skills, reminders (repeat rules), plan_skills, memory_skills, calendar_feed, proactive, web_push, alert_skills, smart_home, missions, laptop_bridge, infra, http_client, ops. New static scripts: assistant-extras.js, laptop-bridge.js, mission-watch.js; service worker cache `ultron-shell-v81` with push + notificationclick handlers. Schema additions are idempotent (`owner_reminders`, `push_*`, `owner_notifications`, `owner_prefs`, `owner_alerts`, `missions`, `owner_calendar_feeds`).
+Existing code touched: `app.py` (chat intercepts, middlewares, startup tasks, routes), `world_api.py` and `local_brain_bridge.py` (shared client; cloud-skill hand-back), `capability_readiness.py` (details only), brand strings in laptop/desktop Python files.
+Dependency added: `cryptography` (cloud_service/requirements.txt).

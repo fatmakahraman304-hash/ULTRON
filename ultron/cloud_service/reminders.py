@@ -116,7 +116,9 @@ def describe_repeat(rule: str, due: datetime) -> str:
 
 def has_reminder_intent(text: str) -> bool:
     folded = fold_turkish(text)
-    return bool(_ASK.search(folded)) and not re.search(r"\b(?:hatirlatici(?:lar)?(?:im| ne| neler| var| listesi)|iptal|sil|kaldir)\b", folded)
+    return (bool(_ASK.search(folded))
+            and not re.search(r"\b(?:hatirlatici(?:lar)?(?:im| ne| neler| var| listesi)|iptal|sil|kaldir)\b", folded)
+            and not re.search(r"\b(?:nasil|neden|niye|nicin|nedir|ozellig\w*|calisir|calisiyor|ne demek|kod\w*|uygulama\w*|yazar misin)\b", folded))
 
 
 def parse_reminder(text: str, now: datetime | None = None, *, require_intent: bool = True) -> dict | None:

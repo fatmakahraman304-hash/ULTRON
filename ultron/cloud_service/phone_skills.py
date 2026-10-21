@@ -31,7 +31,8 @@ _TOPICS = {"teknoloji": "TECHNOLOGY", "bilim": "SCIENCE", "spor": "SPORTS", "eko
 _TOPIC_TR = {"TECHNOLOGY": "Teknoloji", "SCIENCE": "Bilim", "SPORTS": "Spor", "BUSINESS": "Ekonomi", "WORLD": "Dünya",
              "HEALTH": "Sağlık", "ENTERTAINMENT": "Magazin", "NATION": "Türkiye"}
 _NEWS_Q = re.compile(r"\bhaber(?:ler|leri|ler\w*)?\b|\bson dakika\b|\bgundem\b|\bmanset(?:ler)?\b|\bbugun neler oldu\b|\bdunyada neler oluyor\b")
-_NEWS_SKIP = re.compile(r"\b(?:neden|niye|nicin|yorumla|analiz|sahte|dogru mu|guvenilir|haber ver bana|haberim yok|haberin var mi)\b")
+_NEWS_SKIP = re.compile(r"\b(?:neden|niye|nicin|yorumla|analiz|sahte|dogru mu|guvenilir|haber ver bana|haberim yok|haberin var mi|"
+                        r"yaz\w*|makale\w*|taslak\w*|metin\w*|ozetle|cevir\w*|uygulama\w*|kod\w*|baslik at\w*)\b")
 
 
 async def fetch_news_xml(url: str, key: str, ttl: int = 600) -> str:
@@ -76,9 +77,15 @@ def news_topic(folded: str) -> str | None:
     return None
 
 
+_NEWS_CUE = re.compile(r"\b(?:ver|goster|oku|anlat|neler|sirala|son|guncel|bugun|ozet\w*|var mi|ne var|nedir)\b")
+
+
 def wants_news(text: str) -> bool:
     folded = fold_turkish(text)
-    return bool(_NEWS_Q.search(folded)) and not _NEWS_SKIP.search(folded) and len(folded) <= 80
+    if not _NEWS_Q.search(folded) or _NEWS_SKIP.search(folded) or len(folded) > 80:
+        return False
+    # a bare topic request ("teknoloji haberleri") or an explicit command cue; long chatty sentences are not requests
+    return len(folded.split()) <= 3 or bool(_NEWS_CUE.search(folded))
 
 
 def _news_url(topic: str | None) -> str:

@@ -879,3 +879,14 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 2. After the branch is available on Windows, rerun `START.bat`, then manually speak “Dur” during TTS and confirm playback stops; test satellite mode and confirm the unavailable-provider message does not claim the map changed; ask for weather and verify chat repeats provider values; use paperclip and verify an image reaches the vision route. A missing local vision model should show a clear error, not a successful analysis.
 3. Test an approved small PDF/text file as well as an image. The Qt picker transfer is capped at 8 MiB; supported suffixes only. Do not send private test files to Cloud.
 4. The code-runner cannot exercise the owner’s physical microphone, speaker, Windows Qt file dialog or installed vision models. These checks remain NOT RUN until owner repeats them on the laptop. No production merge or Render deploy was done.
+
+
+## 2026-10-21 — Next concrete steps (phone assistant stack)
+
+1. Read the GitHub Actions result of PR #62 for the exact HEAD (new `GÖLGE Cloud Stack` workflow + existing ones); fix any red check. Do not merge/deploy without the owner's authorization.
+2. iPhone: add GÖLGE to Home Screen → Hafıza → "Bildirimleri aç" → lock phone → say "1 dakika sonra su içmeyi hatırlat". Expected: push arrives. If not: `GET /api/diagnostics` (push_devices, dispatcher.last_tick_age_seconds) and `POST /api/push/test`.
+3. Laptop: `laptop: not defterini aç`, `ekran analizi yap`; confirm result text returns into the chat once (poll `/api/laptop-task/{id}`).
+4. Real Gemini: "özetle https://youtu.be/…" and a `görev:` mission; judge plan quality; tune `PLANNER_SYSTEM` in `missions.py` if plans are poor.
+5. Optional: set `HOME_ASSISTANT_URL` (public https) + `HOME_ASSISTANT_TOKEN` on Render and try "salon ışığını aç".
+6. When a skill mis-routes in real use, add the utterance with the correct label to `skill_routing_corpus.py` first, then fix the rule (`python -m pytest -q test_skill_routing.py -s` prints misroutes).
+7. Known gaps: iOS native app has no intents for the new skills (needs Mac build); conversation/voice quality is still NOT MEASURED against a real provider.
