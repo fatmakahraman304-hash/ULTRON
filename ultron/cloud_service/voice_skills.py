@@ -18,7 +18,7 @@ else:
     import followups
 
 # Writing skills a spoken request may trigger. Anything not listed only answers read-only.
-VOICE_WRITE_SKILLS = frozenset({"reminder", "reminders", "habits", "lists", "expenses", "focus", "birthdays", "style"})
+VOICE_WRITE_SKILLS = frozenset({"reminder", "reminders", "habits", "lists", "expenses", "focus", "birthdays", "style", "journal"})
 MAX_UTTERANCE = 220
 _URL = re.compile(r"https?://\S+")
 _MARKUP = re.compile(r"[*_`#>]+")

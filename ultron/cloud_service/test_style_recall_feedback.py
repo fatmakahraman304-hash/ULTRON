@@ -91,7 +91,7 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.pool.execute("DELETE FROM conversations WHERE user_id=$1", self.u)
-        for table in ("owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
+        for table in ("owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
             await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
         await self.pool.close()
 
@@ -190,6 +190,21 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Günaydın, Murat.", reply)
         self.assertEqual(reply.count("ilaç iç"), 1)  # reminders already appear in the agenda block
         self.assertIn("🔁 Dün: uyku 7,5 · su 6 · harcama 150 ₺", reply)
+
+    async def test_journal_write_read_search_delete_and_secret_refusal(self):
+        now = datetime(2026, 10, 21, 9, 0, tzinfo=timezone.utc)
+        self.assertIn("Bugün 1 girdin", await self.say("günlüğe yaz: Bugün çok verimliydim, kahve içtim", now=now))
+        self.assertIn("Bugün 2 girdin", await self.say("günlük: akşam yürüyüşe çıktım", now=now))
+        self.assertIn("verimliydim", await self.say("bugünkü günlüğüm", now=now))
+        self.assertIn("kahve", await self.say("günlüğümde kahve geçenler", now=now))
+        self.assertIn("bulamadım", await self.say("günlüğümde pizza geçenler", now=now))
+        self.assertIn("yürüyüşe", await self.say("son günlük kaydını sil", now=now))
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_journal WHERE user_id=$1", self.u), 1)
+        refusal = await self.say("günlüğe yaz: parolam sk-abcdefghijklmnop1234", now=now)
+        self.assertIn("yazmıyorum", refusal)
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_journal WHERE user_id=$1", self.u), 1)
+        out = await vs.run("günlüğe yaz: sesle eklendi", pool=self.pool, user_id=self.u, now=now)
+        self.assertEqual(out["skill"], "journal")
 
 
 if __name__ == "__main__":

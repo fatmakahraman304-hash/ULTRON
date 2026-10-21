@@ -192,3 +192,9 @@ CASES += [
     ("850 tl %10 bahşiş hesapla", "utility"),
     ("zar atmak istiyorum", None), ("yazı yazmak zor", None), ("bana bir hikaye seç", None), ("tura çıkmak istiyorum", None), ("kilom çok arttı", None),
 ]
+
+CASES += [
+    ("günlüğe yaz: bugün çok verimliydim", "journal"), ("günlüğüm", "journal"), ("dünkü günlüğüm", "journal"), ("bu haftaki günlüğüm", "journal"),
+    ("günlüğümde kahve geçenler", "journal"), ("son günlük kaydını sil", "journal"),
+    ("günlük plan yap", None), ("günlük burç yorumu", None), ("günlük kaç adım atmalıyım", None), ("günlüğüm kayboldu mu", None),
+]

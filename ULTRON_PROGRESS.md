@@ -826,3 +826,6 @@ New modules `style_skills.py`, `recall_skills.py`, `voice_skills.py`, `feedback_
 
 ## 2026-10-21 — Richer morning briefing
 `answer_briefing` greets with the owner's chosen name (style) instead of "efendim", and adds a "🔁 Dün" recap (habits logged yesterday + yesterday's spending). Today's reminders were already in the agenda block, so no duplicate section. Real-PostgreSQL test added; 566 passed in `ultron/cloud_service`.
+
+## 2026-10-21 — Journal
+`journal_skills.py` + table `owner_journal`: "günlüğe yaz: …" / "günlük: …", "günlüğüm", "bugünkü/dünkü/bu haftaki/geçen haftaki günlüğüm", "günlüğümde X geçenler", "son günlük kaydını sil"; secrets refused; allowed through the voice gateway; included in `/api/export`. Real-PostgreSQL test added; corpus +10.

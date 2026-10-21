@@ -477,3 +477,13 @@ CREATE TABLE IF NOT EXISTS skill_feedback (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_skill_feedback_user ON skill_feedback(user_id, id DESC);
+
+-- Private daily journal entries written from chat or voice ("günlüğe yaz: …").
+CREATE TABLE IF NOT EXISTS owner_journal (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  entry TEXT NOT NULL CHECK (length(entry) BETWEEN 1 AND 1000),
+  day DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_journal_user_day ON owner_journal(user_id, day DESC, id DESC);
