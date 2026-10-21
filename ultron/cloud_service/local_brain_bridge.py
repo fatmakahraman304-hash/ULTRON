@@ -103,7 +103,14 @@ async def post_local_chat(request: web.Request) -> web.Response:
                         "conversation_id":str(previous["conversation_id"]), "provider":"local",
                         "user_message_id":previous["user_message_id"], "replayed":True}, status=202)
             from instant_skills import wants_cloud_skill
-            if wants_cloud_skill(text):
+            import followups
+            follow_up = False
+            if raw_conv and len(text) <= 60:
+                previous = await conn.fetchval(
+                    "SELECT device_id FROM messages WHERE conversation_id=$1 AND user_id=$2 AND role='assistant' "
+                    "ORDER BY id DESC LIMIT 1", conversation, request["user_id"])
+                follow_up = followups.resolve(text, previous) is not None
+            if wants_cloud_skill(text) or follow_up:
                 # Exact cloud skills (clock, weather, reminders, news…) must not be
                 # answered by the local model; the client falls back to /api/chat.
                 return web.json_response({"error": "research_requires_cloud",

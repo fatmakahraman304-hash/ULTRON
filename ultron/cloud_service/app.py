@@ -5,6 +5,7 @@ from instant_skills import instant_reply, clock_context, SKILL_SUMMARY
 import phone_skills
 import missions
 import infra
+import followups
 import world_api
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
@@ -1918,10 +1919,18 @@ async def chat(request: web.Request) -> web.Response:
     async def _skill_fetch(url: str, key: str, ttl: int) -> dict:
         return await world_api._upstream(url, ttl=ttl, key=key)
     try:
-        skill = None if (missions.mission_goal(text) is not None or missions.is_cancel_request(text)) else \
-            await instant_reply(text, pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch,
-                                location=_valid_location(body.get("location")),
-                                fetch_text=phone_skills.fetch_news_xml)
+        skill = None
+        if missions.mission_goal(text) is None and not missions.is_cancel_request(text):
+            kwargs = dict(pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch,
+                          location=_valid_location(body.get("location")), fetch_text=phone_skills.fetch_news_xml)
+            skill = await instant_reply(text, **kwargs)
+            if skill is None and len(text) <= 60:
+                # "peki yarın?" after a weather answer → "yarın hava nasıl"
+                previous = await pool.fetchval(
+                    "SELECT device_id FROM messages WHERE conversation_id=$1 AND role='assistant' ORDER BY id DESC LIMIT 1", conv_uuid)
+                explicit = followups.resolve(text, previous)
+                if explicit:
+                    skill = await instant_reply(explicit, **kwargs)
     except Exception:
         skill = None  # A skill bug must never block a normal model answer.
     if skill and not cancel_record["cancel_requested"]:
@@ -1932,8 +1941,8 @@ async def chat(request: web.Request) -> web.Response:
                     "conversation_id": str(conv_uuid)})
             assistant_message_id = await pool.fetchval(
                 "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
-                "VALUES($1,$2,'assistant',$3,'golge-skill') RETURNING id",
-                conv_uuid, request["user_id"], skill["reply"],
+                "VALUES($1,$2,'assistant',$3,$4) RETURNING id",
+                conv_uuid, request["user_id"], skill["reply"], followups.SKILL_PREFIX + skill["skill"],
             )
             await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
             cancel_registry.mark_completed(request["user_id"], request["device_id"],
