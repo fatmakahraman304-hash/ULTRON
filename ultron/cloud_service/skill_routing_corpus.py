@@ -219,3 +219,9 @@ CASES += [
     ("doğum günüme kaç gün var", "birthdays"), ("nerede kalmıştık", "recall"), ("en son ne konuştuk", "recall"),
     ("serim bozuldu mu ne", None), ("nerede kalmıştı o kitap", None),
 ]
+
+CASES += [
+    ("akşam rutini: ilaç iç, su iç, yarını planla", "routines"), ("akşam rutinini başlat", "routines"), ("akşam rutinini hatırlatıcılarla başlat", "routines"),
+    ("rutinlerim", "routines"), ("akşam rutinini sil", "routines"), ("rutin kaydet sabah: su iç, ilaç al", "routines"),
+    ("bugün rutin işlerim çok", None), ("rutin kontrol için hastaneye gittim", None), ("rutinim bozuldu", None),
+]

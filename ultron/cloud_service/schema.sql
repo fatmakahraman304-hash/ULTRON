@@ -487,3 +487,12 @@ CREATE TABLE IF NOT EXISTS owner_journal (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_owner_journal_user_day ON owner_journal(user_id, day DESC, id DESC);
+
+-- Named routines (ordered checklists) the owner defines in chat: "akşam rutini: ilaç iç, su iç, yarını planla".
+CREATE TABLE IF NOT EXISTS owner_routines (
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 30),
+  steps TEXT[] NOT NULL CHECK (cardinality(steps) BETWEEN 1 AND 12),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, name)
+);

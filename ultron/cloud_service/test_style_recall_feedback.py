@@ -91,7 +91,7 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.pool.execute("DELETE FROM conversations WHERE user_id=$1", self.u)
-        for table in ("owner_plans", "owner_habits", "owner_expenses", "owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
+        for table in ("owner_routines", "owner_plans", "owner_habits", "owner_expenses", "owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
             await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
         await self.pool.close()
 
@@ -287,6 +287,26 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         reply = await self.say("nerede kalmıştık", now=now)
         self.assertIn("Bisiklet bütçemi planlıyorum", reply)
         self.assertEqual(reply.count("nerede kalmıştık"), 0)
+
+    async def test_routines_save_list_start_with_reminders_delete(self):
+        now = datetime(2026, 10, 21, 9, 0, tzinfo=timezone.utc)
+        self.assertIn("3 adım", await self.say("akşam rutini: ilaç iç, su iç, yarını planla", now=now))
+        self.assertIn("akşam: 3 adım", await self.say("rutinlerim"))
+        shown = await self.say("akşam rutinini başlat", now=now)
+        self.assertIn("1. ilaç iç", shown)
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1", self.u), 0)
+        started = await self.say("akşam rutinini hatırlatıcılarla başlat", now=now)
+        self.assertIn("10 dakika arayla", started)
+        due = await self.pool.fetch("SELECT text,due_at FROM owner_reminders WHERE user_id=$1 ORDER BY due_at", self.u)
+        self.assertEqual([r["text"] for r in due][0], "▶ akşam 1/3: ilaç iç")
+        self.assertEqual((due[1]["due_at"] - due[0]["due_at"]).seconds, 600)
+        self.assertIn("kaydettim", await self.say("akşam rutini: tek adım", now=now))      # overwrite keeps one row
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_routines WHERE user_id=$1", self.u), 1)
+        self.assertIn("bulamadım", await self.say("sabah rutinini başlat"))
+        self.assertIn("sildim", await self.say("akşam rutinini sil"))
+        self.assertIn("Kayıtlı rutinin yok", await self.say("rutinlerim"))
+        out = await vs.run("sabah rutini: su iç, ilaç al", pool=self.pool, user_id=self.u, now=now)
+        self.assertEqual(out["skill"], "routines")
 
 
 if __name__ == "__main__":

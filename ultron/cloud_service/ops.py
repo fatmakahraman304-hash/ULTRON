@@ -106,6 +106,7 @@ async def export_owner_data(pool: Any, user_id: str) -> dict:
         "skill_usage": await rows("SELECT day, skill, n FROM skill_usage WHERE user_id=$1 ORDER BY day DESC, skill LIMIT 2000"),
         "feedback": await rows("SELECT rating, skill, user_text, reply, created_at FROM skill_feedback WHERE user_id=$1 ORDER BY id DESC LIMIT 500"),
         "journal": await rows("SELECT day, entry FROM owner_journal WHERE user_id=$1 ORDER BY day DESC, id DESC LIMIT 2000"),
+        "routines": await rows("SELECT name, steps FROM owner_routines WHERE user_id=$1 ORDER BY name"),
         "price_alerts": await rows("SELECT asset,vs,direction,threshold,active FROM owner_alerts WHERE user_id=$1 ORDER BY id"),
         "preferences": json.loads(prefs) if isinstance(prefs, str) else (prefs or {}),
         "missions": await rows("SELECT goal,status,report,created_at FROM missions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20"),
