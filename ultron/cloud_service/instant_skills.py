@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills, calc_skills, gap_skills, routine_skills, weekly_skills, journal_skills, utility_skills, style_skills, recall_skills, feedback_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills, ledger_skills, calc_skills, gap_skills, routine_skills, weekly_skills, journal_skills, utility_skills, style_skills, recall_skills, feedback_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -38,6 +38,7 @@ else:
     import habit_skills
     import nav_skills
     import focus_skills
+    import ledger_skills
     import calc_skills
     import gap_skills
     import routine_skills
@@ -749,6 +750,7 @@ HELP_TEXT = (
     "🎂 Doğum günü: “Ahmet'in doğum günü 3 Mart”, “doğum günlerim”, “Ahmet'in doğum gününe kaç gün var”, “her yıl 14 şubat sevgililer günü hatırlat”\n"
     "🛒 Liste/harcama: “alışveriş listesine süt ekle”, “150 lira market harcaması ekle”, “bu ay ne kadar harcadım”, “aylık bütçem 15000 tl”, “bütçe durumu”, “10 dakika zamanlayıcı kur”\n"
     "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “Ahmet hakkında ne biliyorsun”, “dün ne konuştuk”, “nerede kalmıştık”, “hafıza özeti”, “son notlarım”, “düzelt: kahve => sade kahve”, “hafızada kahve notumun geçmişi”, “unut: …”\n"
+    "📒 Defterler: “rehbere ekle: Ahmet 0532 123 45 67”, “Ahmet'in numarası ne”, “Ahmet'e 200 lira borç verdim”, “borçlarım”, “hedef ekle: kitap oku = 12”, “kronometre başlat: ders”, “yakıt aldım 40 litre 1800 tl 45000 km”\n"
     "🧮 Hesap kutusu: “kredi taksiti: 100000 tl 12 ay aylık %3”, “1000 tl kdv ekle”, “500 tl %30 indirim”, “ortalama: 4 8 15”, “97 asal mı”, “1234 yazıyla”, “14 roma rakamı”, “255 onaltılık”, “7'de uyanmak için ne zaman yatmalıyım”, “15 mart burcum”, “istanbul 15:00 new york kaç”, “1 bardak un kaç gram”, “büyük harf yap: …”, “base64 kodla: …”, “#ff8800 rgb”\n"
     "🎲 Pratik: “yazı tura at”, “2 zar at”, “seç: pizza, lahmacun”, “45 gün sonra hangi gün”, “850 tl 4 kişi böl”, “%10 bahşiş”, “boyum 180 kilom 75”, “15.03.1990 doğumluyum kaç yaşındayım”\n"
     "🛠 Kendini geliştirme: “eksik: …” (yapamadığın şeyi listeye ekle), “eksiklerim”, “eksik 3'ü geliştir” (onaylı geliştirme isteği; kod değişiklikleri senin onayın ve testlerden geçer)\n"
@@ -802,6 +804,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
         reply = await journal_skills.handle(text, pool, user_id, now) if _may(allow, "journal") else None
         if reply:
             return {"skill": "journal", "reply": reply}
+        reply = await ledger_skills.handle(text, pool, user_id, now) if _may(allow, "ledger") else None
+        if reply:
+            return {"skill": "ledger", "reply": reply}
         reply = await gap_skills.handle(text, pool, user_id, "golge-chat", can_build=allow is None) if _may(allow, "gaps") else None
         if reply:
             return {"skill": "gaps", "reply": reply}
@@ -955,4 +960,4 @@ def wants_cloud_skill(text: str) -> bool:
         or (plan_skills._ADD.search(folded) and not plan_skills._NOT_A_PLAN.search(folded)) or (plan_skills._FREE_Q.search(folded) and not plan_skills._FREE_SKIP.search(folded) and len(folded) <= 60) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)
         or re.search(r"\bbildirim ayarlarim\b|\bhaftalik (?:ozet|rapor)\w*\b.*\bbildirim|\bproaktif\b|\bsessiz saat\w*\b|\bsabah (?:brifing\w*|ozet\w*)\b.*\bbildirim|\bkendiliginden uyar", folded)
         or (_FX_Q.search(folded) and _CUR_TOKEN.search(folded) and not _FX_SKIP.search(folded))
-        or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text) or utility_skills.wants_utility(text) or calc_skills.wants_calc(text))
+        or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text) or utility_skills.wants_utility(text) or calc_skills.wants_calc(text) or ledger_skills.wants_ledger(text))

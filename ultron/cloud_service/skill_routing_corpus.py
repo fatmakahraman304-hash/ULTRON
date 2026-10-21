@@ -241,3 +241,10 @@ CASES += [
     ("base64 kodla: merhaba", "calc"), ("#ff8800 rgb", "calc"), ("mors: sos", "calc"), ("yılın kaçıncı günü", "calc"),
     ("kredi çekmek istiyorum", None), ("kdv nedir", None), ("ortalama notum nedir", None), ("mors alfabesi nedir", None), ("burcum uyumlu mu", None), ("resmi tatil olsa iyi olur", None),
 ]
+
+CASES += [
+    ("rehbere ekle: Ahmet 0532 123 45 67", "ledger"), ("Ahmet'in numarası ne", "ledger"), ("rehberim", "ledger"), ("Ahmet'e 200 lira borç verdim", "ledger"),
+    ("Ayşe'den 150 tl borç aldım", "ledger"), ("borçlarım", "ledger"), ("Ahmet borcunu ödedi", "ledger"), ("hedef ekle: kitap oku = 12", "ledger"),
+    ("hedeflerim", "ledger"), ("kronometre başlat: ders", "ledger"), ("kronometre durdur", "ledger"), ("yakıt aldım 40 litre 1800 tl 45000 km", "ledger"),
+    ("yakıt tüketimim", "ledger"), ("borç para ister misin", None), ("hedefim büyük", None), ("rehber öğretmenim geldi", None), ("numarası değişti", None),
+]

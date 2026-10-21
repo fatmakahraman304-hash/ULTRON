@@ -508,3 +508,49 @@ CREATE TABLE IF NOT EXISTS capability_gaps (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_capability_gaps_user ON capability_gaps(user_id, status, id DESC);
+
+-- Personal ledgers: contacts, debts, goals, time log, fuel log (all owner-scoped).
+CREATE TABLE IF NOT EXISTS owner_contacts (
+  user_id TEXT NOT NULL,
+  name_key TEXT NOT NULL CHECK (length(name_key) BETWEEN 1 AND 60),
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 60),
+  phone TEXT NOT NULL CHECK (phone ~ '^\+?[0-9]{7,15}$'),
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 100),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, name_key)
+);
+CREATE TABLE IF NOT EXISTS owner_debts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  person TEXT NOT NULL CHECK (length(person) BETWEEN 1 AND 60),
+  amount NUMERIC(12,2) NOT NULL CHECK (amount > 0 AND amount < 100000000),
+  direction TEXT NOT NULL CHECK (direction IN ('lent','borrowed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  settled_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_owner_debts_user ON owner_debts(user_id, settled_at);
+CREATE TABLE IF NOT EXISTS owner_goals (
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 60),
+  target NUMERIC(12,2) NOT NULL CHECK (target > 0 AND target < 100000000),
+  progress NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (progress >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, title)
+);
+CREATE TABLE IF NOT EXISTS owner_time_log (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT '' CHECK (length(label) <= 60),
+  started_at TIMESTAMPTZ NOT NULL,
+  ended_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_owner_time_log_user ON owner_time_log(user_id, started_at DESC);
+CREATE TABLE IF NOT EXISTS owner_fuel (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  liters NUMERIC(8,2) NOT NULL CHECK (liters > 0 AND liters < 5000),
+  cost NUMERIC(10,2) NOT NULL CHECK (cost >= 0 AND cost < 10000000),
+  odometer INTEGER CHECK (odometer IS NULL OR (odometer >= 0 AND odometer < 5000000)),
+  filled_on DATE NOT NULL DEFAULT CURRENT_DATE
+);
+CREATE INDEX IF NOT EXISTS idx_owner_fuel_user ON owner_fuel(user_id, filled_on DESC, id DESC);

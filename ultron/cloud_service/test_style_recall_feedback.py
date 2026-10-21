@@ -91,7 +91,7 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
 
     async def asyncTearDown(self):
         await self.pool.execute("DELETE FROM conversations WHERE user_id=$1", self.u)
-        for table in ("capability_gaps", "dev_requests", "device_commands", "owner_routines", "owner_plans", "owner_habits", "owner_expenses", "owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
+        for table in ("owner_contacts", "owner_debts", "owner_goals", "owner_time_log", "owner_fuel", "capability_gaps", "dev_requests", "device_commands", "owner_routines", "owner_plans", "owner_habits", "owner_expenses", "owner_journal", "owner_prefs", "memories", "skill_usage", "skill_feedback", "owner_reminders", "owner_list_items", "push_subscriptions"):
             await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
         await self.pool.close()
 
@@ -409,6 +409,59 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await gap_skills.auto_gap_hint(self.pool, self.u, "Roma neden yıkıldı", "Bunu yapamıyorum ama anlatayım"), "")
         data = await ops.export_owner_data(self.pool, self.u)
         self.assertTrue(data["capability_gaps"])
+
+    async def test_ledgers_contacts_debts_goals_time_fuel(self):
+        now = datetime(2026, 10, 21, 9, 0, tzinfo=timezone.utc)
+        # contacts
+        self.assertIn("0532 123 45 67".replace(" ", ""), await self.say("rehbere ekle: Ahmet 0532 123 45 67", now=now))
+        self.assertIn("Ayşe Yılmaz", await self.say("rehbere ekle: ayşe yılmaz +90 532 111 22 33 komşu", now=now))
+        self.assertEqual(await self.say("Ahmet'in numarası ne", now=now), "Ahmet: 05321234567")
+        self.assertIn("komşu", await self.say("Ayşe Yılmaz'ın numarası ne", now=now))
+        await self.say("Ahmet'in numarası 0555 000 11 22", now=now)
+        self.assertIn("05550001122", await self.say("rehberim", now=now))
+        self.assertIn("geçerli görünmüyor", await self.say("rehbere ekle: Veli 1234567890123456789", now=now))
+        self.assertIn("yok", await self.say("Veli'nin numarası ne", now=now))
+        self.assertIn("silindi", await self.say("Ahmet'i rehberden sil", now=now))
+        # debts
+        await self.say("Ahmet'e 200 lira borç verdim", now=now)
+        await self.say("Ahmet'e 50 tl borç verdim", now=now)
+        await self.say("Ayşe'den 120,5 tl borç aldım", now=now)
+        book = await self.say("borçlarım", now=now)
+        self.assertIn("Ahmet: alacağın 250 ₺", book)
+        self.assertIn("Ayşe: borcun 120,50 ₺", book)
+        self.assertIn("net 129,50 ₺", book)
+        self.assertIn("2 kaydı kapattım", await self.say("Ahmet borcunu ödedi", now=now))
+        self.assertIn("alacak kaydı bulamadım", await self.say("Ahmet borcunu ödedi", now=now))
+        self.assertIn("1 kaydı kapattım", await self.say("Ayşe'ye borcumu ödedim", now=now))
+        self.assertIn("kaydın yok", await self.say("borçlarım", now=now))
+        # goals
+        self.assertIn("Hedef eklendi", await self.say("hedef ekle: kitap oku = 12", now=now))
+        self.assertIn("2/12 (%17)", await self.say("hedef ilerlet: Kitap Oku 2", now=now))
+        self.assertIn("🎉", await self.say("hedef ilerlet: kitap oku 10", now=now))
+        self.assertIn("yok", await self.say("hedef ilerlet: yüzme 1", now=now))
+        self.assertIn("kitap oku: 12/12 (%100)", await self.say("hedeflerim", now=now))
+        self.assertIn("sildim", await self.say("hedef sil: kitap oku", now=now))
+        # time log
+        later = now + timedelta(minutes=95)
+        self.assertIn("başladı: ders", await self.say("kronometre başlat: ders", now=now))
+        self.assertIn("Zaten çalışan", await self.say("kronometre başlat", now=now))
+        self.assertIn("1 sa 35 dk", await self.say("kronometre durumu", now=later))
+        self.assertIn("1 sa 35 dk", await self.say("kronometre durdur", now=later))
+        self.assertIn("Çalışan bir kronometre yok", await self.say("kronometre durdur", now=later))
+        self.assertIn("• ders: 1 sa 35 dk", await self.say("bugün ne kadar çalıştım", now=later))
+        # fuel
+        await self.say("yakıt aldım 40 litre 1800 tl 45000 km", now=now)
+        self.assertIn("45 ₺/lt", await self.say("yakıt aldım 38 litre 1710 tl 45600 km", now=now))
+        stats = await self.say("yakıt tüketimim", now=now)
+        self.assertIn("3.510 ₺", stats)
+        self.assertIn("6,33 lt/100 km", stats)                  # 38 L over 600 km
+        # owner scoping: another owner sees none of it
+        other = "ci-" + uuid.uuid4().hex[:10]
+        try:
+            out = await s.instant_reply("rehberim", pool=self.pool, user_id=other, now=now)
+            self.assertIn("boş", out["reply"])
+        finally:
+            await self.pool.execute("DELETE FROM owner_contacts WHERE user_id=$1", other)
 
 
 if __name__ == "__main__":
