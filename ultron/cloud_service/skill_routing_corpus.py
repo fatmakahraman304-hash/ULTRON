@@ -268,3 +268,5 @@ CASES += [
     ("tatil için liste hazırla", "lists"), ("market listesi hazırla", "lists"),
     ("liste hazırla", None), ("seyahat nasıl planlanır", None), ("kamp yapmak istiyorum", None),
 ]
+
+CASES += [("günüm nasıl geçti", "weekly"), ("bugünün özeti", "weekly"), ("gün sonu özeti", "weekly"), ("dünün özeti", "weekly"), ("günüm kötü geçti", None)]

@@ -877,3 +877,6 @@ Motivation, proverbs and idioms with meanings, jokes, verified-fact snippets, wo
 
 ## 2026-10-21 — Ready-made checklists (`template_skills.py`)
 "seyahat/kamp/taşınma/sınav/iş görüşmesi/piknik/doğum günü partisi/deprem çantası/plaj/hastane çantası/bebek çantası/bayram/market için liste hazırla" (+ aliases such as "tatil") fills the owner's normal lists (same table, no duplicates), "hazır listeler" shows the catalogue. 13 templates. Real-PostgreSQL test; corpus 577/577, hijacked chat 0/210.
+
+## 2026-10-21 — Day review
+`weekly_skills.py` also answers "günüm nasıl geçti / bugünün özeti / gün sonu özeti / dünün özeti" with the same recorded-data-only logic for a single day.

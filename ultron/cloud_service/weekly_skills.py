@@ -19,9 +19,12 @@ _ASK = re.compile(r"^(?:(bu|gecen)\s+hafta(?:nin)?\s+(?:ozeti|raporu|ozet|rapor)
 _HABIT_TR = {"water": ("su", "bardak"), "sleep": ("uyku", "saat"), "exercise": ("spor", "dk"), "steps": ("adım", ""), "mood": ("mod", "/5")}
 
 
+_DAY = re.compile(r"^(?:gunum\s+nasil\s+gecti|bugunun\s+ozeti|gun\s+sonu\s+ozeti|bugun\s+neler\s+yaptim|dunun\s+ozeti)\s*\??$")
+
+
 def wants_weekly(text: str) -> bool:
     f = fold_turkish(text)
-    return len(f) <= 50 and bool(_ASK.match(f))
+    return len(f) <= 50 and bool(_ASK.match(f) or _DAY.match(f))
 
 
 def _n(v: float) -> str:
@@ -36,7 +39,10 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
     f = fold_turkish(text)
     today = (now or datetime.now(timezone.utc)).astimezone(HOME_TZ).date()
     monday = today - timedelta(days=today.weekday())
-    if "gecen" in f:
+    if _DAY.match(f):
+        day = today - timedelta(days=1) if f.startswith("dunun") else today
+        start, end, label = day, day, "Dün" if day != today else "Bugün"
+    elif "gecen" in f:
         start, end, label = monday - timedelta(days=7), monday - timedelta(days=1), "Geçen hafta"
     else:
         start, end, label = monday, today, "Bu hafta"
@@ -69,4 +75,6 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
         lines.append("🧭 En çok kullandığın: " + ", ".join(f"{r['skill']} ({r['n']})" for r in top))
     if not lines:
         return f"{label} için kayıtlı bir veri yok. Plan, alışkanlık, harcama ya da günlük kaydettikçe burada özetlerim."
-    return f"📊 {label} ({start:%d.%m}–{end:%d.%m}):\n" + "\n".join(lines)
+    span = f"{start:%d.%m}" if start == end else f"{start:%d.%m}–{end:%d.%m}"
+    title = f"{label} özeti" if start == end else label
+    return f"📊 {title} ({span}):\n" + "\n".join(lines)

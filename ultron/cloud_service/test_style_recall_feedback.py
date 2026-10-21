@@ -233,6 +233,11 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         for part in ("1/2 tamamlandı", "su 6 bardak (1 gün)", "uyku ort. 7,5 saat", "Harcama: 200 ₺, en çok market (150 ₺)", "Günlük: 1 girdi"):
             self.assertIn(part, reply)
         self.assertIn("kayıtlı bir veri yok", await self.say("geçen hafta nasıldı", now=now))
+        day = await self.say("günüm nasıl geçti", now=now.replace(hour=20))                # Wednesday: expenses on the 21st
+        self.assertIn("Bugün özeti (21.10)", day)
+        self.assertIn("Harcama: 50 ₺", day)
+        self.assertNotIn("Günlük: 1 girdi", day)                                           # the journal entry is from the 20th
+        self.assertIn("Dün özeti (20.10)", await self.say("dünün özeti", now=now))
 
     async def test_weekly_notification_is_opt_in_sunday_evening_and_skips_empty_weeks(self):
         import proactive as pro
