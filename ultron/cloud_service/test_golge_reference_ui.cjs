@@ -48,7 +48,7 @@ test('mobile layout separates scrollable messages and fixed composer without hid
  assert.ok(fs.existsSync(path.join(root,'ultron/cloud_service/static/golge-night-lake.webp')));
 
  const sw=file('ultron/cloud_service/static/sw.js');
- assert.match(sw,/ultron-shell-v82/);
+ assert.match(sw,/ultron-shell-v83/);
  assert.match(sw,/\/static\/golge-reference-mobile\.css/);
  assert.match(sw,/\/static\/golge-night-lake\.webp/);
 });
