@@ -36,6 +36,8 @@ else:
     import expense_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
+# frankfurter.app permanently redirects here; redirects are never followed, so use the canonical host.
+FX_URL = "https://api.frankfurter.dev/v1/latest?"
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
 TR_MONTHS = ("Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz",
              "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık")
@@ -505,7 +507,7 @@ async def answer_currency(text: str, fetch_json: FetchJson) -> str | None:
     if amount <= 0 or amount > 1e12:
         return None
     try:
-        data = await fetch_json("https://api.frankfurter.app/latest?" + urlencode({"from": src, "to": dst}),
+        data = await fetch_json(FX_URL + urlencode({"base": src, "symbols": dst}),
                                 f"fx:{src}:{dst}", 1800)
         rate = float((data.get("rates") or {})[dst])
     except Exception:
@@ -690,7 +692,7 @@ async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJ
         fx = []
         for code in ("USD", "EUR"):
             try:
-                data = await fetch_json("https://api.frankfurter.app/latest?" + urlencode({"from": code, "to": "TRY"}), f"fx:{code}:TRY", 1800)
+                data = await fetch_json(FX_URL + urlencode({"base": code, "symbols": "TRY"}), f"fx:{code}:TRY", 1800)
                 fx.append(f"{code} {format_number_tr(round(float(data['rates']['TRY']), 2))} ₺")
             except Exception:
                 pass

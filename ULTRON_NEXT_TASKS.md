@@ -890,3 +890,6 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 5. Optional: set `HOME_ASSISTANT_URL` (public https) + `HOME_ASSISTANT_TOKEN` on Render and try "salon ışığını aç".
 6. When a skill mis-routes in real use, add the utterance with the correct label to `skill_routing_corpus.py` first, then fix the rule (`python -m pytest -q test_skill_routing.py -s` prints misroutes).
 7. Known gaps: iOS native app has no intents for the new skills (needs Mac build); conversation/voice quality is still NOT MEASURED against a real provider.
+
+## 2026-10-21 — Verify live data sources after deploy
+On the deployed service ask once each: "100 dolar kaç tl", "bitcoin kaç dolar", "hava nasıl", "namaz vakitleri", "son depremler", "haberler", "Atatürk kimdir". Any "ulaşamadım" reply means the provider URL/shape changed (the 301 on frankfurter.app was found this way in CI): check `provider_status host=… status=…` lines in the Render log, update the URL, and keep the fake-based unit test in sync.

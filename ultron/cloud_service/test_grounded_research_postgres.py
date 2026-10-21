@@ -66,7 +66,7 @@ class GroundedResearchPostgresTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(cloud,'research_for_chat',AsyncMock(return_value={'ok':False,'status':'search_unavailable'})), \
              patch.object(cloud,'_memory_context',AsyncMock(return_value='')), \
              patch.object(cloud,'_gemini_reply') as model:
-            response=await self.client.post('/api/chat',json={'message':'Bugün dolar kaç TL?'})
+            response=await self.client.post('/api/chat',json={'message':'Bugün benzin fiyatları kaç TL?'})
             data=await response.json();model.assert_not_called()
             self.assertIn('doğrulayamıyorum',data['reply'])
             self.assertEqual(data['research']['status'],'search_unavailable')
@@ -98,7 +98,7 @@ class GroundedResearchPostgresTests(unittest.IsolatedAsyncioTestCase):
         identity = {'request_id':str(uuid.uuid4()),'request_key':'c'*64}
         with patch.object(cloud, 'research_for_chat', delayed_search), \
              patch.object(cloud, '_memory_context', AsyncMock(return_value='')):
-            task = asyncio.create_task(self.client.post('/api/chat', json={**identity,'message':'Bugün dolar kaç TL?'}))
+            task = asyncio.create_task(self.client.post('/api/chat', json={**identity,'message':'Bugün benzin fiyatları kaç TL?'}))
             await asyncio.wait_for(started.wait(), 3)
             cancel = await self.client.post('/api/chat/cancel', json=identity)
             self.assertFalse((await cancel.json())['provider_stopped'])

@@ -948,7 +948,7 @@ Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0d
 ## 2026-10-21 — Phone assistant stack test evidence (Linux sandbox, no Windows/iPhone/real providers)
 
 - `cd ultron/cloud_service && python -m pytest -q --ignore-glob='*postgres*' .` → 488 passed, 9 skipped.
-- With a disposable local PostgreSQL 16 and `ULTRON_TEST_DATABASE_URL`: `test_golge_stack_postgres.py` 6 passed (schema twice, repeating reminders, push dispatcher in-app-first/dedupe, plans, alerts, missions incl. cancel, retention, export, diagnostics). Whole suite with both DB env vars: 590 passed, 2 failed — `test_grounded_research_postgres.py` (2 tests) fail identically on the commit before the shared HTTP client, i.e. pre-existing / no network in this sandbox.
+- With a disposable local PostgreSQL 16 and `ULTRON_TEST_DATABASE_URL`: `test_golge_stack_postgres.py` 6 passed (schema twice, repeating reminders, push dispatcher in-app-first/dedupe, plans, alerts, missions incl. cancel, retention, export, diagnostics). Whole suite with both DB env vars: 590 passed, 2 failed — `test_grounded_research_postgres.py` (2 tests). CORRECTION (2026-10-21, from the CI log of PR #62): these were NOT environmental; the new currency skill intercepted the fixture question "Bugün dolar kaç TL?" before the research path. Fixed by pointing those fixtures at a non-skill current-info question; after the fix the whole suite with both DB env vars is 609 passed, 0 failed.
 - Web Push encryption matches the RFC 8291 Appendix A vector (`test_web_push_proactive.py`).
 - Router corpus: 292/292 labelled utterances routed correctly, 0/118 ordinary-chat utterances intercepted (`test_skill_routing.py`).
 - Node: every `ultron/cloud_service/test_*.cjs` passes; `node scripts/test_golge_minimal_ui.mjs` passes (cache v81).
@@ -958,3 +958,9 @@ Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0d
 - `python -m pytest -q tests ultron/backend/tests --ignore=tests/test_setup_overlay.py` → 1373 passed, 5 failed, 5 skipped on this branch. The same 5 failures (`tests/test_integration.py` ×4, `tests/test_open_app.py` ×1) occur identically on the base commit `54a4310` — they need the Windows/Qt environment; `tests/test_setup_overlay.py` needs PyQt6 (not installed). Not caused by this branch.
 - Found and fixed a regression introduced by the shared HTTP client: `ultron/backend/tests/test_earth_layers.py` loads `world_api.py` by file path, so `world_api` now falls back to loading `http_client.py` next to it. `test_world_contract.cjs` now asserts the redirect/size guarantees in `http_client.py`.
 - `python -m pytest -q --ignore-glob='*postgres*' ultron/cloud_service` → 501+ passed (see latest run); all `ultron/cloud_service/test_*.cjs` pass.
+
+## 2026-10-21 — CI-driven fixes on PR #62
+- `test_world_contract.cjs` and `ultron/backend/tests/test_earth_layers.py` were red because of the shared HTTP client refactor (fixed in 40a824a).
+- `postgres-fencing` was red because the currency skill answered the research fixture (fixed by changing the fixture question).
+- CI log showed `api.frankfurter.app` answering 301: the host moved, redirects are never followed, so the currency/price-alert skills would have failed in production. Switched to `https://api.frankfurter.dev/v1/latest?base=…&symbols=…`. Not verifiable from this sandbox (no outbound network); verify on Render with "100 dolar kaç tl".
+- Same sandbox limit applies to Open-Meteo, CoinGecko, Aladhan, USGS, Wikipedia and Google News: response shapes were coded from documentation and unit-tested with fakes only — check each skill once on the deployed service.

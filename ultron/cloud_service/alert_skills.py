@@ -17,6 +17,7 @@ else:
     from knowledge_skills import _COINS, _COIN_RE
 
 FetchJson = Callable[[str, str, int], Awaitable[dict]]
+FX_URL = "https://api.frankfurter.dev/v1/latest?"   # keep in sync with instant_skills.FX_URL
 MAX_ACTIVE = 12
 _FX = {"dolar": "USD", "usd": "USD", "euro": "EUR", "avro": "EUR", "eur": "EUR", "sterlin": "GBP", "gbp": "GBP"}
 _FX_RE = re.compile(r"\b(" + "|".join(_FX) + r")\w*\b")
@@ -62,7 +63,7 @@ async def current_price(fetch_json: FetchJson, kind: str, asset: str, vs: str) -
     if kind == "coin":
         data = await fetch_json("https://api.coingecko.com/api/v3/simple/price?" + urlencode({"ids": asset, "vs_currencies": vs}), f"coin:{asset}:{vs}", 120)
         return float(data[asset][vs])
-    data = await fetch_json("https://api.frankfurter.app/latest?" + urlencode({"from": asset, "to": "TRY"}), f"fx:{asset}:TRY", 900)
+    data = await fetch_json(FX_URL + urlencode({"base": asset, "symbols": "TRY"}), f"fx:{asset}:TRY", 900)
     return float(data["rates"]["TRY"])
 
 
