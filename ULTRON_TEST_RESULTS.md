@@ -964,3 +964,6 @@ Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0d
 - `postgres-fencing` was red because the currency skill answered the research fixture (fixed by changing the fixture question).
 - CI log showed `api.frankfurter.app` answering 301: the host moved, redirects are never followed, so the currency/price-alert skills would have failed in production. Switched to `https://api.frankfurter.dev/v1/latest?base=…&symbols=…`. Not verifiable from this sandbox (no outbound network); verify on Render with "100 dolar kaç tl".
 - Same sandbox limit applies to Open-Meteo, CoinGecko, Aladhan, USGS, Wikipedia and Google News: response shapes were coded from documentation and unit-tested with fakes only — check each skill once on the deployed service.
+
+## 2026-10-21 — GitHub Actions on PR #62, exact head 717c179
+All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real PostgreSQL 16 + JS), `verify`, `postgres-fencing`, `persona-policy`, `qwen-listening`, `responsive-ui`, `mobile-listen`, `windows-bootstrap-syntax`. Earlier heads were red for the three reasons listed above, all fixed. Still NOT RUN: real iPhone push, real laptop bridge, real Gemini, live data providers, Render deployment.
