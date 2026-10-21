@@ -21,6 +21,9 @@ _ADD = re.compile(r"\bharcama\w*\s+(?:ekle|kaydet|gir|yaz)\b|\bharcadim\b|\bharc
 _SUMMARY = re.compile(r"\b(?:bu ay|bugun|bu hafta|gecen ay|dun)\b.*\b(?:ne kadar|kac)\b.*\b(?:harcadim|harcadik|harcama\w*)\b|\bharcama\w*\s*(?:ozeti|raporu|listesi)?\b.*\b(?:bu ay|bugun|bu hafta|gecen ay)\b"
                       r"|\b(?:bu ay|bugun|bu hafta|gecen ay|dun)\b\s+harcama\w*\s*(?:ozeti|raporu|listesi)?\s*\??\s*$|^\s*harcamalarim\s*\??\s*$|\bne kadar harcadim\b|\btoplam harcama\w*\b")
 _UNDO = re.compile(r"\bson harcama\w*\s*(?:yi|i)?\s*(?:sil|geri al|iptal)\b|\bharcamayi geri al\b")
+_BUDGET_SET = re.compile(r"^\s*(?:(?:aylik\s+)?butce\w*\s*(?:belirle|ayarla|ata|koy|yap|=|:)?\s*|aylik\s+butce\w*\s+)(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)\s*(?:tl|lira\w*|₺)?\s*(?:yap|olsun|belirle|ayarla)?\s*$")
+_BUDGET_SHOW = re.compile(r"^\s*(?:butcem(?:\s+(?:ne durumda|nasil|ne kadar kaldi))?|butce\s+durumu(?:m)?|ne kadar butcem kaldi|butceden ne kadar kaldi)\s*\??\s*$")
+_BUDGET_OFF = re.compile(r"^\s*butce\w*\s+(?:kaldir|sifirla|sil|iptal)\w*\s*$")
 _STOP = {"icin", "bugun", "dun", "ekle", "kaydet", "gir", "yaz", "harcama", "harcamasi", "harcamasini", "harcadim", "harcadik", "verdim", "odedim",
          "ode", "lira", "tl", "bir", "su", "sunu", "bana", "benim", "toplam", "da", "de", "ta", "te", "icin", "ile", "ve", "bu", "ay", "hafta"}
 
@@ -48,9 +51,36 @@ def _stem(word: str) -> str:
     return w[:40] or "diğer"
 
 
+async def _budget(pool: Any, user_id: str) -> float | None:
+    raw = await pool.fetchval("SELECT prefs->'budget'->>'monthly' FROM owner_prefs WHERE user_id=$1", user_id)
+    try:
+        return float(raw) if raw else None
+    except ValueError:
+        return None
+
+
+async def _set_budget(pool: Any, user_id: str, value: float | None) -> None:
+    payload = '{"monthly": %s}' % value if value else "{}"
+    await pool.execute(
+        "INSERT INTO owner_prefs(user_id,prefs) VALUES($1,jsonb_build_object('budget',$2::jsonb)) "
+        "ON CONFLICT(user_id) DO UPDATE SET prefs=COALESCE(owner_prefs.prefs,'{}'::jsonb)||jsonb_build_object('budget',$2::jsonb),updated_at=NOW()",
+        user_id, payload)
+
+
+async def _budget_line(pool: Any, user_id: str, today: date) -> str:
+    limit = await _budget(pool, user_id)
+    if not limit:
+        return ""
+    spent = float(await pool.fetchval("SELECT COALESCE(SUM(amount),0) FROM owner_expenses WHERE user_id=$1 AND spent_on BETWEEN $2 AND $3",
+                                      user_id, today.replace(day=1), today))
+    pct = round(spent / limit * 100)
+    warn = " ⚠ Bütçeni aştın!" if spent > limit else " ⚠ Bütçenin %80'ini geçtin." if pct >= 80 else ""
+    return f"\nBu ay {_money(spent)} / {_money(limit)} (%{pct}), kalan {_money(max(0.0, limit - spent))}.{warn}"
+
+
 def wants_expenses(text: str) -> bool:
     f = fold_turkish(text)
-    return len(f) <= 120 and bool(_UNDO.search(f) or _SUMMARY.search(f) or (_ADD.search(f) and (_AMOUNT.search(f) or _BARE.search(f))))
+    return len(f) <= 120 and bool(_BUDGET_SET.match(f) or _BUDGET_SHOW.match(f) or _BUDGET_OFF.match(f) or _UNDO.search(f) or _SUMMARY.search(f) or (_ADD.search(f) and (_AMOUNT.search(f) or _BARE.search(f))))
 
 
 def _period(f: str, today: date) -> tuple[date, date, str]:
@@ -72,6 +102,19 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
         return None
     f, idx = fold_with_map(text)
     today = (now or datetime.now(timezone.utc)).astimezone(HOME_TZ).date()
+    m = _BUDGET_SET.match(f)
+    if m:
+        value = _num(m.group(1))
+        if value is None or not 100 <= value < 100_000_000:
+            return "Bütçe 100 ₺ ile 100 milyon ₺ arasında olabilir. Örn. “aylık bütçem 15000 tl”."
+        await _set_budget(pool, user_id, value)
+        return f"Aylık bütçeni {_money(value)} olarak kaydettim. Harcama ekledikçe kalanı söyleyeceğim; %80'e gelince uyaracağım." + await _budget_line(pool, user_id, today)
+    if _BUDGET_OFF.match(f):
+        await _set_budget(pool, user_id, None)
+        return "Aylık bütçe takibini kapattım."
+    if _BUDGET_SHOW.match(f):
+        line = await _budget_line(pool, user_id, today)
+        return line.strip() or "Henüz aylık bütçe belirlemedin. Örn. “aylık bütçem 15000 tl”."
     if _UNDO.search(f):
         row = await pool.fetchrow("DELETE FROM owner_expenses WHERE id=(SELECT id FROM owner_expenses WHERE user_id=$1 ORDER BY id DESC LIMIT 1) AND user_id=$1 "
                                   "RETURNING amount,category", user_id)
@@ -88,7 +131,8 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
         note = " ".join(orig_words[1:4])[:120]
         spent = today - timedelta(days=1) if re.search(r"\bdun\b", f) else today
         await pool.execute("INSERT INTO owner_expenses(user_id,amount,category,note,spent_on) VALUES($1,$2,$3,$4,$5)", user_id, round(amount, 2), category, note, spent)
-        return f"Kaydettim: {_money(amount)} — {category}" + (f" ({note})" if note else "") + f" · {'dün' if spent != today else 'bugün'}"
+        return (f"Kaydettim: {_money(amount)} — {category}" + (f" ({note})" if note else "") + f" · {'dün' if spent != today else 'bugün'}"
+                + await _budget_line(pool, user_id, today))
     start, end, label = _period(f, today)
     rows = await pool.fetch("SELECT category, SUM(amount) AS total, COUNT(*) AS n FROM owner_expenses WHERE user_id=$1 AND spent_on BETWEEN $2 AND $3 "
                             "GROUP BY category ORDER BY total DESC LIMIT 8", user_id, start, end)

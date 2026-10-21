@@ -24,6 +24,9 @@ class Pool:
         self.query = a
         return self.rows
 
+    async def fetchval(self, sql, *a):
+        return None          # no budget configured
+
     async def fetchrow(self, sql, *a):
         self.deleted = True
         return {"amount": 80, "category": "kahve"}

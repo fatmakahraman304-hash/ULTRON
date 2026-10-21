@@ -252,6 +252,24 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         await self.say("haftalık özet bildirimini kapat")
         self.assertFalse((await pro.get_prefs(self.pool, self.u))["weekly_review"])
 
+    async def test_monthly_budget_tracks_remaining_and_warns(self):
+        now = datetime(2026, 10, 21, 9, 0, tzinfo=timezone.utc)
+        self.assertIn("Henüz aylık bütçe belirlemedin", await self.say("bütçem", now=now))
+        self.assertIn("15.000 ₺", await self.say("aylık bütçem 15000 tl", now=now))
+        first = await self.say("1200 lira market harcaması ekle", now=now)
+        self.assertIn("Bu ay 1.200 ₺ / 15.000 ₺ (%8)", first)
+        self.assertNotIn("⚠", first)
+        warned = await self.say("11000 lira kira harcaması ekle", now=now)
+        self.assertIn("%81", warned)
+        self.assertIn("%80'ini geçtin", warned)
+        over = await self.say("4000 lira tamir harcaması ekle", now=now)
+        self.assertIn("Bütçeni aştın", over)
+        # the budget lives next to other prefs and survives a proactive pref change
+        await self.say("sessiz saatler 23 ile 7")
+        self.assertIn("(%", await self.say("bütçe durumu", now=now))
+        await self.say("bütçeyi kaldır")
+        self.assertNotIn("Bu ay", await self.say("50 lira kahve harcaması ekle", now=now))
+
 
 if __name__ == "__main__":
     unittest.main()
