@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
 if __package__:
@@ -35,7 +35,6 @@ def _fmt(day, clock) -> str:
 
 
 def _strip_plan_words(message: str) -> str:
-    folded = fold_turkish(message)
     out = []
     for word in message.split():
         if _NOISE.fullmatch(fold_turkish(word).strip(".,:;!?'’")):

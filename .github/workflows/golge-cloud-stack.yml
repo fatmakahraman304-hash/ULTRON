@@ -1,0 +1,80 @@
+name: GÖLGE Cloud Stack
+
+# Runs the whole cloud-service test suite (Python + browser-side JS) against a real PostgreSQL 16.
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/ultron-cloud-shared-memory
+      - 'claude/**'
+    paths:
+      - 'ultron/cloud_service/**'
+      - 'scripts/test_golge_minimal_ui.mjs'
+      - '.github/workflows/golge-cloud-stack.yml'
+  pull_request:
+    branches:
+      - feat/ultron-cloud-shared-memory
+      - main
+    paths:
+      - 'ultron/cloud_service/**'
+      - 'scripts/test_golge_minimal_ui.mjs'
+      - '.github/workflows/golge-cloud-stack.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: golge-cloud-stack-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cloud-stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ultron_ci
+          POSTGRES_PASSWORD: isolated_test_only
+          POSTGRES_DB: ultron_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ultron_ci -d ultron_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ULTRON_TEST_DATABASE_URL: postgresql://ultron_ci:isolated_test_only@localhost:5432/ultron_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install dependencies
+        run: |
+          python -m pip install --disable-pip-version-check -r ultron/cloud_service/requirements.txt pytest pyflakes
+      - name: Static checks (syntax + unused names/undefined names in the new modules)
+        working-directory: ultron/cloud_service
+        run: |
+          python -m compileall -q .
+          python -m pyflakes http_client.py infra.py ops.py proactive.py web_push.py reminders.py instant_skills.py \
+            phone_skills.py knowledge_skills.py smart_home.py missions.py plan_skills.py alert_skills.py \
+            memory_skills.py calendar_feed.py laptop_bridge.py
+      - name: Python tests (includes real-PostgreSQL contracts)
+        working-directory: ultron/cloud_service
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: python -m pytest -q -p no:cacheprovider
+      - name: Browser-side JavaScript tests
+        run: |
+          set -e
+          for f in ultron/cloud_service/test_*.cjs; do
+            node --test "$f"
+          done
+          node scripts/test_golge_minimal_ui.mjs
+          for f in ultron/cloud_service/static/*.js; do node --check "$f"; done
