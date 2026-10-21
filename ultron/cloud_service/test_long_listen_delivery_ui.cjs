@@ -36,6 +36,7 @@ function makeUI({message='Sesli oturumdan önemli talimat',fail=false,voiceError
       ULTRONAutoBrain:{safeToFallback:()=>false}
     },
     async refreshAutoBrain(){return 'gemini';},
+    async locationForWeather(){return undefined;},
     async api(){logs.api++;if(fail){const e=new Error('offline');e.network=true;throw e;}
       return {reply:'Doğrulanmış asistan cevabı',conversation_id:'thread-test'};},
     speakUltron(){if(voiceError)throw new Error('speaker disconnected');},
