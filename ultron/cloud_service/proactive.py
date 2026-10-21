@@ -37,6 +37,14 @@ DEFAULT_PREFS = {"proactive": True, "morning_brief": False, "morning_time": "08:
 _HHMM = re.compile(r"(?:[01]?\d|2[0-3])[:.]?[0-5]?\d?\Z")
 
 
+def reminders_mod():
+    if __package__:
+        from . import reminders
+    else:
+        import reminders
+    return reminders
+
+
 def _minutes(value: str) -> int:
     value = str(value).replace(".", ":")
     h, _, m = value.partition(":")
@@ -190,7 +198,8 @@ async def tick(pool: Any, fetch_json, fetch_text=None, now: datetime | None = No
         "UPDATE owner_reminders SET status='delivered',delivered_at=NOW() WHERE id IN ("
         " SELECT r.id FROM owner_reminders r WHERE r.status='pending' AND r.due_at <= NOW() - make_interval(secs=>$1)"
         " AND EXISTS (SELECT 1 FROM push_subscriptions s WHERE s.user_id=r.user_id)"
-        " ORDER BY r.due_at LIMIT 20 FOR UPDATE SKIP LOCKED) RETURNING user_id,text", float(GRACE_SECONDS))
+        " ORDER BY r.due_at LIMIT 20 FOR UPDATE SKIP LOCKED) RETURNING user_id,text,due_at,repeat_rule", float(GRACE_SECONDS))
+    await (reminders_mod().reschedule_repeats(pool, rows, now))
     for r in rows:
         stats["pushed"] += await sender(pool, r["user_id"], {"title": "⏰ Hatırlatıcı", "body": r["text"], "tag": "golge-reminder"},
                                         urgency="high", ttl=3600)

@@ -55,14 +55,73 @@ _FILLER = re.compile(r"\b(?:bana|lutfen|diye|tekrar|bir|hatirlat\w*|hatirlatici\
                      r"olustur|ekle|kaydet|ayarla)\b")
 
 
+_DOW_NAMES = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
+_REP_WEEKDAYS = re.compile(r"\bhafta ici(?: her gun)?\b")
+_REP_WEEKENDS = re.compile(r"\bhafta sonu(?:nda)?(?: her gun)?\b")
+_REP_WEEKLY = re.compile(r"\bher (" + "|".join(_WEEKDAYS) + r")\b")
+_REP_MONTHLY = re.compile(r"\bher ayin (\d{1,2})(?:\. ?)?(?:'?(?:inde|nde|unde|de|da))?\b")
+_REP_DAILY = re.compile(r"\bher (gun|sabah|aksam|gece|ogle)\b")
+
+
+def detect_repeat(folded: str) -> tuple[str, tuple[int, int]] | None:
+    if (m := _REP_WEEKDAYS.search(folded)):
+        return "weekdays", m.span()
+    if (m := _REP_WEEKENDS.search(folded)):
+        return "weekends", m.span()
+    if (m := _REP_WEEKLY.search(folded)):
+        return f"weekly:{_WEEKDAYS[m.group(1)]}", m.span()
+    if (m := _REP_MONTHLY.search(folded)):
+        d = int(m.group(1))
+        return (f"monthly:{d}", m.span()) if 1 <= d <= 31 else None
+    if (m := _REP_DAILY.search(folded)):
+        return "daily", m.span()
+    return None
+
+
+def _rule_matches(rule: str, day) -> bool:
+    if rule == "daily":
+        return True
+    if rule == "weekdays":
+        return day.weekday() < 5
+    if rule == "weekends":
+        return day.weekday() >= 5
+    kind, _, arg = rule.partition(":")
+    if kind == "weekly":
+        return day.weekday() == int(arg)
+    if kind == "monthly":
+        return day.day == int(arg)
+    return False
+
+
+def next_occurrence(rule: str, hour: int, minute: int, after: datetime) -> datetime | None:
+    after = after.astimezone(HOME_TZ)
+    for offset in range(0, 400):
+        day = after.date() + timedelta(days=offset)
+        if not _rule_matches(rule, day):
+            continue
+        candidate = datetime(day.year, day.month, day.day, hour, minute, tzinfo=HOME_TZ)
+        if candidate > after:
+            return candidate
+    return None
+
+
+def describe_repeat(rule: str, due: datetime) -> str:
+    due = due.astimezone(HOME_TZ)
+    kind, _, arg = rule.partition(":")
+    label = {"daily": "her gün", "weekdays": "hafta içi her gün", "weekends": "hafta sonları",
+             "weekly": f"her {_DOW_NAMES[int(arg)]}" if kind == "weekly" else "",
+             "monthly": f"her ayın {arg}'inde" if kind == "monthly" else ""}[kind]
+    return f"{label} {due:%H:%M}"
+
+
 def has_reminder_intent(text: str) -> bool:
     folded = fold_turkish(text)
     return bool(_ASK.search(folded)) and not re.search(r"\b(?:hatirlatici(?:lar)?(?:im| ne| neler| var| listesi)|iptal|sil|kaldir)\b", folded)
 
 
-def parse_reminder(text: str, now: datetime | None = None) -> dict | None:
-    """Return {"due": aware datetime, "text": str, "when": str} or {"error": ...}."""
-    if not has_reminder_intent(text):
+def parse_reminder(text: str, now: datetime | None = None, *, require_intent: bool = True) -> dict | None:
+    """Return {"due","text","when","repeat","has_clock"} or {"error": ...}."""
+    if require_intent and not has_reminder_intent(text):
         return None
     local_now = (now or datetime.now(timezone.utc)).astimezone(HOME_TZ)
     folded, idx = fold_with_map(text)
@@ -71,7 +130,9 @@ def parse_reminder(text: str, now: datetime | None = None) -> dict | None:
     if re.search(r"\b(?:dun|evvelsi gun|geen gun)\b", folded):
         return {"error": "past"}
 
-    rel = _REL.search(folded)
+    repeat = detect_repeat(folded)
+    has_clock = True
+    rel = None if repeat else _REL.search(folded)
     if rel:
         amount = 0.5 if rel.group(1) == "yarim" else _num(rel.group(1))
         if amount is None:
@@ -112,18 +173,29 @@ def parse_reminder(text: str, now: datetime | None = None) -> dict | None:
                 hour += 12
             elif part.group(1) == "ogle" and hour < 11:
                 hour += 12
-        if hour is None and day_offset is None and weekday is None:
+        has_clock = hour is not None
+        if repeat:
+            cut.append(repeat[1])
+            if hour is None:
+                hour, minute = 9, 0
+            due = next_occurrence(repeat[0], hour, minute, local_now)
+            if due is None:
+                return {"error": "past"}
+        elif hour is None and day_offset is None and weekday is None:
             return {"error": "no_time"}
         if hour is None:
             hour, minute = 9, 0
         base = local_now.date()
-        if weekday is not None:
+        if repeat:
+            pass
+        elif weekday is not None:
             ahead = (weekday - base.weekday()) % 7 or 7
             target_date = base + timedelta(days=ahead)
         else:
             target_date = base + timedelta(days=day_offset or 0)
-        due = datetime(target_date.year, target_date.month, target_date.day, hour, minute, tzinfo=HOME_TZ)
-        if day_offset is None and weekday is None and due <= local_now:
+        if not repeat:
+            due = datetime(target_date.year, target_date.month, target_date.day, hour, minute, tzinfo=HOME_TZ)
+        if not repeat and day_offset is None and weekday is None and due <= local_now:
             due += timedelta(days=1)  # "saat 8'de" said at 20:00 means tomorrow
     if due is None or due <= local_now:
         return {"error": "past"}
@@ -141,7 +213,9 @@ def parse_reminder(text: str, now: datetime | None = None) -> dict | None:
     message = "".join(text[i] for i in picked)
     message = re.sub(r"\s+", " ", re.sub(r"[?!,;:]+|(?<!\w)['’]+|['’]+(?!\w)", " ", message)).strip(" .-'’")
     message = re.sub(r"^(?:da|de|ta|te|ki)\s+", "", message, flags=re.IGNORECASE).strip()
-    return {"due": due, "text": (message or "Hatırlatıcı")[:200], "when": describe_when(due, local_now)}
+    when = describe_repeat(repeat[0], due) if repeat else describe_when(due, local_now)
+    return {"due": due, "text": (message or "Hatırlatıcı")[:200], "when": when,
+            "repeat": repeat[0] if repeat else None, "has_clock": has_clock}
 
 
 def describe_when(due: datetime, now: datetime) -> str:
@@ -163,8 +237,26 @@ async def add_reminder(pool: Any, user_id: str, parsed: dict) -> int | None:
     if int(count or 0) >= MAX_PENDING:
         return None
     return await pool.fetchval(
-        "INSERT INTO owner_reminders(user_id,text,due_at) VALUES($1,$2,$3) RETURNING id",
-        user_id, parsed["text"], parsed["due"])
+        "INSERT INTO owner_reminders(user_id,text,due_at,repeat_rule) VALUES($1,$2,$3,$4) RETURNING id",
+        user_id, parsed["text"], parsed["due"], parsed.get("repeat"))
+
+
+async def reschedule_repeats(pool: Any, rows: list, now: datetime | None = None) -> int:
+    """After a repeating reminder fires, queue its next occurrence (same wall-clock time)."""
+    made = 0
+    now = now or datetime.now(timezone.utc)
+    for r in rows:
+        rule = r["repeat_rule"] if "repeat_rule" in r.keys() else None
+        if not rule:
+            continue
+        due_local = r["due_at"].astimezone(HOME_TZ)
+        nxt = next_occurrence(rule, due_local.hour, due_local.minute, max(now.astimezone(HOME_TZ), due_local))
+        if nxt is not None:
+            await pool.execute(
+                "INSERT INTO owner_reminders(user_id,text,due_at,repeat_rule) VALUES($1,$2,$3,$4)",
+                r["user_id"], r["text"], nxt, rule)
+            made += 1
+    return made
 
 
 async def create_from_chat(text: str, pool: Any, user_id: str, now: datetime | None = None) -> str | None:
@@ -178,6 +270,11 @@ async def create_from_chat(text: str, pool: Any, user_id: str, now: datetime | N
     rid = await add_reminder(pool, user_id, parsed)
     if rid is None:
         return f"En fazla {MAX_PENDING} bekleyen hatırlatıcı tutabiliyorum; önce bazılarını iptal edelim."
+    if parsed.get("repeat"):
+        first = describe_when(parsed["due"], (now or datetime.now(timezone.utc)).astimezone(HOME_TZ))
+        return (f"Tamam, {parsed['when']} “{parsed['text']}” diye hatırlatacağım (ilki {first}). "
+                "Durdurmak için “hatırlatıcılarımı iptal et” de. "
+                "Hatırlatıcılar GÖLGE açıkken ya da bildirimleri açtıysan telefon kilitliyken gelir.")
     return (f"Tamam, {parsed['when']} “{parsed['text']}” diye hatırlatacağım. "
             "Not: Hatırlatıcı GÖLGE sayfası/uygulaması açıkken ses ve bildirimle gelir; "
             "telefon kilitliyken sistem bildirimi gönderemiyorum.")
@@ -189,7 +286,7 @@ _CANCEL_Q = re.compile(r"\bhatirlaticilari(?:mi)? (?:iptal|sil|kaldir|temizle)|\
 
 async def list_pending(pool: Any, user_id: str, limit: int = 8) -> list[dict]:
     rows = await pool.fetch(
-        "SELECT id,text,due_at FROM owner_reminders WHERE user_id=$1 AND status='pending' ORDER BY due_at LIMIT $2",
+        "SELECT id,text,due_at,repeat_rule FROM owner_reminders WHERE user_id=$1 AND status='pending' ORDER BY due_at LIMIT $2",
         user_id, limit)
     return [dict(r) for r in rows]
 
@@ -206,7 +303,8 @@ async def manage_from_chat(text: str, pool: Any, user_id: str, now: datetime | N
         items = await list_pending(pool, user_id)
         if not items:
             return "Bekleyen hatırlatıcın yok."
-        lines = [f"• {describe_when(r['due_at'], local_now)} — {r['text']}" for r in items]
+        lines = [(f"• 🔁 {describe_repeat(r['repeat_rule'], r['due_at'])} — {r['text']}" if r.get("repeat_rule")
+                  else f"• {describe_when(r['due_at'], local_now)} — {r['text']}") for r in items]
         return "Bekleyen hatırlatıcıların:\n" + "\n".join(lines)
     return None
 
@@ -223,8 +321,9 @@ async def due_reminders(request: web.Request) -> web.Response:
         "UPDATE owner_reminders SET status='delivered',delivered_at=NOW() "
         "WHERE id IN (SELECT id FROM owner_reminders WHERE user_id=$1 AND status='pending' AND due_at<=NOW() "
         "ORDER BY due_at LIMIT 10 FOR UPDATE SKIP LOCKED) "
-        "RETURNING id,text,due_at,(NOW()-due_at) > INTERVAL '10 minutes' AS late",
+        "RETURNING id,user_id,text,due_at,repeat_rule,(NOW()-due_at) > INTERVAL '10 minutes' AS late",
         request["user_id"])
+    await reschedule_repeats(request.app["db"], rows)
     try:
         if __package__:
             from .proactive import due_notifications
@@ -268,7 +367,7 @@ async def snooze_reminder(request: web.Request) -> web.Response:
         minutes = 10
     minutes = max(1, min(minutes, 24 * 60))
     row = await request.app["db"].fetchrow(
-        "UPDATE owner_reminders SET status='pending',delivered_at=NULL,due_at=NOW()+make_interval(mins=>$3) "
+        "UPDATE owner_reminders SET status='pending',delivered_at=NULL,repeat_rule=NULL,due_at=NOW()+make_interval(mins=>$3) "
         "WHERE id=$1 AND user_id=$2 AND status='delivered' RETURNING id,due_at",
         int(raw), request["user_id"], minutes)
     if row is None:

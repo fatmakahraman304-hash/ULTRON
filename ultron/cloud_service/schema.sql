@@ -382,3 +382,7 @@ CREATE TABLE IF NOT EXISTS owner_prefs (
   prefs JSONB NOT NULL DEFAULT '{}'::jsonb,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Repeating reminders ("her gün 9'da …"): the next occurrence is queued when one fires.
+ALTER TABLE owner_reminders ADD COLUMN IF NOT EXISTS repeat_rule TEXT
+  CHECK (repeat_rule IS NULL OR repeat_rule ~ '^(daily|weekdays|weekends|weekly:[0-6]|monthly:([1-9]|[12][0-9]|3[01]))$');

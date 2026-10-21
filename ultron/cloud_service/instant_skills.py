@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -27,6 +27,7 @@ else:
     import memory_skills
     import phone_skills
     import proactive
+    import plan_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -571,7 +572,7 @@ async def answer_status(text: str, pool: Any, user_id: str, now: datetime | None
 
 # ── agenda & morning briefing ───────────────────────────────────────────────
 
-_AGENDA_Q = re.compile(r"\btakvim(?:im)?(?:de|imde)? ne var|\b(?:bugun|yarin|bu hafta|haftalik)\b.{0,25}\b(?:programim|ajandam|planim|takvimim|toplantilarim|etkinliklerim)\b"
+_AGENDA_Q = re.compile(r"\btakvim(?:im)?(?:de|imde)? ne var|\b(?:bugun|yarin|bu hafta|haftalik)\b.{0,25}\b(?:programim|ajandam|planim|planlarim|takvimim|toplantilarim|etkinliklerim)\b"
                        r"|\b(?:programim|ajandam|takvimim) ne\b|\bajanda\b|\b(?:bugun|yarin) ne var\b|\btoplantim var mi\b|\bnelerim var\b|\bsiradaki (?:toplanti|etkinlik)\b")
 _BRIEF_Q = re.compile(r"\b(?:sabah|gunluk|gunun) (?:brifing\w*|ozet\w*|raporu)\b|\bbrifing\b|\bbriefing\b|\bgunu ozetle\b")
 _GREETING = re.compile(r"\bgunaydin\b")
@@ -706,6 +707,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
     if pool is not None:
+        reply = await plan_skills.handle(text, pool, user_id, now)
+        if reply:
+            return {"skill": "plans", "reply": reply}
         reply = await proactive.handle_prefs(text, pool, user_id)
         if reply:
             return {"skill": "prefs", "reply": reply}
@@ -787,6 +791,7 @@ def wants_cloud_skill(text: str) -> bool:
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
         or phone_skills.wants_news(text) or phone_skills.wants_flight(text)
+        or plan_skills._ADD.search(folded) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)
         or re.search(r"\bbildirim ayarlarim\b|\bproaktif\b|\bsessiz saat\w*\b|\bsabah (?:brifing\w*|ozet\w*)\b.*\bbildirim|\bkendiliginden uyar", folded)
         or (_FX_Q.search(folded) and _CUR_TOKEN.search(folded) and not _FX_SKIP.search(folded))
         or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text))
