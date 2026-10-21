@@ -978,3 +978,7 @@ All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real Po
 ## 2026-10-21 — Utilities + feedback buttons (Linux sandbox, real PostgreSQL 16)
 - `ultron/cloud_service` pytest with Postgres + PYTHONPATH → 565 passed, 93 skipped; all `test_*.cjs` pass (incl. new feedback-button test); `scripts/test_golge_minimal_ui.mjs` PASS (cache v82). pyflakes clean on `utility_skills.py`.
 - NOT RUN: real iPhone rendering of the 👍/👎 row, Actions for this commit (check after push).
+
+## 2026-10-21 — Desktop launcher (Linux sandbox)
+- `python -m pytest tests/test_desktop_launcher.py` → 3 passed (static: ASCII/CRLF, referenced files exist, hidden window style, opt-in autostart).
+- NOT RUN: wscript/VBScript execution, shortcut creation, hidden launch, install flow and failure dialog on Windows (no Windows here; laptop was off).

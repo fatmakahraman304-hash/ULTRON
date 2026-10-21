@@ -829,3 +829,6 @@ New modules `style_skills.py`, `recall_skills.py`, `voice_skills.py`, `feedback_
 
 ## 2026-10-21 — Journal
 `journal_skills.py` + table `owner_journal`: "günlüğe yaz: …" / "günlük: …", "günlüğüm", "bugünkü/dünkü/bu haftaki/geçen haftaki günlüğüm", "günlüğümde X geçenler", "son günlük kaydını sil"; secrets refused; allowed through the voice gateway; included in `/api/export`. Real-PostgreSQL test added; corpus +10.
+
+## 2026-10-21 — Double-click desktop launcher
+`GOLGE.vbs` (hidden-console launcher: checks `.venv`, offers a one-time visible `INSTALL.bat`, runs `scripts\bootstrap.ps1 -Mode start` with output appended to `logs\golge-baslat.log`, offers to open the log on a non-zero exit) and `GOLGE_KISAYOL_KUR.vbs` (creates Desktop + Start Menu "GÖLGE" shortcuts with `config\ultron.ico`; Startup shortcut only if the owner answers Yes). ASCII-only VBScript (Turkish letters via `ChrW`), `.gitattributes` keeps CRLF. START.bat/INSTALL.bat unchanged. Static contract test `tests/test_desktop_launcher.py`. Documented in `QUICK_START_TR.md`.

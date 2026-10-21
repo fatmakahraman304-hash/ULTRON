@@ -903,3 +903,9 @@ On the deployed service ask once each: "100 dolar kaç tl", "bitcoin kaç dolar"
 
 ## 2026-10-21 — After utilities + feedback buttons
 Try on the phone after deploy: "yazı tura at", "45 gün sonra hangi gün", "850 tl 4 kişi böl", "boyum 180 kilom 75"; tap 👎 under a wrong answer, then export and run `python feedback_to_corpus.py`. Check the 👍/👎 row does not overlap the time stamp on a small iPhone screen (cosmetic, not verified).
+
+## 2026-10-21 — Verify the desktop launcher on Windows
+1. `git pull` on the laptop (branch `claude/epic-ptolemy-0mexud`), double-click `GOLGE_KISAYOL_KUR.vbs`, answer the autostart question, confirm a GÖLGE icon with the ULTRON ico appears on the Desktop and Start Menu.
+2. Double-click it: expect a 3 s "başlatılıyor" popup, no console, the PyQt cockpit appears. If nothing appears read `logs\golge-baslat.log`.
+3. Remove `.venv` (rename) and launch again to see the first-run install prompt.
+4. If SmartScreen/antivirus blocks `.vbs`, fall back to a signed EXE (PyInstaller/Inno via `ultron/.github/workflows/windows-installer.yml`) — not built yet.

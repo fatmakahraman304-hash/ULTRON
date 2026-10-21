@@ -1,5 +1,14 @@
 # GÖLGE masaüstü
 
+## Komut satırsız açılış (çift tık)
+1. Klasördeki `GOLGE_KISAYOL_KUR.vbs` dosyasına **bir kez** çift tıkla. Masaüstüne ve Başlat menüsüne **GÖLGE** simgesi koyar (bilgisayar açılınca otomatik başlasın mı diye sorar; isteğe bağlı).
+2. Bundan sonra masaüstündeki **GÖLGE** simgesine çift tıklaman yeterli; siyah komut penceresi açılmaz.
+3. İlk açılışta kurulum yoksa bir kez `INSTALL.bat` çalıştırılır (birkaç dakika, internet gerekir). Arayüz değiştiyse ilk açılış biraz uzun sürebilir.
+4. Kapanırsa ve hata varsa kayıt dosyası: `logs\golge-baslat.log` (kapanışta açmak ister misin diye sorar).
+
+Bu akış Windows'ta henüz denenmedi (geliştirme ortamı Linux); sorun olursa log dosyasını paylaş.
+
+
 START.bat tek ana pencereyi açar: PyQt6 içinde React/TypeScript dashboard ve gerçek Three.js Core. Ana ekranlar arasında seçim veya eski dashboarda dönüş yoktur. Hologram Çalışma Alanı (Ctrl+H), GLB/parça/el kontrolü için ayrı uzman araçtır.
 
 1920×1080 tasarım alanı pencereye orantılı ölçeklenir; 1366×768 de desteklenir. Merkez sahne, mekanik halkalar, parçacıklar, oda ve platform tamamen geometridir; arka plan resmi/video kullanılmaz. Sistem kartları gerçek backend ölçümlerini gösterir; eksik veri N/A olur.
