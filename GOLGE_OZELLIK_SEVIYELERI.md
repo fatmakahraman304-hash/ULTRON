@@ -81,6 +81,20 @@ Hiçbir özellik için "gerçek cihazda doğrulandı" iddiası yoktur. Laptop ka
 | İnternetten CC0 model bulma (Poly Haven) | S2 | Mevcut |
 | Dönüş/ölçek/taşıma/yok etme komutları | S2 | Mevcut |
 
+### Sonradan eklenenler (2026-10-21, aynı oturum)
+| Özellik | Seviye | Not |
+|---|---|---|
+| Hesap kutusu: kredi taksiti, bileşik faiz, KDV, indirim, % değişim, yakıt maliyeti, liste istatistikleri, asal/faktöriyel/EBOB-EKOK/Fibonacci, sayı yazıyla, Roma rakamı, ikilik/onaltılık | S4 | 30+ komut, çevrimdışı, sınır testli |
+| Metin/kod araçları: Türkçe büyük-küçük harf, ters çevir, say, palindrom, Base64, Mors, hex↔rgb | S4 | |
+| Yaşam hesapları: uyku saati, burç/Çin burcu, tempo, kalori tahmini (tavsiye değil), tarif ölçekleme, mutfak ölçüleri, saat dilimi, iş günü, sabit resmî tatiller, artık yıl, yıl ilerlemesi | S4 | Dinî bayram tarihleri YOK |
+| Defterler: rehber, borç/alacak, hedefler, kronometre/zaman kaydı, yakıt kaydı | S4 | Silme yalnızca yazıyla |
+| Eğlence/iyi oluş: motivasyon, atasözü/deyim, espri, doğrulanmış bilgiler, günün kelimesi, bilmece, taş-kağıt-makas, 8 top, yemek fikri, nefes/göz/esneme (tavsiye değil) | S4 | İçerik sabit listeden; yaratıcı istekler modele gider |
+| Akıllı planlama: "şu işleri sığdır" önerisi → "planı onayla", kalan süre, sıradaki plan, erteleme | S4 | Onaysız hiçbir şey yazılmaz |
+| Hazır listeler (13 şablon, deprem çantası dahil) | S4 | |
+| Gün/hafta özeti (yalnız kayıtlı veriden) | S4 | |
+| Eksik listesi + onaylı geliştirme isteği (kendini geliştirme) | S4 (bulut) / S3 (laptop tarafı) | Laptop ajanının "yalnız taslak" talimatına uyması doğrulanmadı |
+| Sesle hologram, sesle yetenek kullanımı | S3 | Canlı oturumda denenmedi |
+
 ### Cihaz bağlantıları
 | Özellik | Seviye | Not |
 |---|---|---|
