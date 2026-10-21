@@ -248,3 +248,10 @@ CASES += [
     ("hedeflerim", "ledger"), ("kronometre başlat: ders", "ledger"), ("kronometre durdur", "ledger"), ("yakıt aldım 40 litre 1800 tl 45000 km", "ledger"),
     ("yakıt tüketimim", "ledger"), ("borç para ister misin", None), ("hedefim büyük", None), ("rehber öğretmenim geldi", None), ("numarası değişti", None),
 ]
+
+CASES += [
+    ("motivasyon ver", "fun"), ("atasözü", "fun"), ("deyim", "fun"), ("espri yap", "fun"), ("ilginç bilgi", "fun"), ("günün kelimesi", "fun"),
+    ("bilmece sor", "fun"), ("taş kağıt makas: taş", "fun"), ("8 top: bugün şanslı mıyım", "fun"), ("ne yesem", "fun"), ("nefes egzersizi", "fun"),
+    ("göz dinlendirme", "fun"), ("esneme hareketleri", "fun"), ("tasarruf ipucu", "fun"), ("verimlilik ipucu", "fun"), ("uyku hijyeni", "fun"),
+    ("motivasyon nedir", None), ("espri anlıyor musun", None), ("bilgi ver", None), ("tavsiye ver", None), ("deyim öğrenmek istiyorum", None),
+]

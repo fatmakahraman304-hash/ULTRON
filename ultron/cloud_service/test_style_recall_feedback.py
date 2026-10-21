@@ -463,6 +463,17 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         finally:
             await self.pool.execute("DELETE FROM owner_contacts WHERE user_id=$1", other)
 
+    async def test_riddle_keeps_its_answer_per_owner(self):
+        self.assertIn("Henüz bir bilmece", await self.say("bilmece cevabı"))
+        asked = await self.say("bilmece sor")
+        self.assertIn("🧩", asked)
+        answer = await self.pool.fetchval("SELECT prefs->'riddle'->>'a' FROM owner_prefs WHERE user_id=$1", self.u)
+        self.assertIn("Doğru bildin", await self.say(f"bilmece cevap: {answer}"))
+        self.assertIn("Olmadı", await self.say("bilmece cevap: yanlışcevap"))
+        self.assertEqual(await self.say("bilmece cevabı"), f"Cevap: {answer}.")
+        await self.say("sessiz saatler 22 ile 6")                          # other prefs keep the riddle
+        self.assertEqual(await self.pool.fetchval("SELECT prefs->'riddle'->>'a' FROM owner_prefs WHERE user_id=$1", self.u), answer)
+
 
 if __name__ == "__main__":
     unittest.main()
