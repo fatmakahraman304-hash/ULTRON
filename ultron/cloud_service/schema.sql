@@ -458,3 +458,22 @@ CREATE TABLE IF NOT EXISTS owner_habits (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_owner_habits_user_day ON owner_habits(user_id, habit, day DESC);
+
+-- Self-improvement loop: per-day skill usage counters and owner feedback on answers.
+CREATE TABLE IF NOT EXISTS skill_usage (
+  user_id TEXT NOT NULL,
+  day DATE NOT NULL,
+  skill TEXT NOT NULL CHECK (length(skill) BETWEEN 1 AND 40),
+  n INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (user_id, day, skill)
+);
+CREATE TABLE IF NOT EXISTS skill_feedback (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  rating TEXT NOT NULL CHECK (rating IN ('good','bad')),
+  skill TEXT NOT NULL DEFAULT '',
+  user_text TEXT NOT NULL DEFAULT '',
+  reply TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_skill_feedback_user ON skill_feedback(user_id, id DESC);

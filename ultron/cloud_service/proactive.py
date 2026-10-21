@@ -75,11 +75,38 @@ async def get_prefs(pool: Any, user_id: str) -> dict:
 async def set_pref(pool: Any, user_id: str, **changes) -> dict:
     prefs = await get_prefs(pool, user_id)
     prefs.update(changes)
+    # Keep keys owned by other modules (style, suggested, …) instead of dropping them.
+    raw = await pool.fetchval("SELECT prefs FROM owner_prefs WHERE user_id=$1", user_id)
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = {}
+    merged = {k: v for k, v in (raw or {}).items() if k not in DEFAULT_PREFS}
+    merged.update(prefs)
     await pool.execute(
         "INSERT INTO owner_prefs(user_id,prefs) VALUES($1,$2::jsonb) "
         "ON CONFLICT(user_id) DO UPDATE SET prefs=EXCLUDED.prefs,updated_at=NOW()",
-        user_id, json.dumps(prefs))
+        user_id, json.dumps(merged))
     return prefs
+
+
+async def get_extra(pool: Any, user_id: str, key: str, default: Any = None) -> Any:
+    raw = await pool.fetchval("SELECT prefs FROM owner_prefs WHERE user_id=$1", user_id)
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raw = {}
+    return (raw or {}).get(key, default)
+
+
+async def set_extra(pool: Any, user_id: str, key: str, value: Any) -> None:
+    """Store one module-owned key in owner_prefs without touching the others."""
+    await pool.execute(
+        "INSERT INTO owner_prefs(user_id,prefs) VALUES($1,jsonb_build_object($2::text,$3::jsonb)) "
+        "ON CONFLICT(user_id) DO UPDATE SET prefs=COALESCE(owner_prefs.prefs,'{}'::jsonb)||jsonb_build_object($2::text,$3::jsonb),updated_at=NOW()",
+        user_id, key, json.dumps(value))
 
 
 # ── rules ───────────────────────────────────────────────────────────────────

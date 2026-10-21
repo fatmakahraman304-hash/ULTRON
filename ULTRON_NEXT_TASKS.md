@@ -893,3 +893,10 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 
 ## 2026-10-21 — Verify live data sources after deploy
 On the deployed service ask once each: "100 dolar kaç tl", "bitcoin kaç dolar", "hava nasıl", "namaz vakitleri", "son depremler", "haberler", "Atatürk kimdir". Any "ulaşamadım" reply means the provider URL/shape changed (the 301 on frankfurter.app was found this way in CI): check `provider_status host=… status=…` lines in the Render log, update the URL, and keep the fake-based unit test in sync.
+
+## 2026-10-21 — Next steps after style/recall/voice/feedback batch
+1. Read Actions for the pushed head of PR #62; fix anything red. Do not merge/deploy without the owner's authorization.
+2. On a real phone voice session: say "saat kaç", "yarın hava nasıl", "alışveriş listesine süt ekle", "dün ne konuştuk"; confirm the model calls `golge_skill` (events/log) and speaks the `spoken` text without reading links. If the model ignores the tool, tighten the SKILLS paragraph in `live_voice_policy.py` (keep test limit 3000).
+3. Chat: "kısa cevap ver" then ask an open question; judge whether replies become short. Then "tarzı sıfırla".
+4. After some use: "en çok kullandığım komutlar", "bana öneri ver"; after a mis-answer say "yanlış anladın", export (`GET /api/export`) and run `python feedback_to_corpus.py export.json` to get corpus candidates; label them in `skill_routing_corpus.py` first, then fix the rule.
+5. Not built yet: thumbs-up/down buttons in `static/index.html` calling `POST /api/feedback {rating, message_id}`; style by voice ("kısa konuş" works via golge_skill/style only if heard as that phrase).

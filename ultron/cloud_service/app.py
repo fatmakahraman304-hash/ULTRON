@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from capability_readiness import readiness
 from instant_skills import instant_reply, clock_context, SKILL_SUMMARY
+import style_skills, voice_skills, feedback_skills
 import phone_skills
 import missions
 import infra
@@ -1854,6 +1855,31 @@ def _gemini_youtube_reply(url: str, question: str, system_instruction: str) -> s
     return text
 
 
+async def feedback_route(request: web.Request) -> web.Response:
+    """Thumbs up/down on one assistant message of the caller's own conversations."""
+    try:
+        body = await request.json()
+        rating = body.get("rating")
+        message_id = int(body.get("message_id"))
+    except Exception:
+        return web.json_response({"error": "invalid_feedback"}, status=400)
+    if rating not in ("good", "bad"):
+        return web.json_response({"error": "invalid_rating"}, status=400)
+    pool = request.app["db"]
+    row = await pool.fetchrow(
+        "SELECT id,conversation_id,content,device_id FROM messages WHERE id=$1 AND user_id=$2 AND role='assistant'",
+        message_id, request["user_id"])
+    if not row:
+        return web.json_response({"error": "message_not_found"}, status=404)
+    asked = await pool.fetchval(
+        "SELECT content FROM messages WHERE conversation_id=$1 AND role='user' AND id<$2 ORDER BY id DESC LIMIT 1",
+        row["conversation_id"], row["id"])
+    dev = str(row["device_id"] or "")
+    skill = dev[len(followups.SKILL_PREFIX):] if dev.startswith(followups.SKILL_PREFIX) else "chat"
+    await feedback_skills.record_feedback(pool, request["user_id"], rating, skill, asked or "", row["content"])
+    return web.json_response({"ok": True})
+
+
 async def chat(request: web.Request) -> web.Response:
     body = await request.json()
     text = str(body.get("message", "")).strip()
@@ -1923,7 +1949,18 @@ async def chat(request: web.Request) -> web.Response:
         if missions.mission_goal(text) is None and not missions.is_cancel_request(text):
             kwargs = dict(pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch,
                           location=_valid_location(body.get("location")), fetch_text=phone_skills.fetch_news_xml)
-            skill = await instant_reply(text, **kwargs)
+            history = None
+            if feedback_skills.wants_feedback(text):
+                prev = await pool.fetchrow(
+                    "SELECT id,content,device_id FROM messages WHERE conversation_id=$1 AND role='assistant' ORDER BY id DESC LIMIT 1", conv_uuid)
+                if prev:
+                    asked = await pool.fetchval(
+                        "SELECT content FROM messages WHERE conversation_id=$1 AND role='user' AND id<$2 ORDER BY id DESC LIMIT 1",
+                        conv_uuid, prev["id"])
+                    dev = str(prev["device_id"] or "")
+                    history = {"user": asked or "", "reply": prev["content"],
+                               "skill": dev[len(followups.SKILL_PREFIX):] if dev.startswith(followups.SKILL_PREFIX) else "chat"}
+            skill = await instant_reply(text, history=history, **kwargs)
             if skill is None and len(text) <= 60:
                 # "peki yarın?" after a weather answer → "yarın hava nasıl"
                 previous = await pool.fetchval(
@@ -1933,6 +1970,8 @@ async def chat(request: web.Request) -> web.Response:
                     skill = await instant_reply(explicit, **kwargs)
     except Exception:
         skill = None  # A skill bug must never block a normal model answer.
+    if skill:
+        await feedback_skills.record_usage(pool, request["user_id"], skill["skill"])
     if skill and not cancel_record["cancel_requested"]:
         async with cancel_registry.completion_lock:
             if cancel_record["cancel_requested"]:
@@ -1988,7 +2027,7 @@ async def chat(request: web.Request) -> web.Response:
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
         user_message=text, read_only=True, has_prior_turns=bool(turns),
-    ) + "\n" + clock_context() + SKILL_SUMMARY
+    ) + "\n" + clock_context() + SKILL_SUMMARY + style_skills.style_instruction(await style_skills.get_style(pool, request["user_id"]))
     if research_result is not None:
         system_instruction += build_research_prompt_block(research_result)
     youtube_request = phone_skills.youtube_request(text)
@@ -2133,7 +2172,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         memory=memory, recent=recent,
         has_prior_turns=not recent.startswith("No previous chat messages."),
     )
-    system_instruction = build_live_voice_instruction(base_prompt + "\n" + clock_context())
+    system_instruction = build_live_voice_instruction(
+        base_prompt + "\n" + clock_context() + style_skills.style_instruction(await style_skills.get_style(pool, user_id)))
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
     voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
     try:
@@ -2192,6 +2232,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             )
         ),
         tools=[{"function_declarations": [
+            voice_skills.TOOL_DECLARATION,
             {
                 "name": "save_memory",
                 "description": "Save or update an owner fact only after an explicit request in the current spoken turn to remember/save it. A disclosure alone is not consent. Never store passwords, API keys, tokens, or one-time codes.",
@@ -2529,6 +2570,19 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         id=fc.id, name=name,
                         response={"ok": True, "saved": {"key": key, "value": value, "category": category, "version": int(row["version"])}},
                     )
+
+                if name == "golge_skill":
+                    async def _voice_fetch(url: str, key: str, ttl: int) -> dict:
+                        return await world_api._upstream(url, ttl=ttl, key=key)
+                    try:
+                        outcome = await voice_skills.run(
+                            str(args.get("request", "")), pool=pool, user_id=user_id, conv_uuid=conv_uuid,
+                            fetch_json=_voice_fetch, fetch_text=phone_skills.fetch_news_xml)
+                        if outcome.get("handled"):
+                            await feedback_skills.record_usage(pool, user_id, outcome["skill"])
+                    except Exception:
+                        outcome = {"handled": False, "reason": "skill_error"}
+                    return types.FunctionResponse(id=fc.id, name=name, response={"ok": True, **outcome})
 
                 if name == "recall_memory":
                     query = str(args.get("query", "")).strip().lower()
@@ -3041,6 +3095,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat/cancel", cancel_chat)
     app.router.add_post("/api/chat", chat)
+    app.router.add_post("/api/feedback", feedback_route)
     app.router.add_post("/api/scene-design", scene_design)
     from scene_assets import register as register_scene_assets
     register_scene_assets(app)

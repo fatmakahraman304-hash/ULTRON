@@ -72,6 +72,8 @@ RETENTION = (
     ("owner_notifications", "DELETE FROM owner_notifications WHERE created_at < NOW() - INTERVAL '3 days'"),
     ("owner_alerts", "DELETE FROM owner_alerts WHERE NOT active AND COALESCE(fired_at, created_at) < NOW() - INTERVAL '90 days'"),
     ("push_subscriptions", "DELETE FROM push_subscriptions WHERE last_ok IS NULL AND created_at < NOW() - INTERVAL '60 days'"),
+    ("skill_usage", "DELETE FROM skill_usage WHERE day < CURRENT_DATE - 120"),
+    ("skill_feedback", "DELETE FROM skill_feedback WHERE created_at < NOW() - INTERVAL '365 days'"),
     ("owner_plans", "DELETE FROM owner_plans WHERE is_done AND updated_at < NOW() - INTERVAL '365 days'"),
 )
 
@@ -101,6 +103,8 @@ async def export_owner_data(pool: Any, user_id: str) -> dict:
         "lists": await rows("SELECT list_label AS list, item, created_at FROM owner_list_items WHERE user_id=$1 ORDER BY list_name, id"),
         "expenses": await rows("SELECT amount, category, note, spent_on FROM owner_expenses WHERE user_id=$1 ORDER BY spent_on DESC, id DESC LIMIT 1000"),
         "habits": await rows("SELECT habit, amount, note, day FROM owner_habits WHERE user_id=$1 ORDER BY day DESC, id DESC LIMIT 2000"),
+        "skill_usage": await rows("SELECT day, skill, n FROM skill_usage WHERE user_id=$1 ORDER BY day DESC, skill LIMIT 2000"),
+        "feedback": await rows("SELECT rating, skill, user_text, reply, created_at FROM skill_feedback WHERE user_id=$1 ORDER BY id DESC LIMIT 500"),
         "price_alerts": await rows("SELECT asset,vs,direction,threshold,active FROM owner_alerts WHERE user_id=$1 ORDER BY id"),
         "preferences": json.loads(prefs) if isinstance(prefs, str) else (prefs or {}),
         "missions": await rows("SELECT goal,status,report,created_at FROM missions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20"),

@@ -172,3 +172,14 @@ CASES += [
     ("yarın ne zaman boşum", "plans"), ("cuma müsait saatlerim", "plans"), ("bugün boş zamanım var mı", "plans"), ("bu hafta boş saatlerim", "plans"),
     ("boş zamanlarımda ne yapabilirim", None), ("boş kalmak istemiyorum", None), ("müsait misin", None), ("yarın boş vaktim olursa sinemaya gidelim", None),
 ]
+
+CASES += [
+    ("kısa cevap ver", "style"), ("samimi ol", "style"), ("daha resmi ol", "style"), ("bana sen de", "style"), ("bana Murat diye hitap et", "style"),
+    ("emoji kullanma", "style"), ("detaylı anlat", "style"), ("konuşma tarzım ne", "style"), ("tarzı sıfırla", "style"),
+    ("bana kısa bir hikaye anlat", None), ("emoji nedir", None), ("kısa vadeli yatırım nedir", None), ("resmi tatil ne zaman", None), ("samimi bir mektup yaz", None),
+    # "X hakkında ne biliyorsun" answers only when memory/history has X (covered in test_style_recall_feedback), so it is not a corpus case.
+    ("dün ne konuştuk", "recall"), ("geçen hafta ne konuştuk", "recall"), ("kahve hakkında ne konuşmuştuk", "recall"),
+    ("hafıza özeti", "recall"), ("Ankara hakkında ne düşünüyorsun", None), ("dün ne yaptın", None),
+    ("yanlış anladın", "feedback"), ("tam istediğim buydu", "feedback"), ("en çok kullandığım komutlar", "feedback"), ("bana öneri ver", "feedback"),
+    ("geri bildirimlerim", "feedback"), ("bu filmi öner", None), ("doğru mu bu", None),
+]

@@ -169,6 +169,8 @@ class MemorySkills(unittest.TestCase):
     def setUp(self):
         import memory_skills
         self.m = memory_skills
+        for attr in ("upsert_owner_memory", "delete_owner_memory"):
+            self.addCleanup(setattr, memory_skills, attr, getattr(memory_skills, attr))  # tests monkeypatch these
 
     def test_original_characters_are_preserved_in_value(self):
         class Pool:

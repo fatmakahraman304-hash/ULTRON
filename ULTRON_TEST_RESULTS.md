@@ -967,3 +967,10 @@ Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0d
 
 ## 2026-10-21 — GitHub Actions on PR #62, exact head 717c179
 All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real PostgreSQL 16 + JS), `verify`, `postgres-fencing`, `persona-policy`, `qwen-listening`, `responsive-ui`, `mobile-listen`, `windows-bootstrap-syntax`. Earlier heads were red for the three reasons listed above, all fixed. Still NOT RUN: real iPhone push, real laptop bridge, real Gemini, live data providers, Render deployment.
+
+## 2026-10-21 — Style/recall/voice/feedback batch (Linux sandbox, real PostgreSQL 16)
+- `python -m pytest -q -p no:cacheprovider` in `ultron/cloud_service` with `ULTRON_TEST_DATABASE_URL` + `PYTHONPATH=repo root` → 561 passed, 93 skipped (other suites' Postgres/aiohttp gates). New `test_style_recall_feedback.py`: 9 pure + 5 real-PostgreSQL tests (style persistence incl. coexistence with proactive prefs, recall memory/history, owner scoping, voice allow-list incl. memory write blocked, feedback/usage/suggestion/export/retention) all pass.
+- Routing corpus now 411 utterances (+28): 410/411 initially failed on one data-dependent case which was removed; final `test_skill_routing.py` 2 passed, hijacked chat 0.
+- All `ultron/cloud_service/test_*.cjs` pass; pyflakes clean on the new modules (added to the CI lint list).
+- Root suite: same 5 environment-dependent failures as before (`tests/test_integration.py` ×4, `tests/test_open_app.py` ×1; desktop/Windows code not touched by this batch).
+- NOT RUN: real Gemini Live session with `golge_skill`, spoken-quality evaluation, iPhone, Render deployment, GitHub Actions for this commit (check after push).

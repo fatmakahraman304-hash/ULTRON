@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills, style_skills, recall_skills, feedback_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -38,6 +38,9 @@ else:
     import habit_skills
     import nav_skills
     import focus_skills
+    import style_skills
+    import recall_skills
+    import feedback_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 # frankfurter.app permanently redirects here; redirects are never followed, so use the canonical host.
@@ -721,7 +724,9 @@ HELP_TEXT = (
     "🗓 Boş zaman: “yarın ne zaman boşum”, “cuma müsait saatlerim”; plan eklerken çakışma uyarısı\n"
     "🎂 Doğum günü: “Ahmet'in doğum günü 3 Mart”, “doğum günlerim”, “her yıl 14 şubat sevgililer günü hatırlat”\n"
     "🛒 Liste/harcama: “alışveriş listesine süt ekle”, “150 lira market harcaması ekle”, “bu ay ne kadar harcadım”, “10 dakika zamanlayıcı kur”\n"
-    "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “unut: …”\n"
+    "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “Ahmet hakkında ne biliyorsun”, “dün ne konuştuk”, “hafıza özeti”, “unut: …”\n"
+    "🗣 Üslup: “kısa cevap ver”, “samimi ol”, “bana sen de”, “bana Murat diye hitap et”, “emoji kullanma”, “konuşma tarzım ne”\n"
+    "📈 Gelişim: “yanlış anladın” / “tam istediğim buydu” (öğrenmem için kaydederim), “en çok kullandığım komutlar”, “bana öneri ver”\n"
     "🎯 Görev: “görev: yarınki hava ve haberlere göre günümü planla” (adım adım çalışır)\n"
     "💻 Laptop: “laptop: chrome aç”, “ekran analizi yap” (laptop açıkken)\n"
     "🏠 Akıllı ev: “salon ışığını aç”, “klimayı 24 dereceye ayarla” (Home Assistant bağlıysa)\n"
@@ -736,6 +741,10 @@ def answer_help(text: str) -> str | None:
     return HELP_TEXT if len(f) <= 50 and _HELP_Q.search(f) else None
 
 
+def _may(allow, label: str) -> bool:
+    return allow is None or label in allow
+
+
 # ── dispatcher ──────────────────────────────────────────────────────────────
 
 _SKIP_ALL = re.compile(r"\b(?:arastir|research|kaynak goster|makale yaz|kod yaz|hikaye)\b")
@@ -744,54 +753,70 @@ _SKIP_ALL = re.compile(r"\b(?:arastir|research|kaynak goster|makale yaz|kod yaz|
 async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
                         fetch_json: FetchJson | None = None,
                         now: datetime | None = None, location: dict | None = None,
-                        fetch_text=None, ha=None, read_only: bool = False) -> dict | None:
-    """Return {"skill", "reply"} for an unambiguous skill request, else None."""
+                        fetch_text=None, ha=None, read_only: bool = False,
+                        allow: frozenset[str] | None = None, history: dict | None = None) -> dict | None:
+    """Return {"skill", "reply"} for an unambiguous skill request, else None.
+
+    `allow` limits which writing skills may run (live voice); None = all. `history` is the previous
+    exchange ({user, reply, skill}) so "yanlış anladın" can be attributed."""
     text = str(text or "").strip()
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
     if pool is not None and not read_only:
-        reply = await focus_skills.handle(text, pool, user_id, now)
+        reply = await style_skills.handle(text, pool, user_id) if _may(allow, "style") else None
+        if reply:
+            return {"skill": "style", "reply": reply}
+        reply = await feedback_skills.handle(text, pool, user_id, now, history) if _may(allow, "feedback") else None
+        if reply:
+            return {"skill": "feedback", "reply": reply}
+        reply = await focus_skills.handle(text, pool, user_id, now) if _may(allow, "focus") else None
         if reply:
             return {"skill": "focus", "reply": reply}
-        reply = await habit_skills.handle(text, pool, user_id, now)
+        reply = await habit_skills.handle(text, pool, user_id, now) if _may(allow, "habits") else None
         if reply:
             return {"skill": "habits", "reply": reply}
-        reply = await birthday_skills.handle(text, pool, user_id, now)
+        reply = await birthday_skills.handle(text, pool, user_id, now) if _may(allow, "birthdays") else None
         if reply:
             return {"skill": "birthdays", "reply": reply}
-        reply = await expense_skills.handle(text, pool, user_id, now)
+        reply = await expense_skills.handle(text, pool, user_id, now) if _may(allow, "expenses") else None
         if reply:
             return {"skill": "expenses", "reply": reply}
-        reply = await list_skills.handle(text, pool, user_id)
+        reply = await list_skills.handle(text, pool, user_id) if _may(allow, "lists") else None
         if reply:
             return {"skill": "lists", "reply": reply}
-        reply = await alert_skills.handle(text, pool, user_id, fetch_json)
+        reply = await alert_skills.handle(text, pool, user_id, fetch_json) if _may(allow, "alerts") else None
         if reply:
             return {"skill": "alerts", "reply": reply}
-        reply = await plan_skills.handle(text, pool, user_id, now)
+        reply = await plan_skills.handle(text, pool, user_id, now) if _may(allow, "plans") else None
         if reply:
             return {"skill": "plans", "reply": reply}
-        reply = await proactive.handle_prefs(text, pool, user_id)
+        reply = await proactive.handle_prefs(text, pool, user_id) if _may(allow, "prefs") else None
         if reply:
             return {"skill": "prefs", "reply": reply}
-        reply = await memory_skills.handle(text, pool, user_id)
+        reply = await memory_skills.handle(text, pool, user_id) if _may(allow, "memory") else None
         if reply:
             return {"skill": "memory", "reply": reply}
-        reply = await reminders.manage_from_chat(text, pool, user_id, now)
+        reply = await reminders.manage_from_chat(text, pool, user_id, now) if _may(allow, "reminders") else None
         if reply:
             return {"skill": "reminders", "reply": reply}
-        if reminders.has_reminder_intent(text):
+        if reminders.has_reminder_intent(text) and _may(allow, "reminder"):
             reply = await reminders.create_from_chat(text, pool, user_id, now)
             if reply:
                 return {"skill": "reminder", "reply": reply}
     reply = answer_help(text)
     if reply:
         return {"skill": "help", "reply": reply}
+    if pool is not None:
+        reply = await recall_skills.handle(text, pool, user_id, now)
+        if reply:
+            return {"skill": "recall", "reply": reply}
     reply = await answer_status(text, pool, user_id, now)
     if reply:
         return {"skill": "status", "reply": reply}
     reply = await answer_briefing(text, pool, user_id, fetch_json, now, fetch_text)
     if reply:
+        if pool is not None and not read_only and allow is None:
+            reply += await feedback_skills.maybe_suggest(pool, user_id, now)
         return {"skill": "briefing", "reply": reply}
     reply = await answer_agenda(text, pool, user_id, now)
     if reply:
@@ -835,6 +860,8 @@ SKILL_SUMMARY = (
     "(Open-Meteo, also for the phone's current location), ECB exchange rates, news headlines (Google News), flight-search links (Google Flights, no invented prices), YouTube link summaries, owner status report ('durum raporu'), reminders "
     "('20 dakika sonra ... hatırlat', delivered while the GÖLGE page is open), agenda from the owner's "
     "plans + read-only iCal calendar ('bugün programım'), and a morning briefing ('günaydın'/'brifing'). "
+    "Style commands persist ('kısa cevap ver', 'samimi ol', 'bana sen de'); recall commands search saved memory and past chats "
+    "('X hakkında ne biliyorsun', 'dün ne konuştuk'); 'yanlış anladın' / 'tam istediğim buydu' are stored as feedback. "
     "LAPTOP FROM PHONE CHAT: the owner can type 'laptop: <anything>', 'bilgisayarda chrome aç', "
     "'ekranıma bak' / 'ekran analizi yap' and the paired laptop GÖLGE runs it with all its tools "
     "(apps, files, web, screen analysis) and the real result returns to this chat; destructive "
@@ -868,7 +895,7 @@ def wants_cloud_skill(text: str) -> bool:
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
         or phone_skills.wants_news(text) or phone_skills.wants_flight(text) or smart_home.wants_smart_home(text) or knowledge_skills.wants_knowledge(text)
-        or answer_help(text) or list_skills.wants_lists(text) or expense_skills.wants_expenses(text) or birthday_skills.wants_birthdays(text) or habit_skills.wants_habits(text) or focus_skills.wants_focus(text) or nav_skills.wants_navigation(text)
+        or answer_help(text) or list_skills.wants_lists(text) or expense_skills.wants_expenses(text) or birthday_skills.wants_birthdays(text) or habit_skills.wants_habits(text) or focus_skills.wants_focus(text) or nav_skills.wants_navigation(text) or style_skills.wants_style(text) or recall_skills.wants_recall(text) or feedback_skills.wants_feedback(text)
         or alert_skills.parse_alert(text) or alert_skills._LIST.search(folded) or alert_skills._CANCEL.search(folded)
         or re.search(r"\baksam (?:ozet\w*|hazirlik\w*)\b", folded)
         or (plan_skills._ADD.search(folded) and not plan_skills._NOT_A_PLAN.search(folded)) or (plan_skills._FREE_Q.search(folded) and not plan_skills._FREE_SKIP.search(folded) and len(folded) <= 60) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)
