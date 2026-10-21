@@ -859,3 +859,6 @@ A read-only reviewer agent reproduced 20 issues; fixed (each with a regression t
 - **Data**: weekly review uses Turkish number format and Istanbul-date bucketing; the weekly push body no longer shows amounts on the lock screen; `set_pref` is now a jsonb merge of only the changed keys (no lost update of style/budget); feedback stores no secrets, de-duplicates, and rejects out-of-range ids; "son su kaydını sil" removes only water; a question about the weekly notification reports instead of toggling.
 - **Misc**: absurd birth years no longer raise; "kum saati"/"sarmal merdiven"/"uzay aracı" build one shape; dead non-folded regex branches fixed; history dates in Istanbul time.
 Not changed: older `_CORRECT` quadratic whitespace backtracking (bounded by the 220/1,200 input caps).
+
+## 2026-10-21 — Spoken hologram requests; feature level list
+Live voice can now show a shape: `control_phone_ui` accepts `action=hologram` (query ≤100 chars, required), the PWA turns it into `hologramda <shape> göster` → shape library / model; one line added to the voice policy (still < 3000 chars); SW cache v85. New `GOLGE_OZELLIK_SEVIYELERI.md`: every phone and laptop feature with an evidence-based level (S0–S4) and an explicit list of what was never run on a real device.

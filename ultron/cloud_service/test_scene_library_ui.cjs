@@ -14,3 +14,10 @@ test("phone hologram asks the shape library before the local or cloud model", ()
   assert.ok(library < body.indexOf("'/api/scene-design'"), "library must run before the cloud model");
   assert.match(body, /known&&known\.design\)return known\.design/);
 });
+
+test("spoken 'show a heart' reaches the hologram through control_phone_ui", () => {
+  assert.match(html, /if\(action==='hologram'&&query\)handleSceneIntent\('hologramda '\+query\.slice\(0,100\)\+' goster'\)/);
+  const app = fs.readFileSync(path.join(__dirname, "app.py"), "utf8");
+  assert.match(app, /"whatsapp_message", "hologram"\}/);
+  assert.match(app, /shape_description_required/);
+});

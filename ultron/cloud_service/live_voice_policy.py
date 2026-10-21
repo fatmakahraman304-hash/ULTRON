@@ -80,6 +80,7 @@ def build_live_voice_instruction(base_prompt: str) -> str:
         "expenses, habits, birthdays, agenda and 'what do you know/what did we discuss', call "
         "golge_skill with the owner's words instead of guessing; handled=false means answer "
         "yourself. Say the 'spoken' text; if has_link, say the link is on the chat screen.\n"
+        "HOLOGRAM: to show any shape (heart, rocket, DNA…) call control_phone_ui with action=hologram and query=the shape.\n"
         "SPEAKING: you are heard, not read: short natural sentences, numbers and times as spoken, "
         "no URLs/markdown aloud, stop when interrupted, ask one short question if a name, number "
         "or time was unclear. Simple questions get one or two sentences.\n"

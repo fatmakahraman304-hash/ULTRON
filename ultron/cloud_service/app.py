@@ -2293,11 +2293,11 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 ,
             {
                 "name": "control_phone_ui",
-                "description": "Control the current GÖLGE phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message.",
+                "description": "Control the current GÖLGE phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message, hologram (query = the shape to show in the hologram view, e.g. heart, rocket, DNA).",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message."},
+                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message, hologram (query = the shape to show in the hologram view, e.g. heart, rocket, DNA)."},
                         "query": {"type": "STRING", "description": "App name, search text, destination, phone number, email address, or message text depending on action."}
                     },
                     "required": ["action"]
@@ -2674,12 +2674,16 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 if name == "control_phone_ui":
                     action = str(args.get("action", "")).strip().lower()
                     query = str(args.get("query", "")).strip()[:500]
-                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call", "sms", "email", "facetime", "open_app", "youtube_search", "spotify_search", "whatsapp_message"}
+                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call", "sms", "email", "facetime", "open_app", "youtube_search", "spotify_search", "whatsapp_message", "hologram"}
                     if action not in allowed:
                         return types.FunctionResponse(
                             id=fc.id, name=name,
                             response={"ok": False, "error": "unsupported_action"},
                         )
+                    if action == "hologram":
+                        query = " ".join(query.split())[:100]
+                        if len(query) < 2:
+                            return types.FunctionResponse(id=fc.id, name=name, response={"ok": False, "error": "shape_description_required"})
                     await send_json({"type": "phone_action", "action": action, "query": query})
                     return types.FunctionResponse(
                         id=fc.id, name=name,
