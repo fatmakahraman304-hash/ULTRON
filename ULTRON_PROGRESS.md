@@ -850,3 +850,12 @@ New pref `weekly_review` (default off): "haftalık özet bildirimi aç/kapat"; p
 
 ## 2026-10-21 — Shape library reaches every hologram path
 Found while reading `static/index.html`: with local Qwen preferred, the phone used `/api/local-scene-design` and would have bypassed the library; the laptop proxy (`ultron/backend/scene_design_api.py`) also went straight to the model. Now: `POST /api/scene-library` (library-only lookup, `design:null` when unknown) is asked first by `generateSceneDesign()`; `scene_design_api.design_request` answers known shapes locally (works offline, no cloud/model). SW cache `ultron-shell-v84`. Tests: `test_scene_library_ui.cjs`, API tests, `ultron/backend/tests/test_scene_design_library.py` (run it separately from the cloud suite — both define a module called `app`).
+
+## 2026-10-21 — Independent review of the new skills: findings fixed
+A read-only reviewer agent reproduced 20 issues; fixed (each with a regression test in `test_style_recall_feedback.py::test_review_regressions` or `test_shape_library.py`):
+- **Voice**: smart home was reachable through `golge_skill` (now gated by `allow`); spoken delete/cancel/forget requests are refused ("yazarak söylersen yaparım"); over-long utterances are refused instead of silently truncated.
+- **Birthdays**: removal/countdown no longer build a `LIKE` from user text (`%`/`_` wildcards and "Ali" matching "Alişan" are gone; exact label match in Python); 1 March's eve reminder uses 28 Feb.
+- **False positives**: journal and memory writes need an explicit command (`günlüğe yaz:` / `hatırla:`; "Unutma, yarın…" and "Günlük, haftalık…" are ordinary chat); style name/address/tone patterns are anchored ("Annem bana … diye seslendi", "Sen de", "Ciddi konuşuyorum" no longer change the persona).
+- **Data**: weekly review uses Turkish number format and Istanbul-date bucketing; the weekly push body no longer shows amounts on the lock screen; `set_pref` is now a jsonb merge of only the changed keys (no lost update of style/budget); feedback stores no secrets, de-duplicates, and rejects out-of-range ids; "son su kaydını sil" removes only water; a question about the weekly notification reports instead of toggling.
+- **Misc**: absurd birth years no longer raise; "kum saati"/"sarmal merdiven"/"uzay aracı" build one shape; dead non-folded regex branches fixed; history dates in Istanbul time.
+Not changed: older `_CORRECT` quadratic whitespace backtracking (bounded by the 220/1,200 input caps).

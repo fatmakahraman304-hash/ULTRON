@@ -18,7 +18,7 @@ else:
     from text_normalization import fold_turkish
     from reminders import HOME_TZ
 
-_ABOUT_KNOW = re.compile(r"^(?:peki\s+)?(.{2,40}?)\s+(?:hakkinda|ile ilgili|icin)\s+(?:bana\s+)?ne\s+(?:biliyorsun|hatirliyorsun|biliyon|hatirlıyon)\s*\??$")
+_ABOUT_KNOW = re.compile(r"^(?:peki\s+)?(.{2,40}?)\s+(?:hakkinda|ile ilgili|icin)\s+(?:bana\s+)?ne\s+(?:biliyorsun|hatirliyorsun|biliyon|hatirliyon)\s*\??$")
 _ABOUT_TALK = re.compile(r"^(?:peki\s+)?(.{2,40}?)\s+(?:hakkinda|ile ilgili|konusunda)\s+(?:ne\s+)?(?:konusmustuk|konustuk|konusmustuk|konusmustum|yazmistik|demistim|soylemistim)\s*\??$|^(?:peki\s+)?(.{2,40}?)\s+(?:hakkinda|ile ilgili)\s+ne\s+(?:konusmustuk|konustuk|demistim|soylemistim)\s*\??$")
 _WHEN_TALK = re.compile(r"^(?:peki\s+)?(bugun|dun|evvelsi gun|onceki gun|bu hafta|gecen hafta|son bir hafta|son 7 gun)\s+(?:biz\s+)?ne\s+(?:konustuk|konusmustuk|yaptik|sordum|sormustum)\s*\??$|^(?:peki\s+)?(?:biz\s+)?ne\s+(?:konustuk|konusmustuk)\s+(bugun|dun|bu hafta|gecen hafta)\s*\??$")
 _SUMMARY = re.compile(r"^(?:hafiza\s+ozeti|hafiza\s+ozetin|hafizanin\s+ozeti|hafiza\s+durumu|neler\s+biliyorsun\s+ozetle)\s*\??$")

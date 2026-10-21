@@ -1882,6 +1882,8 @@ async def feedback_route(request: web.Request) -> web.Response:
         body = await request.json()
         rating = body.get("rating")
         message_id = int(body.get("message_id"))
+        if not 1 <= message_id < 2 ** 62:
+            raise ValueError("message_id_out_of_range")
     except Exception:
         return web.json_response({"error": "invalid_feedback"}, status=400)
     if rating not in ("good", "bad"):

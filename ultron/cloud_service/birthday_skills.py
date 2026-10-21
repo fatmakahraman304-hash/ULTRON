@@ -64,13 +64,24 @@ async def _save(pool: Any, user_id: str, label: str, day: int, month: int, now: 
     if int(existing or 0):
         return f"{label} doğum günü zaten kayıtlı ({day} {_MONTH_NAMES[month - 1]})."
     first = next_occurrence(rule, 9, 0, local)
-    eve_rule = (datetime(2000, month, day) - timedelta(days=1))
+    eve_rule = datetime(2001, month, day) - timedelta(days=1)     # non-leap base year: 1 March's eve is 28 Feb, not 29 Feb
     eve = f"yearly:{eve_rule.month:02d}-{eve_rule.day:02d}"
     for text, r, hour in ((on_day, rule, 9), (before, eve, 19)):
         due = next_occurrence(r, hour, 0, local)
         await pool.execute("INSERT INTO owner_reminders(user_id,text,due_at,repeat_rule) VALUES($1,$2,$3,$4)", user_id, text, due, r)
     return (f"Tamam, {label} doğum günü: {day} {_MONTH_NAMES[month - 1]}. Her yıl o sabah 09:00'da ve bir önceki akşam 19:00'da hatırlatacağım "
             f"(sıradaki: {first.day}.{first.month:02d}.{first.year}).")
+
+
+async def _birthday_rows(pool: Any, user_id: str, label: str, include_eve: bool = False) -> list:
+    """Pending yearly birthday reminders whose person is exactly `label` (or its genitive form); never a LIKE on user text."""
+    rows = await pool.fetch("SELECT id,text,due_at FROM owner_reminders WHERE user_id=$1 AND status='pending' AND repeat_rule LIKE 'yearly:%' AND text LIKE $2 ORDER BY due_at",
+                            user_id, f"{MARK}%")
+    wanted = {f"{MARK} {label} doğum günü bugün!", f"{MARK} {genitive(label)} doğum günü bugün!", f"{MARK} Yarın {label} doğum günü.", f"{MARK} Yarın {genitive(label)} doğum günü."}
+    wanted = {w.casefold() for w in wanted}
+    day_of = [r for r in rows if r["text"].casefold() in wanted and "bugün!" in r["text"]]
+    eve = [r for r in rows if r["text"].casefold() in wanted and "Yarın" in r["text"]]
+    return day_of + (eve if include_eve else [])
 
 
 async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None) -> str | None:
@@ -103,8 +114,8 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
     m = _UNTIL.match(f)
     if m:
         who = _display(text, idx, m.span(1)) if m.group(1) else "Senin"
-        rows = await pool.fetch("SELECT text,due_at FROM owner_reminders WHERE user_id=$1 AND status='pending' AND repeat_rule LIKE 'yearly:%' "
-                                "AND text LIKE '%doğum günü bugün!' AND text LIKE $2 ORDER BY due_at LIMIT 1", user_id, f"{MARK}%{who[:1].upper() + who[1:]}%")
+        who = who[:1].upper() + who[1:]
+        rows = await _birthday_rows(pool, user_id, who)
         if not rows:
             return f"{who} için kayıtlı bir doğum günü bulamadım."
         due = rows[0]["due_at"].astimezone(HOME_TZ)
@@ -113,8 +124,8 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
     m = _REMOVE.match(f)
     if m:
         label = _display(text, idx, m.span(1))
-        rows = await pool.fetch("SELECT id,text FROM owner_reminders WHERE user_id=$1 AND status='pending' AND text LIKE $2 AND repeat_rule LIKE 'yearly:%'",
-                                user_id, f"{MARK}%{label[:1].upper() + label[1:]}%")
+        label = label[:1].upper() + label[1:]
+        rows = await _birthday_rows(pool, user_id, label, include_eve=True)
         if not rows:
             return f"{label} için kayıtlı doğum günü bulamadım."
         for r in rows:

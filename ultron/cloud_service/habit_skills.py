@@ -20,7 +20,7 @@ TARGETS = {"water": 8.0, "sleep": 7.0, "exercise": 30.0, "steps": 8000.0}
 _NUM = r"(\d+(?:[.,]\d+)?|yarim|bir|iki|uc|dort|bes|alti|yedi|sekiz|dokuz|on)"
 _WORDS = {"yarim": 0.5, "bir": 1, "iki": 2, "uc": 3, "dort": 4, "bes": 5, "alti": 6, "yedi": 7, "sekiz": 8, "dokuz": 9, "on": 10}
 _WATER = re.compile(r"^\s*(?:" + _NUM + r"\s*)?(?:(bardak|litre|lt|ml|sise)\s+)?su\s+ictim\s*$")
-_SLEEP = re.compile(r"^\s*(?:" + _NUM + r"\s*saat\s+(?:buçuk\s+)?uyudum|uyudum\s+" + _NUM + r"\s*saat)\s*$")
+_SLEEP = re.compile(r"^\s*(?:" + _NUM + r"\s*saat\s+(?:bucuk\s+)?uyudum|uyudum\s+" + _NUM + r"\s*saat)\s*$")
 _SPORT = r"(?:yurudum|kostum|yuzdum|spor yaptim|yoga yaptim|antrenman yaptim|egzersiz yaptim|bisiklet surdum|pilates yaptim)"
 _EXERCISE = re.compile(r"^\s*(?:" + _NUM + r"\s*(dakika|dk|saat)\s+" + _SPORT + r"|" + _SPORT + r"\s+" + _NUM + r"\s*(dakika|dk|saat))\s*$")
 _KIND = {"yurudum": "yürüyüş", "kostum": "koşu", "yuzdum": "yüzme", "spor": "spor", "yoga": "yoga", "antrenman": "antrenman",
@@ -33,7 +33,7 @@ _SUMMARY = re.compile(r"\b(?:saglik ozetim|saglik raporum|haftalik saglik raporu
                       r"|\bkac bardak su ictim\b|\bne kadar spor yaptim\b")
 _STREAK = re.compile(r"^\s*(?:(su|uyku|spor|adim)\s+(?:icme\s+)?serim|serilerim|serim|kac gundur ust uste (su|spor|uyku|adim)\w*)\s*\??\s*$")
 _STREAK_HABIT = {"su": "water", "uyku": "sleep", "spor": "exercise", "adim": "steps"}
-_UNDO = re.compile(r"\bson (?:aliskanlik|saglik|su|uyku|spor) kaydini sil\b")
+_UNDO = re.compile(r"\bson (aliskanlik|saglik|su|uyku|spor) kaydini sil\b")
 
 
 def _n(token: str | None) -> float | None:
@@ -146,8 +146,12 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
             if run or wanted:
                 out.append(f"{LABEL[habit][0]}: {run} gün üst üste" if run else f"{LABEL[habit][0]}: serin şu an yok; bugün kayıt girersen yeni seri başlar")
         return ("🔥 Serilerin:\n" + "\n".join("• " + o for o in out)) if out else "Henüz bir serin yok; su, uyku ya da spor kaydettikçe takip ederim."
-    if _UNDO.search(f):
-        row = await pool.fetchrow("DELETE FROM owner_habits WHERE id=(SELECT id FROM owner_habits WHERE user_id=$1 ORDER BY id DESC LIMIT 1) AND user_id=$1 RETURNING habit,amount", user_id)
+    um = _UNDO.search(f)
+    if um:
+        kind = _STREAK_HABIT.get(um.group(1))                 # "son su kaydını sil" only ever removes a water row
+        row = await pool.fetchrow(
+            "DELETE FROM owner_habits WHERE id=(SELECT id FROM owner_habits WHERE user_id=$1 AND ($2::text IS NULL OR habit=$2) ORDER BY id DESC LIMIT 1) AND user_id=$1 RETURNING habit,amount",
+            user_id, kind)
         return f"Son kaydı sildim: {LABEL[row['habit']][0]} {_num(row['amount'])}" if row else "Silinecek kayıt yok."
     # summary
     if "bu hafta" in f or "haftalik" in f:

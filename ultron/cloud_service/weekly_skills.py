@@ -25,7 +25,9 @@ def wants_weekly(text: str) -> bool:
 
 
 def _n(v: float) -> str:
-    return f"{v:,.1f}".rstrip("0").rstrip(".").replace(",", ".") if v % 1 else f"{int(v):,}".replace(",", ".")
+    """Turkish number format: 1.234,5 (dot thousands, comma decimals), at most one decimal."""
+    text = f"{round(float(v), 1):,.1f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return text[:-2] if text.endswith(",0") else text
 
 
 async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None) -> str | None:
@@ -59,7 +61,7 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
     j = await pool.fetchval("SELECT COUNT(*) FROM owner_journal WHERE user_id=$1 AND day BETWEEN $2 AND $3", user_id, start, end)
     if int(j or 0):
         lines.append(f"📓 Günlük: {int(j)} girdi")
-    rem = await pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1 AND status='delivered' AND delivered_at::date BETWEEN $2 AND $3", user_id, start, end)
+    rem = await pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1 AND status='delivered' AND (delivered_at AT TIME ZONE 'Europe/Istanbul')::date BETWEEN $2 AND $3", user_id, start, end)
     if int(rem or 0):
         lines.append(f"⏰ Tetiklenen hatırlatıcı: {int(rem)}")
     top = await pool.fetch("SELECT skill, SUM(n)::int AS n FROM skill_usage WHERE user_id=$1 AND day BETWEEN $2 AND $3 GROUP BY skill ORDER BY n DESC, skill LIMIT 3", user_id, start, end)

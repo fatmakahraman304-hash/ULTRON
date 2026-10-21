@@ -995,3 +995,6 @@ All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real Po
 
 ## 2026-10-21 — Weekly review (Linux sandbox, real PostgreSQL 16)
 - `ultron/cloud_service` pytest + all `.cjs` pass; routing 453/453. NOT RUN: real device.
+
+## 2026-10-21 — After the independent review fixes (Linux sandbox, real PostgreSQL 16)
+- `ultron/cloud_service` pytest → 582 passed, 93 skipped; routing 479/479, hijacked chat 0/187; all `.cjs` pass. CI on the previous head had one red job (`verify`: `scripts/tests/test_scene_desktop_api.py` used a noun that is now a library shape) — fixed in 1c4b4a9.

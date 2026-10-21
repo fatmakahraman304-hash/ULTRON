@@ -13,10 +13,12 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 if __package__:
+    from .memory_safety import contains_common_secret
     from .text_normalization import fold_turkish
     from .reminders import HOME_TZ
     from . import proactive
 else:
+    from memory_safety import contains_common_secret
     from text_normalization import fold_turkish
     from reminders import HOME_TZ
     import proactive
@@ -108,6 +110,14 @@ async def maybe_suggest(pool: Any, user_id: str, now: datetime | None = None) ->
 
 
 async def record_feedback(pool: Any, user_id: str, rating: str, skill: str = "", user_text: str = "", reply: str = "") -> int:
+    # Never keep secrets in the feedback table; the rating itself is still recorded.
+    if contains_common_secret(f"{user_text}\n{reply}"):
+        user_text, reply = "", ""
+    duplicate = await pool.fetchval(
+        "SELECT id FROM skill_feedback WHERE user_id=$1 AND rating=$2 AND user_text=$3 AND reply=$4 AND created_at>NOW()-INTERVAL '1 day' LIMIT 1",
+        user_id, rating, str(user_text)[:300], str(reply)[:600])
+    if duplicate:
+        return int(duplicate)
     return int(await pool.fetchval(
         "INSERT INTO skill_feedback(user_id,rating,skill,user_text,reply) VALUES($1,$2,$3,$4,$5) RETURNING id",
         user_id, rating, str(skill)[:40], str(user_text)[:300], str(reply)[:600]))

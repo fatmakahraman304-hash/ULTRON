@@ -873,7 +873,7 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     reply = await phone_skills.answer_news(text, fetch_text)
     if reply:
         return {"skill": "news", "reply": reply}
-    if (fetch_json is not None or pool is not None or ha is not None) and not read_only:
+    if (fetch_json is not None or pool is not None or ha is not None) and not read_only and _may(allow, "smart_home"):
         reply = await smart_home.handle(text, ha)
         if reply:
             return {"skill": "smart_home", "reply": reply}

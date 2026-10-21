@@ -15,7 +15,7 @@ else:
     from reminders import HOME_TZ
     from memory_safety import contains_common_secret
 
-_WRITE = re.compile(r"^\s*(?:gunluge?\s*(?:yaz|ekle|kaydet)|gunlugume\s*(?:yaz|ekle|kaydet)|gunluk(?:\s+girdisi)?|gunluk\s+notu)\s*[:\-–,]\s*(.+)$", re.S)
+_WRITE = re.compile(r"^\s*(?:(?:gunluge|gunlugume)\s+(?:yaz|ekle|kaydet)\s*[:\-–,]|(?:gunluk|gunluk\s+girdisi|gunluk\s+notu)\s*:)\s*(.+)$", re.S)
 _READ = re.compile(r"^(?:(bugunku|dunku|bu haftaki|gecen haftaki|son)\s+)?gunlu[gk]\w*(?:\s+(?:goster|oku|listele))?\s*\??$|^gunlugum(?:u)?\s+(?:goster|oku|listele)$")
 _SEARCH = re.compile(r"^gunlug\w*\s+(.{2,30}?)\s+(?:gecen(?:ler|leri)?|ara)\s*\??$|^gunlukte\s+(.{2,30}?)\s+ara\s*\??$")
 _DELETE = re.compile(r"^son\s+gunluk\s+(?:kayd\w*|girdi\w*|not\w*)\s*(?:sil|kaldir)\w*$|^gunlugumun\s+sonuncusunu\s+sil$")

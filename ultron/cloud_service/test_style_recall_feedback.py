@@ -230,7 +230,7 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         await self.pool.execute("INSERT INTO owner_expenses(user_id,amount,category,spent_on) VALUES($1,150,'market','2026-10-20'),($1,50,'kahve','2026-10-21')", self.u)
         await self.pool.execute("INSERT INTO owner_journal(user_id,entry,day) VALUES($1,'iyi gün','2026-10-20')", self.u)
         reply = await self.say("haftalık özet", now=now)
-        for part in ("1/2 tamamlandı", "su 6 bardak (1 gün)", "uyku ort. 7.5 saat", "Harcama: 200 ₺, en çok market (150 ₺)", "Günlük: 1 girdi"):
+        for part in ("1/2 tamamlandı", "su 6 bardak (1 gün)", "uyku ort. 7,5 saat", "Harcama: 200 ₺, en çok market (150 ₺)", "Günlük: 1 girdi"):
             self.assertIn(part, reply)
         self.assertIn("kayıtlı bir veri yok", await self.say("geçen hafta nasıldı", now=now))
 
@@ -246,7 +246,8 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         await self.pool.execute("INSERT INTO owner_expenses(user_id,amount,category,spent_on) VALUES($1,80,'kahve','2026-10-22')", self.u)
         items = await pro.weekly_review(self.pool, self.u, prefs, sunday)
         self.assertEqual(len(items), 1)
-        self.assertIn("Harcama: 80 ₺", items[0]["body"])
+        self.assertNotIn("₺", items[0]["body"])          # lock-screen text carries no amounts
+        self.assertIn("haftalık özet", items[0]["body"])
         self.assertEqual(await pro.weekly_review(self.pool, self.u, prefs, sunday.replace(day=24)), [])   # Saturday
         self.assertIn("haftalık özet bildirimi", (await self.say("bildirim ayarlarım")).lower())
         await self.say("haftalık özet bildirimini kapat")
@@ -307,6 +308,63 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Kayıtlı rutinin yok", await self.say("rutinlerim"))
         out = await vs.run("sabah rutini: su iç, ilaç al", pool=self.pool, user_id=self.u, now=now)
         self.assertEqual(out["skill"], "routines")
+
+    async def test_review_regressions(self):
+        now = datetime(2026, 10, 21, 9, 0, tzinfo=timezone.utc)
+        # smart home is not reachable through the voice gateway
+        out = await vs.run("salon ışığını kapat", pool=self.pool, user_id=self.u, now=now)
+        self.assertFalse(out["handled"])
+        # destructive spoken requests and over-long utterances are refused, never truncated
+        for spoken in ("son harcamayı sil", "Ahmet'in doğum günü sil", "hatırlatıcılarımı iptal et", "son günlük kaydımı sil"):
+            out = await vs.run(spoken, pool=self.pool, user_id=self.u, now=now)
+            self.assertEqual(out["reason"], "destructive_requests_need_typed_confirmation", spoken)
+        self.assertEqual((await vs.run("günlüğe yaz: " + "a" * 300, pool=self.pool, user_id=self.u))["reason"], "too_long")
+        # birthdays: LIKE metacharacters and prefixes never match other people
+        await self.say("Ali'nin doğum günü 3 Mart", now=now)
+        await self.say("Alişan'ın doğum günü 4 Mart", now=now)
+        await self.say("%'in doğum günü sil", now=now)
+        await self.say("_'in doğum günü sil", now=now)
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1 AND status='pending'", self.u), 4)
+        await self.say("Ali'nin doğum günü sil", now=now)
+        left = await self.pool.fetch("SELECT text FROM owner_reminders WHERE user_id=$1 AND status='pending'", self.u)
+        self.assertEqual(len(left), 2)
+        self.assertTrue(all("Alişan" in r["text"] for r in left))
+        # 1 March's eve reminder is 28 Feb (29 Feb would skip non-leap years)
+        await self.say("Veli'nin doğum günü 1 Mart", now=now)
+        rules = {r["repeat_rule"] for r in await self.pool.fetch("SELECT repeat_rule FROM owner_reminders WHERE user_id=$1 AND text LIKE '%Veli%'", self.u)}
+        self.assertEqual(rules, {"yearly:03-01", "yearly:02-28"})
+        # journal and memory need an explicit command: ordinary sentences are not stored
+        self.assertIsNone(await self.say("Günlük, haftalık ve aylık hedefler neler", now=now))
+        self.assertIsNone(await self.say("Unutma, yarın toplantı var", now=now))
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_journal WHERE user_id=$1", self.u), 0)
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM memories WHERE user_id=$1", self.u), 0)
+        # style: reported speech and short replies do not change the persona
+        for sentence in ("Annem bana kötü biri diye seslendi", "Sen de", "Ciddi konuşuyorum"):
+            self.assertIsNone(await self.say(sentence, now=now), sentence)
+        self.assertEqual(await st.get_style(self.pool, self.u), {})
+        # habits: "son su kaydını sil" removes water only
+        await self.pool.execute("INSERT INTO owner_habits(user_id,habit,amount,day) VALUES($1,'water',2,'2026-10-21'),($1,'weight',72,'2026-10-21')", self.u)
+        await self.say("son su kaydını sil", now=now)
+        self.assertEqual([r["habit"] for r in await self.pool.fetch("SELECT habit FROM owner_habits WHERE user_id=$1", self.u)], ["weight"])
+        # a question about the weekly notification reports, never flips, the setting
+        import proactive as pro
+        self.assertIn("kapalı", await self.say("haftalık özet bildirimi var mı"))
+        self.assertFalse((await pro.get_prefs(self.pool, self.u))["weekly_review"])
+        # concurrent-safe prefs: changing a proactive pref keeps style and budget
+        await self.say("bana Murat diye hitap et")
+        await self.say("aylık bütçem 5000 tl")
+        await self.say("sessiz saatler 22 ile 6")
+        self.assertEqual((await st.get_style(self.pool, self.u))["name"], "Murat")
+        self.assertIn("5.000 ₺", await self.say("bütçe durumu", now=now))
+        # feedback never keeps secrets and does not duplicate
+        history = {"user": "şifrem sk-abcdefghijklmnop1234", "reply": "tamam", "skill": "chat"}
+        await self.say("yanlış anladın", history=history)
+        await self.say("yanlış anladın", history=history)
+        rows = await self.pool.fetch("SELECT user_text,reply FROM skill_feedback WHERE user_id=$1", self.u)
+        self.assertEqual([(r["user_text"], r["reply"]) for r in rows], [("", "")])
+        # utility: absurd birth years do not raise
+        self.assertIsNone(s.utility_skills.answer("0000 doğumluyum kaç yaşındayım"))
+        self.assertIsInstance(s.wants_cloud_skill("0000 doğumluyum kaç yaşındayım"), bool)       # must not raise
 
 
 if __name__ == "__main__":

@@ -47,13 +47,13 @@ def _fmt(n: float) -> str:
     return f"{n:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def _date_from(groups, offset: int) -> date | None:
+def _date_from(groups, offset: int, default_year: int | None = None) -> date | None:
     g = groups[offset: offset + 6]
     try:
         if g[0]:
             return date(int(g[2]), int(g[1]), int(g[0]))
         if g[3]:
-            return date(int(g[5]) if g[5] else datetime.now(HOME_TZ).year, _MONTH_KEYS[g[4]], int(g[3]))
+            return date(int(g[5]) if g[5] else (default_year or datetime.now(HOME_TZ).year), _MONTH_KEYS[g[4]], int(g[3]))
     except (ValueError, KeyError):
         return None
     return None
@@ -96,7 +96,7 @@ def answer(text: str, now: datetime | None = None, rng: random.Random | None = N
     m = _PICK.match(f)
     if m:
         original = text.split(":", 1)[-1] if ":" in text else text.split("-", 1)[-1]
-        items = [x.strip() for x in re.split(r"[,;]|\s+veya\s+|\s+yoksa\s+", original) if x.strip()]
+        items = [x.strip() for x in re.split(r"[,;]|\s+veya\s+|\s+yoksa\s+", original, flags=re.I) if x.strip()]
         if len(items) < 2 or len(items) > 12:
             return "Seçmem için 2–12 seçenek yaz. Örn. “seç: pizza, hamburger, lahmacun”."
         return f"🎯 Benim seçimim: {rng.choice(items)}"
@@ -113,20 +113,22 @@ def answer(text: str, now: datetime | None = None, rng: random.Random | None = N
         return f"{n} {unit.replace('gun', 'gün').replace('yil', 'yıl')} {direction.replace('once', 'önce')}: {_long(target)} ({word})."
     m = _BETWEEN.match(f)
     if m:
-        a, b = _date_from(m.groups(), 0), _date_from(m.groups(), 6)
+        a, b = _date_from(m.groups(), 0, today.year), _date_from(m.groups(), 6, today.year)
         if a and b:
             days = abs((b - a).days)
             return f"{_long(a)} ile {_long(b)} arasında {days} gün ({days // 7} hafta {days % 7} gün) var."
         return None
     m = _WEEKDAY.match(f)
     if m:
-        d = _date_from(m.groups(), 0)
+        d = _date_from(m.groups(), 0, today.year)
         return f"{_long(d)}." if d else None
     m = _AGE.match(f)
     if m:
         g = m.groups()
         year = g[0] or g[-1]
-        born = date(int(year), 1, 1) if year else (_date_from(g, 1) or _date_from(g, 7))
+        if year and not 1900 <= int(year) <= today.year:
+            return None
+        born = date(int(year), 1, 1) if year else (_date_from(g, 1, today.year) or _date_from(g, 7, today.year))
         if not born or born > today or today.year - born.year > 120:
             return None
         years = today.year - born.year - ((today.month, today.day) < (born.month, born.day))

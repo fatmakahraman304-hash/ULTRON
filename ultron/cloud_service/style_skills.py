@@ -21,12 +21,12 @@ LENGTHS = {"short": "kısa", "medium": "orta uzunlukta", "long": "ayrıntılı"}
 TONES = {"warm": "samimi", "formal": "resmî", "witty": "esprili", "serious": "ciddi"}
 
 _LEN = re.compile(r"^(?:lutfen\s+)?(?:artik\s+)?(?:(kisa|kisaca|ozet|ozetle|orta|ortalama|detayli|ayrintili|uzun)\s+(?:cevap\w*|yanit\w*|konus\w*|anlat\w*)(?:\s+(?:ver|yaz|ol))?|(?:cevap\w*|yanit\w*)\s+(kisa|orta|detayli|ayrintili|uzun)\s+(?:ver|olsun|tut)|(kisa|detayli|ayrintili)\s+(?:ol|anlat))$")
-_TONE = re.compile(r"^(?:lutfen\s+)?(?:artik\s+)?(?:biraz\s+|daha\s+)?(samimi|resmi|esprili|saka\w*|mizahi|ciddi)\s+(?:ol|konus|cevap\w*\s+ver|davran)\w*$")
-_ADDR = re.compile(r"^(?:lutfen\s+)?(?:bana\s+)?(sen|siz)\s+(?:diye\s+hitap\s+et|de|diye\s+konus|diye\s+seslen)\w*$|^(?:bana\s+)?(sen|siz)\s+diye\s+hitap\w*$|^(?:benimle\s+)?(sen|siz)\s+(?:diye\s+)?konus\w*$")
+_TONE = re.compile(r"^(?:lutfen\s+)?(?:artik\s+)?(?:biraz\s+|daha\s+)?(samimi|resmi|esprili|sakaci|mizahi|ciddi)\s+(?:ol|konus|davran|cevap\s+ver)(?:\s+lutfen)?$")
+_ADDR = re.compile(r"^(?:lutfen\s+)?bana\s+(sen|siz)\s+(?:de|diye\s+hitap\s+et|diye\s+konus|diye\s+seslen)(?:\s+lutfen)?$|^(?:lutfen\s+)?benimle\s+(sen|siz)\s+(?:diye\s+)?konus(?:\s+lutfen)?$")
 _EMOJI = re.compile(r"^(?:lutfen\s+)?emoji\w*\s+(kullanma|kullan|ekleme|ekle|yazma)\s*$|^(?:lutfen\s+)?emoji\s+(?:kullanma|kullan)\w*$")
 _SHOW = re.compile(r"^(?:konusma\s+tarzim|tarzim|konusma\s+ayarlarim|nasil\s+konusuyorsun|konusma\s+tarzini\s+(?:goster|soyle))\s*(?:ne)?\s*\??$")
 _RESET = re.compile(r"^(?:konusma\s+)?tarz\w*\s+(?:sifirla|varsayilana\s+don)\w*$|^(?:konusma\s+)?(?:ayarlarini|tarzini)\s+sifirla$")
-_NAME = re.compile(r"\bbana\s+([^\W\d_]{2,20}(?:\s+[^\W\d_]{2,20})?)\s+diye\s+(?:hitap\s+et|seslen|cagir|[cç]a[gğ][iı]r)\w*", re.I)
+_NAME = re.compile(r"^\s*(?:lutfen\s+)?bana\s+([^\W\d_]{2,20}(?:\s+[^\W\d_]{2,20})?)\s+diye\s+(?:hitap\s+et|seslen|cagir|[cç]a[gğ][iı]r)(?:\s+lutfen)?\s*$", re.I)
 _NAME_BAD = {"sen", "siz", "efendim"}  # address forms are handled by _ADDR, not names
 
 
@@ -35,7 +35,7 @@ def wants_style(text: str) -> bool:
     if len(f) > 70:
         return False
     return bool(_LEN.match(f) or _TONE.match(f) or _ADDR.match(f) or _EMOJI.match(f)
-                or _SHOW.match(f) or _RESET.match(f) or _NAME.search(f))
+                or _SHOW.match(f) or _RESET.match(f) or _NAME.match(f.strip()))
 
 
 async def get_style(pool: Any, user_id: str) -> dict:
@@ -115,7 +115,7 @@ async def handle(text: str, pool: Any, user_id: str) -> str | None:
         return "Konuşma tarzını varsayılana döndürdüm."
     if _SHOW.match(f):
         return describe(await get_style(pool, user_id))
-    m = _NAME.search(text.strip())
+    m = _NAME.match(text.strip())
     if m:
         name = " ".join(w.capitalize() if w.islower() else w for w in m.group(1).split())
         if fold_turkish(name) not in _NAME_BAD:

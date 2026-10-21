@@ -73,22 +73,12 @@ async def get_prefs(pool: Any, user_id: str) -> dict:
 
 
 async def set_pref(pool: Any, user_id: str, **changes) -> dict:
-    prefs = await get_prefs(pool, user_id)
-    prefs.update(changes)
-    # Keep keys owned by other modules (style, suggested, …) instead of dropping them.
-    raw = await pool.fetchval("SELECT prefs FROM owner_prefs WHERE user_id=$1", user_id)
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw)
-        except ValueError:
-            raw = {}
-    merged = {k: v for k, v in (raw or {}).items() if k not in DEFAULT_PREFS}
-    merged.update(prefs)
+    # jsonb merge of only the changed keys: concurrent updates to other keys (style, budget, …) are never overwritten.
     await pool.execute(
         "INSERT INTO owner_prefs(user_id,prefs) VALUES($1,$2::jsonb) "
-        "ON CONFLICT(user_id) DO UPDATE SET prefs=EXCLUDED.prefs,updated_at=NOW()",
-        user_id, json.dumps(merged))
-    return prefs
+        "ON CONFLICT(user_id) DO UPDATE SET prefs=COALESCE(owner_prefs.prefs,'{}'::jsonb)||EXCLUDED.prefs,updated_at=NOW()",
+        user_id, json.dumps(changes))
+    return await get_prefs(pool, user_id)
 
 
 async def get_extra(pool: Any, user_id: str, key: str, default: Any = None) -> Any:
@@ -253,7 +243,9 @@ async def weekly_review(pool, user_id, prefs, local_now: datetime) -> list[dict]
     body = await weekly_skills.handle("bu haftanin ozeti", pool, user_id, local_now)
     if not body or "kayıtlı bir veri yok" in body:
         return []
-    return [{"key": f"weekly:{local_now.date()}", "title": "Haftalık özet", "body": body[:600]}]
+    # The notification can show on a lock screen: no amounts or entries, only a pointer to the in-app review.
+    return [{"key": f"weekly:{local_now.date()}", "title": "Haftalık özet hazır",
+             "body": "Haftanın planları, alışkanlıkları ve harcamaların hazır. Görmek için GÖLGE’de “haftalık özet” yaz."}]
 
 
 async def evaluate(pool: Any, user_id: str, now: datetime, fetch_json, fetch_text=None) -> list[dict]:
@@ -405,6 +397,9 @@ async def handle_prefs(text: str, pool: Any, user_id: str) -> str | None:
         await set_pref(pool, user_id, evening_preview=not off)
         return "Akşam özeti bildirimini kapattım." if off else "Tamam, her akşam 21:00 sonrası yarının planlarını bildirim olarak göndereceğim."
     if re.search(r"\bhaftalik (?:ozet\w*|rapor\w*)\b.*\bbildirim\w*\b|\bbildirim\w*\b.*\bhaftalik (?:ozet\w*|rapor\w*)\b", f):
+        if re.search(r"\?|\bm[iuü]\b|\bnasil\b|\bnedir\b", f):          # a question reports the setting, it never changes it
+            p = await get_prefs(pool, user_id)
+            return "Haftalık özet bildirimi şu an " + ("açık (pazar akşamı)." if p["weekly_review"] else "kapalı. Açmak için “haftalık özet bildirimi aç” de.")
         off = bool(re.search(_OFF, f))
         await set_pref(pool, user_id, weekly_review=not off)
         return "Haftalık özet bildirimini kapattım." if off else "Tamam, her pazar akşamı (19:00 sonrası) haftanın özetini bildirim olarak göndereceğim; o hafta kayıt yoksa göndermem."

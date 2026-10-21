@@ -29,6 +29,12 @@ class ShapeLibraryTests(unittest.TestCase):
         self.assertLess(min(xs), -1)
         self.assertGreater(max(xs), 1)
 
+    def test_longer_phrase_wins_over_a_word_inside_it(self):
+        names = lambda text: {p["name"] for p in lib.generate(text)["parts"]}          # noqa: E731
+        self.assertNotIn("kadran", names("kum saati"))              # hourglass, not hourglass + clock
+        self.assertEqual(len(lib.generate("sarmal merdiven")["parts"]), 12)          # spiral stairs only
+        self.assertEqual(len(lib.generate("uzay aracı")["parts"]), 7)                # rocket only, not rocket + car
+
     def test_unknown_and_lookalike_words_fall_through(self):
         for t in ("", "sihirli tilki", "evet", "okul", "toplama", "örümcek", "kupon"):
             self.assertIsNone(lib.generate(t), t)

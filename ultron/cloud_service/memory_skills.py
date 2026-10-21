@@ -12,14 +12,16 @@ from typing import Any
 if __package__:
     from .text_normalization import fold_turkish
     from .memory_history import upsert_owner_memory, delete_owner_memory
+    from .reminders import HOME_TZ
 else:
     from text_normalization import fold_turkish
     from memory_history import upsert_owner_memory, delete_owner_memory
+    from reminders import HOME_TZ
 
 DEVICE = "golge-chat"
 _REMEMBER = re.compile(
-    r"^\s*(?:lutfen\s+)?(?:(?:su(?:nu)?|bunu)\s+)?(?:hafizana\s+(?:kaydet|ekle|yaz)|hafizaya\s+(?:kaydet|ekle|yaz)|"
-    r"hatirla|aklinda\s+tut|not\s+al|unutma|kaydet)\s*[:\-–,]\s*(.+)$", re.S)
+    r"^\s*(?:lutfen\s+)?(?:(?:su(?:nu)?|bunu)\s+)?(?:(?:hafizana|hafizaya)\s+(?:kaydet|ekle|yaz)\s*[:\-–,]|"
+    r"(?:hatirla|aklinda\s+tut|not\s+al|unutma|kaydet)\s*:)\s*(.+)$", re.S)
 _REMEMBER_KI = re.compile(r"^\s*(?:lutfen\s+)?aklinda\s+tut\s+ki\s+(.+)$", re.S)
 _LIST = re.compile(r"\b(?:neler|ne|nelerimi)\s+hatirliyorsun\b|\bhafizanda\s+ne\s+var\b|\bhafizami\s+(?:goster|listele)\b"
                    r"|\bbeni\s+(?:ne\s+kadar\s+)?taniyorsun\b|\bhakkimda\s+ne\s+biliyorsun\b|\bkayitli\s+bilgilerim\b")
@@ -91,7 +93,7 @@ async def handle(text: str, pool: Any, user_id: str) -> str | None:
         old = [r for r in rows if needle in fold_turkish(r["key"]) or needle in fold_turkish(r["value"])]
         if not old:
             return f"“{needle[:60]}” için eski bir sürüm kaydı yok."
-        return f"“{needle[:60]}” için eski sürümler:\n" + "\n".join(f"• {r['valid_until']:%d.%m.%Y}'e kadar: {str(r['value'])[:100]}" for r in old[:5])
+        return f"“{needle[:60]}” için eski sürümler:\n" + "\n".join(f"• {r['valid_until'].astimezone(HOME_TZ):%d.%m.%Y}'e kadar: {str(r['value'])[:100]}" for r in old[:5])
     target = _original_tail(text, _FORGET)
     if target:
         needle = fold_turkish(target)

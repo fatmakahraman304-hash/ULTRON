@@ -411,12 +411,15 @@ def _count(folded: str) -> int | None:
 
 
 def _matches(folded: str):
-    found = []
+    found = []                                   # (start, end, generator)
     for patterns, gen in _COMPILED:
-        positions = [m.start() for rx in patterns if (m := rx.search(folded))]
-        if positions and gen not in [g for _, g in found]:
-            found.append((min(positions), gen))
-    return [g for _, g in sorted(found, key=lambda x: x[0])]
+        spans = [m.span() for rx in patterns if (m := rx.search(folded))]
+        if spans and gen not in [g for _, _, g in found]:
+            found.append((*max(spans, key=lambda s: s[1] - s[0]), gen))
+    # "kum saati" must not also build a clock, "sarmal merdiven" must not also build straight stairs
+    kept = [(s, e, g) for s, e, g in found
+            if not any((s2 <= s and e <= e2 and (e2 - s2) > (e - s)) for s2, e2, g2 in found if g2 is not g)]
+    return [g for _, _, g in sorted(kept, key=lambda x: x[0])]
 
 
 def _scaled(parts, factor, dx):

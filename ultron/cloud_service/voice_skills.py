@@ -13,9 +13,11 @@ from typing import Any
 
 if __package__:
     from . import instant_skills, followups
+    from .text_normalization import fold_turkish
 else:
     import instant_skills
     import followups
+    from text_normalization import fold_turkish
 
 # Writing skills a spoken request may trigger. Anything not listed only answers read-only.
 VOICE_WRITE_SKILLS = frozenset({"reminder", "reminders", "habits", "lists", "expenses", "focus", "birthdays", "style", "journal", "routines"})
@@ -23,6 +25,8 @@ MAX_UTTERANCE = 220
 _URL = re.compile(r"https?://\S+")
 _MARKUP = re.compile(r"[*_`#>]+")
 MAX_SPOKEN = 700
+# Spoken requests come from a microphone and a model: deleting or cancelling stays a typed, explicit action.
+_DESTRUCTIVE = re.compile(r"\b(?:sil\w*|kaldir\w*|iptal\w*|temizle\w*|geri al\w*|unut\w*|bosalt\w*)\b")
 
 TOOL_DECLARATION = {
     "name": "golge_skill",
@@ -49,9 +53,14 @@ def speakable(reply: str) -> str:
 
 async def run(request: str, *, pool: Any, user_id: str, conv_uuid=None, fetch_json=None, location=None,
               fetch_text=None, now: datetime | None = None) -> dict:
-    text = " ".join(str(request or "").split())[:MAX_UTTERANCE]
+    text = " ".join(str(request or "").split())
     if not text:
         return {"handled": False, "reason": "empty_request"}
+    if len(text) > MAX_UTTERANCE:
+        return {"handled": False, "reason": "too_long"}      # never store a silently truncated entry
+    if _DESTRUCTIVE.search(fold_turkish(text)):
+        return {"handled": False, "reason": "destructive_requests_need_typed_confirmation",
+                "say": "Silme ve iptal işlemlerini sesle yapmıyorum; yazarak söylersen yaparım."}
     result = await instant_skills.instant_reply(
         text, pool=pool, user_id=user_id, fetch_json=fetch_json, now=now, location=location,
         fetch_text=fetch_text, allow=VOICE_WRITE_SKILLS)
