@@ -161,3 +161,67 @@ class Skills(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MemorySkills(unittest.TestCase):
+    def setUp(self):
+        import memory_skills
+        self.m = memory_skills
+
+    def test_original_characters_are_preserved_in_value(self):
+        class Pool:
+            rows = []
+
+            def acquire(self):
+                raise AssertionError("unexpected")
+
+        saved = {}
+
+        async def fake_upsert(pool, user, device, category, key, value):
+            saved.update(category=category, key=key, value=value, device=device)
+            return {"version": 1}
+        self.m.upsert_owner_memory = fake_upsert
+        reply = run(self.m.handle("Hatırla: Annemin doğum günü 3 Mart, hediye olarak çiçek seviyor", object(), "u"))
+        self.assertIn("Hafızaya kaydettim", reply)
+        self.assertEqual(saved["value"], "Annemin doğum günü 3 Mart, hediye olarak çiçek seviyor")
+        self.assertEqual(saved["category"], "NOTE")
+        self.assertTrue(saved["key"].startswith("not: Annemin doğum günü 3 Mart"))
+
+    def test_secret_is_refused_and_plain_chat_ignored(self):
+        async def reject(*a):
+            raise ValueError("sensitive_memory_rejected")
+        self.m.upsert_owner_memory = reject
+        self.assertIn("kaydetmiyorum", run(self.m.handle("hatırla: wifi şifrem sk-abcdefghijklmnop1234", object(), "u")))
+        for text in ("bunu hatırlıyor musun", "hatırlatıcılarım neler", "merhaba", "not alıyorum bence"):
+            self.assertIsNone(run(self.m.handle(text, object(), "u")), text)
+
+    def test_forget_deletes_only_a_single_unambiguous_match(self):
+        deleted = []
+
+        async def fake_delete(pool, user, key):
+            deleted.append(key)
+            return True
+        self.m.delete_owner_memory = fake_delete
+
+        class Pool:
+            def __init__(self, rows):
+                self.rows = rows
+
+            async def fetch(self, *a):
+                return self.rows
+        one = Pool([{"key": "not: a #1", "value": "Annemin doğum günü 3 Mart"}, {"key": "k2", "value": "Kahve sever"}])
+        self.assertIn("Unuttum", run(self.m.handle("unut: doğum günü", one, "u")))
+        self.assertEqual(deleted, ["not: a #1"])
+        many = Pool([{"key": "a", "value": "Kahve sever"}, {"key": "b", "value": "Kahve içmez"}])
+        self.assertIn("2 kayıt", run(self.m.handle("unut: kahve", many, "u")))
+        self.assertEqual(deleted, ["not: a #1"])  # nothing more deleted
+        self.assertIn("bulamadım", run(self.m.handle("unut: zebra", one, "u")))
+
+    def test_list_memories(self):
+        class Pool:
+            async def fetch(self, *a):
+                return [{"category": "NOTE", "key": "not: x #1", "value": "Annemin doğum günü 3 Mart"},
+                        {"category": "FACT", "key": "şehir", "value": "Lefkoşa"}]
+        reply = run(self.m.handle("neler hatırlıyorsun", Pool(), "u"))
+        self.assertIn("• Annemin doğum günü 3 Mart", reply)
+        self.assertIn("• şehir: Lefkoşa", reply)

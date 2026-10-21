@@ -19,11 +19,12 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders
+    from . import calendar_feed, reminders, memory_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
     import reminders
+    import memory_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -693,6 +694,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
     if pool is not None:
+        reply = await memory_skills.handle(text, pool, user_id)
+        if reply:
+            return {"skill": "memory", "reply": reply}
         reply = await reminders.manage_from_chat(text, pool, user_id, now)
         if reply:
             return {"skill": "reminders", "reply": reply}
