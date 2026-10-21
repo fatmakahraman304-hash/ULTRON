@@ -416,3 +416,16 @@ CREATE TABLE IF NOT EXISTS owner_alerts (
   fired_at TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS idx_owner_alerts_active ON owner_alerts(active, user_id);
+
+-- Named lists ("alışveriş listesine süt ekle").
+CREATE TABLE IF NOT EXISTS owner_list_items (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  list_name TEXT NOT NULL CHECK (length(list_name) BETWEEN 1 AND 40),
+  item TEXT NOT NULL CHECK (length(item) BETWEEN 1 AND 120),
+  item_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, list_name, item_key)
+);
+CREATE INDEX IF NOT EXISTS idx_owner_list_items_user ON owner_list_items(user_id, list_name, id);
+ALTER TABLE owner_list_items ADD COLUMN IF NOT EXISTS list_label TEXT NOT NULL DEFAULT '';

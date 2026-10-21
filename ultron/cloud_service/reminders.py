@@ -50,9 +50,11 @@ _CLOCK_SAAT = re.compile(r"\bsaat ([01]?\d|2[0-3])(?:[:.]([0-5]\d))?(?:'?(?:da|d
 _CLOCK_SUFFIX = re.compile(r"\b([01]?\d|2[0-3])'?(?:da|de|ta|te)\b")
 _DAY_WORDS = re.compile(r"\b(bugun|yarin|obur gun|ertesi gun|" + "|".join(_WEEKDAYS) + r")(?:'?(?:da|de|ta|te|ye|ya))?\b")
 _PART = re.compile(r"\b(ogleden sonra|sabah|ogle|aksam|gece)\b")
-_ASK = re.compile(r"\bhatirla(?:t|tir|r misin|yin|ma)\w*|\bhatirlatici\b|\bhatirlat\b|\balarm kur\b|\bremind me\b")
+_ASK = re.compile(r"\bhatirla(?:t|tir|r misin|yin|ma)\w*|\bhatirlatici\b|\bhatirlat\b|\balarm kur\b|\bremind me\b|\bzamanlayici\w*|\bgeri sayim kur\b|\bsayac kur\b|\btimer\b")
+_TIMER_CUE = re.compile(r"\bzamanlayici\w*|\bgeri sayim kur\b|\bsayac kur\b|\btimer\b")
+_REL_TIMER = re.compile(r"\b(\d{1,4}|yarim|" + "|".join(sorted(_WORD_NUM, key=len, reverse=True)) + r")(?: buçuk| bucuk)? ?(saniye|sn|dakika|dk|saat|sa)\b")
 _FILLER = re.compile(r"\b(?:bana|lutfen|diye|tekrar|bir|hatirlat\w*|hatirlatici\w*|alarm kur|kur|remind me to|remind me|"
-                     r"olustur|ekle|kaydet|ayarla)\b")
+                     r"olustur|ekle|kaydet|ayarla|zamanlayici\w*|sayac|timer|geri sayim)\b")
 
 
 _DOW_NAMES = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -134,7 +136,8 @@ def parse_reminder(text: str, now: datetime | None = None, *, require_intent: bo
 
     repeat = detect_repeat(folded)
     has_clock = True
-    rel = None if repeat else _REL.search(folded)
+    timer = bool(_TIMER_CUE.search(folded))
+    rel = None if repeat else (_REL.search(folded) or (_REL_TIMER.search(folded) if timer else None))
     if rel:
         amount = 0.5 if rel.group(1) == "yarim" else _num(rel.group(1))
         if amount is None:
@@ -215,6 +218,8 @@ def parse_reminder(text: str, now: datetime | None = None, *, require_intent: bo
     message = "".join(text[i] for i in picked)
     message = re.sub(r"\s+", " ", re.sub(r"[?!,;:]+|(?<!\w)['’]+|['’]+(?!\w)", " ", message)).strip(" .-'’")
     message = re.sub(r"^(?:da|de|ta|te|ki)\s+", "", message, flags=re.IGNORECASE).strip()
+    if timer and re.fullmatch(r"(?:zamanlayici\w*|sayac|timer|geri sayim)?", fold_turkish(message).strip()):
+        message = "Zamanlayıcı süresi doldu ⏲"
     when = describe_repeat(repeat[0], due) if repeat else describe_when(due, local_now)
     return {"due": due, "text": (message or "Hatırlatıcı")[:200], "when": when,
             "repeat": repeat[0] if repeat else None, "has_clock": has_clock}

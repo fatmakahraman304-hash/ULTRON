@@ -49,7 +49,7 @@ class StackContract(unittest.IsolatedAsyncioTestCase):
         self.app = {"db": self.pool}
 
     async def asyncTearDown(self):
-        for table in ("owner_reminders", "owner_plans", "owner_alerts", "owner_notifications", "owner_prefs",
+        for table in ("owner_list_items", "owner_reminders", "owner_plans", "owner_alerts", "owner_notifications", "owner_prefs",
                       "push_subscriptions", "missions", "memories"):
             await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
         await self.pool.close()
@@ -148,6 +148,16 @@ class StackContract(unittest.IsolatedAsyncioTestCase):
         again = json.loads((await ms.get_mission(Req(app, self.u, {"id": started["mission_id"]}, {"conversation_id": str(conv)}))).text)
         self.assertNotIn("delivered", again)
         self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM messages WHERE conversation_id=$1 AND role='assistant'", conv), 1)
+
+    async def test_lists_and_timers(self):
+        self.assertIn("“alışveriş” listesine eklendi: süt, ekmek", await self.say("Alışveriş listesine süt ve ekmek ekle"))
+        self.assertIn("Zaten vardı: Süt", await self.say("alışveriş listesine Süt ekle"))
+        self.assertIn("• alışveriş: 2 öğe", await self.say("listelerim"))
+        self.assertIn("• ekmek", await self.say("alışveriş listem"))
+        self.assertIn("çıkarıldı: ekmek", await self.say("ekmek alışveriş listesinden çıkar"))
+        self.assertIn("1 öğe", await self.say("alışveriş listesini temizle"))
+        self.assertIn("5 dakika sonra", await self.say("5 dakika zamanlayıcı kur"))
+        self.assertEqual(await self.pool.fetchval("SELECT text FROM owner_reminders WHERE user_id=$1", self.u), "Zamanlayıcı süresi doldu ⏲")
 
     async def test_retention_export_and_diagnostics(self):
         await self.say("hatırla: annemin doğum günü 3 Mart")

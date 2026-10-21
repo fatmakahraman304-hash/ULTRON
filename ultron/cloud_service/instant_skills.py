@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -32,6 +32,7 @@ else:
     import knowledge_skills
     import missions
     import alert_skills
+    import list_skills
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -737,6 +738,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
     if pool is not None and not read_only:
+        reply = await list_skills.handle(text, pool, user_id)
+        if reply:
+            return {"skill": "lists", "reply": reply}
         reply = await alert_skills.handle(text, pool, user_id, fetch_json)
         if reply:
             return {"skill": "alerts", "reply": reply}
@@ -837,7 +841,7 @@ def wants_cloud_skill(text: str) -> bool:
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
         or phone_skills.wants_news(text) or phone_skills.wants_flight(text) or smart_home.wants_smart_home(text) or knowledge_skills.wants_knowledge(text)
-        or answer_help(text)
+        or answer_help(text) or list_skills.wants_lists(text)
         or alert_skills.parse_alert(text) or alert_skills._LIST.search(folded) or alert_skills._CANCEL.search(folded)
         or re.search(r"\baksam (?:ozet\w*|hazirlik\w*)\b", folded)
         or plan_skills._ADD.search(folded) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)

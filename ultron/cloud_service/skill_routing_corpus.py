@@ -126,3 +126,11 @@ CASES += [
     ("kaç kişi geldi", None), ("kaç lira etti bilmiyorum", None), ("yarın ne yapsam", None), ("bugün ne yesem", None),
     ("hava atıyorsun", None), ("saat başı kalkıp yürüyorum", None), ("aylık ne kadar biriktirmeliyim", None),
 ]
+
+CASES += [
+    ("alışveriş listesine süt ekle", "lists"), ("alışveriş listesine süt, ekmek ve yumurta ekle", "lists"), ("süt alışveriş listesine ekle", "lists"),
+    ("listelerim", "lists"), ("alışveriş listesini temizle", "lists"), ("film listesine Inception ekle", "lists"),
+    ("10 dakika zamanlayıcı kur", "reminder"), ("zamanlayıcı kur 5 dakika makarna", "reminder"),
+    ("bu listeyi beğendim", None), ("bir liste yapalım mı", None), ("listenin en başı kim", None), ("zamanlayıcı nasıl çalışır", None),
+    ("en iyi 10 film listesi öner", None), ("liste yap bana", None), ("zamanlayıcı uygulaması yaz", None),
+]

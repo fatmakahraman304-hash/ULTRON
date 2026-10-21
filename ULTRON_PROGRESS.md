@@ -805,3 +805,6 @@ Dependency added: `cryptography` (cloud_service/requirements.txt).
 
 ## 2026-10-21 — Context-aware follow-ups (`followups.py`)
 Skill replies are stored with `device_id = 'golge-skill:<skill>'`. A very short, explicitly marked follow-up ("peki yarın?", "ya Londra?", "ya euro?", "peki spor?") right after such a reply is rewritten into the full request and re-routed; the local-Qwen endpoint hands such follow-ups to `/api/chat`. Tests: `test_followups.py` (4 passed); suite 492 passed, 9 skipped (non-PG). Not run against a real phone.
+
+## 2026-10-21 — Lists and timers
+`list_skills.py` ("alışveriş listesine süt, ekmek ve yumurta ekle", "alışveriş listem", "ekmek … listesinden çıkar", "… listesini temizle", "listelerim"; table `owner_list_items`, key folded + original label) and timer phrases in `reminders.py` ("10 dakika zamanlayıcı kur"). Router corpus now 307 utterances (0 chat hijacked). Real-PostgreSQL stack test: 7 passed. Suite: 497 passed, 9 skipped (non-PG).
