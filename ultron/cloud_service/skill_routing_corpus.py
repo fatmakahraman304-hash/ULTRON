@@ -262,3 +262,9 @@ CASES += [
     ("planı onayla", "schedule"), ("planı vazgeç", "schedule"), ("sıradaki planım", "schedule"), ("diş randevusu planını yarına ertele", "schedule"),
     ("artık yıl nedir", None), ("planım yok", None),
 ]
+
+CASES += [
+    ("seyahat için liste hazırla", "lists"), ("deprem çantası listesi hazırla", "lists"), ("kamp listesi oluştur", "lists"), ("hazır listeler", "lists"),
+    ("tatil için liste hazırla", "lists"), ("market listesi hazırla", "lists"),
+    ("liste hazırla", None), ("seyahat nasıl planlanır", None), ("kamp yapmak istiyorum", None),
+]

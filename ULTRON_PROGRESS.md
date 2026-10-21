@@ -874,3 +874,6 @@ Motivation, proverbs and idioms with meanings, jokes, verified-fact snippets, wo
 
 ## 2026-10-21 — Smart scheduling and calendar facts
 `schedule_skills.py`: "bugün/yarın şu işleri sığdır: rapor 2 saat, spor 1 saat" → first-fit time blocks inside free windows (09:00–21:00, from "now" for today, existing plans and iCal events subtracted, 10-min buffer), shown as a proposal; only "planı onayla" writes plans, "planı vazgeç" drops it; "toplantıya ne kadar kaldı", "sıradaki planım", "X planını yarına/haftaya/N gün sonraya ertele" (unique match only). `calc_skills.py` gained leap-year, days-in-month, year progress and time-zone difference. Real-PostgreSQL test covers proposal → confirm → countdown → postpone; corpus 568/568, hijacked chat 0/207.
+
+## 2026-10-21 — Ready-made checklists (`template_skills.py`)
+"seyahat/kamp/taşınma/sınav/iş görüşmesi/piknik/doğum günü partisi/deprem çantası/plaj/hastane çantası/bebek çantası/bayram/market için liste hazırla" (+ aliases such as "tatil") fills the owner's normal lists (same table, no duplicates), "hazır listeler" shows the catalogue. 13 templates. Real-PostgreSQL test; corpus 577/577, hijacked chat 0/210.

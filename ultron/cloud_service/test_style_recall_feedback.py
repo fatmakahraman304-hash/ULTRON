@@ -498,6 +498,17 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         self.assertIn("12:00–13:00  kitap", today_plan)
         await self.say("planı vazgeç", now=now)
 
+    async def test_ready_made_lists_use_the_normal_list_commands(self):
+        self.assertIn("15 madde eklendi", await self.say("deprem çantası listesi hazırla"))
+        self.assertIn("zaten hazır", await self.say("deprem çantası listesi hazırla"))
+        shown = await self.say("deprem çantası listem")
+        self.assertIn("el feneri", shown)
+        self.assertIn("eklendi", await self.say("deprem çantası listesine termos ekle"))
+        self.assertIn("eprem çantası: 16 öğe", await self.say("listelerim"))
+        self.assertIn("seyahat", await self.say("hazır listeler"))
+        self.assertIn("madde eklendi", await self.say("tatil için liste hazırla"))          # alias → seyahat
+        self.assertIsNone(await self.say("liste hazırla"))
+
 
 if __name__ == "__main__":
     unittest.main()

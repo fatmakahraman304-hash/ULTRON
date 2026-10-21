@@ -65,7 +65,7 @@ jobs:
           python -m pyflakes http_client.py infra.py ops.py proactive.py web_push.py reminders.py instant_skills.py \
             phone_skills.py knowledge_skills.py smart_home.py missions.py plan_skills.py alert_skills.py list_skills.py expense_skills.py \
             habit_skills.py birthday_skills.py nav_skills.py focus_skills.py followups.py \
-            memory_skills.py calendar_feed.py laptop_bridge.py style_skills.py schedule_skills.py fun_skills.py ledger_skills.py calc_skills.py gap_skills.py routine_skills.py weekly_skills.py shape_library.py journal_skills.py utility_skills.py recall_skills.py voice_skills.py feedback_skills.py feedback_to_corpus.py
+            memory_skills.py calendar_feed.py laptop_bridge.py style_skills.py template_skills.py schedule_skills.py fun_skills.py ledger_skills.py calc_skills.py gap_skills.py routine_skills.py weekly_skills.py shape_library.py journal_skills.py utility_skills.py recall_skills.py voice_skills.py feedback_skills.py feedback_to_corpus.py
       - name: Python tests (includes real-PostgreSQL contracts)
         working-directory: ultron/cloud_service
         env:

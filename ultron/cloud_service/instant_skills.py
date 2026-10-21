@@ -19,7 +19,7 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills, schedule_skills, fun_skills, ledger_skills, calc_skills, gap_skills, routine_skills, weekly_skills, journal_skills, utility_skills, style_skills, recall_skills, feedback_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills, template_skills, schedule_skills, fun_skills, ledger_skills, calc_skills, gap_skills, routine_skills, weekly_skills, journal_skills, utility_skills, style_skills, recall_skills, feedback_skills
 else:
     from text_normalization import fold_turkish
     import calendar_feed
@@ -38,6 +38,7 @@ else:
     import habit_skills
     import nav_skills
     import focus_skills
+    import template_skills
     import schedule_skills
     import fun_skills
     import ledger_skills
@@ -752,6 +753,7 @@ HELP_TEXT = (
     "🎂 Doğum günü: “Ahmet'in doğum günü 3 Mart”, “doğum günlerim”, “Ahmet'in doğum gününe kaç gün var”, “her yıl 14 şubat sevgililer günü hatırlat”\n"
     "🛒 Liste/harcama: “alışveriş listesine süt ekle”, “150 lira market harcaması ekle”, “bu ay ne kadar harcadım”, “aylık bütçem 15000 tl”, “bütçe durumu”, “10 dakika zamanlayıcı kur”\n"
     "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “Ahmet hakkında ne biliyorsun”, “dün ne konuştuk”, “nerede kalmıştık”, “hafıza özeti”, “son notlarım”, “düzelt: kahve => sade kahve”, “hafızada kahve notumun geçmişi”, “unut: …”\n"
+    "🧳 Hazır listeler: “seyahat için liste hazırla”, “deprem çantası listesi hazırla”, “kamp / taşınma / sınav / iş görüşmesi / piknik / plaj / hastane çantası / bebek çantası / bayram / market”, “hazır listeler”\n"
     "📋 Akıllı planlama: “bugün şu işleri sığdır: rapor 2 saat, spor 1 saat” (öneri → “planı onayla”), “toplantıya ne kadar kaldı”, “sıradaki planım”, “diş randevusu planını yarına ertele”; takvim bilgisi: “2028 artık yıl mı”, “şubat kaç çeker”, “yılın yüzde kaçı geçti”, “istanbul ile new york arasında saat farkı kaç”\n"
     "😄 Eğlence/iyi oluş: “motivasyon ver”, “atasözü”, “deyim”, “espri yap”, “ilginç bilgi”, “günün kelimesi”, “bilmece sor”, “taş kağıt makas: taş”, “8 top: …”, “ne yesem”, “nefes egzersizi”, “göz dinlendirme”, “esneme hareketleri”, “tasarruf ipucu”, “verimlilik ipucu”, “uyku hijyeni”\n"
     "📒 Defterler: “rehbere ekle: Ahmet 0532 123 45 67”, “Ahmet'in numarası ne”, “Ahmet'e 200 lira borç verdim”, “borçlarım”, “hedef ekle: kitap oku = 12”, “kronometre başlat: ders”, “yakıt aldım 40 litre 1800 tl 45000 km”\n"
@@ -835,6 +837,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
         reply = await expense_skills.handle(text, pool, user_id, now) if _may(allow, "expenses") else None
         if reply:
             return {"skill": "expenses", "reply": reply}
+        reply = await template_skills.handle(text, pool, user_id) if _may(allow, "lists") else None
+        if reply:
+            return {"skill": "lists", "reply": reply}
         reply = await list_skills.handle(text, pool, user_id) if _may(allow, "lists") else None
         if reply:
             return {"skill": "lists", "reply": reply}
@@ -970,4 +975,4 @@ def wants_cloud_skill(text: str) -> bool:
         or (plan_skills._ADD.search(folded) and not plan_skills._NOT_A_PLAN.search(folded)) or (plan_skills._FREE_Q.search(folded) and not plan_skills._FREE_SKIP.search(folded) and len(folded) <= 60) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)
         or re.search(r"\bbildirim ayarlarim\b|\bhaftalik (?:ozet|rapor)\w*\b.*\bbildirim|\bproaktif\b|\bsessiz saat\w*\b|\bsabah (?:brifing\w*|ozet\w*)\b.*\bbildirim|\bkendiliginden uyar", folded)
         or (_FX_Q.search(folded) and _CUR_TOKEN.search(folded) and not _FX_SKIP.search(folded))
-        or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text) or utility_skills.wants_utility(text) or calc_skills.wants_calc(text) or ledger_skills.wants_ledger(text) or fun_skills.wants_fun(text) or schedule_skills.wants_schedule(text))
+        or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text) or utility_skills.wants_utility(text) or calc_skills.wants_calc(text) or ledger_skills.wants_ledger(text) or fun_skills.wants_fun(text) or schedule_skills.wants_schedule(text) or template_skills.wants_templates(text))
