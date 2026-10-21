@@ -164,7 +164,19 @@
 
     function requestNotifications() { return enablePush(); }
 
+    function bindQuickCommands() {
+      const buttons = typeof doc.querySelectorAll === "function" ? Array.from(doc.querySelectorAll("[data-quick]")) : [];
+      for (const button of buttons) {
+        button.addEventListener("click", () => {
+          const text = String(button.dataset?.quick || button.getAttribute?.("data-quick") || "").slice(0, 200);
+          if (text && typeof opt.sendQuick === "function") opt.sendQuick(text);
+        });
+      }
+      return buttons.length;
+    }
+
     function init() {
+      bindQuickCommands();
       el("calendarFeedConnect")?.addEventListener("click", connectFeed);
       el("calendarFeedDisconnect")?.addEventListener("click", disconnectFeed);
       el("reminderNotifyPermission")?.addEventListener("click", requestNotifications);
@@ -172,7 +184,7 @@
       startPolling();
     }
 
-    return {init, poll, refreshFeed, connectFeed, disconnectFeed, banner, enablePush};
+    return {init, poll, refreshFeed, connectFeed, disconnectFeed, banner, enablePush, bindQuickCommands};
   }
   return {create, FEED_ERRORS};
 });

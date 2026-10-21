@@ -18,7 +18,16 @@ import re
 from typing import Any
 from aiohttp import web
 
-import http_client
+try:
+    import http_client
+except ImportError:      # loaded by file path from another package (e.g. backend tests)
+    import importlib.util as _ilu
+    import pathlib as _pl
+    import sys as _sys
+    _spec = _ilu.spec_from_file_location("http_client", _pl.Path(__file__).with_name("http_client.py"))
+    http_client = _ilu.module_from_spec(_spec)
+    _sys.modules.setdefault("http_client", http_client)
+    _spec.loader.exec_module(http_client)
 
 _CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _LOCKS: dict[str, asyncio.Lock] = {}

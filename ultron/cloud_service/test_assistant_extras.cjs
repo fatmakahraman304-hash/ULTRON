@@ -101,3 +101,22 @@ test("proactive notifications from the poll are shown as plain banners without s
   assert.equal(banner.children[1].textContent, "Yağmur bekleniyor — Şemsiye al");
   assert.equal(banner.children[2].children.length, 1);
 });
+
+test("quick command buttons send their fixed text through the host callback", () => {
+  const {document} = fakeDOM(["reminderBanners"]);
+  const clicks = [], sent = [];
+  document.querySelectorAll = sel => {
+    assert.equal(sel, "[data-quick]");
+    return ["hava nasıl", "haberler"].map(q => ({dataset: {quick: q}, addEventListener: (e, f) => clicks.push([q, f])}));
+  };
+  const x = extras.create({document, window: {}, fetchJson: async () => ({}), sendQuick: t => sent.push(t)});
+  assert.equal(x.bindQuickCommands(), 2);
+  clicks[1][1]();
+  clicks[0][1]();
+  assert.deepEqual(sent, ["haberler", "hava nasıl"]);
+});
+
+test("without querySelectorAll or callback nothing breaks", () => {
+  const {document} = fakeDOM(["reminderBanners"]);
+  assert.equal(extras.create({document, window: {}, fetchJson: async () => ({})}).bindQuickCommands(), 0);
+});

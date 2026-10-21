@@ -953,3 +953,8 @@ Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0d
 - Router corpus: 292/292 labelled utterances routed correctly, 0/118 ordinary-chat utterances intercepted (`test_skill_routing.py`).
 - Node: every `ultron/cloud_service/test_*.cjs` passes; `node scripts/test_golge_minimal_ui.mjs` passes (cache v81).
 - **NOT RUN**: real iPhone (Home-Screen PWA push with locked phone), real laptop (`laptop: …`, screen analysis), real Gemini (YouTube summary, mission planning quality), real Home Assistant, Render deployment, Windows tests. The new `golge-cloud-stack.yml` workflow had started on GitHub but its result was not read at the time of writing.
+
+## 2026-10-21 — Wider regression check (Linux sandbox)
+- `python -m pytest -q tests ultron/backend/tests --ignore=tests/test_setup_overlay.py` → 1373 passed, 5 failed, 5 skipped on this branch. The same 5 failures (`tests/test_integration.py` ×4, `tests/test_open_app.py` ×1) occur identically on the base commit `54a4310` — they need the Windows/Qt environment; `tests/test_setup_overlay.py` needs PyQt6 (not installed). Not caused by this branch.
+- Found and fixed a regression introduced by the shared HTTP client: `ultron/backend/tests/test_earth_layers.py` loads `world_api.py` by file path, so `world_api` now falls back to loading `http_client.py` next to it. `test_world_contract.cjs` now asserts the redirect/size guarantees in `http_client.py`.
+- `python -m pytest -q --ignore-glob='*postgres*' ultron/cloud_service` → 501+ passed (see latest run); all `ultron/cloud_service/test_*.cjs` pass.

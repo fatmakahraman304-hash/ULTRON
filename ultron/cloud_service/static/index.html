@@ -556,6 +556,22 @@
         <p class="remote-note" id="conversationNotesStatus" role="status" aria-live="polite">İsteğin üzerine taslak hazırlanır; otomatik kayıt yapılmaz.</p>
         <div id="conversationNotesList" class="memory-list" aria-label="Yalnızca bu sohbete ait notlar"></div>
       </div>
+      <div class="memory-form panel" id="quickCommandsPanel">
+        <div class="section-title"><h2>HIZLI KOMUTLAR</h2></div>
+        <p class="remote-note">Dokun, GÖLGE hemen cevaplasın. Kendi cümlelerinle de yazabilirsin (“neler yapabilirsin” de).</p>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button type="button" class="secondary" data-quick="hava nasıl">🌤 Hava</button>
+          <button type="button" class="secondary" data-quick="haberler">📰 Haberler</button>
+          <button type="button" class="secondary" data-quick="bugün programım ne">📅 Bugün</button>
+          <button type="button" class="secondary" data-quick="planlarım">📝 Planlar</button>
+          <button type="button" class="secondary" data-quick="hatırlatıcılarım neler">⏰ Hatırlatıcılar</button>
+          <button type="button" class="secondary" data-quick="günaydın">☀ Brifing</button>
+          <button type="button" class="secondary" data-quick="durum raporu">📊 Durum</button>
+          <button type="button" class="secondary" data-quick="bu ay ne kadar harcadım">💸 Harcamalar</button>
+          <button type="button" class="secondary" data-quick="alarmlarım">🔔 Alarmlar</button>
+          <button type="button" class="secondary" data-quick="neler yapabilirsin">❓ Yardım</button>
+        </div>
+      </div>
       <div class="memory-form panel" id="ownerPlansPanel">
         <div class="section-title"><h2>KİŞİSEL TAKVİM VE PLANLAR</h2><button class="secondary" type="button" id="refreshOwnerPlans">PLANLARI GÖSTER</button></div>
         <p class="remote-note">GÖLGE'un kendi plan defteri. Google/Apple Takvim bağlantısı veya otomatik telefon bildirimi değildir.</p>
@@ -2057,7 +2073,8 @@ async function boot(){
 window.ULTRONDevRequests?.init();
 window.ULTRONPersonalPanel?.create({fetchJson: path => api(path), document}).init();
 window.ULTRONOwnerPlans?.create({fetchJson: (path, options) => api(path, options), document}).init();
-window.ULTRONAssistantExtras?.create({fetchJson: (path, options) => api(path, options), document, toast, speak: speakUltron}).init();
+window.ULTRONAssistantExtras?.create({fetchJson: (path, options) => api(path, options), document, toast, speak: speakUltron,
+  sendQuick: text => { showView('chat'); $('#message').value = text; send(); }}).init();
 const conversationNotesController=window.ULTRONConversationNotes?.create({
   document,
   fetchJson: (path, options) => api(path, options),
