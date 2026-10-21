@@ -668,6 +668,7 @@
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
 <script src="/static/assistant-extras.js"></script>
+<script src="/static/laptop-bridge.js"></script>
 <script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
 <script src="/static/source-links.js"></script>
@@ -2296,6 +2297,12 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(panelHandled){toast('GÖLGE çalışma alanı açıldı.');return}
     const devHandled=options.forceChat?false:await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
     if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
+    if(!options.forceChat&&window.ULTRONLaptopBridge?.mayRoute(text)){
+      $('#busy').textContent='Laptop GÖLGE ile konuşuyorum…';
+      const laptop=await window.ULTRONLaptopBridge.create({fetchJson:(p,o)=>api(p,o),addMessage,toast,speak:r=>{if(voiceEnabled&&!voiceListening)try{speakUltron(r)}catch{}},
+        onConversation:id=>{conversationId=id;localStorage.setItem('ultronConversationId',id)}}).route(text,{conversationId}).catch(()=>null);
+      if(laptop){messageSignature='';return true}
+    }
     if(!options.forceChat&&(lastUploadedImageId||lastImageFile)&&lastImageConversationId===conversationId&&isImageFollowupRequest(text)){
       $('#busy').textContent='GÖLGE yüklediğin görsele bakıyor…';
       const d=await visionApi(lastUploadedImageId?null:lastImageFile,text,lastUploadedImageId);

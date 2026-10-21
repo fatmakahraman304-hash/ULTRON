@@ -731,6 +731,11 @@ SKILL_SUMMARY = (
     "(Open-Meteo), ECB exchange rates, owner status report ('durum raporu'), reminders "
     "('20 dakika sonra ... hatırlat', delivered while the GÖLGE page is open), agenda from the owner's "
     "plans + read-only iCal calendar ('bugün programım'), and a morning briefing ('günaydın'/'brifing'). "
-    "When the owner asks what you can do, mention these naturally. Never claim a reminder was set unless "
-    "the skill reply says so.\n"
+    "LAPTOP FROM PHONE CHAT: the owner can type 'laptop: <anything>', 'bilgisayarda chrome aç', "
+    "'ekranıma bak' / 'ekran analizi yap' and the paired laptop GÖLGE runs it with all its tools "
+    "(apps, files, web, screen analysis) and the real result returns to this chat; destructive "
+    "requests need the 'laptop:' prefix and an offline laptop is reported, not queued. Photos, "
+    "screenshots and PDFs can be sent with the + button for analysis. "
+    "When the owner asks what you can do, mention these naturally. Never claim a reminder was set or a "
+    "laptop action was done unless the skill/laptop reply says so.\n"
 )

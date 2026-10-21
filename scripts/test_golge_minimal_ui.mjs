@@ -14,7 +14,7 @@ assert.match(mobile, /#chatView:has\(#messages \.msg\) \.golge-welcome\{display:
 for(const id of ['app','login','chatView','messages','voiceBtn','sendBtn','plusBtn','attachMenu','longListenPanel','longListenBegin','longListenAnswer','panelMenuToggle','tabs','phoneActionApproval']) {
   assert.ok(html.includes('id="'+id+'"'),'Missing mobile control: '+id);
 }
-assert.match(sw,/ultron-shell-v77/);
+assert.match(sw,/ultron-shell-v79/);
 assert.match(sw,/\/static\/source-links\.js/);
 assert.match(html,/<script src="\/static\/source-links\.js"><\/script>/);
 assert.match(sw,/\/static\/golge-reference-mobile\.css/);
