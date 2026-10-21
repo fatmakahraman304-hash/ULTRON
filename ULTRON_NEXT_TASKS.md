@@ -912,3 +912,8 @@ Try on the phone after deploy: "yazı tura at", "45 gün sonra hangi gün", "850
 
 ## 2026-10-21 — Try the new hologram requests
 On the phone (hologram view) and in the laptop Hologram Lab say: "bana bir kalp çiz", "8 köşeli yıldız oluştur", "roket çiz", "bir ev ve ağaç çiz", "güneş sistemi oluştur", "hologramda bir ejderha göster" (unknown noun → Gemini; if the key/quota is missing expect the existing "Model taslağı şu anda üretilemiyor" message). Report shapes that look wrong; fix them in `shape_library.py` and re-render with a quick three.js page. Missing: colours, user-uploaded GLB search by voice is unchanged (Poly Haven "… bul getir").
+
+## 2026-10-21 — Try the self-improvement backlog
+1. Ask GÖLGE for something it cannot do ("bana uçak bileti al"); if the model admits it cannot, expect a "🛠 … eksik N" hint. Then `eksiklerim`, `eksik N'i geliştir`.
+2. With the laptop online confirm the laptop agent treats the task as proposal-only (shows a diff, writes nothing until "onaylıyorum"). If it ignores the "YALNIZCA TASLAK" instruction, that is a bug in the laptop agent's task handling — fix it there, never relax the gate.
+3. Optionally raise model quality (see GOLGE_KENDI_KODUNU_GELISTIRME.md → "Zekâ düzeyi") and compare answers; record results in ULTRON_TEST_RESULTS.md.

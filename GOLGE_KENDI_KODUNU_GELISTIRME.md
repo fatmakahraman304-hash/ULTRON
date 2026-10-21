@@ -24,3 +24,10 @@ Yeni telefon/Cloud akışı (`gap_skills.py`, tablo `capability_gaps`):
 Değişmeyenler: Approval Gate, denetim kaydı, `SelfCodeBoundary`, yedek → uygula → test → geri alma, taslak PR, birleştirme ve Render deploy yalnızca senin kararınla. GÖLGE kendi kodunu sessizce değiştirmez ve "değiştirdim" demez.
 
 Doğrulanan: cloud tarafı (kayıt, liste, istek oluşturma, çevrimdışı/çevrimiçi laptop, ses kısıtı) gerçek PostgreSQL testiyle. **Doğrulanmayan:** laptop ajanının gelen taslak görevini gerçekten "yalnız taslak" olarak işlemesi, yerel Qwen'in patch kalitesi, PR açma (Windows + `gh` oturumu gerekir).
+
+### Zekâ düzeyi: model seçimi senin maliyet kararın
+Sohbet zekâsı ağırlıkla arkadaki modele bağlıdır. Cloud servisi varsayılan olarak hızlı/ucuz modeli kullanır (`GEMINI_MODEL`). Kod ve derin düşünme isteklerinde daha güçlü model kullanması için Render ortam değişkenlerine şunları **sen** ekleyebilirsin (maliyeti artırabilir, bu yüzden otomatik açılmadı):
+- `GEMINI_TASK_MODELS_APPROVED=true`
+- `GEMINI_CODING_MODEL=<kod için daha güçlü model>` ve `GEMINI_GENERAL_MODEL=<derin düşünme için daha güçlü model>`
+
+Sistem talimatına eklenen "düşünme rehberi" (adım adım akıl yürütme, varsayımları belirtme, çalışır kod, dürüst sınırlar) model değişmeden de cevap kalitesini artırmayı hedefler; etkisi gerçek modelle **ölçülmedi**.
