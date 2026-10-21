@@ -167,3 +167,8 @@ CASES += [
     ("pomodoro başlat", "focus"), ("pomodoro 25 5", "focus"), ("50 dakika odaklan", "focus"), ("pomodoro durdur", "focus"),
     ("odaklanamıyorum", None), ("pomodoro tekniği nedir", None), ("odaklanmak için ne yapmalıyım", None),
 ]
+
+CASES += [
+    ("yarın ne zaman boşum", "plans"), ("cuma müsait saatlerim", "plans"), ("bugün boş zamanım var mı", "plans"), ("bu hafta boş saatlerim", "plans"),
+    ("boş zamanlarımda ne yapabilirim", None), ("boş kalmak istemiyorum", None), ("müsait misin", None), ("yarın boş vaktim olursa sinemaya gidelim", None),
+]

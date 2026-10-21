@@ -111,31 +111,61 @@ async def upcoming_events(pool: Any, user_id: str, local_now: datetime) -> list[
     return out
 
 
-async def rain_alert(fetch_json, local_now: datetime) -> list[dict]:
+async def weather_alerts(fetch_json, local_now: datetime) -> list[dict]:
+    """Rain (≥60 %), thunderstorm, strong gusts, extreme heat/cold within the next 3 hours; once per day per kind."""
     if not (7 <= local_now.hour < 21):
         return []
     name, lat, lon = instant_skills.home_location()
     try:
         data = await fetch_json(
             f"https://api.open-meteo.com/v1/forecast?latitude={round(lat, 2)}&longitude={round(lon, 2)}"
-            "&hourly=precipitation_probability,temperature_2m&timezone=Europe%2FIstanbul&forecast_days=2",
-            f"proactive-rain:{round(lat, 2)}:{round(lon, 2)}", 900)
-        times, probs = data["hourly"]["time"], data["hourly"]["precipitation_probability"]
+            "&hourly=precipitation_probability,temperature_2m,weather_code,wind_gusts_10m&timezone=Europe%2FIstanbul&forecast_days=2",
+            f"proactive-weather:{round(lat, 2)}:{round(lon, 2)}", 900)
+        hourly = data["hourly"]
+        times = hourly["time"]
     except Exception:
         return []
+
+    def series(key: str) -> list:
+        values = hourly.get(key)
+        return values if isinstance(values, list) else [None] * len(times)
+
+    probs, temps, codes, gusts = (series("precipitation_probability"), series("temperature_2m"), series("weather_code"), series("wind_gusts_10m"))
     horizon = local_now + timedelta(hours=3)
-    best = 0
-    for t, p in zip(times, probs):
+    rain = temp_hi = 0
+    temp_lo = 99
+    storm = False
+    gust = 0.0
+    for i, t in enumerate(times):
         try:
             at = datetime.fromisoformat(t).replace(tzinfo=HOME_TZ)
         except ValueError:
             continue
-        if local_now - timedelta(minutes=30) <= at <= horizon and isinstance(p, (int, float)):
-            best = max(best, int(p))
-    if best >= 60:
-        return [{"key": f"rain:{local_now.date()}", "title": "Yağmur bekleniyor",
-                 "body": f"{name} için önümüzdeki 3 saatte yağış olasılığı %{best}. Şemsiyeni unutma."}]
-    return []
+        if not (local_now - timedelta(minutes=30) <= at <= horizon):
+            continue
+        num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
+        rain = max(rain, int(probs[i])) if num(probs[i]) else rain
+        if num(temps[i]):
+            temp_hi, temp_lo = max(temp_hi, temps[i]), min(temp_lo, temps[i])
+        storm = storm or (num(codes[i]) and codes[i] >= 95)
+        gust = max(gust, float(gusts[i])) if num(gusts[i]) else gust
+    day = local_now.date()
+    out = []
+    if rain >= 60:
+        out.append({"key": f"rain:{day}", "title": "Yağmur bekleniyor",
+                    "body": f"{name} için önümüzdeki 3 saatte yağış olasılığı %{rain}. Şemsiyeni unutma."})
+    if storm:
+        out.append({"key": f"storm:{day}", "title": "Gök gürültülü fırtına", "body": f"{name} için önümüzdeki 3 saatte gök gürültülü fırtına bekleniyor. Açık havadan ve ağaç altından uzak dur."})
+    if gust >= 60:
+        out.append({"key": f"wind:{day}", "title": "Kuvvetli rüzgâr", "body": f"{name} için önümüzdeki 3 saatte rüzgâr hamleleri {round(gust)} km/sa'ya çıkabilir. Dışarıdaki eşyaları sabitle."})
+    if temp_hi >= 37:
+        out.append({"key": f"heat:{day}", "title": "Aşırı sıcak", "body": f"{name} için sıcaklık {round(temp_hi)}°C'ye çıkacak. Bol su iç, öğle güneşinden kaçın."})
+    if temp_lo <= -3:
+        out.append({"key": f"cold:{day}", "title": "Dondurucu soğuk", "body": f"{name} için sıcaklık {round(temp_lo)}°C'ye düşecek. Sıkı giyin, buzlanmaya dikkat et."})
+    return out
+
+
+rain_alert = weather_alerts   # name used by earlier tests and callers
 
 
 async def morning_brief(pool, user_id, prefs, fetch_json, fetch_text, local_now: datetime) -> list[dict]:
@@ -193,7 +223,7 @@ async def evaluate(pool: Any, user_id: str, now: datetime, fetch_json, fetch_tex
         return []
     quiet = in_quiet_hours(prefs, local_now)
     items: list[dict] = []
-    for rule in (upcoming_events(pool, user_id, local_now), rain_alert(fetch_json, local_now),
+    for rule in (upcoming_events(pool, user_id, local_now), weather_alerts(fetch_json, local_now),
                  morning_brief(pool, user_id, prefs, fetch_json, fetch_text, local_now),
                  evening_preview(pool, user_id, prefs, local_now), quake_alert(fetch_json, now)):
         try:

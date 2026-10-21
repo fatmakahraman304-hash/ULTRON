@@ -192,6 +192,19 @@ class StackContract(unittest.IsolatedAsyncioTestCase):
         self.assertIn("yearly:02-14", (await self.say("her yıl 14 şubat sevgililer gününü hatırlat")) and
                       (await self.pool.fetchval("SELECT string_agg(repeat_rule, ',') FROM owner_reminders WHERE user_id=$1", self.u)))
 
+    async def test_focus_free_time_and_clashes(self):
+        self.assertIn("25 dk çalış, sonra 5 dk mola", await self.say("pomodoro başlat"))
+        self.assertIn("Zaten çalışan", await self.say("pomodoro başlat"))
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1 AND text LIKE '🍅%'", self.u), 2)
+        self.assertIn("iptal ettim", await self.say("pomodoro durdur"))
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1 AND status='pending' AND text LIKE '🍅%'", self.u), 0)
+        self.assertIn("Planına ekledim", await self.say("yarın 10:00 toplantı planıma ekle"))
+        clash = await self.say("yarın 10:30 diş randevusu planıma ekle")
+        self.assertIn("⚠ Dikkat, bu saate yakın başka kayıt var: 10:00 — toplantı", clash)
+        free = await self.say("yarın ne zaman boşum")
+        self.assertIn("• 09:00–10:00", free)
+        self.assertIn("• 11:30–18:00", free)
+
     async def test_retention_export_and_diagnostics(self):
         await self.say("hatırla: annemin doğum günü 3 Mart")
         await self.pool.execute("INSERT INTO owner_reminders(user_id,text,due_at,status,delivered_at) VALUES($1,'eski',NOW()-interval '40 days','delivered',NOW()-interval '40 days')", self.u)

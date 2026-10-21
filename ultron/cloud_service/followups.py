@@ -11,10 +11,8 @@ import re
 
 if __package__:
     from .text_normalization import fold_turkish
-    from .reminders import fold_with_map
 else:
     from text_normalization import fold_turkish
-    from reminders import fold_with_map
 
 SKILL_PREFIX = "golge-skill:"
 _MARK = re.compile(r"^\s*(?:peki|ya|ya da|bir de|ayrica|bide)\b[\s,]*(.+?)\s*\??\s*$|^\s*(.{2,40}?)\s*\?\s*$", re.S)
