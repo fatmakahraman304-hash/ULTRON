@@ -209,3 +209,5 @@ CASES += [
     ("haftalık özet", "weekly"), ("geçen hafta nasıldı", "weekly"), ("bu haftanın özeti", "weekly"), ("haftalık rapor", "weekly"),
     ("haftalık burç yorumu", None), ("hafta sonu planım ne", None), ("bu hafta hava nasıl olacak", "weather"),
 ]
+
+CASES += [("haftalık özet bildirimi aç", "prefs"), ("haftalık özet bildirimini kapat", "prefs")]

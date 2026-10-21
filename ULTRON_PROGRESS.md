@@ -841,3 +841,6 @@ New modules `style_skills.py`, `recall_skills.py`, `voice_skills.py`, `feedback_
 
 ## 2026-10-21 — Weekly review
 `weekly_skills.py`: "haftalık özet / geçen hafta nasıldı / bu haftanın özeti" → plans done/total, habit totals/averages, spending with top category, journal entries, fired reminders, most-used skills; sections with no data are omitted and an empty week says so. Read-only (also available through the voice gateway). Real-PostgreSQL test; corpus 453/453, hijacked chat 0/180.
+
+## 2026-10-21 — Weekly review notification
+New pref `weekly_review` (default off): "haftalık özet bildirimi aç/kapat"; proactive rule `weekly_review` sends the weekly review on Sunday 19:00–22:00 (Istanbul), once per date key, only when the week has recorded data; listed in "bildirim ayarlarım". Real-PostgreSQL test covers default-off, Sunday window, empty-week skip, Saturday skip and toggling.

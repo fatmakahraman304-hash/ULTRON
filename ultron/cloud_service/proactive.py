@@ -33,7 +33,7 @@ else:
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 GRACE_SECONDS = 25
 TICK_SECONDS = 30
-DEFAULT_PREFS = {"proactive": True, "morning_brief": False, "morning_time": "08:00", "evening_preview": False,
+DEFAULT_PREFS = {"proactive": True, "morning_brief": False, "morning_time": "08:00", "evening_preview": False, "weekly_review": False,
                  "quiet_start": "23:00", "quiet_end": "07:00"}
 _HHMM = re.compile(r"(?:[01]?\d|2[0-3])[:.]?[0-5]?\d?\Z")
 
@@ -243,6 +243,19 @@ async def evening_preview(pool, user_id, prefs, local_now: datetime) -> list[dic
     return [{"key": f"evening:{tomorrow}", "title": "Yarına hazırlık", "body": body[:400]}]
 
 
+async def weekly_review(pool, user_id, prefs, local_now: datetime) -> list[dict]:
+    if not prefs.get("weekly_review") or local_now.weekday() != 6 or not (19 * 60 <= local_now.hour * 60 + local_now.minute < 22 * 60):
+        return []
+    if __package__:
+        from . import weekly_skills
+    else:
+        import weekly_skills
+    body = await weekly_skills.handle("bu haftanin ozeti", pool, user_id, local_now)
+    if not body or "kayıtlı bir veri yok" in body:
+        return []
+    return [{"key": f"weekly:{local_now.date()}", "title": "Haftalık özet", "body": body[:600]}]
+
+
 async def evaluate(pool: Any, user_id: str, now: datetime, fetch_json, fetch_text=None) -> list[dict]:
     local_now = now.astimezone(HOME_TZ)
     prefs = await get_prefs(pool, user_id)
@@ -252,7 +265,8 @@ async def evaluate(pool: Any, user_id: str, now: datetime, fetch_json, fetch_tex
     items: list[dict] = []
     for rule in (upcoming_events(pool, user_id, local_now), weather_alerts(fetch_json, local_now),
                  morning_brief(pool, user_id, prefs, fetch_json, fetch_text, local_now),
-                 evening_preview(pool, user_id, prefs, local_now), quake_alert(fetch_json, now)):
+                 evening_preview(pool, user_id, prefs, local_now), weekly_review(pool, user_id, prefs, local_now),
+                 quake_alert(fetch_json, now)):
         try:
             items += await rule
         except Exception:
@@ -366,6 +380,7 @@ async def handle_prefs(text: str, pool: Any, user_id: str) -> str | None:
                 f"• Proaktif uyarılar: {'açık' if p['proactive'] else 'kapalı'}\n"
                 f"• Sabah brifingi bildirimi: {'açık, ' + p['morning_time'] if p['morning_brief'] else 'kapalı'}\n"
                 f"• Akşam özeti bildirimi: {'açık' if p['evening_preview'] else 'kapalı'}\n"
+                f"• Haftalık özet bildirimi: {'açık (pazar akşamı)' if p['weekly_review'] else 'kapalı'}\n"
                 f"• Sessiz saatler: {p['quiet_start']} – {p['quiet_end']}\n"
                 f"• Bildirim alan cihaz: {int(n or 0)}" + ("" if n else " (Hafıza → Bildirimleri aç düğmesi)"))
     m = re.search(r"\bsessiz saat\w*\b.*?\b([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\s*(?:ile|-|–|den|'?dan|ve)\s*([01]?\d|2[0-3])(?:[:.]([0-5]\d))?\b", f)
@@ -389,6 +404,10 @@ async def handle_prefs(text: str, pool: Any, user_id: str) -> str | None:
         off = bool(re.search(_OFF, f))
         await set_pref(pool, user_id, evening_preview=not off)
         return "Akşam özeti bildirimini kapattım." if off else "Tamam, her akşam 21:00 sonrası yarının planlarını bildirim olarak göndereceğim."
+    if re.search(r"\bhaftalik (?:ozet\w*|rapor\w*)\b.*\bbildirim\w*\b|\bbildirim\w*\b.*\bhaftalik (?:ozet\w*|rapor\w*)\b", f):
+        off = bool(re.search(_OFF, f))
+        await set_pref(pool, user_id, weekly_review=not off)
+        return "Haftalık özet bildirimini kapattım." if off else "Tamam, her pazar akşamı (19:00 sonrası) haftanın özetini bildirim olarak göndereceğim; o hafta kayıt yoksa göndermem."
     if re.search(r"\bproaktif\b|\bkendiliginden uyar\w*\b|\buyari\w* (?:ac|kapat)", f) and (re.search(_OFF, f) or re.search(_ON, f)):
         off = bool(re.search(_OFF, f))
         await set_pref(pool, user_id, proactive=not off)

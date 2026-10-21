@@ -234,6 +234,24 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
             self.assertIn(part, reply)
         self.assertIn("kayıtlı bir veri yok", await self.say("geçen hafta nasıldı", now=now))
 
+    async def test_weekly_notification_is_opt_in_sunday_evening_and_skips_empty_weeks(self):
+        import proactive as pro
+        sunday = datetime(2026, 10, 25, 17, 30, tzinfo=timezone.utc).astimezone(pro.HOME_TZ)   # 20:30 Istanbul
+        prefs = await pro.get_prefs(self.pool, self.u)
+        self.assertEqual(await pro.weekly_review(self.pool, self.u, prefs, sunday), [])        # off by default
+        self.assertIn("pazar akşamı", await self.say("haftalık özet bildirimi aç"))
+        prefs = await pro.get_prefs(self.pool, self.u)
+        self.assertTrue(prefs["weekly_review"])
+        self.assertEqual(await pro.weekly_review(self.pool, self.u, prefs, sunday), [])        # nothing recorded
+        await self.pool.execute("INSERT INTO owner_expenses(user_id,amount,category,spent_on) VALUES($1,80,'kahve','2026-10-22')", self.u)
+        items = await pro.weekly_review(self.pool, self.u, prefs, sunday)
+        self.assertEqual(len(items), 1)
+        self.assertIn("Harcama: 80 ₺", items[0]["body"])
+        self.assertEqual(await pro.weekly_review(self.pool, self.u, prefs, sunday.replace(day=24)), [])   # Saturday
+        self.assertIn("haftalık özet bildirimi", (await self.say("bildirim ayarlarım")).lower())
+        await self.say("haftalık özet bildirimini kapat")
+        self.assertFalse((await pro.get_prefs(self.pool, self.u))["weekly_review"])
+
 
 if __name__ == "__main__":
     unittest.main()
