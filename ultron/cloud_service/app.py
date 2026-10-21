@@ -160,6 +160,11 @@ async def init_db(app: web.Application) -> None:
     app["uploaded_image_cleanup_task"] = asyncio.create_task(
         uploaded_image_cleanup_loop(app["db"])
     )
+    async def _proactive_fetch_json(url: str, key: str, ttl: int) -> dict:
+        return await world_api._upstream(url, ttl=ttl, key=key)
+    import proactive
+    app["proactive_task"] = asyncio.create_task(
+        proactive.dispatcher_loop(app, _proactive_fetch_json, phone_skills.fetch_news_xml))
     print(f"startup_timing stage=init_db_done ts={time.time():.3f}", flush=True)
 
 
@@ -178,7 +183,7 @@ async def uploaded_image_cleanup_loop(pool: asyncpg.Pool) -> None:
 
 
 async def close_db(app: web.Application) -> None:
-    for key in ("listening_cleanup_task", "uploaded_image_cleanup_task"):
+    for key in ("listening_cleanup_task", "uploaded_image_cleanup_task", "proactive_task"):
         task = app.get(key)
         if task is not None:
             task.cancel()
@@ -2950,6 +2955,8 @@ def build_app() -> web.Application:
     register_calendar_feed_routes(app)
     from laptop_bridge import register_routes as register_laptop_bridge_routes
     register_laptop_bridge_routes(app)
+    from web_push import register_routes as register_push_routes
+    register_push_routes(app)
     register_learning_routes(app)
     register_conversation_note_routes(app)
     register_auto_learning_routes(app)

@@ -225,8 +225,17 @@ async def due_reminders(request: web.Request) -> web.Response:
         "ORDER BY due_at LIMIT 10 FOR UPDATE SKIP LOCKED) "
         "RETURNING id,text,due_at,(NOW()-due_at) > INTERVAL '10 minutes' AS late",
         request["user_id"])
+    try:
+        if __package__:
+            from .proactive import due_notifications
+        else:
+            from proactive import due_notifications
+        notes = await due_notifications(request.app["db"], request["user_id"])
+    except Exception:
+        notes = []
     return web.json_response({"due": [{"id": r["id"], "text": r["text"], "due_at": r["due_at"].isoformat(),
-                                       "late": bool(r["late"])} for r in rows]})
+                                       "late": bool(r["late"])} for r in rows],
+                              "notifications": notes})
 
 
 async def pending_reminders(request: web.Request) -> web.Response:

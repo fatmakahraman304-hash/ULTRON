@@ -44,7 +44,7 @@
       box.setAttribute("role", "alert");
       box.style.cssText = "margin:8px 0;border:1px solid var(--neon,#ff2447)";
       const title = doc.createElement("b");
-      title.textContent = item.late ? "⏰ Kaçırdığın hatırlatıcı" : "⏰ Hatırlatıcı";
+      title.textContent = item.plain ? "🔔 GÖLGE" : item.late ? "⏰ Kaçırdığın hatırlatıcı" : "⏰ Hatırlatıcı";
       const text = doc.createElement("div");
       text.textContent = String(item.text || "").slice(0, 200);
       const row = doc.createElement("div");
@@ -64,7 +64,7 @@
           box.remove();
         } catch (_) { snooze.disabled = false; toast("Erteleme başarısız."); }
       });
-      row.append(ok, snooze);
+      if (item.plain) row.append(ok); else row.append(ok, snooze);
       box.append(title, text, row);
       host.prepend(box);
     }
@@ -80,7 +80,12 @@
           notify("GÖLGE hatırlatıcı", String(item.text || ""));
           speak("Hatırlatıcı: " + String(item.text || ""), true);
         }
-        return due.length;
+        const notes = Array.isArray(result?.notifications) ? result.notifications : [];
+        for (const n of notes) {
+          banner({id: 0, text: String(n.title || "") + " — " + String(n.body || ""), late: false, plain: true});
+          notify(String(n.title || "GÖLGE"), String(n.body || ""));
+        }
+        return due.length + notes.length;
       } catch (_) {
         return 0; // offline or signed out: try again next tick
       } finally { polling = false; }
@@ -130,11 +135,34 @@
       el("calendarFeedDisconnect")?.classList.add("hidden");
     }
 
-    function requestNotifications() {
-      const N = win.Notification;
-      if (!N) return toast("Bu tarayıcı bildirimleri desteklemiyor.");
-      N.requestPermission().then(p => toast(p === "granted" ? "Bildirimler açıldı." : "Bildirim izni verilmedi."));
+    function keyBytes(b64) {
+      const raw = (win.atob || atob)(b64.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - b64.length % 4) % 4));
+      return Uint8Array.from(raw, c => c.charCodeAt(0));
     }
+
+    /** Ask permission, subscribe this device to Web Push and register it with the server. */
+    async function enablePush() {
+      const N = win.Notification, nav = win.navigator || {};
+      if (!N || !nav.serviceWorker || !win.PushManager) {
+        toast("Bildirim için GÖLGE'yi Ana Ekrana ekleyip oradan aç (iPhone: Paylaş → Ana Ekrana Ekle).");
+        return "unsupported";
+      }
+      if ((await N.requestPermission()) !== "granted") { toast("Bildirim izni verilmedi."); return "denied"; }
+      try {
+        const reg = await nav.serviceWorker.ready;
+        const {public_key} = await api("/api/push/key");
+        const sub = await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: keyBytes(public_key)});
+        await api("/api/push/subscribe", {method: "POST", body: JSON.stringify(sub.toJSON())});
+        await api("/api/push/test", {method: "POST", body: "{}"});
+        toast("Bildirimler açıldı. Telefon kilitliyken de gelecek.");
+        return "subscribed";
+      } catch (_) {
+        toast("Bildirim kaydı yapılamadı. Biraz sonra yeniden dene.");
+        return "error";
+      }
+    }
+
+    function requestNotifications() { return enablePush(); }
 
     function init() {
       el("calendarFeedConnect")?.addEventListener("click", connectFeed);
@@ -144,7 +172,7 @@
       startPolling();
     }
 
-    return {init, poll, refreshFeed, connectFeed, disconnectFeed, banner};
+    return {init, poll, refreshFeed, connectFeed, disconnectFeed, banner, enablePush};
   }
   return {create, FEED_ERRORS};
 });

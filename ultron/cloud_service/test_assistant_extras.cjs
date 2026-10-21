@@ -59,3 +59,45 @@ test("calendar errors become friendly Turkish messages", async () => {
   await x.connectFeed();
   assert.match(elements.calendarFeedStatus.textContent, /desteklenmiyor/);
 });
+
+test("enablePush asks permission, subscribes with the server key and registers the device", async () => {
+  const {document} = fakeDOM(["reminderBanners"]);
+  const calls = [], toasts = [];
+  const sub = {toJSON: () => ({endpoint: "https://web.push.apple.com/x", keys: {p256dh: "a", auth: "b"}})};
+  let subscribeOpts;
+  const win = {
+    atob: s => Buffer.from(s, "base64").toString("binary"),
+    Notification: {requestPermission: async () => "granted", permission: "granted"},
+    PushManager: {},
+    navigator: {serviceWorker: {ready: Promise.resolve({pushManager: {subscribe: async o => { subscribeOpts = o; return sub; }}})}},
+  };
+  const x = extras.create({document, window: win, toast: t => toasts.push(t), fetchJson: async (url, o) => {
+    calls.push([url, o && o.method]);
+    return url === "/api/push/key" ? {public_key: "BAUG"} : {};
+  }});
+  assert.equal(await x.enablePush(), "subscribed");
+  assert.deepEqual(calls.map(c => c[0]), ["/api/push/key", "/api/push/subscribe", "/api/push/test"]);
+  assert.equal(subscribeOpts.userVisibleOnly, true);
+  assert.ok(subscribeOpts.applicationServerKey instanceof Uint8Array);
+});
+
+test("enablePush explains how to install the PWA when push is unsupported or denied", async () => {
+  const {document} = fakeDOM(["reminderBanners"]);
+  const toasts = [];
+  const none = extras.create({document, window: {}, toast: t => toasts.push(t), fetchJson: async () => ({})});
+  assert.equal(await none.enablePush(), "unsupported");
+  assert.match(toasts[0], /Ana Ekrana Ekle/);
+  const denied = extras.create({document, toast: t => toasts.push(t), fetchJson: async () => { throw Error("no calls"); },
+    window: {Notification: {requestPermission: async () => "denied"}, PushManager: {}, navigator: {serviceWorker: {}}}});
+  assert.equal(await denied.enablePush(), "denied");
+});
+
+test("proactive notifications from the poll are shown as plain banners without snooze", async () => {
+  const {document, elements} = fakeDOM(["reminderBanners"]);
+  const x = extras.create({document, window: {}, fetchJson: async () => ({due: [], notifications: [{title: "Yağmur bekleniyor", body: "Şemsiye al"}]})});
+  assert.equal(await x.poll(), 1);
+  const banner = elements.reminderBanners.children[0];
+  assert.equal(banner.children[0].textContent, "🔔 GÖLGE");
+  assert.equal(banner.children[1].textContent, "Yağmur bekleniyor — Şemsiye al");
+  assert.equal(banner.children[2].children.length, 1);
+});

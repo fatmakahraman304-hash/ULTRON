@@ -343,3 +343,42 @@ CREATE TABLE IF NOT EXISTS owner_calendar_feeds (
   url TEXT NOT NULL CHECK (length(url) BETWEEN 12 AND 800),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+
+-- Web Push (RFC 8030/8291/8292). VAPID keys are generated once and kept here so no manual setup is needed.
+CREATE TABLE IF NOT EXISTS push_config (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  private_pem TEXT NOT NULL,
+  public_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY CHECK (length(endpoint) BETWEEN 20 AND 900),
+  user_id TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_ok TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+
+-- Owner-visible notifications produced by proactive rules (in-app first, push after a short grace).
+CREATE TABLE IF NOT EXISTS owner_notifications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 120),
+  body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 400),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  inapp_at TIMESTAMPTZ,
+  pushed_at TIMESTAMPTZ,
+  UNIQUE (user_id, dedupe_key)
+);
+CREATE INDEX IF NOT EXISTS idx_owner_notifications_pending ON owner_notifications(user_id, inapp_at, pushed_at);
+
+-- Per-owner proactive preferences (quiet hours, rule switches).
+CREATE TABLE IF NOT EXISTS owner_prefs (
+  user_id TEXT PRIMARY KEY,
+  prefs JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

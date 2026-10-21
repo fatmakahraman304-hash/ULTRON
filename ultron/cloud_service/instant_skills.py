@@ -19,13 +19,14 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
-    from . import calendar_feed, reminders, memory_skills, phone_skills
+    from . import calendar_feed, reminders, memory_skills, phone_skills, proactive
 else:
     from text_normalization import fold_turkish
     import calendar_feed
     import reminders
     import memory_skills
     import phone_skills
+    import proactive
 
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 TR_DAYS = ("Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar")
@@ -705,6 +706,9 @@ async def instant_reply(text: str, *, pool: Any = None, user_id: str = "",
     if not text or len(text) > MAX_SKILL_TEXT or _SKIP_ALL.search(fold_turkish(text)):
         return None
     if pool is not None:
+        reply = await proactive.handle_prefs(text, pool, user_id)
+        if reply:
+            return {"skill": "prefs", "reply": reply}
         reply = await memory_skills.handle(text, pool, user_id)
         if reply:
             return {"skill": "memory", "reply": reply}
@@ -783,5 +787,6 @@ def wants_cloud_skill(text: str) -> bool:
         or memory_skills._REMEMBER.match(folded) or memory_skills._REMEMBER_KI.match(folded)
         or memory_skills._LIST.search(folded) or memory_skills._FORGET.match(folded)
         or phone_skills.wants_news(text) or phone_skills.wants_flight(text)
+        or re.search(r"\bbildirim ayarlarim\b|\bproaktif\b|\bsessiz saat\w*\b|\bsabah (?:brifing\w*|ozet\w*)\b.*\bbildirim|\bkendiliginden uyar", folded)
         or (_FX_Q.search(folded) and _CUR_TOKEN.search(folded) and not _FX_SKIP.search(folded))
         or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text))
