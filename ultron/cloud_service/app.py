@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from capability_readiness import readiness
 from instant_skills import instant_reply, clock_context, SKILL_SUMMARY
-import style_skills, voice_skills, feedback_skills
+import style_skills, voice_skills, feedback_skills, shape_library
 import phone_skills
 import missions
 import infra
@@ -1816,13 +1816,20 @@ async def scene_design(request: web.Request) -> web.Response:
         text = description(await request.json())
     except (ValueError, TypeError):
         return web.json_response({"error":"invalid_description"}, status=400)
+    # Known shapes (heart, star, DNA, rocket …) are built instantly and offline from the shape library.
+    try:
+        known = shape_library.generate(text)
+        if known is not None:
+            return web.json_response({"design": validate(known), "source": "library"})
+    except Exception:
+        pass  # a library bug must never block the model path
     try:
         reply = await asyncio.to_thread(_gemini_reply, text, SYSTEM, [])
         design = validate(reply)
     except Exception:
         # No raw provider output or owner description in errors/logs.
         return web.json_response({"error":"scene_design_unavailable"}, status=502)
-    return web.json_response({"design":design})
+    return web.json_response({"design":design, "source": "model"})
 
 
 def _valid_location(raw: object) -> dict | None:

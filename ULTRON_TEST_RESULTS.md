@@ -982,3 +982,9 @@ All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real Po
 ## 2026-10-21 — Desktop launcher (Linux sandbox)
 - `python -m pytest tests/test_desktop_launcher.py` → 3 passed (static: ASCII/CRLF, referenced files exist, hidden window style, opt-in autostart).
 - NOT RUN: wscript/VBScript execution, shortcut creation, hidden launch, install flow and failure dialog on Windows (no Windows here; laptop was off).
+
+## 2026-10-21 — Hologram shape library
+- `ultron/cloud_service` pytest (real PostgreSQL) → 574 passed, 93 skipped; new `test_shape_library.py` (every generator × counts validates, ≤24 parts, keyword resolution, TS/Python noun sync, look-alike words such as "evet"/"okul" fall through) and an API test proving no model call for a library shape.
+- `node scripts/test_scene_intents.mjs`, all cloud `.cjs`, `scripts/test_golge_minimal_ui.mjs` pass; `tsc --noEmit` clean. `ultron/frontend` unit tests: 58 pass, 1 fail ("initial dashboard graph defers the Three.js WebGL renderer") — same result with my changes stashed, so pre-existing.
+- Visual check: 30 shapes rendered headlessly with three.js 0.177 and Chromium software GL (screenshots reviewed by eye). Colour is not part of the schema, so all shapes render in the scene's default material.
+- NOT RUN: real phone/laptop hologram UI with the new bundle, Gemini fallback for unknown nouns, `scripts/tests` browser suites (need Playwright, not installed here).
