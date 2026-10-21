@@ -76,5 +76,5 @@ def safe_prepare_update(commit_sha: str, *, root: Path = ROOT) -> dict[str, str 
     return {
         "ok": True, "changed": True, "restart_required": True,
         "sha": resulting,
-        "message": "GitHub tarafından test edilmiş kod diske alındı. ULTRON yeniden başlatılınca kurulu sürüm doğrulanacak.",
+        "message": "GitHub tarafından test edilmiş kod diske alındı. GÖLGE yeniden başlatılınca kurulu sürüm doğrulanacak.",
     }

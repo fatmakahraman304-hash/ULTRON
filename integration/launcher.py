@@ -103,7 +103,7 @@ class Services:
         last_error = None
         while time.monotonic() < deadline:
             if self.backend.poll() is not None:
-                raise RuntimeError('ULTRON başlatılamadı; logs/backend.log dosyasına bakın.')
+                raise RuntimeError('GÖLGE başlatılamadı; logs/backend.log dosyasına bakın.')
             try:
                 status = self.bridge.health()
                 if _is_healthy_local_service(status):
@@ -112,7 +112,7 @@ class Services:
             except (OSError, ValueError) as exc:
                 last_error = type(exc).__name__
             time.sleep(0.3)
-        raise RuntimeError(f'ULTRON sağlık kontrolü tamamlanamadı: {last_error}')
+        raise RuntimeError(f'GÖLGE sağlık kontrolü tamamlanamadı: {last_error}')
 
     def spawn(self, args, cwd, name):
         path = LOGS / name
@@ -158,7 +158,7 @@ def main(argv=None):
         with Services() as services:
             try:
                 health = services.start()
-                print('ULTRON hazır; masaüstü açılıyor.', flush=True)
+                print('GÖLGE hazır; masaüstü açılıyor.', flush=True)
             except Exception as exc:
                 if args.smoke or args.backend_only:
                     raise
@@ -173,7 +173,7 @@ def main(argv=None):
                 services.env = _ensure_runtime_import_paths(os.environ.copy())
                 services.env['MARK_ULTRON_WARNING'] = str(exc)
                 services.env['PYTHONUTF8'] = '1'
-                print('UYARI: Yerel motor kullanılamıyor. ULTRON masaüstü açılıyor; logs/backend.log', flush=True)
+                print('UYARI: Yerel motor kullanılamıyor. GÖLGE masaüstü açılıyor; logs/backend.log', flush=True)
             if not args.backend_only:
                 cmd = [sys.executable, '-u', str(ROOT / 'mark_app.py')]
                 if args.smoke:
@@ -183,7 +183,7 @@ def main(argv=None):
                 if services.ui:
                     code = services.ui.wait(timeout=40)
                     if code:
-                        raise RuntimeError('ULTRON arayüz testi başarısız; logs/mark.log dosyasına bakın.')
+                        raise RuntimeError('GÖLGE arayüz testi başarısız; logs/mark.log dosyasına bakın.')
                 assert services.bridge.health()['ok'], 'Backend died while MARK was running'
                 (LOGS / 'startup.json').write_text(json.dumps(health, indent=2), encoding='utf-8')
             elif services.ui:

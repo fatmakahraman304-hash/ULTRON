@@ -62,7 +62,7 @@ class CodeAgent:
         extra = f"\nÖnceki test/teşhis geri bildirimi:\n{feedback}\n" if feedback else ""
         return self.brain.ask(
             f"Kullanıcı hedefi: {target}\n"
-            "Bu Ultron Python projesini analiz et. Güvenlik, bug, mimari ve "
+            "Bu GÖLGE Python projesini analiz et. Güvenlik, bug, mimari ve "
             f"performans sorunlarını bul; dosya ve işlev belirt.{extra}\n"
             + self.collect(paths),
             system="Sen kıdemli Python code reviewer ve güvenlik mühendisisin.",
@@ -73,7 +73,7 @@ class CodeAgent:
         extra = f"\nTest/teşhis geri bildirimi:\n{feedback}\n" if feedback else ""
         prompt = (
             f"Kullanıcı hedefi: {target}\n"
-            'Bu Ultron projesi için güvenli patch öner. JSON: '
+            'Bu GÖLGE projesi için güvenli patch öner. JSON: '
             '{"summary":str,"files":[{"path":str,"content":str}],"tests":[str]}. '
             "Gereksiz davranış değişikliği yapma. Yeni bağımlılık ekleme. "
             "Güvenlik çekirdeğine dokunma.\n"

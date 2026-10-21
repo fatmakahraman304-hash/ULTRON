@@ -460,9 +460,9 @@ class UltronRuntime:
         reg = self.registry
         reg.register("system_status", system_status, "Gerçek sistem telemetrisi getirir.")
         reg.register("self_diagnostic", self.self_diagnostic,
-                     "ULTRON'un tüm çekirdek modüllerini salt-okunur biçimde teşhis eder.")
+                     "GÖLGE'nin tüm çekirdek modüllerini salt-okunur biçimde teşhis eder.")
         reg.register("self_awareness", self.self_awareness_report,
-                     "ULTRON'un gerçek yeteneklerini ve mevcut yerel durumunu salt-okunur bildirir.")
+                     "GÖLGE'nin gerçek yeteneklerini ve mevcut yerel durumunu salt-okunur bildirir.")
         reg.register("open_application", open_application, "Windows uygulaması açar.",
                      {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]})
         reg.register("open_url", open_url, "URL'yi varsayılan tarayıcıda açar.",

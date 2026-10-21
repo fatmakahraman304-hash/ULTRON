@@ -93,7 +93,7 @@ def _preview_text(rows):
             continue
         safe.append({"role":role,"content":candidate})
     chosen = select_recap_turns(safe, max_chars=2400, max_turns=12)
-    return "\n".join(("Sen: " if row["role"]=="user" else "ULTRON: ")+row["content"]
+    return "\n".join(("Sen: " if row["role"]=="user" else "GÖLGE: ")+row["content"]
                      for row in chosen)[:3000]
 
 

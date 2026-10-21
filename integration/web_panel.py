@@ -490,7 +490,7 @@ class NativeBridge(QObject):
         source = str(source or "").strip()[:2048]
         if action == "open_file" or (action == "play" and not source):
             source, _filter = QFileDialog.getOpenFileName(
-                self.ui._win, "GÖLGE / MARK video seç", "",
+                self.ui._win, "GÖLGE video seç", "",
                 "Video ve animasyon (*.mp4 *.mkv *.mov *.avi *.webm *.m4v);;Tüm Dosyalar (*)"
             )
             if not source:
@@ -503,7 +503,7 @@ class NativeBridge(QObject):
                                   player=self.ui)
             self.emit(kind="video_notice", text=str(result))
         except Exception as exc:
-            self.emit(kind="error", text="MARK video motoru hata verdi: " +
+            self.emit(kind="error", text="GÖLGE video motoru hata verdi: " +
                       type(exc).__name__)
 
     @pyqtSlot(str)
