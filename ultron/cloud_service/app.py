@@ -4,6 +4,7 @@ from capability_readiness import readiness
 from instant_skills import instant_reply, clock_context, SKILL_SUMMARY
 import phone_skills
 import missions
+import infra
 import world_api
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
@@ -239,12 +240,27 @@ async def index(request: web.Request) -> web.FileResponse:
     return response
 
 
+LOGIN_GUARD = infra.LoginGuard()
+
+
 async def login(request: web.Request) -> web.Response:
-    body = await request.json()
-    supplied = str(body.get("password", ""))
+    client = infra.client_key(request)
+    locked = LOGIN_GUARD.retry_after(client)
+    if locked:
+        raise web.HTTPTooManyRequests(
+            text=json.dumps({"error": "too_many_attempts", "retry_after": locked,
+                             "detail": "Çok fazla hatalı deneme. Bir süre sonra tekrar dene."}, ensure_ascii=False),
+            content_type="application/json", headers={"Retry-After": str(locked)})
+    try:
+        body = await request.json()
+    except (ValueError, TypeError):
+        raise web.HTTPBadRequest(text=json.dumps({"error": "invalid_json"}), content_type="application/json")
+    supplied = str(body.get("password", "")) if isinstance(body, dict) else ""
     expected = required_env("ULTRON_PASSWORD")
-    if not hmac.compare_digest(supplied, expected):
+    if not hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8")):
+        LOGIN_GUARD.failure(client)
         raise web.HTTPUnauthorized(text=json.dumps({"error": "invalid_password"}), content_type="application/json")
+    LOGIN_GUARD.success(client)
 
     response = web.json_response({"ok": True, "user_id": DEFAULT_USER_ID})
     response.set_cookie(
@@ -2978,7 +2994,8 @@ async def prevent_stale_chat_assets(request, response):
 
 
 def build_app() -> web.Application:
-    app = web.Application(middlewares=[auth_middleware], client_max_size=18 * 1024 * 1024)
+    app = web.Application(middlewares=[infra.error_middleware, auth_middleware, infra.make_rate_limit_middleware()],
+                          client_max_size=18 * 1024 * 1024)
     app["chat_cancellations"] = ChatCancellationRegistry()
     app.router.add_get("/", index)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
@@ -3043,6 +3060,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/memories/{key}/history", list_memory_history)
     app.router.add_delete("/api/memories/{key}", delete_memory)
     app.on_response_prepare.append(prevent_stale_chat_assets)
+    app.on_response_prepare.append(infra.add_security_headers)
     app.on_startup.append(init_db)
     app.on_cleanup.append(close_db)
     return app
