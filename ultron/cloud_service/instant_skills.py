@@ -664,6 +664,9 @@ def _greeting(hour: int) -> str:
     return ("İyi geceler" if hour < 5 else "Günaydın" if hour < 12 else "İyi günler" if hour < 18 else "İyi akşamlar")
 
 
+_HABIT_TR = {"water": "su", "sleep": "uyku", "exercise": "spor", "steps": "adım", "weight": "kilo", "mood": "mod"}
+
+
 async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJson | None,
                           now: datetime | None = None, fetch_text=None) -> str | None:
     folded = fold_turkish(text)
@@ -671,7 +674,11 @@ async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJ
     if pool is None or not wants:
         return None
     local = now_local(now)
-    parts = [f"{_greeting(local.hour)}, efendim. {format_date_tr(local.date())}, saat {local:%H:%M}."]
+    try:
+        who = (await style_skills.get_style(pool, user_id)).get("name") or "efendim"
+    except Exception:
+        who = "efendim"
+    parts = [f"{_greeting(local.hour)}, {who}. {format_date_tr(local.date())}, saat {local:%H:%M}."]
     if fetch_json is not None:
         weather = await answer_weather("hava durumu", fetch_json, now)
         if weather and "ulaşamadım" not in weather and "eksik" not in weather:
@@ -683,6 +690,17 @@ async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJ
         nxt, _ = await agenda_lines(pool, user_id, tomorrow, tomorrow)
         if nxt:
             parts.append(f"➡ Yarın: {len(nxt)} kayıt, ilki: {nxt[0]}")
+    except Exception:
+        pass
+    try:
+        yesterday = local.date() - timedelta(days=1)
+        habits = await pool.fetch("SELECT habit,SUM(amount) AS total FROM owner_habits WHERE user_id=$1 AND day=$2 GROUP BY habit ORDER BY habit LIMIT 5", user_id, yesterday)
+        spent = await pool.fetchval("SELECT SUM(amount) FROM owner_expenses WHERE user_id=$1 AND spent_on=$2", user_id, yesterday)
+        recap = [f"{_HABIT_TR.get(r['habit'], r['habit'])} {format_number_tr(round(float(r['total']), 1))}" for r in habits]
+        if spent:
+            recap.append(f"harcama {format_number_tr(round(float(spent), 2))} ₺")
+        if recap:
+            parts.append("🔁 Dün: " + " · ".join(recap))
     except Exception:
         pass
     try:

@@ -823,3 +823,6 @@ New modules `style_skills.py`, `recall_skills.py`, `voice_skills.py`, `feedback_
 
 ## 2026-10-21 — Utilities and feedback buttons
 `utility_skills.py` (no model/network): yazı-tura, zar (≤10 zar, 2–1000 yüzlü), rastgele sayı, "seç: a, b, c", "N gün/hafta/ay/yıl sonra/önce hangi gün", iki tarih arası gün, "X hangi gün", yaş hesabı, VKİ (tıbbi değil uyarısıyla), bahşiş ve hesap bölüşme. `static/assistant-extras.js`: 👍/👎 under assistant messages that exist in the cloud → `POST /api/feedback`; service-worker cache `ultron-shell-v82` (tests updated). Corpus +18 cases incl. ordinary-chat negatives.
+
+## 2026-10-21 — Richer morning briefing
+`answer_briefing` greets with the owner's chosen name (style) instead of "efendim", and adds a "🔁 Dün" recap (habits logged yesterday + yesterday's spending). Today's reminders were already in the agenda block, so no duplicate section. Real-PostgreSQL test added; 566 passed in `ultron/cloud_service`.

@@ -180,6 +180,17 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         self.assertNotEqual(removed.get("skill_usage"), -1)
         self.assertNotEqual(removed.get("skill_feedback"), -1)
 
+    async def test_briefing_uses_name_reminders_and_yesterday_recap(self):
+        now = datetime(2026, 10, 21, 6, 0, tzinfo=timezone.utc)      # 09:00 Istanbul
+        await self.say("bana Murat diye hitap et")
+        await self.pool.execute("INSERT INTO owner_reminders(user_id,text,due_at) VALUES($1,'ilaç iç',$2)", self.u, now + timedelta(hours=5))
+        await self.pool.execute("INSERT INTO owner_habits(user_id,habit,amount,day) VALUES($1,'water',6,'2026-10-20'),($1,'sleep',7.5,'2026-10-20')", self.u)
+        await self.pool.execute("INSERT INTO owner_expenses(user_id,amount,category,spent_on) VALUES($1,150,'market','2026-10-20')", self.u)
+        reply = await self.say("günaydın", now=now)
+        self.assertIn("Günaydın, Murat.", reply)
+        self.assertEqual(reply.count("ilaç iç"), 1)  # reminders already appear in the agenda block
+        self.assertIn("🔁 Dün: uyku 7,5 · su 6 · harcama 150 ₺", reply)
+
 
 if __name__ == "__main__":
     unittest.main()
