@@ -998,3 +998,6 @@ All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real Po
 
 ## 2026-10-21 — After the independent review fixes (Linux sandbox, real PostgreSQL 16)
 - `ultron/cloud_service` pytest → 582 passed, 93 skipped; routing 479/479, hijacked chat 0/187; all `.cjs` pass. CI on the previous head had one red job (`verify`: `scripts/tests/test_scene_desktop_api.py` used a noun that is now a library shape) — fixed in 1c4b4a9.
+
+## 2026-10-22 — Persona/agent eval harness
+- `evals/conversation/persona_agent_eval.py` (10 persona rules + 5 agent goals) is unit-tested offline (5 tests pass). **Real-model run: NOT_RUN** (no `GEMINI_API_KEY` here); no model transcripts or scores exist yet. First step for the owner: set the key and run it, then read the transcripts.

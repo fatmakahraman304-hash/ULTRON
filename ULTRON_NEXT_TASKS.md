@@ -917,3 +917,7 @@ On the phone (hologram view) and in the laptop Hologram Lab say: "bana bir kalp 
 1. Ask GÖLGE for something it cannot do ("bana uçak bileti al"); if the model admits it cannot, expect a "🛠 … eksik N" hint. Then `eksiklerim`, `eksik N'i geliştir`.
 2. With the laptop online confirm the laptop agent treats the task as proposal-only (shows a diff, writes nothing until "onaylıyorum"). If it ignores the "YALNIZCA TASLAK" instruction, that is a bug in the laptop agent's task handling — fix it there, never relax the gate.
 3. Optionally raise model quality (see GOLGE_KENDI_KODUNU_GELISTIRME.md → "Zekâ düzeyi") and compare answers; record results in ULTRON_TEST_RESULTS.md.
+
+## 2026-10-22 — Measure the persona and the agent with the real model
+1. `GEMINI_API_KEY=… python evals/conversation/persona_agent_eval.py --output persona-agent.json`; read every FAIL transcript (is the robot over-joking? does it joke on serious topics? does the agent follow the JSON protocol?). Tune `personality.py` / `AGENT_SYSTEM`, re-run, record the real numbers in `ULTRON_TEST_RESULTS.md`.
+2. On the phone try: "robot modu aç", "günaydın", "kendimi anlat", "kedimin adı Pamuk" (expect the 🧠 hint), "ajan: yarınki toplantıya hazırlan", then "bekleyen işlemler" / the approval cards.
