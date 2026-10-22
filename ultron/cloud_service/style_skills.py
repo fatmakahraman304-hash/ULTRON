@@ -12,9 +12,11 @@ from typing import Any
 if __package__:
     from .text_normalization import fold_turkish
     from . import proactive
+    from .personality import persona_of
 else:
     from text_normalization import fold_turkish
     import proactive
+    from personality import persona_of
 
 KEY = "style"
 LENGTHS = {"short": "kısa", "medium": "orta uzunlukta", "long": "ayrıntılı"}
@@ -27,6 +29,10 @@ _EMOJI = re.compile(r"^(?:lutfen\s+)?emoji\w*\s+(kullanma|kullan|ekleme|ekle|yaz
 _SHOW = re.compile(r"^(?:konusma\s+tarzim|tarzim|konusma\s+ayarlarim|nasil\s+konusuyorsun|konusma\s+tarzini\s+(?:goster|soyle))\s*(?:ne)?\s*\??$")
 _RESET = re.compile(r"^(?:konusma\s+)?tarz\w*\s+(?:sifirla|varsayilana\s+don)\w*$|^(?:konusma\s+)?(?:ayarlarini|tarzini)\s+sifirla$")
 _NAME = re.compile(r"^\s*(?:lutfen\s+)?bana\s+([^\W\d_]{2,20}(?:\s+[^\W\d_]{2,20})?)\s+diye\s+(?:hitap\s+et|seslen|cagir|[cç]a[gğ][iı]r)(?:\s+lutfen)?\s*$", re.I)
+_PERSONA_ROBOT = re.compile(r"^(?:lutfen\s+)?(?:robot\s+modu(?:nu)?(?:\s+(?:ac|baslat))?|(?:sakaci|komik|esprili)\s+robot\s+ol|robot\s+gibi\s+konus|robot\s+kisiligi(?:ne\s+don)?)\s*$")
+_PERSONA_FRIEND = re.compile(r"^(?:lutfen\s+)?(?:samimi\s+arkadas\s+modu(?:nu)?(?:\s+ac)?|arkadas\s+gibi\s+konus|arkadas\s+modu(?:nu)?(?:\s+ac)?)\s*$")
+_PERSONA_NORMAL = re.compile(r"^(?:lutfen\s+)?(?:normal\s+mod(?:a\s+don)?|robot\s+modu(?:nu)?\s+(?:kapat|birak)|duz\s+konus|kisilik\s+kapat|ciddi\s+mod)\s*$")
+_PERSONA_SHOW = re.compile(r"^(?:kisiligin\s+ne|nasil\s+bir\s+asistansin|hangi\s+modtasin|kisilik\s+ayarim)\s*\??$")
 _NAME_BAD = {"sen", "siz", "efendim"}  # address forms are handled by _ADDR, not names
 
 
@@ -34,7 +40,7 @@ def wants_style(text: str) -> bool:
     f = fold_turkish(text)
     if len(f) > 70:
         return False
-    return bool(_LEN.match(f) or _TONE.match(f) or _ADDR.match(f) or _EMOJI.match(f)
+    return bool(_PERSONA_ROBOT.match(f) or _PERSONA_FRIEND.match(f) or _PERSONA_NORMAL.match(f) or _PERSONA_SHOW.match(f) or _LEN.match(f) or _TONE.match(f) or _ADDR.match(f) or _EMOJI.match(f)
                 or _SHOW.match(f) or _RESET.match(f) or _NAME.match(f.strip()))
 
 
@@ -113,6 +119,18 @@ async def handle(text: str, pool: Any, user_id: str) -> str | None:
     if _RESET.match(f):
         await proactive.set_extra(pool, user_id, KEY, {})
         return "Konuşma tarzını varsayılana döndürdüm."
+    if _PERSONA_ROBOT.match(f):
+        await _save(pool, user_id, persona="robot")
+        return "Robot modu açık! Bip bop, şakacı sidekick göreve hazır. 🤖 (Ciddi konularda şakayı kapatırım, söz.)"
+    if _PERSONA_FRIEND.match(f):
+        await _save(pool, user_id, persona="friend")
+        return "Tamam, samimi arkadaş modundayım; sohbet edelim, şakaları ölçülü tutarım."
+    if _PERSONA_NORMAL.match(f):
+        await _save(pool, user_id, persona="normal", **({"tone": "serious"} if f.strip().endswith("ciddi mod") else {}))
+        return "Normal moda döndüm: sakin ve net."
+    if _PERSONA_SHOW.match(f):
+        label = {"robot": "şakacı robot sidekick 🤖", "friend": "samimi arkadaş", "normal": "normal (sade)"}[persona_of(await get_style(pool, user_id))]
+        return f"Şu an {label} modundayım. Değiştirmek için “robot modu”, “samimi arkadaş modu” ya da “normal mod” de."
     if _SHOW.match(f):
         return describe(await get_style(pool, user_id))
     m = _NAME.match(text.strip())

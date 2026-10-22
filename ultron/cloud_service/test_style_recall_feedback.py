@@ -514,6 +514,27 @@ class DatabaseContract(unittest.IsolatedAsyncioTestCase):
         self.assertIn("madde eklendi", await self.say("tatil için liste hazırla"))          # alias → seyahat
         self.assertIsNone(await self.say("liste hazırla"))
 
+    async def test_personas_flavor_and_profile(self):
+        import personality as pe
+        self.assertIn("Robot modu açık", await self.say("robot modu aç"))
+        self.assertEqual((await st.get_style(self.pool, self.u))["persona"], "robot")
+        self.assertIn("şakacı robot", await self.say("kişiliğin ne"))
+        self.assertIn("samimi arkadaş", await self.say("samimi arkadaş modu"))
+        self.assertEqual(pe.persona_of(await st.get_style(self.pool, self.u)), "friend")
+        self.assertIn("Normal moda", await self.say("ciddi mod"))
+        style = await st.get_style(self.pool, self.u)
+        self.assertEqual((style["persona"], style["tone"]), ("normal", "serious"))
+        self.assertEqual(pe.persona_block(style), "")                      # no personality text in normal mode
+        await self.say("tarzı sıfırla")
+        # profile only reports what is recorded
+        self.assertIn("daha yeni tanıyorum", await self.say("bana kendimi anlat"))
+        await self.say("bana Murat diye hitap et")
+        await self.say("hatırla: kahveyi sade içerim")
+        await self.say("hedef ekle: kitap oku = 12")
+        profile = await self.say("bana kendimi anlat")
+        for part in ("Sana Murat diyorum", "1 şeyi hafızama", "1 hedefin var", "uydurmadım"):
+            self.assertIn(part, profile)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -276,3 +276,9 @@ CASES += [
     ("bilgi tabanından sil: garanti", "kb"), ("bekleyen işlemler", "approvals"), ("onayla 3", "approvals"), ("reddet 3", "approvals"), ("hepsini onayla", "approvals"),
     ("onaylıyorum", None), ("bilgi tabanı nedir", None), ("onayla ve gönder", None),
 ]
+
+CASES += [
+    ("robot modu aç", "style"), ("şakacı robot ol", "style"), ("samimi arkadaş modu", "style"), ("normal mod", "style"), ("kişiliğin ne", "style"),
+    ("bana kendimi anlat", "recall"), ("profilim", "recall"),
+    ("robot filmi öner", None), ("robot süpürge nasıl çalışır", None), ("normal bir gün geçirdim", None),
+]

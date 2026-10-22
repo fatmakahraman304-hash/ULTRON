@@ -19,9 +19,11 @@ from zoneinfo import ZoneInfo
 
 if __package__:
     from .text_normalization import fold_turkish
+    from . import personality
     from . import calendar_feed, reminders, memory_skills, phone_skills, proactive, plan_skills, smart_home, knowledge_skills, missions, alert_skills, list_skills, expense_skills, birthday_skills, habit_skills, nav_skills, focus_skills, kb_skills, approval_skills, template_skills, schedule_skills, fun_skills, ledger_skills, calc_skills, gap_skills, routine_skills, weekly_skills, journal_skills, utility_skills, style_skills, recall_skills, feedback_skills
 else:
     from text_normalization import fold_turkish
+    import personality
     import calendar_feed
     import reminders
     import memory_skills
@@ -686,7 +688,8 @@ async def answer_briefing(text: str, pool: Any, user_id: str, fetch_json: FetchJ
         return None
     local = now_local(now)
     try:
-        who = (await style_skills.get_style(pool, user_id)).get("name") or "efendim"
+        style = await style_skills.get_style(pool, user_id)
+        who = style.get("name") or ("dostum" if personality.persona_of(style) == "robot" else "efendim")
     except Exception:
         who = "efendim"
     parts = [f"{_greeting(local.hour)}, {who}. {format_date_tr(local.date())}, saat {local:%H:%M}."]
@@ -754,7 +757,7 @@ HELP_TEXT = (
     "🗓 Boş zaman: “yarın ne zaman boşum”, “cuma müsait saatlerim”; plan eklerken çakışma uyarısı\n"
     "🎂 Doğum günü: “Ahmet'in doğum günü 3 Mart”, “doğum günlerim”, “Ahmet'in doğum gününe kaç gün var”, “her yıl 14 şubat sevgililer günü hatırlat”\n"
     "🛒 Liste/harcama: “alışveriş listesine süt ekle”, “150 lira market harcaması ekle”, “bu ay ne kadar harcadım”, “aylık bütçem 15000 tl”, “bütçe durumu”, “10 dakika zamanlayıcı kur”\n"
-    "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “Ahmet hakkında ne biliyorsun”, “dün ne konuştuk”, “nerede kalmıştık”, “hafıza özeti”, “son notlarım”, “düzelt: kahve => sade kahve”, “hafızada kahve notumun geçmişi”, “unut: …”\n"
+    "🧠 Hafıza: “hatırla: …”, “neler hatırlıyorsun”, “Ahmet hakkında ne biliyorsun”, “dün ne konuştuk”, “nerede kalmıştık”, “hafıza özeti”, “bana kendimi anlat”, “son notlarım”, “düzelt: kahve => sade kahve”, “hafızada kahve notumun geçmişi”, “unut: …”\n"
     "🗂 Bilgi tabanı: “son belgeyi bilgi tabanına ekle”, “bilgi tabanına ekle: not”, “bilgi tabanında ara: garanti”, “notlarıma göre: garanti süresi ne kadar”, “bilgi tabanım”\n"
     "✅ Onay kuyruğu: ajan bir değişiklik önerirse “bekleyen işlemler”, “onayla 3”, “reddet 3” (onay yalnızca yazarak)\n"
     "🧳 Hazır listeler: “seyahat için liste hazırla”, “deprem çantası listesi hazırla”, “kamp / taşınma / sınav / iş görüşmesi / piknik / plaj / hastane çantası / bebek çantası / bayram / market”, “hazır listeler”\n"

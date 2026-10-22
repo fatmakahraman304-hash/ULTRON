@@ -897,3 +897,10 @@ Opt-in "akıllı öneriler aç/kapat" (pref `smart_nudges`, default off; a quest
 
 ## 2026-10-22 — Approval cards in the PWA
 `GET /api/actions/pending` and `POST /api/actions/{id}/approve|reject` (same code path as typing "onayla N": PROPOSABLE skills only, owner-scoped, an action never runs twice, a foreign id is invisible). `assistant-extras.js` shows each pending action once as a card with ONAYLA / REDDET and polls with the reminders (20 s). SW cache v87. Tests: real-PostgreSQL route test, JS card test.
+
+## 2026-10-22 — Personality: playful robot sidekick (`personality.py`), profile, memory hints
+- **Personas** `robot` (default, `GOLGE_DEFAULT_PERSONA` can change it) / `friend` / `normal`, owner-selectable ("robot modu aç", "samimi arkadaş modu", "normal mod", "kişiliğin ne"); persona text is added to the chat and live-voice system instructions together with the explicit style choices. The safety rules stay: no jokes about distress, illness, money trouble, security or emergencies; at most one joke; information first; no claims of real feelings.
+- **Flavor lines** for exact skill answers (reminders, plans, lists, weather, clock, focus, routines, calc, kb, briefing, schedule, non-sensitive habits): deterministic (same answer + day → same decision), ~35 % of eligible answers, never on warnings/errors/long answers, never for money, memory, journal, alerts, approvals, mood/sleep/weight. Briefing greets with "dostum" in robot mode (or the chosen name).
+- **"bana kendimi anlat"**: profile built only from recorded data (name, memory/goal/routine/contact/KB counts, tracked habits, budget, most-used skills).
+- **Memory hints** (`memory_hints.py`): when the owner states a lasting personal fact ("kedimin adı Pamuk", "alerjim var: fıstık", "29 yaşındayım"), the model reply gets one line offering "hatırla: …"; nothing is saved without the owner's command; questions/secrets/long text never trigger it.
+Tests: `test_personality.py`, `test_memory_hints.py`, real-PostgreSQL persona/profile test; corpus 604/604, hijacked chat 0/217. NOT measured: how the real model renders the persona (humour quality, over-joking), how it sounds in Gemini Live.

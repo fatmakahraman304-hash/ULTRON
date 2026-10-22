@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from capability_readiness import readiness
 from instant_skills import instant_reply, clock_context, SKILL_SUMMARY, THINKING_GUIDE
-import style_skills, voice_skills, feedback_skills, shape_library, gap_skills, kb_skills, approval_skills
+import memory_hints, personality, style_skills, voice_skills, feedback_skills, shape_library, gap_skills, kb_skills, approval_skills
 import phone_skills
 import missions
 import infra
@@ -2044,6 +2044,10 @@ async def chat(request: web.Request) -> web.Response:
         skill = None  # A skill bug must never block a normal model answer.
     if skill:
         await feedback_skills.record_usage(pool, request["user_id"], skill["skill"])
+        try:
+            skill["reply"] = personality.decorate(skill["skill"], skill["reply"], await style_skills.get_style(pool, request["user_id"]))
+        except Exception:
+            pass          # flavor is optional and must never break an exact answer
     if skill and not cancel_record["cancel_requested"]:
         async with cancel_registry.completion_lock:
             if cancel_record["cancel_requested"]:
@@ -2099,7 +2103,7 @@ async def chat(request: web.Request) -> web.Response:
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
         user_message=text, read_only=True, has_prior_turns=bool(turns),
-    ) + "\n" + clock_context() + SKILL_SUMMARY + THINKING_GUIDE + style_skills.style_instruction(await style_skills.get_style(pool, request["user_id"]))
+    ) + "\n" + clock_context() + SKILL_SUMMARY + THINKING_GUIDE + personality.effective_instruction(await style_skills.get_style(pool, request["user_id"]), style_skills.style_instruction)
     kb_question = kb_skills.split_prefix(text)
     if kb_question is not None:
         try:
@@ -2141,6 +2145,7 @@ async def chat(request: web.Request) -> web.Response:
                 reply = append_research_sources(reply, research_result)
             else:
                 reply += await gap_skills.auto_gap_hint(pool, request["user_id"], text, reply)
+                reply += memory_hints.hint(text)
     except Exception as exc:
         error_code = _safe_provider_error(exc)
         await pool.execute(
@@ -2253,7 +2258,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         has_prior_turns=not recent.startswith("No previous chat messages."),
     )
     system_instruction = build_live_voice_instruction(
-        base_prompt + "\n" + clock_context() + style_skills.style_instruction(await style_skills.get_style(pool, user_id)))
+        base_prompt + "\n" + clock_context() + personality.effective_instruction(await style_skills.get_style(pool, user_id), style_skills.style_instruction))
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
     voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
     try:

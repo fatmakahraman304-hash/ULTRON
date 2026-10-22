@@ -24,6 +24,7 @@ _WHEN_TALK = re.compile(r"^(?:peki\s+)?(bugun|dun|evvelsi gun|onceki gun|bu haft
 _SUMMARY = re.compile(r"^(?:hafiza\s+ozeti|hafiza\s+ozetin|hafizanin\s+ozeti|hafiza\s+durumu|neler\s+biliyorsun\s+ozetle)\s*\??$")
 _RECENT = re.compile(r"^son\s+(?:(\d{1,2})\s+)?(?:notlarim|kayitlarim|kaydettiklerim|kayit|not)\s*\??$|^(bugun|dun|bu hafta|gecen hafta)\s+ne\s+(?:kaydettim|ekledim|not\s+aldim)\s*\??$")
 _RESUME = re.compile(r"^(?:peki\s+)?(?:nerede\s+kalmistik|en\s+son\s+ne\s+konustuk|en\s+son\s+ne\s+konusmustuk|son\s+konusmamiz\s+neydi)\s*\??$")
+_PROFILE = re.compile(r"^(?:bana\s+kendimi\s+anlat|beni\s+ozetle|profilim|beni\s+ne\s+kadar\s+taniyorsun\s+ozetle|kimim\s+ben)\s*\??$")
 _SELF = {"ben", "benim", "beni", "bu", "su", "o", "bunlar", "sen", "seni", "kendin", "kendini"}
 MAX_SCAN = 600
 
@@ -36,7 +37,7 @@ def wants_recall(text: str) -> bool:
         m = rx.match(f)
         if m and _topic(m) not in _SELF:
             return True
-    return bool(_WHEN_TALK.match(f) or _SUMMARY.match(f) or _RECENT.match(f) or _RESUME.match(f))
+    return bool(_WHEN_TALK.match(f) or _SUMMARY.match(f) or _RECENT.match(f) or _RESUME.match(f) or _PROFILE.match(f))
 
 
 def _topic(m: re.Match) -> str:
@@ -99,6 +100,37 @@ async def handle(text: str, pool: Any, user_id: str, now: datetime | None = None
         total = sum(int(r["n"]) for r in rows)
         cats = ", ".join(f"{r['category'].lower()} ({r['n']})" for r in rows[:6])
         return f"Hafızamda {total} kayıt var: {cats}. Ayrıntı için “neler hatırlıyorsun” ya da “… hakkında ne biliyorsun” de."
+    if _PROFILE.match(f):
+        async def count(sql: str) -> int:
+            return int(await pool.fetchval(sql, user_id) or 0)
+        prefs = await pool.fetchval("SELECT prefs FROM owner_prefs WHERE user_id=$1", user_id)
+        if isinstance(prefs, str):
+            import json as _json
+            try:
+                prefs = _json.loads(prefs)
+            except ValueError:
+                prefs = {}
+        style = (prefs or {}).get("style") or {}
+        bits = []
+        if style.get("name"):
+            bits.append(f"Sana {style['name']} diyorum")
+        mems = await count("SELECT COUNT(*) FROM memories WHERE user_id=$1")
+        if mems:
+            bits.append(f"{mems} şeyi hafızama kaydettim")
+        for sql, label in (("SELECT COUNT(*) FROM owner_goals WHERE user_id=$1", "hedefin"), ("SELECT COUNT(*) FROM owner_routines WHERE user_id=$1", "rutinin"),
+                           ("SELECT COUNT(*) FROM owner_contacts WHERE user_id=$1", "kişi kaydın"), ("SELECT COUNT(*) FROM kb_docs WHERE user_id=$1", "bilgi tabanı kaydın"),
+                           ("SELECT COUNT(DISTINCT habit) FROM owner_habits WHERE user_id=$1", "takip ettiğin alışkanlık")):
+            n = await count(sql)
+            if n:
+                bits.append(f"{n} {label} var")
+        if (prefs or {}).get("budget"):
+            bits.append("aylık bütçe takibi açık")
+        top = await pool.fetch("SELECT skill,SUM(n)::int AS n FROM skill_usage WHERE user_id=$1 GROUP BY skill ORDER BY n DESC LIMIT 3", user_id)
+        if top:
+            bits.append("en çok kullandığın: " + ", ".join(r["skill"] for r in top))
+        if not bits:
+            return "Seni daha yeni tanıyorum: henüz kayıtlı bir şeyim yok. Bana kendinden bahset ya da “hatırla: …” de, hemen başlayalım. 🤖"
+        return "Seni şöyle tanıyorum: " + "; ".join(bits) + ". (Hepsi senin kayıtlarından; hiçbirini uydurmadım.)"
     if _RESUME.match(f):
         rows = [r for r in await _past_messages(pool, user_id, limit=40) if not _is_recall_query(r["content"])][:3]
         if not rows:
