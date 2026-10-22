@@ -1001,3 +1001,7 @@ All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real Po
 
 ## 2026-10-22 — Persona/agent eval harness
 - `evals/conversation/persona_agent_eval.py` (10 persona rules + 5 agent goals) is unit-tested offline (5 tests pass). **Real-model run: NOT_RUN** (no `GEMINI_API_KEY` here); no model transcripts or scores exist yet. First step for the owner: set the key and run it, then read the transcripts.
+
+## 2026-10-22 — Hologram colours (local run)
+- Cloud pytest with disposable PostgreSQL 16 (`ULTRON_TEST_DATABASE_URL` + `ULTRON_QUEUE_TEST_DATABASE_URL`, `PYTHONPATH=repo root`): 729 passed, 0 failed. All `test_*.cjs`, `scripts/test_golge_minimal_ui.mjs`, `scripts/tests/test_scene_desktop_api.py`: pass. Frontend `tsc --noEmit`, `npm run build`, `npm run test:earth`: pass.
+- NOT RUN: real-device rendering of coloured holograms (phone/Windows laptop), CI for this commit (check after push).

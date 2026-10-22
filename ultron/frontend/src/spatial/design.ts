@@ -1,6 +1,6 @@
 /** Data-only geometry: never execute model output or fetch URLs from it. */
 export type Shape='box'|'sphere'|'cylinder'|'cone'|'torus'|'circle'|'plane'|'triangle';
-export type Design={name:string;parts:{name:string;shape:Shape;size:[number,number,number];position:[number,number,number];rotation:[number,number,number]}[]};
+export type Design={name:string;parts:{name:string;shape:Shape;size:[number,number,number];position:[number,number,number];rotation:[number,number,number];color?:string}[]};
 export function validateDesign(raw:unknown):Design{
  const fail=():never=>{throw Error('Geçerli bir model taslağı üretilemedi. Önceki sahnen korunuyor.');};
  let d:any=raw;
@@ -8,7 +8,7 @@ export function validateDesign(raw:unknown):Design{
  const keys=(o:any,allowed:string[])=>o&&typeof o==='object'&&!Array.isArray(o)&&Object.keys(o).every(k=>allowed.includes(k));
  const vec=(v:any,min:number,max:number)=>Array.isArray(v)&&v.length===3&&v.every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=min&&n<=max);
  if(!keys(d,['name','parts'])||typeof d.name!=='string'||!d.name.trim()||d.name.length>100||!Array.isArray(d.parts)||d.parts.length<1||d.parts.length>24)fail();
- for(const p of d.parts)if(!keys(p,['name','shape','size','position','rotation'])||typeof p.name!=='string'||!p.name.trim()||p.name.length>100||!['box','sphere','cylinder','cone','torus','circle','plane','triangle'].includes(p.shape)||!vec(p.size,.05,6)||!vec(p.position,-6,6)||!vec(p.rotation,-6.29,6.29))fail();
+ for(const p of d.parts)if(!keys(p,['name','shape','size','position','rotation','color'])||(p.color!==undefined&&!(typeof p.color==='string'&&/^#[0-9a-fA-F]{6}$/.test(p.color)))||typeof p.name!=='string'||!p.name.trim()||p.name.length>100||!['box','sphere','cylinder','cone','torus','circle','plane','triangle'].includes(p.shape)||!vec(p.size,.05,6)||!vec(p.position,-6,6)||!vec(p.rotation,-6.29,6.29))fail();
  return d;
 }
 export async function requestDesign(description:string,signal:AbortSignal):Promise<Design>{

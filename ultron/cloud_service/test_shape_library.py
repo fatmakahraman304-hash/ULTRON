@@ -56,6 +56,24 @@ class ShapeLibraryTests(unittest.TestCase):
                 covered = any(n == w or n in w.split() or w.startswith(n) for n in nouns)
                 self.assertTrue(covered, f"{w!r} ({gen.__name__}) missing from SHAPE_*_NOUNS in intents.ts")
 
+    def test_colors_are_valid_hex_and_survive_validation(self):
+        import scene_design
+        design = scene_design.validate(lib.generate("ağaç"))
+        colors = {p["name"]: p.get("color") for p in design["parts"]}
+        self.assertEqual(colors["gövde"], "#8b5a2b")
+        self.assertEqual(colors["yaprak üst"], "#2e9e4f")
+        for q in ("kalp", "ev", "çiçek", "kardan adam", "roket", "güneş sistemi", "ev ve ağaç", "robot"):
+            for p in scene_design.validate(lib.generate(q))["parts"]:
+                self.assertRegex(p.get("color", "#000000"), r"^#[0-9a-f]{6}$", q)
+
+    def test_scene_design_rejects_bad_color(self):
+        import scene_design
+        part = {"name": "a", "shape": "box", "size": [1, 1, 1], "position": [0, 0, 0], "rotation": [0, 0, 0]}
+        scene_design.validate({"name": "x", "parts": [{**part, "color": "#A0b1C2"}]})
+        for bad in ("red", "#12345", "#gggggg", "url(x)", 5):
+            with self.assertRaises(ValueError):
+                scene_design.validate({"name": "x", "parts": [{**part, "color": bad}]})
+
 
 if __name__ == "__main__":
     unittest.main()

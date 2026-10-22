@@ -422,11 +422,46 @@ def _matches(folded: str):
     return [g for _, _, g in sorted(kept, key=lambda x: x[0])]
 
 
+# Optional per-part colours: generator name → (part-name substring, "#rrggbb") rules, first match wins.
+COLORS = {
+    "heart": (("", "#e5484d"),),
+    "house": (("çatı", "#b5473a"), ("kapı", "#7a4a26"), ("pencere", "#8ecae6"), ("baca", "#8d5a44"), ("gövde", "#e8d8b0")),
+    "tree": (("gövde", "#8b5a2b"), ("yaprak", "#2e9e4f")),
+    "snowman": (("burun", "#ff8a1f"), ("şapka", "#2b2d42"), ("", "#f4f7fb")),
+    "robot": (("göz", "#ffd23f"), ("anten", "#e5484d"), ("", "#9aa7b4")),
+    "rocket": (("alev", "#ff8a1f"), ("kanat", "#e5484d"), ("burun", "#e5484d"), ("pencere", "#8ecae6"), ("", "#f4f7fb")),
+    "flower": (("merkez", "#ffd23f"), ("sap", "#2e9e4f"), ("yaprak", "#ff6fa5")),
+    "mushroom": (("şapka", "#e5484d"), ("", "#f4ead2")),
+    "star": (("", "#ffd23f"),),
+    "candle": (("alev", "#ff8a1f"), ("", "#f4ead2")),
+    "diamond": (("", "#5ad1e6"),),
+    "saturn": (("halka", "#d9b36c"), ("", "#e8c98a")),
+    "earth": (("ay", "#c9cdd2"), ("", "#2f7fd1")),
+    "solar_system": (("güneş", "#ffb703"),),
+}
+PLANET_COLORS = ("#b0b0b0", "#e8c07a", "#2f7fd1", "#c1440e", "#d9a066", "#e8d9a0", "#7fd1d9", "#4166f5")
+
+
+def _tint(gen, parts):
+    name = getattr(gen, "__name__", "")
+    rules = COLORS.get(name, ())
+    out = []
+    for p in parts:
+        color = next((c for key, c in rules if key in p["name"]), None)
+        if color is None and name == "solar_system" and p["name"].startswith("gezegen"):
+            color = PLANET_COLORS[(int(p["name"].split()[-1]) - 1) % len(PLANET_COLORS)]
+        out.append({**p, "color": color} if color else p)
+    return out
+
+
 def _scaled(parts, factor, dx):
     out = []
     for p in parts:
-        out.append(part(p["name"], p["shape"], [s * factor for s in p["size"]],
-                        [p["position"][0] * factor + dx, p["position"][1] * factor, p["position"][2] * factor], p["rotation"]))
+        q = part(p["name"], p["shape"], [s * factor for s in p["size"]],
+                 [p["position"][0] * factor + dx, p["position"][1] * factor, p["position"][2] * factor], p["rotation"])
+        if "color" in p:
+            q["color"] = p["color"]
+        out.append(q)
     return out
 
 
@@ -441,11 +476,11 @@ def generate(description: str) -> dict | None:
     n = _count(folded)
     gens = gens[:3]
     if len(gens) == 1:
-        parts = gens[0](n)
+        parts = _tint(gens[0], gens[0](n))
     else:
         parts, slot = [], 5.0 / len(gens)
         for i, g in enumerate(gens):
-            piece = g(None)
+            piece = _tint(g, g(None))
             factor = .55 if len(gens) == 2 else .4
             scaled = _scaled(piece, factor, -2.5 + slot * (i + .5))
             if len(parts) + len(scaled) > MAX_PARTS:

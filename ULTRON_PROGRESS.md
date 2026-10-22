@@ -904,3 +904,9 @@ Opt-in "akıllı öneriler aç/kapat" (pref `smart_nudges`, default off; a quest
 - **"bana kendimi anlat"**: profile built only from recorded data (name, memory/goal/routine/contact/KB counts, tracked habits, budget, most-used skills).
 - **Memory hints** (`memory_hints.py`): when the owner states a lasting personal fact ("kedimin adı Pamuk", "alerjim var: fıstık", "29 yaşındayım"), the model reply gets one line offering "hatırla: …"; nothing is saved without the owner's command; questions/secrets/long text never trigger it.
 Tests: `test_personality.py`, `test_memory_hints.py`, real-PostgreSQL persona/profile test; corpus 604/604, hijacked chat 0/217. NOT measured: how the real model renders the persona (humour quality, over-joking), how it sounds in Gemini Live.
+
+## 2026-10-22 — Hologram per-part colours
+- Designs may carry an optional `"color":"#rrggbb"` per part (strict hex validation in `scene_design.py` and `spatial/design.ts`; Gemini SYSTEM prompt mentions it). `HologramScene.ts` renders a tinted material (emissive = half tint) and restores it after selection.
+- `shape_library.py`: colour rules per generator (heart red, tree trunk brown/leaves green, house walls/roof/door/window, snowman, robot, rocket, flower, mushroom, star, candle, diamond, Saturn, Earth, solar-system planet palette); combined shapes keep colours. Laptop `scene_design_api.py` uses the same validator/library.
+- SW cache `ultron-shell-v88`; `static/scene-control.js` rebuilt.
+Tests: 2 new tests in `test_shape_library.py` (hex validity after validation, bad colour rejected). NOT done: visual check on a real phone/laptop GPU.

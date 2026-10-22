@@ -1,3 +1,6 @@
+## 2026-10-22 — Hologram colours: owner check
+- Pull branch on the laptop, open HologramLab, ask for "kalp", "ağaç", "ev", "güneş sistemi" and confirm the parts are coloured; same on phone (PWA cache v88 must refresh). Report any dull/unreadable colours (files: `shape_library.py` COLORS, `HologramScene.ts`).
+
 ## 2026-10-21 — Kalan gerçek cihaz doğrulamaları
 
 1. Bu push sonrası ilk Render cold-start'ının loglarında `startup_timing stage=...` satırlarını oku ve 23-30 dk gecikmenin hangi aşamada olduğunu kaydet (import/DB pool/schema/port). Bulguya göre asıl düzeltme bir SONRAKİ oturumda yapılmalı — henüz tahmine dayalı değişiklik yapılmadı.
