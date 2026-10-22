@@ -2338,6 +2338,11 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 }
             },
             {
+                "name": "start_agent",
+                "description": "Start GÖLGE's autonomous agent for a multi-part goal that needs several sources (calendar, weather, memory, notes, research), e.g. 'prepare me for tomorrow's meeting'. It works in the background, never changes anything by itself (changes are only proposed for the owner to approve by typing) and writes its report to the chat screen. Use it for goals, not for simple questions.",
+                "parameters": {"type": "OBJECT", "properties": {"goal": {"type": "STRING", "description": "The goal in the owner's words, at most 300 characters."}}, "required": ["goal"]}
+            },
+            {
                 "name": "send_laptop_task",
                 "description": "Delegate any task that the paired Windows desktop GÖLGE can perform. This is the phone voice assistant's gateway to the full desktop action/plugin/tool set; use it automatically for desktop-capable tasks, not only when the user literally says laptop.",
                 "parameters": {
@@ -2723,6 +2728,18 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         id=fc.id, name=name,
                         response={"ok": True, "action": action, "query": query},
                     )
+
+                if name == "start_agent":
+                    goal = " ".join(str(args.get("goal", "")).split())[:300]
+                    if len(goal) < 8:
+                        return types.FunctionResponse(id=fc.id, name=name, response={"ok": False, "error": "goal_required"})
+                    try:
+                        started = await missions.start_core(request.app, user_id, goal, str(conv_uuid), "agent")
+                    except Exception:
+                        return types.FunctionResponse(id=fc.id, name=name, response={"ok": False, "error": "agent_unavailable"})
+                    if started.get("mission_id"):
+                        await send_json({"type": "mission_started", "mission_id": started["mission_id"], "conversation_id": str(conv_uuid)})
+                    return types.FunctionResponse(id=fc.id, name=name, response={"ok": bool(started.get("mission_id")), "note": started.get("reply", "")[:300]})
 
                 if name == "send_laptop_task":
                     task_text = str(args.get("task", "")).strip()[:4000]

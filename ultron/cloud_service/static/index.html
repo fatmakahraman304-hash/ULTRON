@@ -1600,6 +1600,10 @@ async function openLiveSocket(){
       // Siri/Cloud suggestions may not auto-run arbitrary settings shortcuts.
       queueIOSApproval(d);
     }
+    if(d.type==='mission_started'&&d.mission_id&&window.ULTRONMissionWatch){
+      window.ULTRONMissionWatch.create({fetchJson:(p,o)=>api(p,o),addMessage,toast,
+        speak:r=>{if(voiceEnabled&&!voiceListening)try{speakUltron(r)}catch{}}}).watch(d.mission_id,d.conversation_id);
+    }
     if(d.type==='phone_action'){
       const action=String(d.action||''),query=String(d.query||'').trim();
       const directAction=['browser','search_web','maps','call','sms','email','facetime','open_app','youtube_search','spotify_search','whatsapp_message'].includes(action);

@@ -259,6 +259,21 @@ class AgentLoopTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("laptop:", r.steps[0]["output"])
         self.assertNotIn("secret-token", json.dumps(r.steps))                        # provider errors never leak into steps
 
+    async def test_start_core_runs_the_agent_in_the_background_for_voice_and_chat(self):
+        self.deps["llm"] = scripted(act("skill", "yarın hava nasıl"), final("Yarın yağmur var; şemsiye al."))
+        app = {"db": self.pool, "mission_deps": self.deps}
+        started = await missions.start_core(app, self.u, "yarınki toplantıya hazırlan ve havaya bak", "", "agent")
+        self.assertTrue(started["mission_id"])
+        self.assertIn("onayla N", started["reply"])
+        await app["mission_tasks"][self.u]
+        row = await self.pool.fetchrow("SELECT status,report FROM missions WHERE id=$1", uuid.UUID(started["mission_id"]))
+        self.assertEqual(row["status"], "done")
+        self.assertIn("şemsiye", row["report"])
+        # only one mission at a time per owner
+        await self.pool.execute("UPDATE missions SET status='running' WHERE id=$1", uuid.UUID(started["mission_id"]))
+        again = await missions.start_core(app, self.u, "başka bir hedef için çalış", "", "agent")
+        self.assertIsNone(again["mission_id"])
+
     async def test_mission_runner_persists_progress_and_report(self):
         mid = uuid.uuid4()
         await self.pool.execute("INSERT INTO missions(id,user_id,goal) VALUES($1,$2,'yarın ne giyeyim')", mid, self.u)

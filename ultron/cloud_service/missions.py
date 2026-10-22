@@ -206,8 +206,13 @@ def _plan_text(steps: list[dict]) -> str:
 
 
 async def start(request: web.Request, goal: str, conversation_id: str = "", mode: str = "plan") -> dict:
-    """Create, plan and launch a mission. Returns the JSON for the chat reply."""
-    pool, user_id, deps = request.app["db"], request["user_id"], request.app["mission_deps"]
+    """Create, plan and launch a mission from an HTTP request. Returns the JSON for the chat reply."""
+    return await start_core(request.app, request["user_id"], goal, conversation_id, mode)
+
+
+async def start_core(app, user_id: str, goal: str, conversation_id: str = "", mode: str = "plan") -> dict:
+    """Shared by chat and live voice: needs only the application, the owner and the goal."""
+    pool, deps = app["db"], app["mission_deps"]
     running = await pool.fetchval("SELECT COUNT(*) FROM missions WHERE user_id=$1 AND status IN ('planning','running')", user_id)
     if int(running or 0) >= 1:
         return {"reply": "Zaten çalışan bir görevin var. Bitmesini bekle ya da “görevi iptal et” de.", "mission_id": None}
@@ -221,7 +226,7 @@ async def start(request: web.Request, goal: str, conversation_id: str = "", mode
     if mode == "agent":
         await mission.save([], "running")
         task = asyncio.create_task(mission.run_agent())
-        tasks = request.app.setdefault("mission_tasks", {})
+        tasks = app.setdefault("mission_tasks", {})
         tasks[user_id] = task
         task.add_done_callback(lambda t, u=user_id: tasks.pop(u, None) if tasks.get(u) is t else None)
         return {"reply": "Ajanı başlattım: hedefi adım adım çözeceğim (hava/takvim/hafıza/bilgi tabanı/araştırma). Değişiklik gerekirse yalnızca önereceğim; "
@@ -234,7 +239,7 @@ async def start(request: web.Request, goal: str, conversation_id: str = "", mode
                 "mission_id": None}
     await mission.save(steps, "running")
     task = asyncio.create_task(_run_with_plan(mission, steps))
-    tasks = request.app.setdefault("mission_tasks", {})
+    tasks = app.setdefault("mission_tasks", {})
     tasks[user_id] = task
     task.add_done_callback(lambda t, u=user_id: tasks.pop(u, None) if tasks.get(u) is t else None)
     return {"reply": f"Görevi planladım ve çalıştırıyorum:\n{_plan_text(steps)}\nBitince raporu buraya yazacağım.", "mission_id": str(mid)}

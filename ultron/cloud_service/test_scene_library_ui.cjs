@@ -21,3 +21,11 @@ test("spoken 'show a heart' reaches the hologram through control_phone_ui", () =
   assert.match(app, /"whatsapp_message", "hologram"\}/);
   assert.match(app, /shape_description_required/);
 });
+
+test("a voice-started agent mission is followed on the phone like a typed one", () => {
+  assert.match(html, /d\.type==='mission_started'&&d\.mission_id&&window\.ULTRONMissionWatch/);
+  const app = fs.readFileSync(path.join(__dirname, "app.py"), "utf8");
+  assert.match(app, /"name": "start_agent"/);
+  assert.match(app, /missions\.start_core\(request\.app, user_id, goal, str\(conv_uuid\), "agent"\)/);
+  assert.match(app, /"type": "mission_started"/);
+});
