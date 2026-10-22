@@ -289,6 +289,56 @@ class AgentLoopTests(unittest.IsolatedAsyncioTestCase):
 
 
 @unittest.skipUnless(TEST_URL, "No isolated test PostgreSQL configured")
+class ApprovalRouteTests(unittest.IsolatedAsyncioTestCase):
+    async def test_pwa_card_endpoints_use_the_same_gate(self):
+        import asyncpg
+        from aiohttp import web
+        from aiohttp.test_utils import TestClient, TestServer
+        import app as cloud
+        pool = await asyncpg.create_pool(TEST_URL, min_size=1, max_size=4)
+        await pool.execute(Path(__file__).with_name("schema.sql").read_text(encoding="utf-8"))
+        u = "ci-" + uuid.uuid4().hex[:10]
+
+        @web.middleware
+        async def as_owner(request, handler):
+            request["user_id"], request["device_id"] = u, "ci"
+            return await handler(request)
+        app = web.Application(middlewares=[as_owner])
+        app["db"] = pool
+        app.router.add_get("/api/actions/pending", cloud.actions_pending_route)
+        app.router.add_post("/api/actions/{id}/{decision}", cloud.action_decide_route)
+        client = TestClient(TestServer(app))
+        await client.start_server()
+        try:
+            pid, _ = await ap.propose(pool, u, "alışveriş listesine süt ekle")
+            rid, _ = await ap.propose(pool, u, "su içmeyi 10 dakika sonra hatırlat")
+            listed = await (await client.get("/api/actions/pending")).json()
+            self.assertEqual([a["id"] for a in listed["actions"]], [pid, rid])
+            self.assertEqual((await client.post("/api/actions/abc/approve")).status, 400)
+            self.assertEqual((await client.post(f"/api/actions/{pid}/delete")).status, 400)
+            out = await (await client.post(f"/api/actions/{pid}/approve")).json()
+            self.assertIn("✅", out["reply"])
+            self.assertEqual(await pool.fetchval("SELECT COUNT(*) FROM owner_list_items WHERE user_id=$1", u), 1)
+            out = await (await client.post(f"/api/actions/{rid}/reject")).json()
+            self.assertIn("reddedildi", out["reply"])
+            self.assertEqual(await pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1", u), 0)
+            again = await (await client.post(f"/api/actions/{pid}/approve")).json()
+            self.assertEqual(await pool.fetchval("SELECT COUNT(*) FROM owner_list_items WHERE user_id=$1", u), 1)      # never runs twice
+            self.assertTrue(again["reply"])
+            # another owner's action id is invisible
+            other = "ci-" + uuid.uuid4().hex[:10]
+            foreign, _ = await ap.propose(pool, other, "alışveriş listesine ekmek ekle")
+            out = await (await client.post(f"/api/actions/{foreign}/approve")).json()
+            self.assertEqual(await pool.fetchval("SELECT status FROM pending_actions WHERE id=$1", foreign), "pending")
+            await pool.execute("DELETE FROM pending_actions WHERE user_id=$1", other)
+        finally:
+            await client.close()
+            for table in ("pending_actions", "owner_list_items", "owner_reminders"):
+                await pool.execute(f"DELETE FROM {table} WHERE user_id=$1", u)
+            await pool.close()
+
+
+@unittest.skipUnless(TEST_URL, "No isolated test PostgreSQL configured")
 class NudgeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         import asyncpg

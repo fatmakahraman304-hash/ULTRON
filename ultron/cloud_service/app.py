@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from capability_readiness import readiness
 from instant_skills import instant_reply, clock_context, SKILL_SUMMARY, THINKING_GUIDE
-import style_skills, voice_skills, feedback_skills, shape_library, gap_skills, kb_skills
+import style_skills, voice_skills, feedback_skills, shape_library, gap_skills, kb_skills, approval_skills
 import phone_skills
 import missions
 import infra
@@ -1876,6 +1876,29 @@ def _gemini_youtube_reply(url: str, question: str, system_instruction: str) -> s
     return text
 
 
+async def actions_pending_route(request: web.Request) -> web.Response:
+    rows = await approval_skills.pending(request.app["db"], request["user_id"])
+    return web.json_response({"actions": [{"id": int(r["id"]), "text": r["text"], "source": r["source"]} for r in rows]})
+
+
+async def action_decide_route(request: web.Request) -> web.Response:
+    """Approve/reject one queued action from the PWA card; same code path as typing "onayla N"."""
+    try:
+        action_id = int(request.match_info["id"])
+        decision = request.match_info["decision"]
+        if decision not in ("approve", "reject") or not 1 <= action_id < 2 ** 62:
+            raise ValueError("bad_request")
+    except (KeyError, ValueError):
+        return web.json_response({"error": "invalid_request"}, status=400)
+
+    async def _fetch(url: str, key: str, ttl: int) -> dict:
+        return await world_api._upstream(url, ttl=ttl, key=key)
+    out = await instant_reply(f"{'onayla' if decision == 'approve' else 'reddet'} {action_id}", pool=request.app["db"], user_id=request["user_id"],
+                              fetch_json=_fetch, fetch_text=phone_skills.fetch_news_xml)
+    await feedback_skills.record_usage(request.app["db"], request["user_id"], "approvals")
+    return web.json_response({"reply": (out or {}).get("reply", "İşlem yapılamadı.")})
+
+
 async def kb_add_route(request: web.Request) -> web.Response:
     try:
         body = await request.json()
@@ -3174,6 +3197,8 @@ def build_app() -> web.Application:
     app.router.add_post("/api/chat/cancel", cancel_chat)
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/feedback", feedback_route)
+    app.router.add_get("/api/actions/pending", actions_pending_route)
+    app.router.add_post("/api/actions/{id}/{decision}", action_decide_route)
     app.router.add_get("/api/kb", kb_list_route)
     app.router.add_post("/api/kb", kb_add_route)
     app.router.add_delete("/api/kb/{id}", kb_delete_route)

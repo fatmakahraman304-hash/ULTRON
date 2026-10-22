@@ -894,3 +894,6 @@ Opt-in "akıllı öneriler aç/kapat" (pref `smart_nudges`, default off; a quest
 
 ## 2026-10-22 — Agent from voice
 `missions.start_core(app, user_id, goal, conversation, mode)` is shared by chat and live voice; live voice declares `start_agent` (goal ≥ 8 chars, ≤ 300), sends `{"type":"mission_started"}` and the PWA follows it with the same mission watcher as typed missions (report lands in the voice conversation). One mission per owner at a time. Voice policy +1 line (still < 3000 chars), SW cache v86. Not verified with a real Gemini Live session.
+
+## 2026-10-22 — Approval cards in the PWA
+`GET /api/actions/pending` and `POST /api/actions/{id}/approve|reject` (same code path as typing "onayla N": PROPOSABLE skills only, owner-scoped, an action never runs twice, a foreign id is invisible). `assistant-extras.js` shows each pending action once as a card with ONAYLA / REDDET and polls with the reminders (20 s). SW cache v87. Tests: real-PostgreSQL route test, JS card test.

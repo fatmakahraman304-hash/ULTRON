@@ -91,11 +91,59 @@
       } finally { polling = false; }
     }
 
+    // Approval cards: actions proposed by the agent / smart nudges wait here until the owner taps ✅ or ✖.
+    const shownActions = new Set();
+
+    function actionCard(item) {
+      const host = doc.getElementById("reminderBanners");
+      if (!host || shownActions.has(item.id)) return;
+      shownActions.add(item.id);
+      const box = doc.createElement("div");
+      box.className = "panel";
+      box.setAttribute("role", "alert");
+      box.style.cssText = "margin:8px 0;border:1px solid var(--neon,#ff2447)";
+      const title = doc.createElement("b");
+      title.textContent = "✅ Onayını bekliyor";
+      const text = doc.createElement("div");
+      text.textContent = String(item.text || "").slice(0, 200);
+      const row = doc.createElement("div");
+      row.className = "row";
+      row.style.marginTop = "8px";
+      const decide = (decision, label) => {
+        const b = doc.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        if (decision === "reject") b.className = "secondary";
+        b.addEventListener("click", async () => {
+          b.disabled = true;
+          try {
+            const res = await api("/api/actions/" + encodeURIComponent(item.id) + "/" + decision, {method: "POST", body: "{}"});
+            toast(String(res?.reply || "Tamam.").slice(0, 200));
+            box.remove();
+          } catch (_) { b.disabled = false; toast("İşlem gönderilemedi."); }
+        });
+        return b;
+      };
+      row.append(decide("approve", "ONAYLA"), decide("reject", "REDDET"));
+      box.append(title, text, row);
+      host.prepend(box);
+    }
+
+    async function pollActions() {
+      try {
+        const res = await api("/api/actions/pending");
+        const list = Array.isArray(res?.actions) ? res.actions : [];
+        for (const item of list) actionCard(item);
+        return list.length;
+      } catch (_) { return 0; }
+    }
+
     function startPolling() {
       if (timer) return;
-      timer = setInterval(() => { if (!doc.hidden) poll(); }, POLL_MS);
-      doc.addEventListener?.("visibilitychange", () => { if (!doc.hidden) poll(); });
+      timer = setInterval(() => { if (!doc.hidden) { poll(); pollActions(); } }, POLL_MS);
+      doc.addEventListener?.("visibilitychange", () => { if (!doc.hidden) { poll(); pollActions(); } });
       poll();
+      pollActions();
     }
 
     // ── calendar feed panel ──
@@ -220,7 +268,7 @@
       startPolling();
     }
 
-    return {init, attachFeedback, poll, refreshFeed, connectFeed, disconnectFeed, banner, enablePush, bindQuickCommands};
+    return {init, attachFeedback, pollActions, actionCard, poll, refreshFeed, connectFeed, disconnectFeed, banner, enablePush, bindQuickCommands};
   }
   return {create, FEED_ERRORS};
 });

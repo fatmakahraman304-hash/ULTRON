@@ -136,3 +136,25 @@ test("feedback buttons post a rating once per assistant message", async () => {
   const user = document.createElement(); user.className = "msg user"; user.dataset = {cloudId: "7"};
   assert.equal(x.attachFeedback(user), false);
 });
+
+test("approval cards post approve/reject once and disappear", async () => {
+  const {document, elements} = fakeDOM(["reminderBanners"]);
+  const calls = [], toasts = [];
+  const x = extras.create({document, toast: m => toasts.push(m), fetchJson: async (u, o) => {
+    calls.push([u, o && o.method]);
+    if (u === "/api/actions/pending") return {actions: [{id: 7, text: "alışveriş listesine süt ekle", source: "agent"}]};
+    return {reply: "Listeye eklendi."};
+  }});
+  assert.equal(await x.pollActions(), 1);
+  assert.equal(await x.pollActions(), 1);                                  // the same card is not shown twice
+  const card = elements.reminderBanners.children[0];
+  assert.equal(elements.reminderBanners.children.length, 1);
+  assert.equal(card.children[1].textContent, "alışveriş listesine süt ekle");
+  const [approve, reject] = card.children[2].children;
+  assert.equal(approve.textContent, "ONAYLA");
+  await approve.listeners.click();
+  assert.deepEqual(calls.filter(c => c[1] === "POST"), [["/api/actions/7/approve", "POST"]]);
+  assert.equal(card.removed, true);
+  assert.deepEqual(toasts, ["Listeye eklendi."]);
+  assert.equal(reject.textContent, "REDDET");
+});
