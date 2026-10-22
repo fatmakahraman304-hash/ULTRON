@@ -988,6 +988,6 @@ def wants_cloud_skill(text: str) -> bool:
         or alert_skills.parse_alert(text) or alert_skills._LIST.search(folded) or alert_skills._CANCEL.search(folded)
         or re.search(r"\baksam (?:ozet\w*|hazirlik\w*)\b", folded)
         or (plan_skills._ADD.search(folded) and not plan_skills._NOT_A_PLAN.search(folded)) or (plan_skills._FREE_Q.search(folded) and not plan_skills._FREE_SKIP.search(folded) and len(folded) <= 60) or plan_skills._LIST.search(folded) or plan_skills._DONE.search(folded) or plan_skills._DEL.search(folded)
-        or re.search(r"\bbildirim ayarlarim\b|\bhaftalik (?:ozet|rapor)\w*\b.*\bbildirim|\bproaktif\b|\bsessiz saat\w*\b|\bsabah (?:brifing\w*|ozet\w*)\b.*\bbildirim|\bkendiliginden uyar", folded)
+        or re.search(r"\bakilli oneri\w*\b|\bbildirim ayarlarim\b|\bhaftalik (?:ozet|rapor)\w*\b.*\bbildirim|\bproaktif\b|\bsessiz saat\w*\b|\bsabah (?:brifing\w*|ozet\w*)\b.*\bbildirim|\bkendiliginden uyar", folded)
         or (_FX_Q.search(folded) and _CUR_TOKEN.search(folded) and not _FX_SKIP.search(folded))
         or answer_clock(text) or answer_countdown(text) or answer_units(text) or answer_math(text) or utility_skills.wants_utility(text) or calc_skills.wants_calc(text) or ledger_skills.wants_ledger(text) or fun_skills.wants_fun(text) or schedule_skills.wants_schedule(text) or template_skills.wants_templates(text) or approval_skills.wants_approvals(text) or kb_skills.wants_kb(text) or kb_skills.split_prefix(text) is not None)

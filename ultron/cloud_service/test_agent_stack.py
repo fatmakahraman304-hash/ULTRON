@@ -3,10 +3,12 @@ import json
 import os
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from pathlib import Path
 
 import agent_loop as al
+import nudge_rules as nr
+import proactive as pro
 import approval_skills as ap
 import missions
 import instant_skills as s
@@ -269,6 +271,104 @@ class AgentLoopTests(unittest.IsolatedAsyncioTestCase):
         steps = json.loads(row["steps"]) if isinstance(row["steps"], str) else row["steps"]
         self.assertEqual(steps[0]["type"], "skill")
         self.assertEqual(missions._view({"id": mid, "status": "done", "goal": "g", "steps": steps})["steps"][0]["status"], "done")
+
+
+@unittest.skipUnless(TEST_URL, "No isolated test PostgreSQL configured")
+class NudgeTests(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        import asyncpg
+        self.pool = await asyncpg.create_pool(TEST_URL, min_size=1, max_size=4)
+        schema = Path(__file__).with_name("schema.sql").read_text(encoding="utf-8")
+        await self.pool.execute(schema)
+        self.u = "ci-" + uuid.uuid4().hex[:10]
+        self.local = datetime(2026, 10, 21, 21, 0, tzinfo=pro.HOME_TZ)          # Wednesday 21:00
+
+    async def asyncTearDown(self):
+        for table in ("pending_actions", "owner_plans", "owner_habits", "owner_expenses", "owner_notifications", "owner_prefs", "owner_reminders"):
+            await self.pool.execute(f"DELETE FROM {table} WHERE user_id=$1", self.u)
+        await self.pool.close()
+
+    async def prefs(self, on=True):
+        if on:
+            out = await s.instant_reply("akıllı öneriler aç", pool=self.pool, user_id=self.u, now=NOW)
+            self.assertIn("Akıllı öneriler açık", out["reply"])
+        return await pro.get_prefs(self.pool, self.u)
+
+    async def test_opt_in_and_question_does_not_flip(self):
+        self.assertFalse((await self.prefs(False))["smart_nudges"])
+        await self.prefs()
+        out = await s.instant_reply("akıllı öneriler açık mı", pool=self.pool, user_id=self.u)
+        self.assertIn("şu an açık", out["reply"])
+        out = await s.instant_reply("akıllı öneriler kapat", pool=self.pool, user_id=self.u)
+        self.assertIn("kapattım", out["reply"])
+        self.assertFalse((await pro.get_prefs(self.pool, self.u))["smart_nudges"])
+        self.assertEqual(await nr.bedtime(self.pool, self.u, {"smart_nudges": False}, self.local), [])      # nothing when off
+
+    async def test_bedtime_rule_computes_sleep_time_and_queues_an_approvable_reminder(self):
+        prefs = await self.prefs()
+        await self.pool.execute("INSERT INTO owner_plans(user_id,title,scheduled_date,scheduled_time) VALUES($1,'Havalimanı','2026-10-22','07:30')", self.u)
+        items = await nr.bedtime(self.pool, self.u, prefs, self.local)
+        self.assertEqual(len(items), 1)
+        body = items[0]["body"]
+        self.assertIn("07:30", body)
+        self.assertIn("06:30'da kalkarsan", body)
+        self.assertIn("22:46", body)                                          # 06:30 − 7 h 44 min
+        pid = await self.pool.fetchval("SELECT id FROM pending_actions WHERE user_id=$1", self.u)
+        self.assertIn(f"onayla {pid}", body)
+        self.assertEqual(await self.pool.fetchval("SELECT text FROM pending_actions WHERE id=$1", pid), "bugün 22:16 yatmaya hazırlanmayı hatırlat")
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1", self.u), 0)   # proposal only
+        out = await s.instant_reply(f"onayla {pid}", pool=self.pool, user_id=self.u, now=NOW)
+        self.assertIn("✅", out["reply"])
+        self.assertEqual(await self.pool.fetchval("SELECT COUNT(*) FROM owner_reminders WHERE user_id=$1", self.u), 1)
+        # once per key: after the notification is stored the rule stays quiet
+        await pro.store(self.pool, self.u, items)
+        self.assertEqual(await nr.bedtime(self.pool, self.u, prefs, self.local), [])
+        # a late start tomorrow does not trigger it, and neither does the wrong hour
+        await self.pool.execute("DELETE FROM owner_plans WHERE user_id=$1", self.u)
+        await self.pool.execute("DELETE FROM owner_notifications WHERE user_id=$1", self.u)
+        await self.pool.execute("INSERT INTO owner_plans(user_id,title,scheduled_date,scheduled_time) VALUES($1,'Kahvaltı','2026-10-22','10:00')", self.u)
+        self.assertEqual(await nr.bedtime(self.pool, self.u, prefs, self.local), [])
+        await self.pool.execute("UPDATE owner_plans SET scheduled_time='07:30' WHERE user_id=$1", self.u)
+        self.assertEqual(await nr.bedtime(self.pool, self.u, prefs, self.local.replace(hour=14)), [])
+
+    async def test_busy_day_water_budget_and_streak_rules(self):
+        prefs = await self.prefs()
+        for h in ("09:00", "11:00", "13:00", "15:00"):
+            await self.pool.execute("INSERT INTO owner_plans(user_id,title,scheduled_date,scheduled_time) VALUES($1,'t','2026-10-22',$2)", self.u, time.fromisoformat(h))
+        busy = await nr.busy_day(self.pool, self.u, prefs, self.local)
+        self.assertIn("4 zamanlı kaydın", busy[0]["body"])
+        self.assertIn("Boş pencereler", busy[0]["body"])
+        self.assertEqual(await nr.busy_day(self.pool, self.u, prefs, self.local.replace(hour=12)), [])
+        # water: only for people who track it, only when little water today
+        evening = self.local.replace(hour=18)
+        self.assertEqual(await nr.water(self.pool, self.u, prefs, evening), [])
+        await self.pool.execute("INSERT INTO owner_habits(user_id,habit,amount,day) VALUES($1,'water',8,'2026-10-19'),($1,'water',8,'2026-10-20'),($1,'water',2,'2026-10-21')", self.u)
+        self.assertIn("2 bardak", (await nr.water(self.pool, self.u, prefs, evening))[0]["body"])
+        await self.pool.execute("UPDATE owner_habits SET amount=5 WHERE user_id=$1 AND day='2026-10-21'", self.u)
+        self.assertEqual(await nr.water(self.pool, self.u, prefs, evening), [])
+        # budget pace: 5,000 TL in 21 days projects ≈ 7,381 TL over a 6,000 TL budget
+        await s.instant_reply("aylık bütçem 6000 tl", pool=self.pool, user_id=self.u, now=NOW)
+        await self.pool.execute("INSERT INTO owner_expenses(user_id,amount,category,spent_on) VALUES($1,5000,'kira','2026-10-10')", self.u)
+        pace = await nr.budget_pace(self.pool, self.u, prefs, self.local.replace(hour=10))
+        self.assertIn("7.381", pace[0]["body"])
+        self.assertEqual(await nr.budget_pace(self.pool, self.u, prefs, self.local.replace(hour=10, day=8)), [])       # too early in the month
+        # streak: water logged 5 days in a row up to yesterday, nothing today
+        await self.pool.execute("DELETE FROM owner_habits WHERE user_id=$1", self.u)
+        for d in range(16, 21):
+            await self.pool.execute("INSERT INTO owner_habits(user_id,habit,amount,day) VALUES($1,'sleep',7,make_date(2026,10,$2))", self.u, d)
+        streak = await nr.streak_risk(self.pool, self.u, prefs, self.local)
+        self.assertIn("Uyku serin 5 gün", streak[0]["body"])
+        await self.pool.execute("INSERT INTO owner_habits(user_id,habit,amount,day) VALUES($1,'sleep',7,'2026-10-21')", self.u)
+        self.assertEqual(await nr.streak_risk(self.pool, self.u, prefs, self.local), [])
+
+    async def test_evaluate_includes_nudges_and_survives_a_broken_rule(self):
+        await self.prefs()
+        await self.pool.execute("INSERT INTO owner_plans(user_id,title,scheduled_date,scheduled_time) VALUES($1,'Havalimanı','2026-10-22','07:30')", self.u)
+
+        async def fetch_json(url, key, ttl):
+            return {}
+        items = await pro.evaluate(self.pool, self.u, self.local.astimezone(timezone.utc), fetch_json)
+        self.assertTrue(any(i["key"].startswith("nudge:bed:") for i in items))
 
 
 if __name__ == "__main__":

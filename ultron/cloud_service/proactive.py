@@ -33,7 +33,7 @@ else:
 HOME_TZ = ZoneInfo("Europe/Istanbul")
 GRACE_SECONDS = 25
 TICK_SECONDS = 30
-DEFAULT_PREFS = {"proactive": True, "morning_brief": False, "morning_time": "08:00", "evening_preview": False, "weekly_review": False,
+DEFAULT_PREFS = {"proactive": True, "morning_brief": False, "morning_time": "08:00", "evening_preview": False, "weekly_review": False, "smart_nudges": False,
                  "quiet_start": "23:00", "quiet_end": "07:00"}
 _HHMM = re.compile(r"(?:[01]?\d|2[0-3])[:.]?[0-5]?\d?\Z")
 
@@ -248,6 +248,16 @@ async def weekly_review(pool, user_id, prefs, local_now: datetime) -> list[dict]
              "body": "Haftanın planları, alışkanlıkları ve harcamaların hazır. Görmek için GÖLGE’de “haftalık özet” yaz."}]
 
 
+async def _nudges(pool, user_id, prefs, local_now: datetime) -> list[dict]:
+    if not prefs.get("smart_nudges"):
+        return []
+    if __package__:
+        from . import nudge_rules
+    else:
+        import nudge_rules
+    return await nudge_rules.evaluate(pool, user_id, prefs, local_now)
+
+
 async def evaluate(pool: Any, user_id: str, now: datetime, fetch_json, fetch_text=None) -> list[dict]:
     local_now = now.astimezone(HOME_TZ)
     prefs = await get_prefs(pool, user_id)
@@ -258,7 +268,7 @@ async def evaluate(pool: Any, user_id: str, now: datetime, fetch_json, fetch_tex
     for rule in (upcoming_events(pool, user_id, local_now), weather_alerts(fetch_json, local_now),
                  morning_brief(pool, user_id, prefs, fetch_json, fetch_text, local_now),
                  evening_preview(pool, user_id, prefs, local_now), weekly_review(pool, user_id, prefs, local_now),
-                 quake_alert(fetch_json, now)):
+                 _nudges(pool, user_id, prefs, local_now), quake_alert(fetch_json, now)):
         try:
             items += await rule
         except Exception:
@@ -372,6 +382,7 @@ async def handle_prefs(text: str, pool: Any, user_id: str) -> str | None:
                 f"• Proaktif uyarılar: {'açık' if p['proactive'] else 'kapalı'}\n"
                 f"• Sabah brifingi bildirimi: {'açık, ' + p['morning_time'] if p['morning_brief'] else 'kapalı'}\n"
                 f"• Akşam özeti bildirimi: {'açık' if p['evening_preview'] else 'kapalı'}\n"
+                f"• Akıllı öneriler: {'açık' if p['smart_nudges'] else 'kapalı'}\n"
                 f"• Haftalık özet bildirimi: {'açık (pazar akşamı)' if p['weekly_review'] else 'kapalı'}\n"
                 f"• Sessiz saatler: {p['quiet_start']} – {p['quiet_end']}\n"
                 f"• Bildirim alan cihaz: {int(n or 0)}" + ("" if n else " (Hafıza → Bildirimleri aç düğmesi)"))
@@ -403,6 +414,14 @@ async def handle_prefs(text: str, pool: Any, user_id: str) -> str | None:
         off = bool(re.search(_OFF, f))
         await set_pref(pool, user_id, weekly_review=not off)
         return "Haftalık özet bildirimini kapattım." if off else "Tamam, her pazar akşamı (19:00 sonrası) haftanın özetini bildirim olarak göndereceğim; o hafta kayıt yoksa göndermem."
+    if re.search(r"\bakilli\s+oneri\w*\b|\bakilli\s+hatirlatma\w*\b", f) and (re.search(_OFF, f) or re.search(_ON, f)):
+        if re.search(r"\?|\bm[iuü]\b|\bnedir\b|\bnasil\b", f):
+            p = await get_prefs(pool, user_id)
+            return "Akıllı öneriler şu an " + ("açık." if p["smart_nudges"] else "kapalı. Açmak için “akıllı öneriler aç” de.")
+        off = bool(re.search(_OFF, f))
+        await set_pref(pool, user_id, smart_nudges=not off)
+        return ("Akıllı önerileri kapattım." if off else
+                "Akıllı öneriler açık: yarın erken başlıyorsan uyku saati, yoğun gün özeti, su/seri/bütçe hatırlatmaları gelecek. Değişiklik gerektiren öneriler yalnızca “onayla N” ile uygulanır.")
     if re.search(r"\bproaktif\b|\bkendiliginden uyar\w*\b|\buyari\w* (?:ac|kapat)", f) and (re.search(_OFF, f) or re.search(_ON, f)):
         off = bool(re.search(_OFF, f))
         await set_pref(pool, user_id, proactive=not off)
