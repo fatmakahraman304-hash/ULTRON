@@ -113,6 +113,8 @@ async def export_owner_data(pool: Any, user_id: str) -> dict:
         "goals": await rows("SELECT title, target, progress FROM owner_goals WHERE user_id=$1 ORDER BY title"),
         "time_log": await rows("SELECT label, started_at, ended_at FROM owner_time_log WHERE user_id=$1 ORDER BY id DESC LIMIT 500"),
         "fuel": await rows("SELECT liters, cost, odometer, filled_on FROM owner_fuel WHERE user_id=$1 ORDER BY filled_on DESC, id DESC LIMIT 500"),
+        "knowledge_base": await rows("SELECT d.title, d.source, d.chars, d.created_at, (SELECT string_agg(c.content, E'\\n\\n' ORDER BY c.ord) FROM kb_chunks c WHERE c.doc_id=d.id) AS text FROM kb_docs d WHERE d.user_id=$1 ORDER BY d.id DESC LIMIT 100"),
+        "pending_actions": await rows("SELECT text, source, status, result, created_at FROM pending_actions WHERE user_id=$1 ORDER BY id DESC LIMIT 100"),
         "price_alerts": await rows("SELECT asset,vs,direction,threshold,active FROM owner_alerts WHERE user_id=$1 ORDER BY id"),
         "preferences": json.loads(prefs) if isinstance(prefs, str) else (prefs or {}),
         "missions": await rows("SELECT goal,status,report,created_at FROM missions WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20"),

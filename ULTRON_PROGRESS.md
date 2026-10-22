@@ -880,3 +880,11 @@ Motivation, proverbs and idioms with meanings, jokes, verified-fact snippets, wo
 
 ## 2026-10-21 — Day review
 `weekly_skills.py` also answers "günüm nasıl geçti / bugünün özeti / gün sonu özeti / dünün özeti" with the same recorded-data-only logic for a single day.
+
+## 2026-10-22 — Agent loop, approval queue, personal knowledge base
+Three larger building blocks (cloud service):
+- **Approval queue** (`approval_skills.py`, table `pending_actions`): the agent may only PROPOSE a change as a typed command; "bekleyen işlemler / onayla N / reddet N / hepsini onayla". Approval runs the stored text through the normal skill router restricted to `PROPOSABLE` writing skills (no smart home, memory, alerts, prefs, cancellations, deletions); proposals containing destructive/device words or secrets are refused; max 10 pending, 24 h expiry; approval is typed-only (never by voice).
+- **Adaptive agent** (`agent_loop.py`, "ajan: <hedef>"): think → tool → observe loop (≤8 steps, timeouts, duplicate-call detection, bounded transcript). Tools: read-only `skill`, `recall`, `kb`, `research`, plus `propose` (queue only) and `laptop` (suggestion only). Observations are quoted `<DATA>`; invalid replies end gracefully with a model-written summary of what was observed. Runs on the existing mission infrastructure (progress polling, cancel, report delivery). "görev: …" keeps the fixed-plan runner.
+- **Personal knowledge base** (`kb_skills.py`, tables `kb_docs`/`kb_chunks`, PostgreSQL full-text over diacritic-folded text): `/api/kb` (add/list/delete), "bilgi tabanına ekle: …", "son belgeyi / fotoğrafı bilgi tabanına ekle" (re-uses the analysed upload), "bilgi tabanında ara: …", chat prefix "notlarıma göre: …" / "belgelerime göre: …" (best passages added to the system instruction as quoted DATA; says "not found" instead of guessing), typed-only delete, secret refusal, owner scoping, included in `/api/export`.
+Tests: `test_agent_stack.py` (15; real PostgreSQL for the stateful ones; scripted fake model for the loop incl. prompt-injection, forbidden proposals, duplicate calls, step limit, error leakage, mission persistence). Routing corpus 594/594, hijacked chat 0/214.
+NOT verified: behaviour with a real Gemini model (does it follow the JSON protocol? quality of its tool choices), UI for the knowledge base (commands/API only), PDF text of very large documents.

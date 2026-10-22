@@ -554,3 +554,37 @@ CREATE TABLE IF NOT EXISTS owner_fuel (
   filled_on DATE NOT NULL DEFAULT CURRENT_DATE
 );
 CREATE INDEX IF NOT EXISTS idx_owner_fuel_user ON owner_fuel(user_id, filled_on DESC, id DESC);
+
+-- Actions proposed by the agent (or the owner) that run only after an explicit "onayla N".
+CREATE TABLE IF NOT EXISTS pending_actions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  text TEXT NOT NULL CHECK (length(text) BETWEEN 4 AND 220),
+  source TEXT NOT NULL DEFAULT 'agent' CHECK (source IN ('agent','owner')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','expired','failed')),
+  result TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  decided_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_pending_actions_user ON pending_actions(user_id, status, id DESC);
+
+-- Personal knowledge base: notes and analysed documents, chunked and full-text searchable (owner-scoped).
+CREATE TABLE IF NOT EXISTS kb_docs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
+  source TEXT NOT NULL DEFAULT 'chat' CHECK (source IN ('chat','document','image','api')),
+  chars INTEGER NOT NULL CHECK (chars BETWEEN 1 AND 60000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_kb_docs_user ON kb_docs(user_id, id DESC);
+CREATE TABLE IF NOT EXISTS kb_chunks (
+  id BIGSERIAL PRIMARY KEY,
+  doc_id BIGINT NOT NULL REFERENCES kb_docs(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  ord INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  tsv tsvector NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_kb_chunks_tsv ON kb_chunks USING GIN (tsv);
+CREATE INDEX IF NOT EXISTS idx_kb_chunks_doc ON kb_chunks(doc_id, ord);

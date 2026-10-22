@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from capability_readiness import readiness
 from instant_skills import instant_reply, clock_context, SKILL_SUMMARY, THINKING_GUIDE
-import style_skills, voice_skills, feedback_skills, shape_library, gap_skills
+import style_skills, voice_skills, feedback_skills, shape_library, gap_skills, kb_skills
 import phone_skills
 import missions
 import infra
@@ -1876,6 +1876,32 @@ def _gemini_youtube_reply(url: str, question: str, system_instruction: str) -> s
     return text
 
 
+async def kb_add_route(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+        title, text = str(body.get("title", "")), str(body.get("text", ""))
+    except Exception:
+        return web.json_response({"error": "invalid_json"}, status=400)
+    doc_id, reason = await kb_skills.add_document(request.app["db"], request["user_id"], title, text, "api")
+    if doc_id is None:
+        return web.json_response({"error": reason}, status=413 if reason == "too_long" else 400)
+    return web.json_response({"ok": True, "id": doc_id}, status=201)
+
+
+async def kb_list_route(request: web.Request) -> web.Response:
+    rows = await request.app["db"].fetch("SELECT id,title,chars,source,created_at FROM kb_docs WHERE user_id=$1 ORDER BY id DESC LIMIT 100", request["user_id"])
+    return web.json_response({"docs": [{**dict(r), "created_at": r["created_at"].isoformat()} for r in rows]})
+
+
+async def kb_delete_route(request: web.Request) -> web.Response:
+    try:
+        doc_id = int(request.match_info["id"])
+    except (KeyError, ValueError):
+        return web.json_response({"error": "invalid_id"}, status=400)
+    n = await request.app["db"].fetchval("WITH d AS (DELETE FROM kb_docs WHERE id=$1 AND user_id=$2 RETURNING 1) SELECT COUNT(*) FROM d", doc_id, request["user_id"])
+    return web.json_response({"deleted": bool(n)}, status=200 if n else 404)
+
+
 async def feedback_route(request: web.Request) -> web.Response:
     """Thumbs up/down on one assistant message of the caller's own conversations."""
     try:
@@ -2019,7 +2045,7 @@ async def chat(request: web.Request) -> web.Response:
             reply = "Çalışan görevi iptal ettim." if json.loads(cancelled.text).get("cancelled") else "İptal edilecek çalışan bir görev yok."
             out = {"mission_id": None}
         else:
-            out = await missions.start(request, missions.mission_goal(text), str(conv_uuid))
+            out = await missions.start(request, missions.mission_goal(text), str(conv_uuid), mode=missions.mission_mode(text))
             reply = out["reply"]
         assistant_message_id = await pool.fetchval(
             "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
@@ -2051,6 +2077,12 @@ async def chat(request: web.Request) -> web.Response:
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
         user_message=text, read_only=True, has_prior_turns=bool(turns),
     ) + "\n" + clock_context() + SKILL_SUMMARY + THINKING_GUIDE + style_skills.style_instruction(await style_skills.get_style(pool, request["user_id"]))
+    kb_question = kb_skills.split_prefix(text)
+    if kb_question is not None:
+        try:
+            system_instruction += await kb_skills.context_block(pool, request["user_id"], kb_question)
+        except Exception:
+            pass          # a knowledge-base failure must never block the normal answer
     if research_result is not None:
         system_instruction += build_research_prompt_block(research_result)
     youtube_request = phone_skills.youtube_request(text)
@@ -3125,6 +3157,9 @@ def build_app() -> web.Application:
     app.router.add_post("/api/chat/cancel", cancel_chat)
     app.router.add_post("/api/chat", chat)
     app.router.add_post("/api/feedback", feedback_route)
+    app.router.add_get("/api/kb", kb_list_route)
+    app.router.add_post("/api/kb", kb_add_route)
+    app.router.add_delete("/api/kb/{id}", kb_delete_route)
     app.router.add_post("/api/scene-design", scene_design)
     app.router.add_post("/api/scene-library", scene_library)
     from scene_assets import register as register_scene_assets

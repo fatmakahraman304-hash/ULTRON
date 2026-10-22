@@ -20,7 +20,7 @@ else:
     from text_normalization import fold_turkish
 
 # Writing skills a spoken request may trigger. Anything not listed only answers read-only.
-VOICE_WRITE_SKILLS = frozenset({"reminder", "reminders", "habits", "lists", "expenses", "focus", "birthdays", "style", "journal", "routines", "gaps", "ledger", "fun", "schedule"})
+VOICE_WRITE_SKILLS = frozenset({"reminder", "reminders", "habits", "lists", "expenses", "focus", "birthdays", "style", "journal", "routines", "gaps", "ledger", "fun", "schedule", "kb"})
 MAX_UTTERANCE = 220
 _URL = re.compile(r"https?://\S+")
 _MARKUP = re.compile(r"[*_`#>]+")

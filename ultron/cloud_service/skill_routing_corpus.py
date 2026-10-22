@@ -270,3 +270,9 @@ CASES += [
 ]
 
 CASES += [("günüm nasıl geçti", "weekly"), ("bugünün özeti", "weekly"), ("gün sonu özeti", "weekly"), ("dünün özeti", "weekly"), ("günüm kötü geçti", None)]
+
+CASES += [
+    ("bilgi tabanına ekle: wifi şifresi etiketin altında | ev", "kb"), ("bilgi tabanında ara: garanti", "kb"), ("bilgi tabanım", "kb"), ("son belgeyi bilgi tabanına ekle", "kb"),
+    ("bilgi tabanından sil: garanti", "kb"), ("bekleyen işlemler", "approvals"), ("onayla 3", "approvals"), ("reddet 3", "approvals"), ("hepsini onayla", "approvals"),
+    ("onaylıyorum", None), ("bilgi tabanı nedir", None), ("onayla ve gönder", None),
+]
