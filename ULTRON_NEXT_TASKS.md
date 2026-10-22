@@ -1,3 +1,6 @@
+## 2026-10-22 — Hologram colours: owner check
+- Pull branch on the laptop, open HologramLab, ask for "kalp", "ağaç", "ev", "güneş sistemi" and confirm the parts are coloured; same on phone (PWA cache v88 must refresh). Report any dull/unreadable colours (files: `shape_library.py` COLORS, `HologramScene.ts`).
+
 ## 2026-10-21 — Kalan gerçek cihaz doğrulamaları
 
 1. Bu push sonrası ilk Render cold-start'ının loglarında `startup_timing stage=...` satırlarını oku ve 23-30 dk gecikmenin hangi aşamada olduğunu kaydet (import/DB pool/schema/port). Bulguya göre asıl düzeltme bir SONRAKİ oturumda yapılmalı — henüz tahmine dayalı değişiklik yapılmadı.
@@ -879,3 +882,45 @@ Current activation status: Cloud/Render release `bd09410` LIVE; Cloud/PostgreSQL
 2. After the branch is available on Windows, rerun `START.bat`, then manually speak “Dur” during TTS and confirm playback stops; test satellite mode and confirm the unavailable-provider message does not claim the map changed; ask for weather and verify chat repeats provider values; use paperclip and verify an image reaches the vision route. A missing local vision model should show a clear error, not a successful analysis.
 3. Test an approved small PDF/text file as well as an image. The Qt picker transfer is capped at 8 MiB; supported suffixes only. Do not send private test files to Cloud.
 4. The code-runner cannot exercise the owner’s physical microphone, speaker, Windows Qt file dialog or installed vision models. These checks remain NOT RUN until owner repeats them on the laptop. No production merge or Render deploy was done.
+
+
+## 2026-10-21 — Next concrete steps (phone assistant stack)
+
+1. Read the GitHub Actions result of PR #62 for the exact HEAD (new `GÖLGE Cloud Stack` workflow + existing ones); fix any red check. Do not merge/deploy without the owner's authorization.
+2. iPhone: add GÖLGE to Home Screen → Hafıza → "Bildirimleri aç" → lock phone → say "1 dakika sonra su içmeyi hatırlat". Expected: push arrives. If not: `GET /api/diagnostics` (push_devices, dispatcher.last_tick_age_seconds) and `POST /api/push/test`.
+3. Laptop: `laptop: not defterini aç`, `ekran analizi yap`; confirm result text returns into the chat once (poll `/api/laptop-task/{id}`).
+4. Real Gemini: "özetle https://youtu.be/…" and a `görev:` mission; judge plan quality; tune `PLANNER_SYSTEM` in `missions.py` if plans are poor.
+5. Optional: set `HOME_ASSISTANT_URL` (public https) + `HOME_ASSISTANT_TOKEN` on Render and try "salon ışığını aç".
+6. When a skill mis-routes in real use, add the utterance with the correct label to `skill_routing_corpus.py` first, then fix the rule (`python -m pytest -q test_skill_routing.py -s` prints misroutes).
+7. Known gaps: iOS native app has no intents for the new skills (needs Mac build); conversation/voice quality is still NOT MEASURED against a real provider.
+
+## 2026-10-21 — Verify live data sources after deploy
+On the deployed service ask once each: "100 dolar kaç tl", "bitcoin kaç dolar", "hava nasıl", "namaz vakitleri", "son depremler", "haberler", "Atatürk kimdir". Any "ulaşamadım" reply means the provider URL/shape changed (the 301 on frankfurter.app was found this way in CI): check `provider_status host=… status=…` lines in the Render log, update the URL, and keep the fake-based unit test in sync.
+
+## 2026-10-21 — Next steps after style/recall/voice/feedback batch
+1. Read Actions for the pushed head of PR #62; fix anything red. Do not merge/deploy without the owner's authorization.
+2. On a real phone voice session: say "saat kaç", "yarın hava nasıl", "alışveriş listesine süt ekle", "dün ne konuştuk"; confirm the model calls `golge_skill` (events/log) and speaks the `spoken` text without reading links. If the model ignores the tool, tighten the SKILLS paragraph in `live_voice_policy.py` (keep test limit 3000).
+3. Chat: "kısa cevap ver" then ask an open question; judge whether replies become short. Then "tarzı sıfırla".
+4. After some use: "en çok kullandığım komutlar", "bana öneri ver"; after a mis-answer say "yanlış anladın", export (`GET /api/export`) and run `python feedback_to_corpus.py export.json` to get corpus candidates; label them in `skill_routing_corpus.py` first, then fix the rule.
+5. Not built yet: thumbs-up/down buttons in `static/index.html` calling `POST /api/feedback {rating, message_id}`; style by voice ("kısa konuş" works via golge_skill/style only if heard as that phrase).
+
+## 2026-10-21 — After utilities + feedback buttons
+Try on the phone after deploy: "yazı tura at", "45 gün sonra hangi gün", "850 tl 4 kişi böl", "boyum 180 kilom 75"; tap 👎 under a wrong answer, then export and run `python feedback_to_corpus.py`. Check the 👍/👎 row does not overlap the time stamp on a small iPhone screen (cosmetic, not verified).
+
+## 2026-10-21 — Verify the desktop launcher on Windows
+1. `git pull` on the laptop (branch `claude/epic-ptolemy-0mexud`), double-click `GOLGE_KISAYOL_KUR.vbs`, answer the autostart question, confirm a GÖLGE icon with the ULTRON ico appears on the Desktop and Start Menu.
+2. Double-click it: expect a 3 s "başlatılıyor" popup, no console, the PyQt cockpit appears. If nothing appears read `logs\golge-baslat.log`.
+3. Remove `.venv` (rename) and launch again to see the first-run install prompt.
+4. If SmartScreen/antivirus blocks `.vbs`, fall back to a signed EXE (PyInstaller/Inno via `ultron/.github/workflows/windows-installer.yml`) — not built yet.
+
+## 2026-10-21 — Try the new hologram requests
+On the phone (hologram view) and in the laptop Hologram Lab say: "bana bir kalp çiz", "8 köşeli yıldız oluştur", "roket çiz", "bir ev ve ağaç çiz", "güneş sistemi oluştur", "hologramda bir ejderha göster" (unknown noun → Gemini; if the key/quota is missing expect the existing "Model taslağı şu anda üretilemiyor" message). Report shapes that look wrong; fix them in `shape_library.py` and re-render with a quick three.js page. Missing: colours, user-uploaded GLB search by voice is unchanged (Poly Haven "… bul getir").
+
+## 2026-10-21 — Try the self-improvement backlog
+1. Ask GÖLGE for something it cannot do ("bana uçak bileti al"); if the model admits it cannot, expect a "🛠 … eksik N" hint. Then `eksiklerim`, `eksik N'i geliştir`.
+2. With the laptop online confirm the laptop agent treats the task as proposal-only (shows a diff, writes nothing until "onaylıyorum"). If it ignores the "YALNIZCA TASLAK" instruction, that is a bug in the laptop agent's task handling — fix it there, never relax the gate.
+3. Optionally raise model quality (see GOLGE_KENDI_KODUNU_GELISTIRME.md → "Zekâ düzeyi") and compare answers; record results in ULTRON_TEST_RESULTS.md.
+
+## 2026-10-22 — Measure the persona and the agent with the real model
+1. `GEMINI_API_KEY=… python evals/conversation/persona_agent_eval.py --output persona-agent.json`; read every FAIL transcript (is the robot over-joking? does it joke on serious topics? does the agent follow the JSON protocol?). Tune `personality.py` / `AGENT_SYSTEM`, re-run, record the real numbers in `ULTRON_TEST_RESULTS.md`.
+2. On the phone try: "robot modu aç", "günaydın", "kendimi anlat", "kedimin adı Pamuk" (expect the 🧠 hint), "ajan: yarınki toplantıya hazırlan", then "bekleyen işlemler" / the approval cards.

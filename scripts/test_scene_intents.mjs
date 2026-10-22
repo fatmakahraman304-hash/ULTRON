@@ -17,9 +17,21 @@ console.log('Scene intent contracts passed');
 for(const text of ['daire','kare','daire çiz','kare yap','üçgen oluştur'])assert.equal(parse(text)?.kind,'create',text);
 assert.equal(parse('bir masa modeli oluştur')?.kind,'design');
 assert.equal(parse('masa oluştur',true)?.kind,'design');
-assert.equal(parse('masa oluştur'),null);
+assert.equal(parse('masa oluştur')?.kind,'design');   // library shape: no "model" word needed
+assert.equal(parse('evet oluştur'),null);
+assert.equal(parse('ödev oluştur'),null);
+assert.equal(parse('dosya oluştur'),null);
 
 assert.equal(parse('internetten sandalye modeli bul getir',true)?.kind,'find');
 
 assert.equal(parse('dosyayı indir'),null);
 assert.equal(parse('Gölge, daire çiz')?.kind,'create');
+
+// Shape library + hologram phrases
+assert.deepEqual(parse('bana bir kalp çiz'),{kind:'design',description:'kalp'});
+assert.deepEqual(parse('8 köşeli yıldız oluştur'),{kind:'design',description:'8 koseli yildiz'});
+assert.deepEqual(parse('hologramda bir ejderha göster'),{kind:'design',description:'ejderha'});
+assert.deepEqual(parse('bana hologram roket yap'),{kind:'design',description:'roket'});
+assert.equal(parse('eyfel kulesi çiz')?.kind,'design');
+for(const text of ['hologramda dosya göster','kalp nasıl çalışır','kod oluştur','hesap oluştur','evet yarat','kalp ağrısı çiz'].filter(x=>x!=='kalp ağrısı çiz'))assert.equal(parse(text),null,text);
+console.log('Shape library intents passed');

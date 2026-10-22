@@ -107,3 +107,9 @@ The reviewer must evaluate actual transcripts; placeholders above are not result
 A CI dataset/runner test is **deterministic infrastructure verification**, never a
 100/100 conversational quality result. Optional presentation quality checks make
 no second inference call and do not certify truth, security or semantic consistency.
+
+## Persona and agent-protocol checks (automated, not a quality score)
+`python evals/conversation/persona_agent_eval.py` runs 10 persona rules (no humour on money/health topics, no invented actions, no
+claimed feelings, short when asked, memory honesty…) and 5 agent goals (JSON-protocol validity, finishing) against the real Gemini
+model when `GEMINI_API_KEY` is set; otherwise it prints `NOT_RUN`. The harness is unit-tested offline with canned replies in
+`ultron/cloud_service/test_persona_agent_eval.py`. A pass means the rule held in that sample; read the transcripts in the JSON output.

@@ -13,7 +13,7 @@ class DesktopDesignTests(unittest.IsolatedAsyncioTestCase):
         executor=ThreadPoolExecutor(max_workers=1)
         try:
             client=SimpleNamespace(_local_executor=executor,enabled=True,local_chat=AsyncMock(return_value={'reply':json.dumps(GOOD)}),_request=AsyncMock(return_value={'design':GOOD}))
-            request=SimpleNamespace(app={'scene_design_client':client},json=AsyncMock(return_value={'description':'table'}))
+            request=SimpleNamespace(app={'scene_design_client':client},json=AsyncMock(return_value={'description':'magic fox'}))
             with patch('integration.local_cloud_brain.local_chat_ready',return_value=True):
                 r=await design_request(request);self.assertEqual(r.status,200)
                 client._request.assert_not_called();self.assertEqual(client.local_chat.call_args.args[2],[])
@@ -25,7 +25,7 @@ class DesktopDesignTests(unittest.IsolatedAsyncioTestCase):
         executor=ThreadPoolExecutor(max_workers=1)
         try:
             client=SimpleNamespace(_local_executor=executor,enabled=True,local_chat=AsyncMock(return_value={'reply':'code goes here'}),_request=AsyncMock())
-            request=SimpleNamespace(app={'scene_design_client':client},json=AsyncMock(return_value={'description':'table'}))
+            request=SimpleNamespace(app={'scene_design_client':client},json=AsyncMock(return_value={'description':'magic fox'}))
             with patch('integration.local_cloud_brain.local_chat_ready',return_value=True):
                 self.assertEqual((await design_request(request)).status,502)
                 client._request.assert_not_called()

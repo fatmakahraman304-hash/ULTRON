@@ -1,6 +1,6 @@
 {
   "name": "proje_sagligi",
-  "description": "Ultron projesinde statik kod analizi (bug/güvenlik/TODO taraması, salt-okunur).",
+  "description": "GÖLGE projesinde statik kod analizi (bug/güvenlik/TODO taraması, salt-okunur).",
   "params": {
     "target": "all"
   },

@@ -9,6 +9,10 @@ export type SceneIntent =
  | {kind:'undo'|'redo'|'home'|'upload'|'reset'}
  | {kind:'clarify';reply:string};
 export const normalize=(s:string)=>s.toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/ı/g,'i').replace(/\s+/g,' ').trim();
+/** Folded shape nouns the cloud shape library builds instantly. Keep in sync with shape_library.CATALOG (test enforced). */
+export const SHAPE_PREFIX_NOUNS=['notebook','kure','silindir','koni','simit','yuzuk','piramit','yildiz','kalp','helis','sarmal','spiral','girdap','galaksi','agac','kardan adam','robot','roket','uzay araci','araba','otomobil','sandalye','koltuk','merdiven','gunes sistemi','solar system','gezegenler','satur','dunya','ucak','cicek','papatya','kale','mantar','fincan','kupa','bardak','laptop','bilgisayar','telefon','kitap','lamba','abajur','kopru','kule','gokdelen','eyfel','gemi','tekne','disli','cark','elmas','mucevher','kum saati','piyon','satranc','kulube'];
+export const SHAPE_WORD_NOUNS=['kup','kutu','halka','top','dna','ev','ok','masa','atom','saat','mum','arac','cube','box','sphere','ball','cylinder','cone','torus','ring','pyramid','star','heart','helix','galaxy','house','tree','snowman','rocket','car','table','chair','stairs','earth','globe','airplane','plane','flower','arrow','castle','mushroom','cup','mug','phone','book','candle','lamp','bridge','tower','skyscraper','eiffel','ship','boat','gear','clock','diamond','hourglass','pawn'];
+const SHAPE_REQUEST=new RegExp('^(?:bana )?(?:bir )?((?:[0-9]{1,2} |[a-z]+ ){0,2}(?:(?:'+SHAPE_PREFIX_NOUNS.join('|')+')[a-z]*|(?:'+SHAPE_WORD_NOUNS.join('|')+')(?:i|in|e|de|den|u|un|ler|lar|im)?)) (?:modeli |hologrami )?(?:ciz|olustur|yarat)$');
 export function sceneIntent(raw:string,active=false):SceneIntent|null {
  let t=normalize(raw).replace(/[.!?]+$/,'').replace(/^(?:ultron|golge)[, ]+/,'').replace(/^lutfen /,'').replace(/ lutfen$/,'');
  t=t.replace(/([0-9]+(?:[.,][0-9]+)?) derece (saga|sola)/,'$2 $1 derece').replace(/([xyz] ekseninde) ([0-9]+(?:[.,][0-9]+)?) derece/,'$2 derece $1');
@@ -19,6 +23,11 @@ export function sceneIntent(raw:string,active=false):SceneIntent|null {
  if(shape)return {kind:'create',model:({daire:'circle',cember:'torus',kare:'square',ucgen:'triangle',silindir:'cylinder',koni:'cone',halka:'torus'} as const)[shape[1] as 'daire']};
  const create=t.match(/^(?:bana )?(?:bir )?(motor(?:un|u)?|robot kol(?:u|unun|unu)?|enerji cekirdeg(?:i|inin|ini)|kup(?:un|u)?|kure(?:nin|yi)?)\s*(?:(?:3d|3b|uc boyutlu)\s*)?(?:model(?:i|ini|ni)\s*)?(?:goster|olustur|ac|getir|ekle)$/);
  if(create){const m=create[1];return {kind:'create',model:m.startsWith('motor')?'engine':m.startsWith('robot')?'arm':m.startsWith('enerji')?'reactor':m.startsWith('kup')?'cube':'sphere'};}
+ // Known library shapes (see cloud shape_library.py) work without the word "model"; "hologram" opens any request.
+ const holo=t.match(/^(?:bana )?(?:bir )?hologram(?:da|a|imde|inde)? (?:bir )?(.{2,100}?) (?:goster|ciz|olustur|yarat|yap)$/);
+ if(holo&&!/\b(?:dosya|uygulama|kod|sifre|hesap)\b/.test(holo[1]))return {kind:'design',description:holo[1].replace(/ hologram(?:i|ini)?$/,'')};
+ const lib=t.match(SHAPE_REQUEST);
+ if(lib)return {kind:'design',description:lib[1]};
  const design=t.match(/^(?:bana )?(?:bir )?(.{2,160}?) (?:3d |3b |uc boyutlu )?model(?:i|ini|ni)? (?:yap|ciz|goster|olustur|ekle|bul getir)$/);
  if(design)return /^(?:onu|bunu|sunu)$/.test(design[1])?{kind:'clarify',reply:'Hangi nesneyi oluşturmamı istiyorsun?'}:{kind:'design',description:design[1]};
  if(active){const free=t.match(/^(?:bana )?(?:bir )?(.{2,160}?) (?:modelini yap|olustur|ciz|yap|bul getir)$/);if(free&&!/\b(?:dosya|uygulama|kod|sifre|hesap)\b/.test(free[1]))return {kind:'design',description:free[1]};}

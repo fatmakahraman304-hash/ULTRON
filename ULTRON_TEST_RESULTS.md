@@ -943,3 +943,65 @@ Render deploy `dep-db7lkuavcj2c73e8hb70` remains LIVE at SHA `0b2315a77d65736182
 | Render / production | NOT RUN | No deploy or merge; production code remains unchanged. |
 
 Current development base: production branch SHA `b4086aac8afea26f69b9cd1e57b4b0ddcf8c8672`. This result does not claim device acceptance or model-generation cancellation for Cloud Gemini; Cloud live TTS buffers are cancelled locally while provider completion may continue.
+
+
+## 2026-10-21 — Phone assistant stack test evidence (Linux sandbox, no Windows/iPhone/real providers)
+
+- `cd ultron/cloud_service && python -m pytest -q --ignore-glob='*postgres*' .` → 488 passed, 9 skipped.
+- With a disposable local PostgreSQL 16 and `ULTRON_TEST_DATABASE_URL`: `test_golge_stack_postgres.py` 6 passed (schema twice, repeating reminders, push dispatcher in-app-first/dedupe, plans, alerts, missions incl. cancel, retention, export, diagnostics). Whole suite with both DB env vars: 590 passed, 2 failed — `test_grounded_research_postgres.py` (2 tests). CORRECTION (2026-10-21, from the CI log of PR #62): these were NOT environmental; the new currency skill intercepted the fixture question "Bugün dolar kaç TL?" before the research path. Fixed by pointing those fixtures at a non-skill current-info question; after the fix the whole suite with both DB env vars is 609 passed, 0 failed.
+- Web Push encryption matches the RFC 8291 Appendix A vector (`test_web_push_proactive.py`).
+- Router corpus: 292/292 labelled utterances routed correctly, 0/118 ordinary-chat utterances intercepted (`test_skill_routing.py`).
+- Node: every `ultron/cloud_service/test_*.cjs` passes; `node scripts/test_golge_minimal_ui.mjs` passes (cache v81).
+- **NOT RUN**: real iPhone (Home-Screen PWA push with locked phone), real laptop (`laptop: …`, screen analysis), real Gemini (YouTube summary, mission planning quality), real Home Assistant, Render deployment, Windows tests. The new `golge-cloud-stack.yml` workflow had started on GitHub but its result was not read at the time of writing.
+
+## 2026-10-21 — Wider regression check (Linux sandbox)
+- `python -m pytest -q tests ultron/backend/tests --ignore=tests/test_setup_overlay.py` → 1373 passed, 5 failed, 5 skipped on this branch. The same 5 failures (`tests/test_integration.py` ×4, `tests/test_open_app.py` ×1) occur identically on the base commit `54a4310` — they need the Windows/Qt environment; `tests/test_setup_overlay.py` needs PyQt6 (not installed). Not caused by this branch.
+- Found and fixed a regression introduced by the shared HTTP client: `ultron/backend/tests/test_earth_layers.py` loads `world_api.py` by file path, so `world_api` now falls back to loading `http_client.py` next to it. `test_world_contract.cjs` now asserts the redirect/size guarantees in `http_client.py`.
+- `python -m pytest -q --ignore-glob='*postgres*' ultron/cloud_service` → 501+ passed (see latest run); all `ultron/cloud_service/test_*.cjs` pass.
+
+## 2026-10-21 — CI-driven fixes on PR #62
+- `test_world_contract.cjs` and `ultron/backend/tests/test_earth_layers.py` were red because of the shared HTTP client refactor (fixed in 40a824a).
+- `postgres-fencing` was red because the currency skill answered the research fixture (fixed by changing the fixture question).
+- CI log showed `api.frankfurter.app` answering 301: the host moved, redirects are never followed, so the currency/price-alert skills would have failed in production. Switched to `https://api.frankfurter.dev/v1/latest?base=…&symbols=…`. Not verifiable from this sandbox (no outbound network); verify on Render with "100 dolar kaç tl".
+- Same sandbox limit applies to Open-Meteo, CoinGecko, Aladhan, USGS, Wikipedia and Google News: response shapes were coded from documentation and unit-tested with fakes only — check each skill once on the deployed service.
+
+## 2026-10-21 — GitHub Actions on PR #62, exact head 717c179
+All 9 check runs succeeded: GÖLGE Cloud Stack (`cloud-stack` ×2, incl. real PostgreSQL 16 + JS), `verify`, `postgres-fencing`, `persona-policy`, `qwen-listening`, `responsive-ui`, `mobile-listen`, `windows-bootstrap-syntax`. Earlier heads were red for the three reasons listed above, all fixed. Still NOT RUN: real iPhone push, real laptop bridge, real Gemini, live data providers, Render deployment.
+
+## 2026-10-21 — Style/recall/voice/feedback batch (Linux sandbox, real PostgreSQL 16)
+- `python -m pytest -q -p no:cacheprovider` in `ultron/cloud_service` with `ULTRON_TEST_DATABASE_URL` + `PYTHONPATH=repo root` → 561 passed, 93 skipped (other suites' Postgres/aiohttp gates). New `test_style_recall_feedback.py`: 9 pure + 5 real-PostgreSQL tests (style persistence incl. coexistence with proactive prefs, recall memory/history, owner scoping, voice allow-list incl. memory write blocked, feedback/usage/suggestion/export/retention) all pass.
+- Routing corpus now 411 utterances (+28): 410/411 initially failed on one data-dependent case which was removed; final `test_skill_routing.py` 2 passed, hijacked chat 0.
+- All `ultron/cloud_service/test_*.cjs` pass; pyflakes clean on the new modules (added to the CI lint list).
+- Root suite: same 5 environment-dependent failures as before (`tests/test_integration.py` ×4, `tests/test_open_app.py` ×1; desktop/Windows code not touched by this batch).
+- NOT RUN: real Gemini Live session with `golge_skill`, spoken-quality evaluation, iPhone, Render deployment, GitHub Actions for this commit (check after push).
+
+## 2026-10-21 — Utilities + feedback buttons (Linux sandbox, real PostgreSQL 16)
+- `ultron/cloud_service` pytest with Postgres + PYTHONPATH → 565 passed, 93 skipped; all `test_*.cjs` pass (incl. new feedback-button test); `scripts/test_golge_minimal_ui.mjs` PASS (cache v82). pyflakes clean on `utility_skills.py`.
+- NOT RUN: real iPhone rendering of the 👍/👎 row, Actions for this commit (check after push).
+
+## 2026-10-21 — Desktop launcher (Linux sandbox)
+- `python -m pytest tests/test_desktop_launcher.py` → 3 passed (static: ASCII/CRLF, referenced files exist, hidden window style, opt-in autostart).
+- NOT RUN: wscript/VBScript execution, shortcut creation, hidden launch, install flow and failure dialog on Windows (no Windows here; laptop was off).
+
+## 2026-10-21 — Hologram shape library
+- `ultron/cloud_service` pytest (real PostgreSQL) → 574 passed, 93 skipped; new `test_shape_library.py` (every generator × counts validates, ≤24 parts, keyword resolution, TS/Python noun sync, look-alike words such as "evet"/"okul" fall through) and an API test proving no model call for a library shape.
+- `node scripts/test_scene_intents.mjs`, all cloud `.cjs`, `scripts/test_golge_minimal_ui.mjs` pass; `tsc --noEmit` clean. `ultron/frontend` unit tests: 58 pass, 1 fail ("initial dashboard graph defers the Three.js WebGL renderer") — same result with my changes stashed, so pre-existing.
+- Visual check: 30 shapes rendered headlessly with three.js 0.177 and Chromium software GL (screenshots reviewed by eye). Colour is not part of the schema, so all shapes render in the scene's default material.
+- NOT RUN: real phone/laptop hologram UI with the new bundle, Gemini fallback for unknown nouns, `scripts/tests` browser suites (need Playwright, not installed here).
+
+## 2026-10-21 — Memory correction/history (Linux sandbox, real PostgreSQL 16)
+- `ultron/cloud_service` pytest → 575 passed, 93 skipped; `test_skill_routing.py` 446/446, hijacked chat 0/178; all `.cjs` pass.
+- NOT RUN: real phone session; voice access to these commands (memory skills are intentionally not in the voice allow-list).
+
+## 2026-10-21 — Weekly review (Linux sandbox, real PostgreSQL 16)
+- `ultron/cloud_service` pytest + all `.cjs` pass; routing 453/453. NOT RUN: real device.
+
+## 2026-10-21 — After the independent review fixes (Linux sandbox, real PostgreSQL 16)
+- `ultron/cloud_service` pytest → 582 passed, 93 skipped; routing 479/479, hijacked chat 0/187; all `.cjs` pass. CI on the previous head had one red job (`verify`: `scripts/tests/test_scene_desktop_api.py` used a noun that is now a library shape) — fixed in 1c4b4a9.
+
+## 2026-10-22 — Persona/agent eval harness
+- `evals/conversation/persona_agent_eval.py` (10 persona rules + 5 agent goals) is unit-tested offline (5 tests pass). **Real-model run: NOT_RUN** (no `GEMINI_API_KEY` here); no model transcripts or scores exist yet. First step for the owner: set the key and run it, then read the transcripts.
+
+## 2026-10-22 — Hologram colours (local run)
+- Cloud pytest with disposable PostgreSQL 16 (`ULTRON_TEST_DATABASE_URL` + `ULTRON_QUEUE_TEST_DATABASE_URL`, `PYTHONPATH=repo root`): 729 passed, 0 failed. All `test_*.cjs`, `scripts/test_golge_minimal_ui.mjs`, `scripts/tests/test_scene_desktop_api.py`: pass. Frontend `tsc --noEmit`, `npm run build`, `npm run test:earth`: pass.
+- NOT RUN: real-device rendering of coloured holograms (phone/Windows laptop), CI for this commit (check after push).

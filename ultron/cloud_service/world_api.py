@@ -16,13 +16,23 @@ import os
 import ipaddress
 import re
 from typing import Any
-from aiohttp import ClientSession, ClientTimeout, web
+from aiohttp import web
+
+try:
+    import http_client
+except ImportError:      # loaded by file path from another package (e.g. backend tests)
+    import importlib.util as _ilu
+    import pathlib as _pl
+    import sys as _sys
+    _spec = _ilu.spec_from_file_location("http_client", _pl.Path(__file__).with_name("http_client.py"))
+    http_client = _ilu.module_from_spec(_spec)
+    _sys.modules.setdefault("http_client", http_client)
+    _spec.loader.exec_module(http_client)
 
 _CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 _LOCKS: dict[str, asyncio.Lock] = {}
 _CACHE_LIMIT = 180
 _UA = "ULTRON-World/0.1 (+https://github.com/fatmakahraman304-hash/ULTRON)"
-_TIMEOUT = ClientTimeout(total=9)
 
 
 def coordinate(raw: str | None, low: float, high: float, default: float) -> float:
@@ -53,28 +63,15 @@ async def _upstream(url: str, *, ttl: int, key: str) -> dict[str, Any]:
         if cached and cached[0] > time.monotonic():
             return cached[1]
         try:
-            # Respect the configured network proxy without enabling .netrc
-            # credential forwarding to these public, unauthenticated sources.
-            proxy = os.environ.get('HTTPS_PROXY') or os.environ.get('https_proxy')
-            async with ClientSession(timeout=_TIMEOUT, headers={"User-Agent": _UA}) as session:
-                async with session.get(url, allow_redirects=False, proxy=proxy) as response:
-                    if response.status != 200:
-                        logging.getLogger("ultron.world").warning("provider_status host=%s status=%s",urlsplit(url).hostname,response.status)
-                        raise web.HTTPBadGateway(
-                            text='{"error":"upstream_unavailable"}',
-                            content_type="application/json",
-                        )
-                    if int(response.headers.get("Content-Length", "0") or 0) > 2_000_000:
-                        raise web.HTTPBadGateway(text='{"error":"upstream_too_large"}',
-                                                 content_type="application/json")
-                    payload = await response.content.read(2_000_001)
-                    if len(payload) > 2_000_000:
-                        raise web.HTTPBadGateway(text='{"error":"upstream_too_large"}',
-                                                 content_type="application/json")
-                    import json
-                    data = json.loads(payload)
-                    if not isinstance(data, dict):
-                        raise ValueError("Unexpected upstream structure")
+            # Shared session: honours the configured proxy, never follows redirects, no .netrc credentials.
+            status, payload, _ = await http_client.fetch(url, headers={"User-Agent": _UA}, timeout=9, max_bytes=2_000_000)
+            if status != 200:
+                logging.getLogger("ultron.world").warning("provider_status host=%s status=%s", urlsplit(url).hostname, status)
+                raise web.HTTPBadGateway(text='{"error":"upstream_unavailable"}', content_type="application/json")
+            import json
+            data = json.loads(payload)
+            if not isinstance(data, dict):
+                raise ValueError("Unexpected upstream structure")
         except web.HTTPException:
             raise
         except Exception as exc:

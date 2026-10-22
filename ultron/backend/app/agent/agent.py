@@ -127,7 +127,7 @@ class Agent:
             if len(users)>=2: return f"Son isteğiniz şuydu: {users[-2]}"
             if users: return f"Bu konuşmadaki isteğiniz: {users[-1]}"
         if "kısa ve sonra ayrıntılı" in t or "kısa sonra ayrıntılı" in t:
-            return "Kısa: Ultron, görevleri anlayıp gerçekleştiren bir Windows AI asistanıdır.\nAyrıntılı: Ultron; sistem telemetrisi, uygulama kontrolü, web, dosya işlemleri, ekran görüntüsü, hafıza ve çok adımlı görev yürütme gibi yetenekleri tek bir agent çekirdeğinde birleştirmeyi amaçlar."
+            return "Kısa: GÖLGE, görevleri anlayıp gerçekleştiren bir Windows AI asistanıdır.\nAyrıntılı: GÖLGE; sistem telemetrisi, uygulama kontrolü, web, dosya işlemleri, ekran görüntüsü, hafıza ve çok adımlı görev yürütme gibi yetenekleri tek bir agent çekirdeğinde birleştirmeyi amaçlar."
         if intent=="calculate":
             try: return f"Sonuç: {self.executor.execute([('calculate',{'text':text})],approved=True)[0]}"
             except Exception as e: return f"Hesaplama yapılamadı: {e}"

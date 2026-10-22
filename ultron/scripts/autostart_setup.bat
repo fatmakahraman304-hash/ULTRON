@@ -13,7 +13,7 @@ if /i "%~1"=="remove" (
 
 schtasks /Create /TN "%TASK%" /TR "\"%STARTBAT%\"" /SC ONLOGON /RL HIGHEST /F
 if %errorlevel%==0 (
-  echo Ultron, Windows acilisina eklendi. Her giriste Boss'un karsisinda olacak.
+  echo GOLGE, Windows acilisina eklendi. Her giriste Boss'un karsisinda olacak.
 ) else (
   echo [WARN] Gorev Zamanlayici basarisiz; Startup klasoru deneniyor...
   copy /Y "%STARTBAT%" "%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\start_ultron.bat" >nul

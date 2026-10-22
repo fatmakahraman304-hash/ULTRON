@@ -321,3 +321,270 @@ CREATE INDEX IF NOT EXISTS image_requests_spend ON image_requests(created_at) WH
 -- Local image requests reuse the existing owner ledger and device task lane.
 ALTER TABLE image_requests ADD COLUMN IF NOT EXISTS command_id BIGINT;
 ALTER TABLE image_requests ADD COLUMN IF NOT EXISTS provider TEXT;
+
+
+-- Owner reminders created in chat ("20 dakika sonra hatırlat ...").
+-- Delivered to an open GÖLGE page/app; there is no server-side OS push.
+CREATE TABLE IF NOT EXISTS owner_reminders (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  text TEXT NOT NULL CHECK (length(text) BETWEEN 1 AND 200),
+  due_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','delivered','cancelled')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  delivered_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_owner_reminders_due
+  ON owner_reminders(user_id, status, due_at);
+
+-- Read-only calendar subscription (secret iCal address from Google/Apple/Outlook).
+CREATE TABLE IF NOT EXISTS owner_calendar_feeds (
+  user_id TEXT PRIMARY KEY,
+  url TEXT NOT NULL CHECK (length(url) BETWEEN 12 AND 800),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+
+-- Web Push (RFC 8030/8291/8292). VAPID keys are generated once and kept here so no manual setup is needed.
+CREATE TABLE IF NOT EXISTS push_config (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  private_pem TEXT NOT NULL,
+  public_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  endpoint TEXT PRIMARY KEY CHECK (length(endpoint) BETWEEN 20 AND 900),
+  user_id TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_ok TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+
+-- Owner-visible notifications produced by proactive rules (in-app first, push after a short grace).
+CREATE TABLE IF NOT EXISTS owner_notifications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 120),
+  body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 400),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  inapp_at TIMESTAMPTZ,
+  pushed_at TIMESTAMPTZ,
+  UNIQUE (user_id, dedupe_key)
+);
+CREATE INDEX IF NOT EXISTS idx_owner_notifications_pending ON owner_notifications(user_id, inapp_at, pushed_at);
+
+-- Per-owner proactive preferences (quiet hours, rule switches).
+CREATE TABLE IF NOT EXISTS owner_prefs (
+  user_id TEXT PRIMARY KEY,
+  prefs JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Repeating reminders ("her gün 9'da …"): the next occurrence is queued when one fires.
+ALTER TABLE owner_reminders ADD COLUMN IF NOT EXISTS repeat_rule TEXT
+  CHECK (repeat_rule IS NULL OR repeat_rule ~ '^(daily|weekdays|weekends|weekly:[0-6]|monthly:([1-9]|[12][0-9]|3[01]))$');
+
+-- Multi-step missions ("görev: …"): LLM plan, read-only execution, final report.
+CREATE TABLE IF NOT EXISTS missions (
+  id UUID PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  conversation_id UUID,
+  goal TEXT NOT NULL CHECK (length(goal) BETWEEN 3 AND 1000),
+  status TEXT NOT NULL DEFAULT 'planning' CHECK (status IN ('planning','running','done','failed','cancelled')),
+  steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+  report TEXT,
+  delivered BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_missions_user ON missions(user_id, created_at DESC);
+
+-- Price alerts ("bitcoin 70 bin dolara çıkarsa haber ver"): fire once, then deactivate.
+CREATE TABLE IF NOT EXISTS owner_alerts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  asset TEXT NOT NULL CHECK (length(asset) BETWEEN 2 AND 40),
+  kind TEXT NOT NULL CHECK (kind IN ('coin','fx')),
+  vs TEXT NOT NULL CHECK (vs IN ('usd','try')),
+  direction TEXT NOT NULL CHECK (direction IN ('above','below')),
+  threshold DOUBLE PRECISION NOT NULL CHECK (threshold > 0),
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  fired_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_owner_alerts_active ON owner_alerts(active, user_id);
+
+-- Named lists ("alışveriş listesine süt ekle").
+CREATE TABLE IF NOT EXISTS owner_list_items (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  list_name TEXT NOT NULL CHECK (length(list_name) BETWEEN 1 AND 40),
+  item TEXT NOT NULL CHECK (length(item) BETWEEN 1 AND 120),
+  item_key TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (user_id, list_name, item_key)
+);
+CREATE INDEX IF NOT EXISTS idx_owner_list_items_user ON owner_list_items(user_id, list_name, id);
+ALTER TABLE owner_list_items ADD COLUMN IF NOT EXISTS list_label TEXT NOT NULL DEFAULT '';
+
+-- Simple expense log ("150 lira market harcaması ekle", "bu ay ne kadar harcadım"); TRY only.
+CREATE TABLE IF NOT EXISTS owner_expenses (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  amount NUMERIC(12,2) NOT NULL CHECK (amount > 0 AND amount < 100000000),
+  category TEXT NOT NULL CHECK (length(category) BETWEEN 1 AND 40),
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 120),
+  spent_on DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_expenses_user_date ON owner_expenses(user_id, spent_on DESC);
+
+-- Yearly repeating reminders (birthdays, anniversaries): rule 'yearly:MM-DD'.
+ALTER TABLE owner_reminders DROP CONSTRAINT IF EXISTS owner_reminders_repeat_rule_check;
+ALTER TABLE owner_reminders ADD CONSTRAINT owner_reminders_repeat_rule_check
+  CHECK (repeat_rule IS NULL OR repeat_rule ~ '^(daily|weekdays|weekends|weekly:[0-6]|monthly:([1-9]|[12][0-9]|3[01])|yearly:(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]))$');
+
+-- Habit / health log ("2 bardak su içtim", "7 saat uyudum", "30 dakika yürüdüm", "modum 4").
+CREATE TABLE IF NOT EXISTS owner_habits (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  habit TEXT NOT NULL CHECK (habit IN ('water','sleep','exercise','steps','weight','mood')),
+  amount DOUBLE PRECISION NOT NULL CHECK (amount >= 0 AND amount < 1000000),
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 60),
+  day DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_habits_user_day ON owner_habits(user_id, habit, day DESC);
+
+-- Self-improvement loop: per-day skill usage counters and owner feedback on answers.
+CREATE TABLE IF NOT EXISTS skill_usage (
+  user_id TEXT NOT NULL,
+  day DATE NOT NULL,
+  skill TEXT NOT NULL CHECK (length(skill) BETWEEN 1 AND 40),
+  n INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (user_id, day, skill)
+);
+CREATE TABLE IF NOT EXISTS skill_feedback (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  rating TEXT NOT NULL CHECK (rating IN ('good','bad')),
+  skill TEXT NOT NULL DEFAULT '',
+  user_text TEXT NOT NULL DEFAULT '',
+  reply TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_skill_feedback_user ON skill_feedback(user_id, id DESC);
+
+-- Private daily journal entries written from chat or voice ("günlüğe yaz: …").
+CREATE TABLE IF NOT EXISTS owner_journal (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  entry TEXT NOT NULL CHECK (length(entry) BETWEEN 1 AND 1000),
+  day DATE NOT NULL DEFAULT CURRENT_DATE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_owner_journal_user_day ON owner_journal(user_id, day DESC, id DESC);
+
+-- Named routines (ordered checklists) the owner defines in chat: "akşam rutini: ilaç iç, su iç, yarını planla".
+CREATE TABLE IF NOT EXISTS owner_routines (
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 30),
+  steps TEXT[] NOT NULL CHECK (cardinality(steps) BETWEEN 1 AND 12),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, name)
+);
+
+-- Backlog of things GÖLGE could not do; the owner decides which become approved development requests.
+CREATE TABLE IF NOT EXISTS capability_gaps (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  request TEXT NOT NULL CHECK (length(request) BETWEEN 4 AND 300),
+  source TEXT NOT NULL DEFAULT 'owner' CHECK (source IN ('owner','auto')),
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','requested','dismissed')),
+  dev_request_id UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_capability_gaps_user ON capability_gaps(user_id, status, id DESC);
+
+-- Personal ledgers: contacts, debts, goals, time log, fuel log (all owner-scoped).
+CREATE TABLE IF NOT EXISTS owner_contacts (
+  user_id TEXT NOT NULL,
+  name_key TEXT NOT NULL CHECK (length(name_key) BETWEEN 1 AND 60),
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 60),
+  phone TEXT NOT NULL CHECK (phone ~ '^\+?[0-9]{7,15}$'),
+  note TEXT NOT NULL DEFAULT '' CHECK (length(note) <= 100),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, name_key)
+);
+CREATE TABLE IF NOT EXISTS owner_debts (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  person TEXT NOT NULL CHECK (length(person) BETWEEN 1 AND 60),
+  amount NUMERIC(12,2) NOT NULL CHECK (amount > 0 AND amount < 100000000),
+  direction TEXT NOT NULL CHECK (direction IN ('lent','borrowed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  settled_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_owner_debts_user ON owner_debts(user_id, settled_at);
+CREATE TABLE IF NOT EXISTS owner_goals (
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 60),
+  target NUMERIC(12,2) NOT NULL CHECK (target > 0 AND target < 100000000),
+  progress NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (progress >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, title)
+);
+CREATE TABLE IF NOT EXISTS owner_time_log (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT '' CHECK (length(label) <= 60),
+  started_at TIMESTAMPTZ NOT NULL,
+  ended_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_owner_time_log_user ON owner_time_log(user_id, started_at DESC);
+CREATE TABLE IF NOT EXISTS owner_fuel (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  liters NUMERIC(8,2) NOT NULL CHECK (liters > 0 AND liters < 5000),
+  cost NUMERIC(10,2) NOT NULL CHECK (cost >= 0 AND cost < 10000000),
+  odometer INTEGER CHECK (odometer IS NULL OR (odometer >= 0 AND odometer < 5000000)),
+  filled_on DATE NOT NULL DEFAULT CURRENT_DATE
+);
+CREATE INDEX IF NOT EXISTS idx_owner_fuel_user ON owner_fuel(user_id, filled_on DESC, id DESC);
+
+-- Actions proposed by the agent (or the owner) that run only after an explicit "onayla N".
+CREATE TABLE IF NOT EXISTS pending_actions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  text TEXT NOT NULL CHECK (length(text) BETWEEN 4 AND 220),
+  source TEXT NOT NULL DEFAULT 'agent' CHECK (source IN ('agent','owner')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','rejected','expired','failed')),
+  result TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  decided_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_pending_actions_user ON pending_actions(user_id, status, id DESC);
+
+-- Personal knowledge base: notes and analysed documents, chunked and full-text searchable (owner-scoped).
+CREATE TABLE IF NOT EXISTS kb_docs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  title TEXT NOT NULL CHECK (length(title) BETWEEN 1 AND 80),
+  source TEXT NOT NULL DEFAULT 'chat' CHECK (source IN ('chat','document','image','api')),
+  chars INTEGER NOT NULL CHECK (chars BETWEEN 1 AND 60000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_kb_docs_user ON kb_docs(user_id, id DESC);
+CREATE TABLE IF NOT EXISTS kb_chunks (
+  id BIGSERIAL PRIMARY KEY,
+  doc_id BIGINT NOT NULL REFERENCES kb_docs(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  ord INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  tsv tsvector NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_kb_chunks_tsv ON kb_chunks USING GIN (tsv);
+CREATE INDEX IF NOT EXISTS idx_kb_chunks_doc ON kb_chunks(doc_id, ord);

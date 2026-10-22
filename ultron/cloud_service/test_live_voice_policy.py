@@ -84,7 +84,8 @@ class LiveVoiceInstructionTests(unittest.TestCase):
         self.assertNotIn("reveals a stable personal fact worth remembering", prompt)
         self.assertNotIn("any other action/plugin available", prompt)
         self.assertNotIn("smart-home/IoT", prompt)
-        self.assertLess(len(prompt), 2600)
+        self.assertLess(len(prompt), 3000)
+        self.assertIn("golge_skill", prompt)
 
     def test_server_enforces_consent_before_memory_write_and_sees_transcript_first(self):
         source = (HERE / "app.py").read_text(encoding="utf-8")

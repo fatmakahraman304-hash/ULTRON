@@ -7,7 +7,7 @@ import {normalize,type SceneIntent} from '../spatial/intents';
 import {validateProject,type Project,type ViewState,type V3} from './project';
 
 export type PartInfo={id:number;name:string;description:string;vertices:number;triangles:number;dimensions:V3;note:string};
-type Part=PartInfo & {mesh:THREE.Mesh;initialRotation:THREE.Euler;base:THREE.Vector3;direction:THREE.Vector3;offset:THREE.Vector3;removed:boolean};
+type Part=PartInfo & {tint?:number;mesh:THREE.Mesh;initialRotation:THREE.Euler;base:THREE.Vector3;direction:THREE.Vector3;offset:THREE.Vector3;removed:boolean};
 export class HologramScene {
   private scene=new THREE.Scene();private group=new THREE.Group();
   private camera=new THREE.PerspectiveCamera(42,1,.05,100);
@@ -50,15 +50,15 @@ export class HologramScene {
   }
   private resize(){const {width,height}=this.host.getBoundingClientRect();this.camera.aspect=width/Math.max(1,height);this.camera.updateProjectionMatrix();this.renderer.setSize(width,height);}
   private animate=()=>{if(this.dead)return;this.frame=requestAnimationFrame(this.animate);if(document.hidden||!this.host.getClientRects().length||this.host.getBoundingClientRect().width===0)return;this.controls.update();for(const p of this.parts){const goal=p.base.clone().addScaledVector(p.direction,this.explosion*2.5).add(p.offset);p.mesh.position.lerp(goal,.16);}this.renderer.render(this.scene,this.camera);};
-  private add(name:string,description:string,geometry:THREE.BufferGeometry,position:THREE.Vector3,rotation?:THREE.Euler){
+  private add(name:string,description:string,geometry:THREE.BufferGeometry,position:THREE.Vector3,rotation?:THREE.Euler,tint?:number){
     name=name.slice(0,200);description=description.slice(0,4000);
-    const material=new THREE.MeshStandardMaterial({color:0x214957,emissive:0x12667b,emissiveIntensity:.3,metalness:.65,roughness:.28,transparent:true,opacity:.85,side:THREE.DoubleSide});
+    const material=new THREE.MeshStandardMaterial({color:tint??0x214957,emissive:tint===undefined?0x12667b:new THREE.Color(tint).multiplyScalar(.5),emissiveIntensity:.3,metalness:.65,roughness:.28,transparent:true,opacity:.85,side:THREE.DoubleSide});
     const mesh=new THREE.Mesh(geometry,material);mesh.position.copy(position);if(rotation)mesh.rotation.copy(rotation);
     const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geometry,28),new THREE.LineBasicMaterial({color:0x67edff,transparent:true,opacity:.7}));mesh.add(edges);
     this.group.add(mesh);const id=this.parts.length;
     const direction=position.length()>.1?position.clone().normalize():new THREE.Vector3();
     const bounds=geometry.clone().applyMatrix4(new THREE.Matrix4().makeRotationFromEuler(mesh.rotation));bounds.computeBoundingBox();const dimensions=bounds.boundingBox!.getSize(new THREE.Vector3()).toArray() as V3;bounds.dispose();
-    this.parts.push({id,name,description,dimensions,note:'',mesh,initialRotation:mesh.rotation.clone(),base:position.clone(),direction,offset:new THREE.Vector3(),removed:false,vertices:geometry.attributes.position.count,triangles:(geometry.index?.count??geometry.attributes.position.count)/3});mesh.userData.part=id;
+    this.parts.push({id,tint,name,description,dimensions,note:'',mesh,initialRotation:mesh.rotation.clone(),base:position.clone(),direction,offset:new THREE.Vector3(),removed:false,vertices:geometry.attributes.position.count,triangles:(geometry.index?.count??geometry.attributes.position.count)/3});mesh.userData.part=id;
   }
   private disposeObject(obj:THREE.Object3D){obj.traverse(o=>{const m=o as THREE.Mesh;if(m.geometry)m.geometry.dispose();if(m.material){for(const mat of Array.isArray(m.material)?m.material:[m.material]){for(const value of Object.values(mat))if(value instanceof THREE.Texture)value.dispose();mat.dispose();}}});}
   private clear(){this.stopGesture();this.resources.forEach(o=>this.disposeObject(o));this.resources=[];this.disposeObject(this.group);this.group.clear();this.parts=[];this.past=[];this.future=[];this.lastEdit="";this.cut=null;this.renderer.clippingPlanes=[];this.wire=false;this.selected=-1;this.explosion=0;this.isolated=false;this.onSelect(null);this.onExplosion(0);}
@@ -129,7 +129,7 @@ export class HologramScene {
       }
       g.scale(...p.size);return {p,g};
     });
-    this.clear();for(const {p,g} of prepared)this.add(p.name,'Tariften oluşturulan kavramsal geometri; üretici CAD modeli değildir.',g,new THREE.Vector3(...p.position),new THREE.Euler(...p.rotation));
+    this.clear();for(const {p,g} of prepared)this.add(p.name,'Tariften oluşturulan kavramsal geometri; üretici CAD modeli değildir.',g,new THREE.Vector3(...p.position),new THREE.Euler(...p.rotation),p.color?parseInt(p.color.slice(1),16):undefined);
     this.home();this.notify();return d.name;
   }
   command(intent:SceneIntent):string {
@@ -188,7 +188,7 @@ export class HologramScene {
     this.controls.update();
   }
   explode(amount:number){this.checkpoint('explode');const next=THREE.MathUtils.clamp(amount,0,1);const ratio=(1+next*.8)/(1+this.explosion*.8);this.camera.position.sub(this.controls.target).multiplyScalar(ratio).clampLength(3,35).add(this.controls.target);this.explosion=next;if(next===0)this.parts.forEach(p=>p.offset.set(0,0,0));this.onExplosion(this.explosion);this.notify();}
-  select(id:number){this.selected=id;for(const p of this.parts){const m=p.mesh.material as THREE.MeshStandardMaterial;m.color.set(p.id===id?this.accent:0x214957);m.emissive.set(p.id===id?this.accent:0x12667b);m.emissiveIntensity=p.id===id?.5:.3;p.mesh.visible=!p.removed&&(!this.isolated||id===p.id);}this.onSelect(this.parts[id]??null);this.notify();}
+  select(id:number){this.selected=id;for(const p of this.parts){const m=p.mesh.material as THREE.MeshStandardMaterial;m.color.set(p.id===id?this.accent:p.tint??0x214957);m.emissive.set(p.id===id?this.accent:p.tint===undefined?0x12667b:new THREE.Color(p.tint).multiplyScalar(.5));m.emissiveIntensity=p.id===id?.5:.3;p.mesh.visible=!p.removed&&(!this.isolated||id===p.id);}this.onSelect(this.parts[id]??null);this.notify();}
   isolate(value:boolean){this.checkpoint('isolate');this.isolated=value;this.select(this.selected);}
   wireframe(value:boolean){this.checkpoint('wire');this.wire=value;this.parts.forEach(p=>(p.mesh.material as THREE.MeshStandardMaterial).wireframe=value);this.notify();}
   home(){this.syncPositions();const box=new THREE.Box3();this.parts.filter(p=>!p.removed).forEach(p=>box.expandByObject(p.mesh));const center=box.isEmpty()?new THREE.Vector3():box.getCenter(new THREE.Vector3());this.controls.target.copy(center);this.camera.position.set(6,4,8).multiplyScalar((1+this.explosion*.8)/Math.min(1,this.camera.aspect)).add(center);this.fitVisible();this.controls.update();}

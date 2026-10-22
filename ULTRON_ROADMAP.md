@@ -714,3 +714,23 @@ Next dependency order: finish exact-head CI for PR #34/#35 → merge and verify 
 - Completed in development code: deterministic stop command handling, honest licensed-satellite failure, provider-backed weather chat result, and native desktop file-byte transfer into existing vision/document handlers.
 - Remaining acceptance work: pull the fix onto Windows and repeat the four manual interactions on the actual Qt/native audio path. Confirm local vision model availability separately. No new map provider is configured, so satellite imagery remains unavailable; ordinary street map and the separate Globe remain intact.
 - Release gate: review CI and manual Windows evidence before merging. Do not deploy to Render for this desktop bridge change unless separately required and explicitly authorized.
+
+
+## 2026-10-21 — Phone assistant stack (branch `claude/epic-ptolemy-0mexud`, draft PR #62 into `feat/ultron-cloud-shared-memory`)
+
+Cloud service + PWA only; no Windows desktop code was changed except display strings.
+- **Skills without a model call** (`instant_skills.py`, `phone_skills.py`, `knowledge_skills.py`): clock/countdown/math/units, weather (also phone location), FX, crypto, news (Google News RSS), flight-search link (no prices), YouTube link summary (Gemini file_data), Wikipedia, prayer times, USGS quakes, sun/moon, status, briefing, agenda, help. Local-Qwen path hands these back to `/api/chat` (`wants_cloud_skill`).
+- **Plans/reminders/memory/calendar**: repeating reminders, plans from chat, read-only iCal feed (https + host allow-list), memory commands, `owner_prefs`.
+- **Proactive + Web Push** (`proactive.py`, `web_push.py`): RFC 8291/8292 on `cryptography`, VAPID keys in DB, in-app first / push after 25 s grace, quiet hours, price alerts (`alert_skills.py`), M5+ quake notice.
+- **Smart home** (`smart_home.py`): Home Assistant REST (env `HOME_ASSISTANT_URL`/`HOME_ASSISTANT_TOKEN`); never unlocks doors / opens garage covers.
+- **Missions** (`missions.py`): `görev: …` → validated plan → read-only runner → report; laptop steps proposed only.
+- **Phone → laptop chat bridge** (`laptop_bridge.py`): `laptop: …`, `ekran analizi yap`; destructive needs prefix; offline not queued.
+- **Infra** (`infra.py`, `http_client.py`, `ops.py`): login lockout, security headers, safe JSON 500 + request id, per-owner rate limits, pooled HTTP client, deep health, diagnostics, retention, export. New workflow `.github/workflows/golge-cloud-stack.yml`.
+- **Router quality gate**: `skill_routing_corpus.py` + `test_skill_routing.py` (292 labelled utterances; ordinary chat must never be intercepted).
+
+## 2026-10-21 — Natural chat, memory, voice, self-improvement (branch `claude/epic-ptolemy-0mexud`)
+- **Style** (`style_skills.py`): persistent "kısa cevap ver / samimi ol / bana sen de / bana Murat diye hitap et / emoji kullanma / tarzı sıfırla / konuşma tarzım ne" in `owner_prefs["style"]`; appended to chat and live-voice system instructions (tone/length only, never safety rules). `proactive.set_pref` now keeps keys owned by other modules.
+- **Recall** (`recall_skills.py`): "X hakkında ne biliyorsun" (memory + own past messages; falls through to the model when nothing is stored), "X hakkında ne konuşmuştuk", "dün/bugün/bu hafta/geçen hafta ne konuştuk", "hafıza özeti". Read-only, owner-scoped.
+- **Voice** (`voice_skills.py`, `live_voice_policy.py`, `app.py`): live voice gets a `golge_skill` tool that runs the exact skills (writes limited to reminders, lists, expenses, habits, focus, birthdays, style; memory, plans, alerts, prefs, smart home, feedback stay out). Replies are made speakable, full text (with links) is stored in the conversation. New SKILLS/SPEAKING policy text.
+- **Self-improvement** (`feedback_skills.py`, `/api/feedback`, `feedback_to_corpus.py`): "yanlış anladın"/"tam istediğim buydu" stored with the previous exchange; per-day `skill_usage`; "en çok kullandığım komutlar"; data-backed tip at most once/day (morning brief) or on "bana öneri ver"; export + retention; negative feedback → routing-corpus candidates.
+- Not measured: spoken quality against a real Gemini Live session, whether the style text actually changes model behaviour on a real provider.

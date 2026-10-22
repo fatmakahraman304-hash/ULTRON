@@ -64,8 +64,12 @@ test('fixed source adapters have bounded coordinates and no arbitrary user URLs'
  assert.match(backend,/not math\.isfinite\(value\)/);
  assert.match(backend,/coordinate\(request\.query\.get\("lat"\), -90, 90/);
  assert.match(backend,/coordinate\(request\.query\.get\("lon"\), -180, 180/);
- assert.match(backend,/allow_redirects=False/);
- assert.match(backend,/read\(2_000_001\)/);
+ // The bounded, redirect-free fetch now lives in the shared client that world_api delegates to.
+ const shared=require('node:fs').readFileSync(__dirname+'/http_client.py','utf8');
+ assert.match(backend,/http_client\.fetch\(url/);
+ assert.match(backend,/max_bytes=2_000_000/);
+ assert.match(shared,/allow_redirects=False/);
+ assert.match(shared,/max_bytes \+ 1/);
  assert.doesNotMatch(backend,/_upstream\(request\.query/);
 });
 test('weather has real rate-limit fallback and labels its provider truthfully',()=>{

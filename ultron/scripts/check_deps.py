@@ -45,7 +45,7 @@ for item, typ, desc, required in CHECKS:
 
 print()
 print("╔══════════════════════════════════════════════════════╗")
-print("║          ULTRON — Bağımlılık Raporu                 ║")
+print("║          GÖLGE — Bağımlılık Raporu                  ║")
 print("╠══════════════════════════════════════════════════════╣")
 
 if ok:
@@ -80,5 +80,5 @@ elif warn:
     sys.exit(0)
 else:
     print()
-    print("Tüm bağımlılıklar mevcut. ULTRON hazır.")
+    print("Tüm bağımlılıklar mevcut. GÖLGE hazır.")
     sys.exit(0)

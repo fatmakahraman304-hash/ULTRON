@@ -208,7 +208,7 @@ def video_player(parameters: dict = None, response=None, player=None,
         chooser = getattr(player, 'select_video_and_play', None)
         if callable(chooser):
             chooser()
-            return 'Opening the MARK video selector inside ULTRON.'
+            return 'Opening the video selector inside GÖLGE.'
         return "What should I play?"
 
     # Cancel older in-flight YouTube lookup when the user opens another clip.

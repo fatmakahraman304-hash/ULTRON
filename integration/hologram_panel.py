@@ -51,13 +51,13 @@ def attach(ui):
 
         if not base or not token:
             ui.write_log(
-                "ERR: Hologram için yerel ULTRON servisi açık olmalı."
+                "ERR: Hologram için yerel GÖLGE servisi açık olmalı."
             )
             return
 
         dialog = QDialog(ui._win)
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        dialog.setWindowTitle("ULTRON · Hologram Çalışma Alanı")
+        dialog.setWindowTitle("GÖLGE · Hologram Çalışma Alanı")
         dialog.resize(1350,850)
 
         layout = QVBoxLayout(dialog)

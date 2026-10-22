@@ -407,6 +407,7 @@
     <div class="top-actions"><button class="round-action" id="voiceToggle" aria-label="Sesli yanıt">◖))</button><button class="round-action" type="button" id="panelMenuToggle" aria-label="Çalışma alanları menüsü" aria-expanded="false" aria-controls="tabs">⋯</button></div>
   </header>
 
+  <div id="reminderBanners" aria-live="assertive" style="position:relative;z-index:3"></div>
   <section id="login" class="panel hidden">
     <h2>GÜVENLİ GİRİŞ</h2>
     <p class="tiny">GÖLGE Cloud oturumunu aç. Parolan cihazında saklanmaz.</p>
@@ -555,6 +556,22 @@
         <p class="remote-note" id="conversationNotesStatus" role="status" aria-live="polite">İsteğin üzerine taslak hazırlanır; otomatik kayıt yapılmaz.</p>
         <div id="conversationNotesList" class="memory-list" aria-label="Yalnızca bu sohbete ait notlar"></div>
       </div>
+      <div class="memory-form panel" id="quickCommandsPanel">
+        <div class="section-title"><h2>HIZLI KOMUTLAR</h2></div>
+        <p class="remote-note">Dokun, GÖLGE hemen cevaplasın. Kendi cümlelerinle de yazabilirsin (“neler yapabilirsin” de).</p>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          <button type="button" class="secondary" data-quick="hava nasıl">🌤 Hava</button>
+          <button type="button" class="secondary" data-quick="haberler">📰 Haberler</button>
+          <button type="button" class="secondary" data-quick="bugün programım ne">📅 Bugün</button>
+          <button type="button" class="secondary" data-quick="planlarım">📝 Planlar</button>
+          <button type="button" class="secondary" data-quick="hatırlatıcılarım neler">⏰ Hatırlatıcılar</button>
+          <button type="button" class="secondary" data-quick="günaydın">☀ Brifing</button>
+          <button type="button" class="secondary" data-quick="durum raporu">📊 Durum</button>
+          <button type="button" class="secondary" data-quick="bu ay ne kadar harcadım">💸 Harcamalar</button>
+          <button type="button" class="secondary" data-quick="alarmlarım">🔔 Alarmlar</button>
+          <button type="button" class="secondary" data-quick="neler yapabilirsin">❓ Yardım</button>
+        </div>
+      </div>
       <div class="memory-form panel" id="ownerPlansPanel">
         <div class="section-title"><h2>KİŞİSEL TAKVİM VE PLANLAR</h2><button class="secondary" type="button" id="refreshOwnerPlans">PLANLARI GÖSTER</button></div>
         <p class="remote-note">GÖLGE'un kendi plan defteri. Google/Apple Takvim bağlantısı veya otomatik telefon bildirimi değildir.</p>
@@ -577,6 +594,17 @@
         </select>
         <button type="button" id="exportOwnerPlans" class="secondary" style="width:100%;margin-top:9px">.ICS TAKVİM DOSYASINI İNDİR</button>
         <p class="remote-note">Yalnızca sen tıklarsan takvim dosyası oluşturulur. Dosya sadece tamamlanmamış planların başlık ve tarih/saatini içerir; özel notları ve otomatik alarmı içermez. Apple/Google Takvim'e bağlanmaz.</p>
+        <div class="section-title" style="margin-top:12px"><h2>GOOGLE / APPLE / OUTLOOK TAKVİM (SALT OKUNUR)</h2></div>
+        <p class="remote-note">Google Takvim → Ayarlar → takvimi seç → “Gizli iCal biçimindeki adres” bağlantısını yapıştır. GÖLGE yalnızca okur, değişiklik yapmaz; adres bir daha gösterilmez.</p>
+        <input id="calendarFeedUrl" type="password" maxlength="800" placeholder="https://calendar.google.com/…/basic.ics" autocomplete="off" />
+        <div class="row" style="margin-top:7px">
+          <button type="button" id="calendarFeedConnect" class="grow">TAKVİMİ BAĞLA</button>
+          <button type="button" id="calendarFeedDisconnect" class="secondary hidden">KALDIR</button>
+        </div>
+        <p class="remote-note" id="calendarFeedStatus" role="status" aria-live="polite">Takvim durumu yükleniyor…</p>
+        <div class="section-title" style="margin-top:12px"><h2>HATIRLATICILAR</h2></div>
+        <p class="remote-note">Sohbette “20 dakika sonra su içmeyi hatırlat” yazman yeterli. Hatırlatıcılar GÖLGE açıkken sesle ve bildirimle gelir.</p>
+        <button type="button" id="reminderNotifyPermission" class="secondary" style="width:100%">BİLDİRİMLERİ AÇ (KİLİTLİYKEN DE)</button>
         <p class="remote-note" id="ownerPlansStatus" role="status" aria-live="polite">Tarih ve başlıkla bir plan oluştur. Görev tamamlanınca işaretleyebilir veya silebilirsin.</p>
         <div id="ownerPlansList" class="memory-list" aria-label="Kişisel plan kayıtları"></div>
       </div>
@@ -655,6 +683,9 @@
 <script src="/static/speaker-policy.js"></script>
 <script src="/static/personal-panel.js"></script>
 <script src="/static/owner-plans.js"></script>
+<script src="/static/assistant-extras.js"></script>
+<script src="/static/laptop-bridge.js"></script>
+<script src="/static/mission-watch.js"></script>
 <script src="/static/conversation-notes.js"></script>
 <script src="/static/auto-brain.js"></script>
 <script src="/static/source-links.js"></script>
@@ -1569,6 +1600,10 @@ async function openLiveSocket(){
       // Siri/Cloud suggestions may not auto-run arbitrary settings shortcuts.
       queueIOSApproval(d);
     }
+    if(d.type==='mission_started'&&d.mission_id&&window.ULTRONMissionWatch){
+      window.ULTRONMissionWatch.create({fetchJson:(p,o)=>api(p,o),addMessage,toast,
+        speak:r=>{if(voiceEnabled&&!voiceListening)try{speakUltron(r)}catch{}}}).watch(d.mission_id,d.conversation_id);
+    }
     if(d.type==='phone_action'){
       const action=String(d.action||''),query=String(d.query||'').trim();
       const directAction=['browser','search_web','maps','call','sms','email','facetime','open_app','youtube_search','spotify_search','whatsapp_message'].includes(action);
@@ -1579,6 +1614,7 @@ async function openLiveSocket(){
       if(action==='camera'&&!cameraStream)startPhoneCamera();
       if(action==='vibrate'&&navigator.vibrate)navigator.vibrate([80,45,80]);
       if(action==='scroll_top')window.scrollTo({top:0,behavior:'smooth'});
+      if(action==='hologram'&&query)handleSceneIntent('hologramda '+query.slice(0,100)+' goster');
 
       if(action==='browser'){
         // Native-only: never open the same command again on the web.
@@ -1974,6 +2010,8 @@ async function loadSpatialController(){
  return spatialLoading;
 }
 async function generateSceneDesign(description,signal){
+ try{const known=await api('/api/scene-library',{method:'POST',timeoutMs:8000,body:JSON.stringify({description})});if(signal.aborted)throw new Error('cancelled');if(known&&known.design)return known.design;}
+ catch(e){if(signal.aborted)throw e;}
  const preferred=await refreshAutoBrain(true);
  if(signal.aborted)throw new Error('cancelled');
  if(preferred==='local'){
@@ -2042,6 +2080,8 @@ async function boot(){
 window.ULTRONDevRequests?.init();
 window.ULTRONPersonalPanel?.create({fetchJson: path => api(path), document}).init();
 window.ULTRONOwnerPlans?.create({fetchJson: (path, options) => api(path, options), document}).init();
+window.ULTRONAssistantExtras?.create({fetchJson: (path, options) => api(path, options), document, toast, speak: speakUltron,
+  sendQuick: text => { showView('chat'); $('#message').value = text; send(); }}).init();
 const conversationNotesController=window.ULTRONConversationNotes?.create({
   document,
   fetchJson: (path, options) => api(path, options),
@@ -2222,6 +2262,15 @@ async function localBrainAnswer(text,userBubble,identity,signal){
     onWaiting:()=>{$('#busy').textContent='Yanıt bekleniyor; mesajın kaydı korunuyor…'},
   });
 }
+// Coordinates (rounded to ~1 km) are attached only to weather questions, used for that
+// answer and never stored. Without permission the server falls back to the home city.
+async function locationForWeather(text){
+  if(!/(hava|ya[ğg]mur|[şs]emsiye|ka[çc] derece|s[ıi]cak m[ıi]|so[ğg]uk mu|yak[ıi]n|etraf[ıi]m|yol tarifi|nas[ıi]l giderim|trafik|namaz|ezan|g[üu]n (?:do[ğg]|bat))/i.test(text)||!navigator.geolocation)return undefined;
+  try{
+    const pos=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(ok,no,{timeout:6000,maximumAge:600000}));
+    return {lat:Math.round(pos.coords.latitude*100)/100,lon:Math.round(pos.coords.longitude*100)/100};
+  }catch{return undefined}
+}
 async function send(fromVoice=false,voiceToken=null,options={}){
   if(chatSending)return false;
   const text=$('#message').value.trim();if(!text&&!pendingImage&&!pendingPdf)return false;
@@ -2282,6 +2331,12 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     if(panelHandled){toast('GÖLGE çalışma alanı açıldı.');return}
     const devHandled=options.forceChat?false:await window.ULTRONDevRequests?.fromText(text).catch(()=>false);
     if(devHandled){addMessage('assistant','Geliştirme isteğin kaydedildi. GELİŞTİR sekmesinde ChatGPT görevini kopyalayıp sohbetimize gönder. Henüz kod değiştirilmedi.');return}
+    if(!options.forceChat&&window.ULTRONLaptopBridge?.mayRoute(text)){
+      $('#busy').textContent='Laptop GÖLGE ile konuşuyorum…';
+      const laptop=await window.ULTRONLaptopBridge.create({fetchJson:(p,o)=>api(p,o),addMessage,toast,speak:r=>{if(voiceEnabled&&!voiceListening)try{speakUltron(r)}catch{}},
+        onConversation:id=>{conversationId=id;localStorage.setItem('ultronConversationId',id)}}).route(text,{conversationId}).catch(()=>null);
+      if(laptop){messageSignature='';return true}
+    }
     if(!options.forceChat&&(lastUploadedImageId||lastImageFile)&&lastImageConversationId===conversationId&&isImageFollowupRequest(text)){
       $('#busy').textContent='GÖLGE yüklediğin görsele bakıyor…';
       const d=await visionApi(lastUploadedImageId?null:lastImageFile,text,lastUploadedImageId);
@@ -2298,8 +2353,9 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     chatIdentity=newChatIdentity();requestController=new AbortController();
     activeChatRequest={identity:chatIdentity,controller:requestController,provider:'routing'};
     $('#sendBtn').disabled=false;$('#sendBtn').classList.add('is-stop');$('#sendBtn').setAttribute('aria-label','Konuşmayı durdur');
+    const phoneLocation=await locationForWeather(text);
     const cloud=()=>api('/api/chat',{method:'POST',timeoutMs:120000,signal:requestController.signal,
-      body:JSON.stringify({message:text,conversation_id:conversationId||undefined,...chatIdentity})});
+      body:JSON.stringify({message:text,conversation_id:conversationId||undefined,...(phoneLocation?{location:phoneLocation}:{}),...chatIdentity})});
     const preferred=await refreshAutoBrain(true);
     if(requestController.signal.aborted)return false;
     activeChatRequest.provider=preferred==='local'?'local-qwen':'gemini-cloud';
@@ -2323,6 +2379,8 @@ async function send(fromVoice=false,voiceToken=null,options={}){
     rememberPendingVoice('assistant',d.reply);addMessage('assistant',d.reply,{id:d.assistant_message_id,research:d.research});
     if(d.assistant_message_id)consumePendingVoice('assistant',d.reply);
     messageSignature='';
+    if(d.mission_id&&window.ULTRONMissionWatch)window.ULTRONMissionWatch.create({fetchJson:(p,o)=>api(p,o),addMessage,toast,
+      speak:r=>{if(voiceEnabled&&!voiceListening)try{speakUltron(r)}catch{}}}).watch(d.mission_id,d.conversation_id);
     if((!fromVoice||voiceTurnGuard.current(voiceToken))&&
        (!fromVoice||!document.hidden)&&(fromVoice||voiceEnabled)){
       // Voice playback is optional; a speaker exception cannot retroactively

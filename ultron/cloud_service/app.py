@@ -1,6 +1,13 @@
 from __future__ import annotations
 
 from capability_readiness import readiness
+from instant_skills import instant_reply, clock_context, SKILL_SUMMARY, THINKING_GUIDE
+import memory_hints, personality, style_skills, voice_skills, feedback_skills, shape_library, gap_skills, kb_skills, approval_skills
+import phone_skills
+import missions
+import infra
+import followups
+import world_api
 from personal_briefing import build_briefing
 from personal_plans import register_routes as register_personal_plan_routes
 from approved_learning import register_learning_routes
@@ -157,6 +164,30 @@ async def init_db(app: web.Application) -> None:
     app["uploaded_image_cleanup_task"] = asyncio.create_task(
         uploaded_image_cleanup_loop(app["db"])
     )
+    async def _proactive_fetch_json(url: str, key: str, ttl: int) -> dict:
+        return await world_api._upstream(url, ttl=ttl, key=key)
+    await missions.fail_stale(app["db"])
+
+    async def _mission_llm(prompt: str, system: str) -> str:
+        return await asyncio.to_thread(_gemini_reply, prompt, system)
+
+    async def _mission_skill(value: str, user_id: str):
+        return await instant_reply(value, pool=app["db"], user_id=user_id, fetch_json=_proactive_fetch_json,
+                                   fetch_text=phone_skills.fetch_news_xml, read_only=True)
+
+    async def _mission_research(value: str, user_id: str) -> str:
+        result = await research_for_chat("Araştır: " + value)
+        if result.get("answer"):
+            return str(result["answer"])
+        findings = (result.get("synthesis") or {}).get("findings", [])[:3]
+        if not findings:
+            return "Güncel kaynaklara erişemedim; bu konuda doğrulanmış bilgi yok."
+        return append_research_sources("\n\n".join(str(f.get("excerpt", ""))[:600] for f in findings), result)
+
+    app["mission_deps"] = {"llm": _mission_llm, "skill": _mission_skill, "research": _mission_research}
+    import proactive
+    app["proactive_task"] = asyncio.create_task(
+        proactive.dispatcher_loop(app, _proactive_fetch_json, phone_skills.fetch_news_xml))
     print(f"startup_timing stage=init_db_done ts={time.time():.3f}", flush=True)
 
 
@@ -175,12 +206,16 @@ async def uploaded_image_cleanup_loop(pool: asyncpg.Pool) -> None:
 
 
 async def close_db(app: web.Application) -> None:
-    for key in ("listening_cleanup_task", "uploaded_image_cleanup_task"):
+    for key in ("listening_cleanup_task", "uploaded_image_cleanup_task", "proactive_task"):
         task = app.get(key)
         if task is not None:
             task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await task
+    for task in list(app.get("mission_tasks", {}).values()):
+        task.cancel()
+    import http_client
+    await http_client.close()
     await app["db"].close()
 
 
@@ -211,12 +246,27 @@ async def index(request: web.Request) -> web.FileResponse:
     return response
 
 
+LOGIN_GUARD = infra.LoginGuard()
+
+
 async def login(request: web.Request) -> web.Response:
-    body = await request.json()
-    supplied = str(body.get("password", ""))
+    client = infra.client_key(request)
+    locked = LOGIN_GUARD.retry_after(client)
+    if locked:
+        raise web.HTTPTooManyRequests(
+            text=json.dumps({"error": "too_many_attempts", "retry_after": locked,
+                             "detail": "Çok fazla hatalı deneme. Bir süre sonra tekrar dene."}, ensure_ascii=False),
+            content_type="application/json", headers={"Retry-After": str(locked)})
+    try:
+        body = await request.json()
+    except (ValueError, TypeError):
+        raise web.HTTPBadRequest(text=json.dumps({"error": "invalid_json"}), content_type="application/json")
+    supplied = str(body.get("password", "")) if isinstance(body, dict) else ""
     expected = required_env("ULTRON_PASSWORD")
-    if not hmac.compare_digest(supplied, expected):
+    if not hmac.compare_digest(supplied.encode("utf-8"), expected.encode("utf-8")):
+        LOGIN_GUARD.failure(client)
         raise web.HTTPUnauthorized(text=json.dumps({"error": "invalid_password"}), content_type="application/json")
+    LOGIN_GUARD.success(client)
 
     response = web.json_response({"ok": True, "user_id": DEFAULT_USER_ID})
     response.set_cookie(
@@ -1760,19 +1810,146 @@ async def listening_analysis_api(request: web.Request) -> web.Response:
     return web.json_response({"stage": stage, "analysis": answer, "saved": False})
 
 
+async def scene_library(request: web.Request) -> web.Response:
+    """Library-only lookup so the phone can skip the local/cloud model for known shapes."""
+    from scene_design import description, validate
+    try:
+        text = description(await request.json())
+    except (ValueError, TypeError):
+        return web.json_response({"error": "invalid_description"}, status=400)
+    try:
+        known = shape_library.generate(text)
+        return web.json_response({"design": validate(known) if known is not None else None})
+    except Exception:
+        return web.json_response({"design": None})
+
+
 async def scene_design(request: web.Request) -> web.Response:
     from scene_design import description, validate, SYSTEM
     try:
         text = description(await request.json())
     except (ValueError, TypeError):
         return web.json_response({"error":"invalid_description"}, status=400)
+    # Known shapes (heart, star, DNA, rocket …) are built instantly and offline from the shape library.
+    try:
+        known = shape_library.generate(text)
+        if known is not None:
+            return web.json_response({"design": validate(known), "source": "library"})
+    except Exception:
+        pass  # a library bug must never block the model path
     try:
         reply = await asyncio.to_thread(_gemini_reply, text, SYSTEM, [])
         design = validate(reply)
     except Exception:
         # No raw provider output or owner description in errors/logs.
         return web.json_response({"error":"scene_design_unavailable"}, status=502)
-    return web.json_response({"design":design})
+    return web.json_response({"design":design, "source": "model"})
+
+
+def _valid_location(raw: object) -> dict | None:
+    """Rounded phone coordinates sent only with weather questions; never stored."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        lat, lon = float(raw.get("lat")), float(raw.get("lon"))
+    except (TypeError, ValueError):
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180) or lat != lat or lon != lon:
+        return None
+    return {"lat": round(lat, 2), "lon": round(lon, 2)}
+
+
+def _gemini_youtube_reply(url: str, question: str, system_instruction: str) -> str:
+    """Gemini reads the public YouTube video itself; no transcript scraping."""
+    client = genai.Client(api_key=required_env("GEMINI_API_KEY"))
+    model = os.getenv("GEMINI_VIDEO_MODEL", os.getenv("GEMINI_MODEL", "gemini-3.8-flash")).strip() or "gemini-3.8-flash"
+    contents = types.Content(parts=[
+        types.Part(file_data=types.FileData(file_uri=url)),
+        types.Part(text=question + "\n\nKısa bir özet, ardından en önemli 3-5 madde ver. Videoda olmayan bir şeyi ekleme."),
+    ])
+    response = client.models.generate_content(
+        model=model, contents=contents,
+        config=types.GenerateContentConfig(system_instruction=system_instruction, max_output_tokens=4096))
+    text = (response.text or "").strip()
+    if not text:
+        raise RuntimeError("Gemini returned an empty video response")
+    return text
+
+
+async def actions_pending_route(request: web.Request) -> web.Response:
+    rows = await approval_skills.pending(request.app["db"], request["user_id"])
+    return web.json_response({"actions": [{"id": int(r["id"]), "text": r["text"], "source": r["source"]} for r in rows]})
+
+
+async def action_decide_route(request: web.Request) -> web.Response:
+    """Approve/reject one queued action from the PWA card; same code path as typing "onayla N"."""
+    try:
+        action_id = int(request.match_info["id"])
+        decision = request.match_info["decision"]
+        if decision not in ("approve", "reject") or not 1 <= action_id < 2 ** 62:
+            raise ValueError("bad_request")
+    except (KeyError, ValueError):
+        return web.json_response({"error": "invalid_request"}, status=400)
+
+    async def _fetch(url: str, key: str, ttl: int) -> dict:
+        return await world_api._upstream(url, ttl=ttl, key=key)
+    out = await instant_reply(f"{'onayla' if decision == 'approve' else 'reddet'} {action_id}", pool=request.app["db"], user_id=request["user_id"],
+                              fetch_json=_fetch, fetch_text=phone_skills.fetch_news_xml)
+    await feedback_skills.record_usage(request.app["db"], request["user_id"], "approvals")
+    return web.json_response({"reply": (out or {}).get("reply", "İşlem yapılamadı.")})
+
+
+async def kb_add_route(request: web.Request) -> web.Response:
+    try:
+        body = await request.json()
+        title, text = str(body.get("title", "")), str(body.get("text", ""))
+    except Exception:
+        return web.json_response({"error": "invalid_json"}, status=400)
+    doc_id, reason = await kb_skills.add_document(request.app["db"], request["user_id"], title, text, "api")
+    if doc_id is None:
+        return web.json_response({"error": reason}, status=413 if reason == "too_long" else 400)
+    return web.json_response({"ok": True, "id": doc_id}, status=201)
+
+
+async def kb_list_route(request: web.Request) -> web.Response:
+    rows = await request.app["db"].fetch("SELECT id,title,chars,source,created_at FROM kb_docs WHERE user_id=$1 ORDER BY id DESC LIMIT 100", request["user_id"])
+    return web.json_response({"docs": [{**dict(r), "created_at": r["created_at"].isoformat()} for r in rows]})
+
+
+async def kb_delete_route(request: web.Request) -> web.Response:
+    try:
+        doc_id = int(request.match_info["id"])
+    except (KeyError, ValueError):
+        return web.json_response({"error": "invalid_id"}, status=400)
+    n = await request.app["db"].fetchval("WITH d AS (DELETE FROM kb_docs WHERE id=$1 AND user_id=$2 RETURNING 1) SELECT COUNT(*) FROM d", doc_id, request["user_id"])
+    return web.json_response({"deleted": bool(n)}, status=200 if n else 404)
+
+
+async def feedback_route(request: web.Request) -> web.Response:
+    """Thumbs up/down on one assistant message of the caller's own conversations."""
+    try:
+        body = await request.json()
+        rating = body.get("rating")
+        message_id = int(body.get("message_id"))
+        if not 1 <= message_id < 2 ** 62:
+            raise ValueError("message_id_out_of_range")
+    except Exception:
+        return web.json_response({"error": "invalid_feedback"}, status=400)
+    if rating not in ("good", "bad"):
+        return web.json_response({"error": "invalid_rating"}, status=400)
+    pool = request.app["db"]
+    row = await pool.fetchrow(
+        "SELECT id,conversation_id,content,device_id FROM messages WHERE id=$1 AND user_id=$2 AND role='assistant'",
+        message_id, request["user_id"])
+    if not row:
+        return web.json_response({"error": "message_not_found"}, status=404)
+    asked = await pool.fetchval(
+        "SELECT content FROM messages WHERE conversation_id=$1 AND role='user' AND id<$2 ORDER BY id DESC LIMIT 1",
+        row["conversation_id"], row["id"])
+    dev = str(row["device_id"] or "")
+    skill = dev[len(followups.SKILL_PREFIX):] if dev.startswith(followups.SKILL_PREFIX) else "chat"
+    await feedback_skills.record_feedback(pool, request["user_id"], rating, skill, asked or "", row["content"])
+    return web.json_response({"ok": True})
 
 
 async def chat(request: web.Request) -> web.Response:
@@ -1837,6 +2014,74 @@ async def chat(request: web.Request) -> web.Response:
         conv_uuid, request["user_id"], text, request["device_id"],
     )
 
+    async def _skill_fetch(url: str, key: str, ttl: int) -> dict:
+        return await world_api._upstream(url, ttl=ttl, key=key)
+    try:
+        skill = None
+        if missions.mission_goal(text) is None and not missions.is_cancel_request(text):
+            kwargs = dict(pool=pool, user_id=request["user_id"], fetch_json=_skill_fetch,
+                          location=_valid_location(body.get("location")), fetch_text=phone_skills.fetch_news_xml)
+            history = None
+            if feedback_skills.wants_feedback(text):
+                prev = await pool.fetchrow(
+                    "SELECT id,content,device_id FROM messages WHERE conversation_id=$1 AND role='assistant' ORDER BY id DESC LIMIT 1", conv_uuid)
+                if prev:
+                    asked = await pool.fetchval(
+                        "SELECT content FROM messages WHERE conversation_id=$1 AND role='user' AND id<$2 ORDER BY id DESC LIMIT 1",
+                        conv_uuid, prev["id"])
+                    dev = str(prev["device_id"] or "")
+                    history = {"user": asked or "", "reply": prev["content"],
+                               "skill": dev[len(followups.SKILL_PREFIX):] if dev.startswith(followups.SKILL_PREFIX) else "chat"}
+            skill = await instant_reply(text, history=history, **kwargs)
+            if skill is None and len(text) <= 60:
+                # "peki yarın?" after a weather answer → "yarın hava nasıl"
+                previous = await pool.fetchval(
+                    "SELECT device_id FROM messages WHERE conversation_id=$1 AND role='assistant' ORDER BY id DESC LIMIT 1", conv_uuid)
+                explicit = followups.resolve(text, previous)
+                if explicit:
+                    skill = await instant_reply(explicit, **kwargs)
+    except Exception:
+        skill = None  # A skill bug must never block a normal model answer.
+    if skill:
+        await feedback_skills.record_usage(pool, request["user_id"], skill["skill"])
+        try:
+            skill["reply"] = personality.decorate(skill["skill"], skill["reply"], await style_skills.get_style(pool, request["user_id"]))
+        except Exception:
+            pass          # flavor is optional and must never break an exact answer
+    if skill and not cancel_record["cancel_requested"]:
+        async with cancel_registry.completion_lock:
+            if cancel_record["cancel_requested"]:
+                return web.json_response({"request_id": request_id, "status": "output_suppressed",
+                    "provider": "golge-skill", "provider_stopped": False,
+                    "conversation_id": str(conv_uuid)})
+            assistant_message_id = await pool.fetchval(
+                "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+                "VALUES($1,$2,'assistant',$3,$4) RETURNING id",
+                conv_uuid, request["user_id"], skill["reply"], followups.SKILL_PREFIX + skill["skill"],
+            )
+            await pool.execute("UPDATE conversations SET updated_at=NOW() WHERE id=$1", conv_uuid)
+            cancel_registry.mark_completed(request["user_id"], request["device_id"],
+                                           request_id, request_key)
+        return web.json_response({"conversation_id": str(conv_uuid), "reply": skill["reply"],
+            "request_id": request_id, "skill": skill["skill"], "research": None,
+            "user_message_id": current_message_id, "assistant_message_id": assistant_message_id})
+
+    if missions.is_cancel_request(text) or missions.mission_goal(text) is not None:
+        if missions.is_cancel_request(text):
+            cancelled = await missions.cancel_mission(request)
+            reply = "Çalışan görevi iptal ettim." if json.loads(cancelled.text).get("cancelled") else "İptal edilecek çalışan bir görev yok."
+            out = {"mission_id": None}
+        else:
+            out = await missions.start(request, missions.mission_goal(text), str(conv_uuid), mode=missions.mission_mode(text))
+            reply = out["reply"]
+        assistant_message_id = await pool.fetchval(
+            "INSERT INTO messages(conversation_id,user_id,role,content,device_id) "
+            "VALUES($1,$2,'assistant',$3,'golge-mission') RETURNING id", conv_uuid, request["user_id"], reply)
+        cancel_registry.mark_completed(request["user_id"], request["device_id"], request_id, request_key)
+        return web.json_response({"conversation_id": str(conv_uuid), "reply": reply, "request_id": request_id,
+            "mission_id": out.get("mission_id"), "research": None,
+            "user_message_id": current_message_id, "assistant_message_id": assistant_message_id})
+
     turns = await load_contextual_thread_turns(
         pool, request["user_id"], conv_uuid, question=text,
         before_id=current_message_id, max_chars=5200, limit=16,
@@ -1858,9 +2103,16 @@ async def chat(request: web.Request) -> web.Response:
         base_prompt=os.getenv("ULTRON_SYSTEM_PROMPT"),
         memory=memory, recent="Prior dialogue is sent separately as role-labelled turns.",
         user_message=text, read_only=True, has_prior_turns=bool(turns),
-    )
+    ) + "\n" + clock_context() + SKILL_SUMMARY + THINKING_GUIDE + personality.effective_instruction(await style_skills.get_style(pool, request["user_id"]), style_skills.style_instruction)
+    kb_question = kb_skills.split_prefix(text)
+    if kb_question is not None:
+        try:
+            system_instruction += await kb_skills.context_block(pool, request["user_id"], kb_question)
+        except Exception:
+            pass          # a knowledge-base failure must never block the normal answer
     if research_result is not None:
         system_instruction += build_research_prompt_block(research_result)
+    youtube_request = phone_skills.youtube_request(text)
     prompt = text
     if cancel_record["cancel_requested"]:
         return web.json_response({"request_id": request_id, "status": "output_suppressed",
@@ -1870,6 +2122,13 @@ async def chat(request: web.Request) -> web.Response:
         if research_result and research_result.get("answer"):
             # Google already generated a grounded response; no second model call.
             reply = research_result["answer"]
+        elif youtube_request is not None:
+            try:
+                reply = await asyncio.to_thread(_gemini_youtube_reply, youtube_request["url"],
+                                                youtube_request["question"], system_instruction)
+            except Exception:
+                reply = ("Bu videoyu açıp özetleyemedim. Video özel, yaşa kısıtlı ya da çok uzun olabilir; "
+                         "yine de başlığını veya ne öğrenmek istediğini yazarsan elimden geleni yaparım.")
         elif research_result and not (research_result.get("synthesis") or {}).get("findings"):
             reply = ("Hangi konudaki araştırmaya devam edelim? Bu konuşmada bağlı bir araştırma isteği bulamadım."
                      if research_result.get("status") == "research_topic_missing" else
@@ -1884,6 +2143,9 @@ async def chat(request: web.Request) -> web.Response:
             reply = await asyncio.to_thread(_gemini_reply, prompt, system_instruction, turns)
             if research_result is not None:
                 reply = append_research_sources(reply, research_result)
+            else:
+                reply += await gap_skills.auto_gap_hint(pool, request["user_id"], text, reply)
+                reply += memory_hints.hint(text)
     except Exception as exc:
         error_code = _safe_provider_error(exc)
         await pool.execute(
@@ -1995,7 +2257,8 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
         memory=memory, recent=recent,
         has_prior_turns=not recent.startswith("No previous chat messages."),
     )
-    system_instruction = build_live_voice_instruction(base_prompt)
+    system_instruction = build_live_voice_instruction(
+        base_prompt + "\n" + clock_context() + personality.effective_instruction(await style_skills.get_style(pool, user_id), style_skills.style_instruction))
     model = os.getenv("GEMINI_LIVE_MODEL", "models/gemini-3.1-flash-live-preview").strip()
     voice = os.getenv("ULTRON_LIVE_VOICE", "Charon").strip() or "Charon"
     try:
@@ -2054,6 +2317,7 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
             )
         ),
         tools=[{"function_declarations": [
+            voice_skills.TOOL_DECLARATION,
             {
                 "name": "save_memory",
                 "description": "Save or update an owner fact only after an explicit request in the current spoken turn to remember/save it. A disclosure alone is not consent. Never store passwords, API keys, tokens, or one-time codes.",
@@ -2091,15 +2355,20 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
 ,
             {
                 "name": "control_phone_ui",
-                "description": "Control the current GÖLGE phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message.",
+                "description": "Control the current GÖLGE phone interface or launch a safe iPhone intent without Apple Shortcuts. Actions: chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message, hologram (query = the shape to show in the hologram view, e.g. heart, rocket, DNA).",
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message."},
+                        "action": {"type": "STRING", "description": "One of chat, memory, remote, camera, vibrate, scroll_top, browser, search_web, maps, call, sms, email, facetime, open_app, youtube_search, spotify_search, whatsapp_message, hologram (query = the shape to show in the hologram view, e.g. heart, rocket, DNA)."},
                         "query": {"type": "STRING", "description": "App name, search text, destination, phone number, email address, or message text depending on action."}
                     },
                     "required": ["action"]
                 }
+            },
+            {
+                "name": "start_agent",
+                "description": "Start GÖLGE's autonomous agent for a multi-part goal that needs several sources (calendar, weather, memory, notes, research), e.g. 'prepare me for tomorrow's meeting'. It works in the background, never changes anything by itself (changes are only proposed for the owner to approve by typing) and writes its report to the chat screen. Use it for goals, not for simple questions.",
+                "parameters": {"type": "OBJECT", "properties": {"goal": {"type": "STRING", "description": "The goal in the owner's words, at most 300 characters."}}, "required": ["goal"]}
             },
             {
                 "name": "send_laptop_task",
@@ -2392,6 +2661,19 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                         response={"ok": True, "saved": {"key": key, "value": value, "category": category, "version": int(row["version"])}},
                     )
 
+                if name == "golge_skill":
+                    async def _voice_fetch(url: str, key: str, ttl: int) -> dict:
+                        return await world_api._upstream(url, ttl=ttl, key=key)
+                    try:
+                        outcome = await voice_skills.run(
+                            str(args.get("request", "")), pool=pool, user_id=user_id, conv_uuid=conv_uuid,
+                            fetch_json=_voice_fetch, fetch_text=phone_skills.fetch_news_xml)
+                        if outcome.get("handled"):
+                            await feedback_skills.record_usage(pool, user_id, outcome["skill"])
+                    except Exception:
+                        outcome = {"handled": False, "reason": "skill_error"}
+                    return types.FunctionResponse(id=fc.id, name=name, response={"ok": True, **outcome})
+
                 if name == "recall_memory":
                     query = str(args.get("query", "")).strip().lower()
                     rows = await pool.fetch(
@@ -2459,17 +2741,33 @@ async def live_voice(request: web.Request) -> web.WebSocketResponse:
                 if name == "control_phone_ui":
                     action = str(args.get("action", "")).strip().lower()
                     query = str(args.get("query", "")).strip()[:500]
-                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call", "sms", "email", "facetime", "open_app", "youtube_search", "spotify_search", "whatsapp_message"}
+                    allowed = {"chat", "memory", "remote", "camera", "vibrate", "scroll_top", "browser", "search_web", "maps", "call", "sms", "email", "facetime", "open_app", "youtube_search", "spotify_search", "whatsapp_message", "hologram"}
                     if action not in allowed:
                         return types.FunctionResponse(
                             id=fc.id, name=name,
                             response={"ok": False, "error": "unsupported_action"},
                         )
+                    if action == "hologram":
+                        query = " ".join(query.split())[:100]
+                        if len(query) < 2:
+                            return types.FunctionResponse(id=fc.id, name=name, response={"ok": False, "error": "shape_description_required"})
                     await send_json({"type": "phone_action", "action": action, "query": query})
                     return types.FunctionResponse(
                         id=fc.id, name=name,
                         response={"ok": True, "action": action, "query": query},
                     )
+
+                if name == "start_agent":
+                    goal = " ".join(str(args.get("goal", "")).split())[:300]
+                    if len(goal) < 8:
+                        return types.FunctionResponse(id=fc.id, name=name, response={"ok": False, "error": "goal_required"})
+                    try:
+                        started = await missions.start_core(request.app, user_id, goal, str(conv_uuid), "agent")
+                    except Exception:
+                        return types.FunctionResponse(id=fc.id, name=name, response={"ok": False, "error": "agent_unavailable"})
+                    if started.get("mission_id"):
+                        await send_json({"type": "mission_started", "mission_id": started["mission_id"], "conversation_id": str(conv_uuid)})
+                    return types.FunctionResponse(id=fc.id, name=name, response={"ok": bool(started.get("mission_id")), "note": started.get("reply", "")[:300]})
 
                 if name == "send_laptop_task":
                     task_text = str(args.get("task", "")).strip()[:4000]
@@ -2869,7 +3167,8 @@ async def prevent_stale_chat_assets(request, response):
 
 
 def build_app() -> web.Application:
-    app = web.Application(middlewares=[auth_middleware], client_max_size=18 * 1024 * 1024)
+    app = web.Application(middlewares=[infra.error_middleware, auth_middleware, infra.make_rate_limit_middleware()],
+                          client_max_size=18 * 1024 * 1024)
     app["chat_cancellations"] = ChatCancellationRegistry()
     app.router.add_get("/", index)
     app.router.add_static("/static/", STATIC_DIR, show_index=False)
@@ -2878,6 +3177,17 @@ def build_app() -> web.Application:
     register_local_brain_routes(app,_memory_context,_recent_context)
     register_local_listening_analysis_routes(app)
     register_personal_plan_routes(app)
+    from reminders import register_routes as register_reminder_routes
+    from calendar_feed import register_routes as register_calendar_feed_routes
+    register_reminder_routes(app)
+    register_calendar_feed_routes(app)
+    from laptop_bridge import register_routes as register_laptop_bridge_routes
+    register_laptop_bridge_routes(app)
+    from web_push import register_routes as register_push_routes
+    register_push_routes(app)
+    missions.register_routes(app)
+    import ops
+    ops.register_routes(app)
     register_learning_routes(app)
     register_conversation_note_routes(app)
     register_auto_learning_routes(app)
@@ -2891,7 +3201,14 @@ def build_app() -> web.Application:
     app.router.add_get("/api/debug/live-errors", recent_live_errors)
     app.router.add_post("/api/chat/cancel", cancel_chat)
     app.router.add_post("/api/chat", chat)
+    app.router.add_post("/api/feedback", feedback_route)
+    app.router.add_get("/api/actions/pending", actions_pending_route)
+    app.router.add_post("/api/actions/{id}/{decision}", action_decide_route)
+    app.router.add_get("/api/kb", kb_list_route)
+    app.router.add_post("/api/kb", kb_add_route)
+    app.router.add_delete("/api/kb/{id}", kb_delete_route)
     app.router.add_post("/api/scene-design", scene_design)
+    app.router.add_post("/api/scene-library", scene_library)
     from scene_assets import register as register_scene_assets
     register_scene_assets(app)
     from scene_queue import post_scene, get_scene
@@ -2925,6 +3242,7 @@ def build_app() -> web.Application:
     app.router.add_get("/api/memories/{key}/history", list_memory_history)
     app.router.add_delete("/api/memories/{key}", delete_memory)
     app.on_response_prepare.append(prevent_stale_chat_assets)
+    app.on_response_prepare.append(infra.add_security_headers)
     app.on_startup.append(init_db)
     app.on_cleanup.append(close_db)
     return app

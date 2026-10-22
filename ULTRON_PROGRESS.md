@@ -795,3 +795,118 @@ Added mobile-friendly download/save for generated and edited results, page-close
 - Native Qt file picker now allows only supported image/document suffixes, enforces the existing 8 MiB cap and sends bytes to the existing authenticated image/document API. The selected filename/preview and real analysis/extraction result or error are shown; no file is silently called “loaded”.
 - Local verification: frontend build PASS; frontend Node tests 40/40 PASS; Cloud JavaScript tests 167/167 PASS; focused desktop voice/file Python tests 3/3 PASS; Earth layer/geocoding tests 5/5 PASS; Python compile PASS. Exact-head Actions for the first fix commit passed all seven checks; a follow-up made typed “Dur” bypass the busy composer lock and is awaiting its own CI run. No real Windows retest was possible from this runner. Image vision may still report unavailable if the local vision model is not installed; selection and this limitation are surfaced honestly.
 - Work is isolated on `fix/golge-manual-test-failures`, based on production `b4086aa`; no PR merge or Render deployment was performed. Exact Windows verification after pulling this branch remains required.
+
+
+## 2026-10-21 — Phone assistant stack: what changed in the repo
+
+New modules in `ultron/cloud_service/`: instant_skills, phone_skills, knowledge_skills, reminders (repeat rules), plan_skills, memory_skills, calendar_feed, proactive, web_push, alert_skills, smart_home, missions, laptop_bridge, infra, http_client, ops. New static scripts: assistant-extras.js, laptop-bridge.js, mission-watch.js; service worker cache `ultron-shell-v81` with push + notificationclick handlers. Schema additions are idempotent (`owner_reminders`, `push_*`, `owner_notifications`, `owner_prefs`, `owner_alerts`, `missions`, `owner_calendar_feeds`).
+Existing code touched: `app.py` (chat intercepts, middlewares, startup tasks, routes), `world_api.py` and `local_brain_bridge.py` (shared client; cloud-skill hand-back), `capability_readiness.py` (details only), brand strings in laptop/desktop Python files.
+Dependency added: `cryptography` (cloud_service/requirements.txt).
+
+## 2026-10-21 — Context-aware follow-ups (`followups.py`)
+Skill replies are stored with `device_id = 'golge-skill:<skill>'`. A very short, explicitly marked follow-up ("peki yarın?", "ya Londra?", "ya euro?", "peki spor?") right after such a reply is rewritten into the full request and re-routed; the local-Qwen endpoint hands such follow-ups to `/api/chat`. Tests: `test_followups.py` (4 passed); suite 492 passed, 9 skipped (non-PG). Not run against a real phone.
+
+## 2026-10-21 — Lists and timers
+`list_skills.py` ("alışveriş listesine süt, ekmek ve yumurta ekle", "alışveriş listem", "ekmek … listesinden çıkar", "… listesini temizle", "listelerim"; table `owner_list_items`, key folded + original label) and timer phrases in `reminders.py` ("10 dakika zamanlayıcı kur"). Router corpus now 307 utterances (0 chat hijacked). Real-PostgreSQL stack test: 7 passed. Suite: 497 passed, 9 skipped (non-PG).
+
+## 2026-10-21 — Expense log
+`expense_skills.py` ("150 lira market harcaması ekle", "bugün kahveye 80 tl harcadım", "bu ay/hafta/bugün/dün/geçen ay ne kadar harcadım", "son harcamayı sil"; table `owner_expenses`, TRY only; included in `/api/export`). Router corpus 320 utterances, 0 chat hijacked; real-PostgreSQL stack test 8 passed; suite 501 passed, 9 skipped (non-PG).
+
+## 2026-10-21 — Birthdays/yearly reminders and habit log
+`birthday_skills.py` ("Murat'ın doğum günü 3 Mart" → two yearly reminders: eve 19:00 + day 09:00; Turkish vowel-harmony genitive; `reminders.py` gained `yearly:MM-DD`, 29 Feb handled; DB CHECK migrated). `habit_skills.py` (water/sleep/exercise/steps/weight/mood log, daily/weekly summaries with targets; table `owner_habits`; also in `/api/export`). Router corpus 353 utterances (0/144 chat hijacked); real-PostgreSQL stack test 9 passed (incl. constraint migration); suite 516 passed, 9 skipped (non-PG).
+
+## 2026-10-21 — Navigation, focus, schedule intelligence, severe weather
+`nav_skills.py` (directions / "yakınımda eczane" / traffic as prefilled Apple+Google Maps links; only real place categories; phone location optional), `focus_skills.py` (pomodoro = two reminders, cancellable), `plan_skills.py` (+ clash warning when adding a plan, "yarın ne zaman boşum" free-slot finder, plans assumed 1 h, calendar events included), `proactive.weather_alerts` (rain + thunderstorm + gusts ≥60 km/h + heat ≥37 °C + cold ≤-3 °C within 3 h, once per day per kind). Router corpus 383 utterances (0/158 chat hijacked); real-PostgreSQL stack test 10 passed; suite 530 passed, 9 skipped (non-PG). CI lint list extended; `followups.py` unused import fixed.
+
+## 2026-10-21 — Style, recall, voice skill gateway, feedback loop
+New modules `style_skills.py`, `recall_skills.py`, `voice_skills.py`, `feedback_skills.py`, `feedback_to_corpus.py`; schema tables `skill_usage`, `skill_feedback`; `instant_reply` gained `allow` (restrict writing skills) and `history` (previous exchange); `/api/chat` records usage, passes feedback history and appends the owner's style to the system instruction; live voice declares `golge_skill` and appends style; `/api/feedback` (thumbs, owner-scoped message lookup). `proactive.set_pref` merges unknown keys (style/suggested survive); new `get_extra/set_extra`. Live-voice prompt budget test raised 2600→3000 chars for the SKILLS/SPEAKING block. Fixed a test-pollution bug: `test_reminders_calendar.MemorySkills` monkeypatched `memory_skills.upsert_owner_memory` for the rest of the process (now restored via addCleanup). No UI for thumbs buttons yet (chat commands + endpoint only).
+
+## 2026-10-21 — Utilities and feedback buttons
+`utility_skills.py` (no model/network): yazı-tura, zar (≤10 zar, 2–1000 yüzlü), rastgele sayı, "seç: a, b, c", "N gün/hafta/ay/yıl sonra/önce hangi gün", iki tarih arası gün, "X hangi gün", yaş hesabı, VKİ (tıbbi değil uyarısıyla), bahşiş ve hesap bölüşme. `static/assistant-extras.js`: 👍/👎 under assistant messages that exist in the cloud → `POST /api/feedback`; service-worker cache `ultron-shell-v82` (tests updated). Corpus +18 cases incl. ordinary-chat negatives.
+
+## 2026-10-21 — Richer morning briefing
+`answer_briefing` greets with the owner's chosen name (style) instead of "efendim", and adds a "🔁 Dün" recap (habits logged yesterday + yesterday's spending). Today's reminders were already in the agenda block, so no duplicate section. Real-PostgreSQL test added; 566 passed in `ultron/cloud_service`.
+
+## 2026-10-21 — Journal
+`journal_skills.py` + table `owner_journal`: "günlüğe yaz: …" / "günlük: …", "günlüğüm", "bugünkü/dünkü/bu haftaki/geçen haftaki günlüğüm", "günlüğümde X geçenler", "son günlük kaydını sil"; secrets refused; allowed through the voice gateway; included in `/api/export`. Real-PostgreSQL test added; corpus +10.
+
+## 2026-10-21 — Double-click desktop launcher
+`GOLGE.vbs` (hidden-console launcher: checks `.venv`, offers a one-time visible `INSTALL.bat`, runs `scripts\bootstrap.ps1 -Mode start` with output appended to `logs\golge-baslat.log`, offers to open the log on a non-zero exit) and `GOLGE_KISAYOL_KUR.vbs` (creates Desktop + Start Menu "GÖLGE" shortcuts with `config\ultron.ico`; Startup shortcut only if the owner answers Yes). ASCII-only VBScript (Turkish letters via `ChrW`), `.gitattributes` keeps CRLF. START.bat/INSTALL.bat unchanged. Static contract test `tests/test_desktop_launcher.py`. Documented in `QUICK_START_TR.md`.
+
+## 2026-10-21 — Hologram: any shape on request (phone + laptop)
+`shape_library.py`: 45 deterministic generators (kalp, yıldız, DNA, ev, ağaç, kardan adam, robot, roket, araba, masa, sandalye, merdiven, atom, güneş sistemi, satürn, dünya, uçak, çiçek, kale, köprü, kule, Eyfel, gemi, dişli, saat, piyon, laptop, telefon, kitap, mum, lamba, fincan, mantar, elmas, kum saati, spiral/galaksi, …) producing the existing validated primitive schema (≤24 parts, no colour field). Counts parameterise shapes ("8 köşeli yıldız", "12 basamaklı merdiven"); two or three nouns are combined side by side ("bir ev ve ağaç"). `POST /api/scene-design` now tries the library first (`source:"library"`, no model call, works offline), then Gemini (`source:"model"`). `ultron/frontend/src/spatial/intents.ts` (shared by the phone bundle and the laptop HologramLab): "bana bir kalp çiz", "masa oluştur" (no "model" word needed for library shapes) and "hologramda <anything> göster" (any description, goes to library/model); `static/scene-control.js` + `scene-intents.js` rebuilt with `scripts/build_scene_browser.mjs`. Python test keeps the TS noun list in sync with the catalogue. Rendered 30 shapes with real three.js/Chromium (software GL) and fixed the unrecognisable ones (heart, atom, solar system, earth). Changed existing expectations: `masa oluştur` is now a design intent without an active scene; the scene-design API test uses an unknown noun for the model path.
+
+## 2026-10-21 — Memory: correct, history, recent
+`memory_skills.py`: "düzelt: <kelime> => <yeni değer>" (unique match only, secrets refused, old value archived in `memory_history`), "hafızada X notumun geçmişi / X kaydımın eski hali / hafızada X eskiden neydi" (previous versions). `recall_skills.py`: "son notlarım", "son 3 kayıt", "bugün/dün/bu hafta ne kaydettim". Generic "X'in geçmişi" is deliberately NOT intercepted. Real-PostgreSQL test added; routing corpus now 446/446, hijacked chat 0/178.
+
+## 2026-10-21 — Weekly review
+`weekly_skills.py`: "haftalık özet / geçen hafta nasıldı / bu haftanın özeti" → plans done/total, habit totals/averages, spending with top category, journal entries, fired reminders, most-used skills; sections with no data are omitted and an empty week says so. Read-only (also available through the voice gateway). Real-PostgreSQL test; corpus 453/453, hijacked chat 0/180.
+
+## 2026-10-21 — Weekly review notification
+New pref `weekly_review` (default off): "haftalık özet bildirimi aç/kapat"; proactive rule `weekly_review` sends the weekly review on Sunday 19:00–22:00 (Istanbul), once per date key, only when the week has recorded data; listed in "bildirim ayarlarım". Real-PostgreSQL test covers default-off, Sunday window, empty-week skip, Saturday skip and toggling.
+
+## 2026-10-21 — Budget, streaks, birthday countdown, "nerede kalmıştık"
+`expense_skills.py`: "aylık bütçem 15000 tl" (stored in `owner_prefs.budget`, survives other pref changes), every expense reply shows month total / budget / %/ remaining with warnings at ≥80 % and over budget, "bütçe durumu", "bütçeyi kaldır". `habit_skills.py`: "su/spor/uyku/adım serim", "serilerim" (consecutive days; yesterday counts while today is empty). `birthday_skills.py`: "Ahmet'in doğum gününe kaç gün var". `recall_skills.py`: "nerede kalmıştık / en son ne konuştuk" (last three of the owner's messages). Real-PostgreSQL tests added; corpus 470/470, hijacked chat 0/184.
+
+## 2026-10-21 — Shape library reaches every hologram path
+Found while reading `static/index.html`: with local Qwen preferred, the phone used `/api/local-scene-design` and would have bypassed the library; the laptop proxy (`ultron/backend/scene_design_api.py`) also went straight to the model. Now: `POST /api/scene-library` (library-only lookup, `design:null` when unknown) is asked first by `generateSceneDesign()`; `scene_design_api.design_request` answers known shapes locally (works offline, no cloud/model). SW cache `ultron-shell-v84`. Tests: `test_scene_library_ui.cjs`, API tests, `ultron/backend/tests/test_scene_design_library.py` (run it separately from the cloud suite — both define a module called `app`).
+
+## 2026-10-21 — Independent review of the new skills: findings fixed
+A read-only reviewer agent reproduced 20 issues; fixed (each with a regression test in `test_style_recall_feedback.py::test_review_regressions` or `test_shape_library.py`):
+- **Voice**: smart home was reachable through `golge_skill` (now gated by `allow`); spoken delete/cancel/forget requests are refused ("yazarak söylersen yaparım"); over-long utterances are refused instead of silently truncated.
+- **Birthdays**: removal/countdown no longer build a `LIKE` from user text (`%`/`_` wildcards and "Ali" matching "Alişan" are gone; exact label match in Python); 1 March's eve reminder uses 28 Feb.
+- **False positives**: journal and memory writes need an explicit command (`günlüğe yaz:` / `hatırla:`; "Unutma, yarın…" and "Günlük, haftalık…" are ordinary chat); style name/address/tone patterns are anchored ("Annem bana … diye seslendi", "Sen de", "Ciddi konuşuyorum" no longer change the persona).
+- **Data**: weekly review uses Turkish number format and Istanbul-date bucketing; the weekly push body no longer shows amounts on the lock screen; `set_pref` is now a jsonb merge of only the changed keys (no lost update of style/budget); feedback stores no secrets, de-duplicates, and rejects out-of-range ids; "son su kaydını sil" removes only water; a question about the weekly notification reports instead of toggling.
+- **Misc**: absurd birth years no longer raise; "kum saati"/"sarmal merdiven"/"uzay aracı" build one shape; dead non-folded regex branches fixed; history dates in Istanbul time.
+Not changed: older `_CORRECT` quadratic whitespace backtracking (bounded by the 220/1,200 input caps).
+
+## 2026-10-21 — Spoken hologram requests; feature level list
+Live voice can now show a shape: `control_phone_ui` accepts `action=hologram` (query ≤100 chars, required), the PWA turns it into `hologramda <shape> göster` → shape library / model; one line added to the voice policy (still < 3000 chars); SW cache v85. New `GOLGE_OZELLIK_SEVIYELERI.md`: every phone and laptop feature with an evidence-based level (S0–S4) and an explicit list of what was never run on a real device.
+
+## 2026-10-21 — Capability-gap backlog and thinking guide
+`gap_skills.py` + `capability_gaps`: GÖLGE records what it could not do (model inability phrases → `auto` gaps with a one-line hint; "eksik: …" by the owner), lists them, and "eksik N'i geliştir" creates a `dev_requests` row (AGENTS.md rules embedded) and, with an online laptop, a laptop task that asks only for a patch PROPOSAL (no writes without the owner's approval). Voice can list/add but never build. Chat system instruction gained `THINKING_GUIDE` (step-by-step reasoning, assumptions, runnable code, honest limits, never claim self-modification). Approval gate, audit, SelfCodeBoundary and PR-only flow untouched. Export includes gaps. Real-PostgreSQL test covers the whole flow; corpus 488/488, hijacked chat 0/190.
+
+## 2026-10-21 — Calculator toolbox and personal ledgers
+`calc_skills.py` (pure, offline, 30 commands): loan instalment, compound interest, VAT add/split, discount, % change, fuel cost; list sum/average/median/min/max, primes, prime factors, factorial, EBOB/EKOK, Fibonacci, number words, Roman numerals both ways, binary/hex/octal; text tools (Turkish upper/lower, reverse, counts, palindrome), Base64, Morse, hex↔rgb; bedtime from wake time, week/day of year, business days, next fixed public holiday, zodiac and Chinese zodiac, running pace, calorie estimate (not advice), recipe scaling, kitchen conversions, time zones. `ledger_skills.py` + 5 tables: contacts, debts, goals, stopwatch time log, fuel log (20 commands). Voice may use both (deleting stays typed). Real-PostgreSQL ledger test, 30-command unit test, routing corpus 535/535 with 0/200 hijacked chat messages.
+
+## 2026-10-21 — Companion content (`fun_skills.py`, 20 commands)
+Motivation, proverbs and idioms with meanings, jokes, verified-fact snippets, word of the day (stable per day), riddles (answer kept per owner in `owner_prefs.riddle`), rock-paper-scissors, magic 8-ball, meal ideas, 4-7-8 breathing, 20-20-20 eye rest, desk stretches (both with "not medical advice" notes), saving/productivity/sleep-hygiene tips, compliments. Creative requests ("bana bir fıkra anlat") deliberately stay with the model. Routing corpus 556/556, hijacked chat 0/205.
+
+## 2026-10-21 — Smart scheduling and calendar facts
+`schedule_skills.py`: "bugün/yarın şu işleri sığdır: rapor 2 saat, spor 1 saat" → first-fit time blocks inside free windows (09:00–21:00, from "now" for today, existing plans and iCal events subtracted, 10-min buffer), shown as a proposal; only "planı onayla" writes plans, "planı vazgeç" drops it; "toplantıya ne kadar kaldı", "sıradaki planım", "X planını yarına/haftaya/N gün sonraya ertele" (unique match only). `calc_skills.py` gained leap-year, days-in-month, year progress and time-zone difference. Real-PostgreSQL test covers proposal → confirm → countdown → postpone; corpus 568/568, hijacked chat 0/207.
+
+## 2026-10-21 — Ready-made checklists (`template_skills.py`)
+"seyahat/kamp/taşınma/sınav/iş görüşmesi/piknik/doğum günü partisi/deprem çantası/plaj/hastane çantası/bebek çantası/bayram/market için liste hazırla" (+ aliases such as "tatil") fills the owner's normal lists (same table, no duplicates), "hazır listeler" shows the catalogue. 13 templates. Real-PostgreSQL test; corpus 577/577, hijacked chat 0/210.
+
+## 2026-10-21 — Day review
+`weekly_skills.py` also answers "günüm nasıl geçti / bugünün özeti / gün sonu özeti / dünün özeti" with the same recorded-data-only logic for a single day.
+
+## 2026-10-22 — Agent loop, approval queue, personal knowledge base
+Three larger building blocks (cloud service):
+- **Approval queue** (`approval_skills.py`, table `pending_actions`): the agent may only PROPOSE a change as a typed command; "bekleyen işlemler / onayla N / reddet N / hepsini onayla". Approval runs the stored text through the normal skill router restricted to `PROPOSABLE` writing skills (no smart home, memory, alerts, prefs, cancellations, deletions); proposals containing destructive/device words or secrets are refused; max 10 pending, 24 h expiry; approval is typed-only (never by voice).
+- **Adaptive agent** (`agent_loop.py`, "ajan: <hedef>"): think → tool → observe loop (≤8 steps, timeouts, duplicate-call detection, bounded transcript). Tools: read-only `skill`, `recall`, `kb`, `research`, plus `propose` (queue only) and `laptop` (suggestion only). Observations are quoted `<DATA>`; invalid replies end gracefully with a model-written summary of what was observed. Runs on the existing mission infrastructure (progress polling, cancel, report delivery). "görev: …" keeps the fixed-plan runner.
+- **Personal knowledge base** (`kb_skills.py`, tables `kb_docs`/`kb_chunks`, PostgreSQL full-text over diacritic-folded text): `/api/kb` (add/list/delete), "bilgi tabanına ekle: …", "son belgeyi / fotoğrafı bilgi tabanına ekle" (re-uses the analysed upload), "bilgi tabanında ara: …", chat prefix "notlarıma göre: …" / "belgelerime göre: …" (best passages added to the system instruction as quoted DATA; says "not found" instead of guessing), typed-only delete, secret refusal, owner scoping, included in `/api/export`.
+Tests: `test_agent_stack.py` (15; real PostgreSQL for the stateful ones; scripted fake model for the loop incl. prompt-injection, forbidden proposals, duplicate calls, step limit, error leakage, mission persistence). Routing corpus 594/594, hijacked chat 0/214.
+NOT verified: behaviour with a real Gemini model (does it follow the JSON protocol? quality of its tool choices), UI for the knowledge base (commands/API only), PDF text of very large documents.
+
+## 2026-10-22 — Situational awareness (`nudge_rules.py`)
+Opt-in "akıllı öneriler aç/kapat" (pref `smart_nudges`, default off; a question reports instead of toggling). Rules computed from the owner's own data, each once per key and subject to quiet hours: **bedtime** (earliest timed item tomorrow before 09:00 → wake = start − 60 min, asleep by wake − 7 h 44 min, plus a PROPOSED "yatmaya hazırlanmayı hatırlat" reminder the owner approves with "onayla N"), **busy day** (≥4 timed items tomorrow → load and free windows), **water** (only for people who track it), **budget pace** (month projection > 110 % of budget), **streak at risk** (5+ days, nothing logged by evening). Wired into `proactive.evaluate`; real-PostgreSQL tests for every rule, the once-per-key guarantee, wrong-hour/late-start negatives and proposal-only behaviour.
+
+## 2026-10-22 — Agent from voice
+`missions.start_core(app, user_id, goal, conversation, mode)` is shared by chat and live voice; live voice declares `start_agent` (goal ≥ 8 chars, ≤ 300), sends `{"type":"mission_started"}` and the PWA follows it with the same mission watcher as typed missions (report lands in the voice conversation). One mission per owner at a time. Voice policy +1 line (still < 3000 chars), SW cache v86. Not verified with a real Gemini Live session.
+
+## 2026-10-22 — Approval cards in the PWA
+`GET /api/actions/pending` and `POST /api/actions/{id}/approve|reject` (same code path as typing "onayla N": PROPOSABLE skills only, owner-scoped, an action never runs twice, a foreign id is invisible). `assistant-extras.js` shows each pending action once as a card with ONAYLA / REDDET and polls with the reminders (20 s). SW cache v87. Tests: real-PostgreSQL route test, JS card test.
+
+## 2026-10-22 — Personality: playful robot sidekick (`personality.py`), profile, memory hints
+- **Personas** `robot` (default, `GOLGE_DEFAULT_PERSONA` can change it) / `friend` / `normal`, owner-selectable ("robot modu aç", "samimi arkadaş modu", "normal mod", "kişiliğin ne"); persona text is added to the chat and live-voice system instructions together with the explicit style choices. The safety rules stay: no jokes about distress, illness, money trouble, security or emergencies; at most one joke; information first; no claims of real feelings.
+- **Flavor lines** for exact skill answers (reminders, plans, lists, weather, clock, focus, routines, calc, kb, briefing, schedule, non-sensitive habits): deterministic (same answer + day → same decision), ~35 % of eligible answers, never on warnings/errors/long answers, never for money, memory, journal, alerts, approvals, mood/sleep/weight. Briefing greets with "dostum" in robot mode (or the chosen name).
+- **"bana kendimi anlat"**: profile built only from recorded data (name, memory/goal/routine/contact/KB counts, tracked habits, budget, most-used skills).
+- **Memory hints** (`memory_hints.py`): when the owner states a lasting personal fact ("kedimin adı Pamuk", "alerjim var: fıstık", "29 yaşındayım"), the model reply gets one line offering "hatırla: …"; nothing is saved without the owner's command; questions/secrets/long text never trigger it.
+Tests: `test_personality.py`, `test_memory_hints.py`, real-PostgreSQL persona/profile test; corpus 604/604, hijacked chat 0/217. NOT measured: how the real model renders the persona (humour quality, over-joking), how it sounds in Gemini Live.
+
+## 2026-10-22 — Hologram per-part colours
+- Designs may carry an optional `"color":"#rrggbb"` per part (strict hex validation in `scene_design.py` and `spatial/design.ts`; Gemini SYSTEM prompt mentions it). `HologramScene.ts` renders a tinted material (emissive = half tint) and restores it after selection.
+- `shape_library.py`: colour rules per generator (heart red, tree trunk brown/leaves green, house walls/roof/door/window, snowman, robot, rocket, flower, mushroom, star, candle, diamond, Saturn, Earth, solar-system planet palette); combined shapes keep colours. Laptop `scene_design_api.py` uses the same validator/library.
+- SW cache `ultron-shell-v88`; `static/scene-control.js` rebuilt.
+Tests: 2 new tests in `test_shape_library.py` (hex validity after validation, bad colour rejected). NOT done: visual check on a real phone/laptop GPU.
