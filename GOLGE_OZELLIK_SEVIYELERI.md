@@ -95,6 +95,14 @@ Hiçbir özellik için "gerçek cihazda doğrulandı" iddiası yoktur. Laptop ka
 | Eksik listesi + onaylı geliştirme isteği (kendini geliştirme) | S4 (bulut) / S3 (laptop tarafı) | Laptop ajanının "yalnız taslak" talimatına uyması doğrulanmadı |
 | Sesle hologram, sesle yetenek kullanımı | S3 | Canlı oturumda denenmedi |
 
+### Büyük bileşenler (2026-10-22)
+| Özellik | Seviye | Not |
+|---|---|---|
+| **Ajan** ("ajan: <hedef>", sesle `start_agent`): düşün → araç kullan → gözlemle döngüsü; araçlar: hazır yetenekler (salt-okunur), hafıza/geçmiş arama, bilgi tabanı, web araştırması; laptop yalnız öneri | S4 (döngü, güvenlik sınırları, kalıcılık; sahte modelle) / **S2 (gerçek Gemini ile denenmedi)** | JSON protokolüne gerçek modelin uyup uymadığı bilinmiyor |
+| **Onay kuyruğu**: ajan/öneriler yalnızca "bekleyen işlem" olur; yazarak `onayla N` ya da PWA kartındaki ONAYLA/REDDET ile uygulanır; yalnızca güvenli yazma yetenekleri çalışır; sesle onay yok | S4 | Silme, iptal, akıllı ev, hafıza, sırlar kapalı |
+| **Kişisel bilgi tabanı**: not/belge ekleme (son analiz edilen belge/fotoğraf dahil), tam metin arama, "notlarıma göre: …" ile cevap bağlamı, bulamazsa tahmin etmez | S4 | Arayüz yok (komut + `/api/kb`); çok büyük PDF'ler denenmedi |
+| **Durumsal farkındalık** (opt-in "akıllı öneriler aç"): yarın erken etkinlik → uyku saati + onaylı hatırlatıcı önerisi, yoğun gün, su, bütçe temposu, seri uyarısı | S4 (kurallar) / S3 (bildirim iletimi gerçek cihazda denenmedi) | |
+
 ### Cihaz bağlantıları
 | Özellik | Seviye | Not |
 |---|---|---|
